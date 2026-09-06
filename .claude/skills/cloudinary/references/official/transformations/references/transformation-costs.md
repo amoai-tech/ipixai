@@ -20,7 +20,7 @@
 1. **Use baseline transformations** for expensive effects: Baseline transformations (`bl_<named>`) cache expensive operations (like `e_background_removal`, 75 tx) so they don't have to be regenerated for each variation. See [named-transformations.md](named-transformations.md#baseline-transformations) for complete details on syntax, rules, and cost savings examples.
 2. **Reuse derived assets**: Multiple requests to the same transformation URL don't incur additional costs
 3. **Avoid unnecessary variations**: Different parameter orders create separate derived assets (e.g., `w_200,h_200` vs `h_200,w_200`)
-4. **Consider format costs**: AVIF images cost 1 tx per 2MP (or part thereof)
+4. **Consider format costs**: AVIF outputs of 2 MP or more cost the base 1 tx plus 1 additional tx for each 2 MP (or fraction thereof)
 5. **Video considerations**: HD video (1080p) costs more than SD (720p); AV1 codec costs significantly more than H.264
 
 For complete transformation cost details, see [How are transformations counted?](https://cloudinary.com/documentation/transformation_counts.md?install_source=skillspack&referrer=trans-skill)

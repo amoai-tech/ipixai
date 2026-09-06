@@ -37,11 +37,11 @@ const data = await response.json();
 const widgetConfig = {
   cloudName: 'your_cloud',
   api_key: data.api_key, // from server
-  uploadPreset: 'ml_default', // or your signed preset
+  uploadPreset: 'ipix-signed-upload', // server-approved signed preset
   uploadSignature: function(callback, params_to_sign) {
     const paramsWithPreset = {
       ...params_to_sign,
-      upload_preset: 'ml_default'
+      upload_preset: 'ipix-signed-upload'
     };
 
     fetch('/api/sign-image', {
@@ -64,24 +64,27 @@ window.cloudinary.createUploadWidget(widgetConfig, callback);
 ```ts
 import { v2 as cloudinary } from 'cloudinary';
 
-app.post('/api/sign-image', (req, res) => {
-  const params = req.body.params_to_sign || {};
+app.post('/api/sign-image', async (req, res) => {
+  const principal = await requireAuthenticatedPrincipal(req);
+  const tenant = await resolveAuthorizedTenant(principal);
+  const requested = req.body?.params_to_sign ?? {};
+  const allowed = new Set(['timestamp']);
+  if (Object.keys(requested).some((key) => !allowed.has(key))) {
+    return res.status(400).json({ error: 'unauthorized_upload_parameter' });
+  }
+
   const paramsToSign = {
-    ...params,
-    upload_preset: params.upload_preset || 'ml_default'
+    timestamp: requested.timestamp ?? Math.floor(Date.now() / 1000),
+    upload_preset: 'ipix-signed-upload',
+    folder: `ipix/org/${tenant.orgId}`,
+    context: `schema_version=1|org_id=${tenant.orgId}`,
+    overwrite: false,
   };
-
   const signature = cloudinary.utils.api_sign_request(
-    paramsToSign,
-    process.env.CLOUDINARY_API_SECRET
+    paramsToSign, process.env.CLOUDINARY_API_SECRET
   );
-
-  res.json({
-    signature,
-    timestamp: paramsToSign.timestamp,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME
-  });
+  res.json({ signature, timestamp: paramsToSign.timestamp,
+    api_key: process.env.CLOUDINARY_API_KEY, cloud_name: process.env.CLOUDINARY_CLOUD_NAME });
 });
 ```
 
@@ -93,7 +96,9 @@ app.post('/api/sign-image', (req, res) => {
 ✅ Keep `server/.env` in `.gitignore`
 ✅ Use `uploadSignature` as function
 ✅ Include `uploadPreset` in widget config
-✅ Server must include `upload_preset` in signed params
+✅ Authenticate/authorize before signing and derive tenant ownership server-side
+✅ Server must include the approved `upload_preset` and tenant namespace in signed params
+✅ Allowlist harmless widget-generated parameters; reject attempts to override server-owned fields
 
 ## What NOT to Do
 

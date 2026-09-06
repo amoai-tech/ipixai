@@ -3,10 +3,10 @@
 Use this when deciding import paths or diagnosing module/import errors.
 
 
-## Import Patterns
+## Components
 
 ```ts
-// Components (client components)
+// Components — only CldVideoPlayer, CldUploadWidget, and CldUploadButton require "use client"
 import { CldImage, CldVideoPlayer, CldUploadWidget, CldUploadButton, CldOgImage } from 'next-cloudinary';
 
 // URL helpers (isomorphic — server, client, metadata, route handlers)

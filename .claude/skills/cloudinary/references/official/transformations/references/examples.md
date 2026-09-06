@@ -336,8 +336,10 @@ c_fill,g_auto,h_630,w_1200/co_white,l_text:Arial_80_bold:Breaking%20News/b_black
 4. Optimize
 
 ### Before/After Comparison
+`$img_current` assigns the current base asset to `$img`; `l_$img` then uses that trusted current asset as the overlay.
+
 ```
-c_fill,h_400,w_300/l_same_image/c_fill,e_grayscale,h_400,w_300/fl_layer_apply,g_west,x_300/f_auto/q_auto
+c_fill,h_400,w_300/$img_current/l_$img/c_fill,e_grayscale,h_400,w_300/fl_layer_apply,g_west,x_300/f_auto/q_auto
 ```
 Creates a true side-by-side comparison (600×400) with a grayscale version. Offset the overlay past the base edge to make the canvas auto-expand — set `x_<base_width>` for horizontal (or `y_<base_height>` to stack vertically).
 
@@ -371,7 +373,7 @@ Adds logo throughout video.
 
 ### Automatic Breakpoints
 ```
-c_fill,g_auto,w_auto:breakpoints/f_auto/q_auto/dpr_auto
+c_fill,g_auto,w_auto:100:1600/f_auto/q_auto/dpr_auto
 ```
 Cloudinary generates optimal breakpoints.
 
@@ -379,7 +381,7 @@ Cloudinary generates optimal breakpoints.
 
 ### Specific Breakpoints
 ```
-c_fill,g_auto,w_auto:100:1600:80/f_auto/q_auto
+c_fill,g_auto,w_auto:80:1600/f_auto/q_auto
 ```
 Breakpoints from 100px to 1600px in 80px increments.
 
@@ -395,7 +397,7 @@ Different crops for different aspect ratios.
 
 ### Dynamic Text from Metadata
 ```
-$title_!md:title!/co_white,l_text:Arial_50:$(title)/fl_layer_apply,g_north,y_30/f_auto/q_auto
+$title_md:!title!/co_white,l_text:Arial_50:$(title)/fl_layer_apply,g_north,y_30/f_auto/q_auto
 ```
 Overlays text from asset metadata.
 
@@ -687,13 +689,13 @@ Delivers 800px image for 2x displays. Explicit DPR values work in all browsers.
 
 ### Auto Breakpoints
 ```
-c_fill,g_auto,w_auto:breakpoints/f_auto/q_auto
+c_fill,g_auto,w_auto:100:1600/f_auto/q_auto
 ```
 Cloudinary generates optimal responsive breakpoints. Requires Client Hints support.
 
 ### Breakpoints with Range
 ```
-c_fill,g_auto,w_auto:100:1600:80/f_auto/q_auto
+c_fill,g_auto,w_auto:80:1600/f_auto/q_auto
 ```
 Breakpoints from 100px to 1600px in 80px steps. Requires Client Hints support.
 

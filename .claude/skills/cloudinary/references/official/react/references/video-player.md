@@ -67,7 +67,7 @@ function VideoPlayerComponent({ cloudName, publicId }) {
       playerRef.current = player;
     } catch (err) {
       console.error('Video player init failed:', err);
-      // Fallback to AdvancedVideo if init fails
+      // Initialization failed; log/report the error. This example does not render an AdvancedVideo fallback. if init fails
     }
 
     // Cleanup

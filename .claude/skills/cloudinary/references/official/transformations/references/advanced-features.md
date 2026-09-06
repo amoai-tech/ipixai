@@ -67,9 +67,9 @@ Access original asset properties using predefined variables:
 
 **Examples:**
 ```
-$iw/w_$iw_div_2/f_auto/q_auto                    # Half original width
-$iw,$ih/c_scale,w_$iw,h_$ih_div_2/f_auto/q_auto  # Half original height
-$ar/c_fill,ar_$ar,w_800/f_auto/q_auto            # Maintain original aspect ratio
+w_iw_div_2/f_auto/q_auto                    # Half original width
+c_scale,w_iw,h_ih_div_2/f_auto/q_auto  # Half original height
+c_fill,ar_ar,w_800/f_auto/q_auto            # Maintain original aspect ratio
 ```
 
 **Use cases:**
@@ -81,13 +81,13 @@ $ar/c_fill,ar_$ar,w_800/f_auto/q_auto            # Maintain original aspect rati
 
 **Structured metadata:**
 ```
-$title_!md:title!/co_white,l_text:Arial_50:$(title)/fl_layer_apply,g_north/f_auto/q_auto
+$title_md:!title!/co_white,l_text:Arial_50:$(title)/fl_layer_apply,g_north/f_auto/q_auto
 ```
 Overlays text from asset's metadata field `title`.
 
 **Context variables:**
 ```
-$category_!ctx:category!/if_ctx:!category!_eq_!featured!/e_saturation:50/if_end/f_auto/q_auto
+$category_ctx:!category!/if_ctx:!category!_eq_!featured!/e_saturation:50/if_end/f_auto/q_auto
 ```
 Conditional transformation based on context variable.
 
@@ -97,7 +97,7 @@ Conditional transformation based on context variable.
 
 ### Variable Scope and Order
 
-**Variables are scoped left-to-right:**
+**Variables are scoped by declaration order:**
 ```
 ✅ $size_300/c_fill,h_$size,w_$size              # Declared before use
 ❌ c_fill,h_$size,w_$size/$size_300              # Used before declaration
@@ -135,7 +135,7 @@ c_scale,w_iw_div_2_mul_3/f_auto/q_auto               # (width ÷ 2) × 3
 c_scale,w_iw_sub_100_div_2/f_auto/q_auto             # (width - 100) ÷ 2
 ```
 
-**Order of operations:** Left to right, no precedence
+**Order of operations:** Standard arithmetic precedence: multiplication/division before addition/subtraction.
 
 ### Practical Arithmetic Examples
 
@@ -153,7 +153,7 @@ Width fixed at 800px, height calculated from aspect ratio.
 
 **Add borders relative to size:**
 ```
-$border_iw_div_100/bo_$(border)px_solid_black/f_auto/q_auto
+$border_iw_div_100/bo_$border_solid_black/f_auto/q_auto
 ```
 Border thickness is 1% of image width.
 
@@ -374,7 +374,7 @@ h_ih_sub_100                                         # Initial height - 100px
 
 ### Chained Arithmetic
 
-**Multiple operations (left-to-right evaluation):**
+**Multiple operations (standard arithmetic precedence):**
 ```
 w_iw_div_2_mul_3                                     # (initial_width ÷ 2) × 3
 h_ih_sub_100_div_2                                   # (initial_height - 100) ÷ 2
@@ -502,7 +502,7 @@ $size_800/if_md:!category!_eq_!apparel!/c_pad,ar_3:4,b_white,h_$size,w_$size_mul
 ### Seasonal Overlay Based on Context
 
 ```
-$season_!ctx:season!/if_ctx:!season!_eq_!winter!/l_snowflake/fl_layer_apply,g_north_west/if_else/if_ctx:!season!_eq_!summer!/l_sun/fl_layer_apply,g_north_west/if_end/if_end/f_auto/q_auto
+$season_ctx:!season!/if_ctx:!season!_eq_!winter!/l_snowflake/fl_layer_apply,g_north_west/if_else/if_ctx:!season!_eq_!summer!/l_sun/fl_layer_apply,g_north_west/if_end/if_end/f_auto/q_auto
 ```
 Different seasonal icons based on context.
 
@@ -588,7 +588,7 @@ Different seasonal icons based on context.
 **Calculation not working:**
 1. Check operator spelling: `div` not `divide`
 2. Verify asset property names: `iw`, `ih`, `ar` (not `width`, `height`)
-3. Check order of operations (left-to-right)
+3. Check arithmetic precedence (multiplication/division before addition/subtraction)
 4. Ensure result is valid for parameter (e.g., dimensions must be positive integers)
 
 **Division by zero:**

@@ -191,7 +191,7 @@ Example: a technically soft image can still be highly on-brand; surface both fac
 
 ## Documentation lookup
 
-When details are not fully proven by installed source/types, use the official docs index preserved in `references/official/docs/SKILL.md`. Start current documentation discovery from `https://cloudinary.com/documentation/llms.txt`, find the relevant product/page, then open only the specific documentation pages needed. Do not broad-crawl the docs.
+When details are not fully proven by installed source/types, use the matching specialized product sub-file listed in `references/official/docs/SKILL.md` first. Use `https://cloudinary.com/documentation/llms.txt` only for cross-product or unclear tasks, then open only the specific pages needed. Do not broad-crawl the docs.
 
 ### Official Cloudinary MCP references
 

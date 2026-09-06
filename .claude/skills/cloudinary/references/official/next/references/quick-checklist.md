@@ -3,13 +3,14 @@
 Use this at the end of generation or review tasks to catch common Cloudinary + Next.js mistakes before finalizing.
 
 ## Best Practices
+
 - ✅ Default to `<CldImage>` for any Cloudinary image. Use `getCldImageUrl` only when you need a string URL.
 - ✅ Always pass `sizes` for non-icon images.
 - ✅ Always include `alt` on `<CldImage>`.
 - ✅ Use `crop={{ type: '<dynamic>', source: true }}` for dynamic crops (`thumb`, etc.) so responsive variants stay consistent.
 - ✅ For `aspectRatio`, also use `fill` and a crop mode that crops; omit `width`/`height`.
 - ✅ Store `public_id` from upload results (and asset type / dimensions if you'll need them) — not the full URL.
-- ✅ For client uploads, default to **unsigned**; switch to signed only when explicitly requested.
+- ✅ For iPix production/authenticated/tenant-scoped uploads, default to **signed**; use unsigned only for explicitly low-risk public-upload cases with restrictive presets.
 - ✅ Never hold the API secret on the client; never prefix it with `NEXT_PUBLIC_`.
 - ✅ Add `"use client"` at the top of any file that uses `CldUploadWidget`, `CldUploadButton`, or `CldVideoPlayer`.
 - ✅ Use the **Node SDK v2** (`import { v2 as cloudinary } from 'cloudinary'`) for all server-side upload/delete/sign work; run on the Node runtime.
@@ -23,7 +24,7 @@ Use this at the end of generation or review tasks to catch common Cloudinary + N
 When something isn't working, check:
 - [ ] **Picked the right tool?** → `<CldImage>` for JSX images, `getCldImageUrl` for URL strings, `<CldUploadWidget>` for browser uploads, `cloudinary.uploader.upload` (Node SDK, server) for server-side uploads, `cloudinary.uploader.destroy` (Node SDK, server) for deletes
 - [ ] **`"use client"`** at the top of any file using `<CldUploadWidget>`, `<CldUploadButton>`, `<CldVideoPlayer>`, or any `<CldImage>` with event handlers / refs
-- [ ] **Env vars**: `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` set; `CLOUDINARY_API_SECRET` (server only, NEVER prefixed with `NEXT_PUBLIC_`); dev server restarted after edits
+- [ ] **Env vars**: `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` set; `CLOUDINARY_API_KEY` + `CLOUDINARY_API_SECRET` for server signing/SDK operations (secret is server only, NEVER prefixed with `NEXT_PUBLIC_`); dev server restarted after edits
 - [ ] **`.env.local` in `.gitignore`** — never commit secrets
 - [ ] **`<CldImage src>`** is a Cloudinary public ID (no extension, no leading slash) — or a full URL with `/v1234/` and `preserveTransformations`
 - [ ] **`<CldImage>`**: pass `sizes` for responsive images; for `aspectRatio` also use `fill` and a crop mode and omit `width`/`height`

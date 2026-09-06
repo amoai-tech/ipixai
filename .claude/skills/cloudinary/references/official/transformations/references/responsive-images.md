@@ -8,7 +8,7 @@ Cloudinary provides several approaches for responsive images:
 1. **Client Hints** (`dpr_auto`, `w_auto`) - Automatic adaptation (Chromium-only)
 2. **Explicit DPR values** (`dpr_2.0`) - Universal browser support
 3. **JavaScript solutions** - Dynamic responsive images
-4. **Responsive breakpoints** (`w_auto:breakpoints`) - Multiple image sizes
+4. **Responsive breakpoints** (`w_auto:100:1600`) - Multiple image sizes
 
 ## Device Pixel Ratio (DPR)
 
@@ -28,7 +28,7 @@ DPR represents the ratio between physical pixels and CSS pixels on a device:
 c_scale,w_400/dpr_auto/f_auto/q_auto
 ```
 
-**What it does:** Automatically multiplies dimensions by the device's DPR
+**What it does:** Automatically multiplies dimensions by the device's DPR. Fractional reported DPR values are rounded up to the nearest integer for delivery/cache efficiency (for example, DPR 1.5 uses 2x dimensions).
 - On 1x display: Delivers 400px image
 - On 2x display: Delivers 800px image
 - On 3x display: Delivers 1200px image
@@ -76,8 +76,8 @@ Client Hints must be enabled for `dpr_auto` and `w_auto` to work.
 Add these `<meta>` tags to your HTML `<head>` **before** any `<link>`, `<style>`, or `<script>` elements:
 
 ```html
-<meta http-equiv="Accept-CH" content="DPR, Viewport-Width, Width">
-<meta http-equiv="Delegate-CH" content="DPR https://res.cloudinary.com; Viewport-Width https://res.cloudinary.com; Width https://res.cloudinary.com">
+<meta http-equiv="Accept-CH" content="Sec-CH-DPR, Sec-CH-Width">
+<meta http-equiv="Delegate-CH" content="Sec-CH-DPR https://res.cloudinary.com; Sec-CH-Width https://res.cloudinary.com">
 ```
 
 **What these do:**
@@ -89,8 +89,8 @@ Add these `<meta>` tags to your HTML `<head>` **before** any `<link>`, `<style>`
 Alternatively, configure via server HTTP headers:
 
 ```http
-Accept-CH: DPR, Viewport-Width, Width
-Delegate-CH: DPR https://res.cloudinary.com; Viewport-Width https://res.cloudinary.com; Width https://res.cloudinary.com
+Accept-CH: Sec-CH-DPR, Sec-CH-Width
+Delegate-CH: Sec-CH-DPR https://res.cloudinary.com; Sec-CH-Width https://res.cloudinary.com
 ```
 
 **Use when:**
@@ -106,7 +106,7 @@ Check if Client Hints are working:
 1. Open DevTools → Network tab
 2. Load page with Cloudinary images
 3. Find image request
-4. Check Request Headers for: `DPR`, `Viewport-Width`, `Width`
+4. Check Request Headers for: `Sec-CH-DPR`, `Sec-CH-Width`
 
 **If headers are missing:** Client Hints aren't enabled or browser doesn't support them.
 
@@ -130,17 +130,17 @@ c_fill,g_auto,w_auto/f_auto/q_auto
 
 **Automatic breakpoints:**
 ```
-c_fill,g_auto,w_auto:breakpoints/f_auto/q_auto
+c_fill,g_auto,w_auto:100:1600/f_auto/q_auto
 ```
 Cloudinary generates optimal breakpoint set.
 
 **Custom breakpoint range:**
 ```
-c_fill,g_auto,w_auto:100:1600:80/f_auto/q_auto
+c_fill,g_auto,w_auto:80:1600/f_auto/q_auto
 ```
 Creates breakpoints from 100px to 1600px in 80px increments.
 
-**Syntax:** `w_auto:min:max:step`
+**Syntax:** `w_auto:[rounding_step]:[fallback_width]`
 - `min`: Minimum width (default 100)
 - `max`: Maximum width (default 3840)
 - `step`: Width increment (default calculated by Cloudinary)
@@ -153,7 +153,7 @@ Creates breakpoints from 100px to 1600px in 80px increments.
 ### Combining `dpr_auto` and `w_auto`
 
 ```
-c_fill,g_auto,w_auto:breakpoints/dpr_auto/f_auto/q_auto
+c_fill,g_auto,w_auto:100:1600/dpr_auto/f_auto/q_auto
 ```
 
 **Result:** Delivers optimal size for both container width AND device DPR.
@@ -219,10 +219,12 @@ c_scale,w_400/dpr_2.0/f_auto/q_auto
 **Cloudinary JavaScript SDK:**
 ```javascript
 import { Cloudinary } from '@cloudinary/url-gen';
+import { fill } from '@cloudinary/url-gen/actions/resize';
+import { autoGravity } from '@cloudinary/url-gen/qualifiers/gravity';
 
 const cld = new Cloudinary({ cloud: { cloudName: 'demo' }});
 const image = cld.image('sample')
-  .resize(fill().width('auto').gravity('auto'))
+  .resize(fill().width('auto').gravity(autoGravity()))
   .format('auto')
   .quality('auto');
 ```
@@ -233,6 +235,8 @@ import { AdvancedImage, responsive } from '@cloudinary/react';
 
 <AdvancedImage
   cldImg={myImage}
+  width={1600}
+  height={900}
   plugins={[responsive({ steps: [800, 1200, 1600] })]}
 />
 ```
@@ -339,7 +343,7 @@ Simple implementation, graceful fallback.
 **Check:**
 1. **Browser compatibility**: Only Chromium-based browsers support Client Hints
 2. **Meta tags present**: Verify `<meta http-equiv="Accept-CH">` in HTML
-3. **Request headers**: Check DevTools → Network → Request Headers for `DPR` header
+3. **Request headers**: Check DevTools → Network → Request Headers for `Sec-CH-DPR` header
 4. **Named transformation**: Ensure `dpr_auto` is in URL, not inside named transformation
 
 **Common causes:**
@@ -377,7 +381,7 @@ w_400/dpr_auto on 2x display = 800px actual width
 ### Automatic Breakpoint Generation
 
 ```
-c_fill,g_auto,w_auto:breakpoints/f_auto/q_auto
+c_fill,g_auto,w_auto:100:1600/f_auto/q_auto
 ```
 
 **What it does:** Cloudinary analyzes image and generates optimal breakpoint set
@@ -393,18 +397,18 @@ c_fill,g_auto,w_auto:breakpoints/f_auto/q_auto
 ### Custom Breakpoint Range
 
 ```
-w_auto:100:1600:80
+w_auto:80:1600
 ```
 
-**Syntax:** `w_auto:min:max:step`
+**Syntax:** `w_auto:[rounding_step]:[fallback_width]`
 - **min**: Minimum width in pixels (default 100)
 - **max**: Maximum width in pixels (default 3840)
 - **step**: Increment between breakpoints (default: calculated by Cloudinary)
 
 **Examples:**
 ```
-w_auto:200:1200:100        # 200, 300, 400... 1200 (11 breakpoints)
-w_auto:320:1920:320        # 320, 640, 960, 1280, 1600, 1920 (6 breakpoints)
+w_auto:100:1200        # 200, 300, 400... 1200 (11 breakpoints)
+w_auto:320:1920        # 320, 640, 960, 1280, 1600, 1920 (6 breakpoints)
 w_auto:100:2000            # Let Cloudinary calculate step size
 ```
 
@@ -416,7 +420,7 @@ w_auto:100:2000            # Let Cloudinary calculate step size
 ### Combining with DPR
 
 ```
-c_fill,g_auto,w_auto:breakpoints/dpr_auto/f_auto/q_auto
+c_fill,g_auto,w_auto:100:1600/dpr_auto/f_auto/q_auto
 ```
 
 **Result:** Adapts to BOTH container width AND device DPR
@@ -488,8 +492,8 @@ app.get('/image', (req, res) => {
 <meta http-equiv="Accept-CH" content="Width, DPR">
 
 <div class="grid">
-  <img src="https://res.cloudinary.com/demo/image/upload/c_fill,g_auto,w_auto:200:800:100/dpr_auto/f_auto/q_auto/img1.jpg">
-  <img src="https://res.cloudinary.com/demo/image/upload/c_fill,g_auto,w_auto:200:800:100/dpr_auto/f_auto/q_auto/img2.jpg">
+  <img src="https://res.cloudinary.com/demo/image/upload/c_fill,g_auto,w_auto:100:800/dpr_auto/f_auto/q_auto/img1.jpg">
+  <img src="https://res.cloudinary.com/demo/image/upload/c_fill,g_auto,w_auto:100:800/dpr_auto/f_auto/q_auto/img2.jpg">
 </div>
 ```
 
@@ -544,6 +548,8 @@ const MyImage = () => {
 
   return <AdvancedImage
     cldImg={img}
+    width={1600}
+    height={900}
     plugins={[responsive({ steps: [400, 800, 1200, 1600] })]}
   />;
 };
@@ -617,7 +623,7 @@ Identify static image URLs:
 
 Add meta tags to HTML `<head>`:
 ```html
-<meta http-equiv="Accept-CH" content="DPR, Viewport-Width, Width">
+<meta http-equiv="Accept-CH" content="Sec-CH-DPR, Sec-CH-Width">
 <meta http-equiv="Delegate-CH" content="DPR https://res.cloudinary.com; Viewport-Width https://res.cloudinary.com">
 ```
 
@@ -673,7 +679,7 @@ Add meta tags to HTML `<head>`:
 
 **Check:**
 - Is `w_auto` working? (requires Client Hints + Chromium)
-- Did you set max width in `w_auto:min:max` range?
+- Did you set max width in `w_auto:[rounding_step]:[fallback_width]` configuration?
 - Consider using explicit `<picture>` element for better control
 
 **Fix:**

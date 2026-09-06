@@ -61,11 +61,11 @@ This reference contains detailed solutions for common Cloudinary React errors.
 
 ### Widget not opening
 - ✅ Script in `index.html`
-- ✅ Poll with `setInterval` until `typeof window.cloudinary?.createUploadWidget === 'function'`
+- ✅ Poll with a bounded timeout until `typeof window.cloudinary?.createUploadWidget === 'function'`, and clear both the interval and timeout on success/unmount.
 
 ### "createUploadWidget is not a function"
 - ❌ Problem: Race condition - script loads async
-- ✅ Always poll in useEffect: `setInterval` checking `typeof window.cloudinary?.createUploadWidget === 'function'`
+- ✅ In `useEffect`, poll with a bounded timeout, clear the interval when ready, and return cleanup that clears both interval and timeout.
 - ❌ Do NOT: Check only `window.cloudinary`; single check in `onload`
 
 ### User needs secure/signed uploads

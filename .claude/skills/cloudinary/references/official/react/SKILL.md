@@ -352,7 +352,7 @@ cld.image('id').overlay(
 - Client: Widget gets `api_key` (from your backend), `uploadPreset`, and an `uploadSignature` **function** that calls your backend for each upload. API secret stays on server only.
 - Trade-off: Requires a backend (Node/Express, Next.js API route, etc.) to sign requests. More secure; signature validates each upload.
 
-**Rule of thumb**: **Default to unsigned uploads** unless the user explicitly asks for "secure" or "signed" uploads. Do not default to signed — it requires a running backend and will fail out of the box. Use **signed** only when the user explicitly requests secure/signed uploads or needs to restrict who can upload.
+**Rule of thumb**: **Default to signed uploads for production, authenticated, or tenant-scoped workflows.** Use unsigned only for explicitly low-risk public-upload cases with restrictive preset limits such as allowed formats, file-size caps, and no caller-selected public IDs.
 
 ## Secure (Signed) Uploads
 

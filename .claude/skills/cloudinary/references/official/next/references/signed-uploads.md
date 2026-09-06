@@ -3,7 +3,7 @@
 Use this when the user needs secure browser uploads through `CldUploadWidget` with a server-side signature endpoint.
 
 
-### Signed uploads (App Router) — canonical pattern
+## Signed uploads (App Router) — canonical pattern
 
 When the user wants signed/secure uploads, do this end-to-end:
 
@@ -15,8 +15,9 @@ import { CldUploadWidget } from 'next-cloudinary';
 
 <CldUploadWidget
   signatureEndpoint="/api/sign-cloudinary-params"
-  uploadPreset="<signed-preset>"   // optional; widget will sign whatever params it sends
-  options={{ folder: 'user-uploads' }}
+  uploadPreset="<signed-preset>"
+  // Do not send tenant folder/context/public ID from the browser.
+  options={{ sources: ['local'] }}
   onSuccess={(result) => console.log(result.info)}
 >
   {({ open }) => <button onClick={() => open()}>Upload</button>}
@@ -26,28 +27,19 @@ import { CldUploadWidget } from 'next-cloudinary';
 **2. Create the route handler at `app/api/sign-cloudinary-params/route.ts`:**
 
 ```ts
-import { v2 as cloudinary } from 'cloudinary';
-
-cloudinary.config({
-  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-export async function POST(request: Request) {
-  const { paramsToSign } = (await request.json()) as { paramsToSign: Record<string, string | number> };
-
-  const signature = cloudinary.utils.api_sign_request(
-    paramsToSign,
-    process.env.CLOUDINARY_API_SECRET as string,
-  );
-
-  return Response.json({ signature });
-}
+// Reuse the production iPix contract instead of signing request fields directly.
+// See: src/app/api/cloudinary/sign/route.ts
+// Required sequence:
+// authenticate caller → resolve trusted org → validate brand/shoot ownership
+// → reject unauthorized paramsToSign keys → apply server-owned preset/folder/context
+// → sign exact params with CLOUDINARY_API_SECRET.
+export { POST, runtime } from '@/app/api/cloudinary/sign/route';
 ```
 
 **Rules**:
-- ✅ Return shape **must be** `{ signature }`. Do **not** wrap it (`{ data: { signature } }` will not work).
+- ✅ Authenticate and authorize before signing; never sign arbitrary browser-provided fields.
+- ✅ Tenant namespace, preset, context, ownership IDs, and overwrite policy are server-owned.
+- ✅ Return shape **must include** `{ signature }`. Do **not** wrap it (`{ data: { signature } }` will not work).
 - ✅ Use the **Node SDK v2** (`import { v2 as cloudinary } from 'cloudinary'`). Do not use v1.
 - ✅ The route runs on the Node.js runtime by default — fine. If you set `export const runtime = 'edge'`, **switch back** to Node: the Node SDK depends on Node-only APIs.
 - ❌ **Never** read `process.env.CLOUDINARY_API_SECRET` in a Client Component or anywhere it could be bundled to the browser.

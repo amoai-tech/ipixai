@@ -72,7 +72,7 @@ du_5/f_auto:animated/q_auto                 # First 5 seconds as animated WebP (
 du_5/e_loop/f_auto:animated/q_auto          # Looping animated WebP
 ```
 
-Note: `f_auto:animated` delivers WebP only when the client sends a WebP Accept header. It falls back to GIF otherwise.
+Note: `f_auto:animated` selects the best animated format supported by the requesting browser; it is not limited to WebP/GIF. If a consumer specifically requires animated WebP, use the documented explicit WebP delivery path such as `fl_animated,fl_awebp` with an appropriate WebP delivery signal.
 
 **Path B:** `fl_animated,fl_awebp` together, **plus** a WebP delivery signal (`f_webp`, `f_auto`, or `.webp` extension):
 ```

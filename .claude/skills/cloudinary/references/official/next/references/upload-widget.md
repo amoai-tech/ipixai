@@ -20,7 +20,7 @@ import { CldUploadWidget } from 'next-cloudinary';
 - ✅ **`"use client"` is required**.
 - ✅ The widget renders **nothing by default** — pass a function-as-children that returns the trigger UI. The function receives `{ open, close, cloudinary, widget, results, error, isLoading }`.
 - ✅ Use `<CldUploadButton>` for a one-line drop-in if you don't need custom UI.
-- ✅ **Default to unsigned uploads** unless the user explicitly asks for "secure" or "signed". Signed requires a running backend route and will fail out of the box without it.
+- ✅ **Default to signed uploads for production, authenticated, or tenant-scoped workflows.** Use unsigned only for explicitly low-risk public-upload cases with restrictive preset limits (allowed formats, size limits, no caller-controlled public IDs).
 - ✅ Pass widget params via the `options` prop, not as top-level props (sources, multiple, maxFiles, folder, tags, etc.):
 
 ```tsx
@@ -70,4 +70,4 @@ import { CldUploadWidget } from 'next-cloudinary';
 - Trade-off: requires a running route handler. More secure.
 - ✅ Use `signatureEndpoint` + the route handler.
 
-**Default**: Prefer unsigned unless the user explicitly asks for signed/secure uploads.
+**Default**: Signed for iPix production/authenticated/tenant-scoped uploads. Unsigned is opt-in for explicitly low-risk public-upload cases with restrictive preset settings.
