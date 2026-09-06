@@ -42,11 +42,15 @@ jobs:
   # harness's own clear "credentials missing" error, not a silent skip.
   # Most IPI-1066-dependent specs are `test.fixme` until
   # https://github.com/amoai-tech/ipixai/pull/52 merges — see e2e/*.spec.ts.
+  # e2e/planner-journey.spec.ts makes one real hosted GPT-4o call through
+  # productionPlannerAgent — the only spec that does — so this job also
+  # needs a real OPENAI_API_KEY secret with usable quota; every other job
+  # keeps the "placeholder" literal since nothing else calls OpenAI for real.
   playwright-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      OPENAI_API_KEY: placeholder
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       COPILOTKIT_TELEMETRY_DISABLED: "true"
       E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
       E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
