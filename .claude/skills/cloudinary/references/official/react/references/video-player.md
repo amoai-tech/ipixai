@@ -121,7 +121,7 @@ Takes an **object**, not a string:
 ### If Init Fails
 - CSP restrictions or browser extensions may block player
 - **Do NOT** relax CSP or ask user to disable extensions
-- ✅ Fall back to **AdvancedVideo** with same publicId
+- This example logs/reports initialization failure and does not render a fallback. If the product requires `AdvancedVideo` fallback behavior, implement explicit fallback state and render it.
 
 ## Common Errors
 
@@ -140,7 +140,7 @@ Takes an **object**, not a string:
 ### Failed HEAD requests or CORS console noise
 - Analytics/telemetry from player - doesn't necessarily mean playback fails
 - Do not add preflight GET
-- If video doesn't play, check imperative pattern and fall back to AdvancedVideo
+- If video does not play, check the imperative pattern first. Add `AdvancedVideo` only when the component explicitly implements and renders fallback state.
 
 ### Memory leak
 ❌ Problem: Not disposing player in cleanup
