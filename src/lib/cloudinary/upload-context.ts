@@ -1,3 +1,5 @@
+import { isDatabaseUuid } from "@/lib/database-uuid";
+
 /**
  * Shared signed-upload context contract (schema_version=1) for:
  * - IPI-1110 · CLD-SIGN-001 (writes these into Cloudinary context on sign)
@@ -31,12 +33,7 @@ export type IpixUploadContext = {
   schemaVersion: string | null;
 };
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-export function isUuid(value: string | null | undefined): value is string {
-  return typeof value === "string" && UUID_RE.test(value);
-}
+export const isUuid = isDatabaseUuid;
 
 /**
  * Flatten Cloudinary context / metadata bags into a string map.

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
-const ORG_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const ORG_A = "00000000-0000-0000-0000-000000000001";
 const ORG_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const BRAND_A = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const BRAND_B = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
@@ -326,6 +326,18 @@ describe("IPI-1110 · CLD-SIGN-001 /api/cloudinary/sign", () => {
       reason: "needs_org_selection",
     });
     expect(body).not.toHaveProperty("signature");
+  });
+
+  it("rejects malformed brand and shoot database UUIDs", async () => {
+    const badBrand = await POST(signRequest({ brand_id: "not-a-uuid" }));
+    expect(badBrand.status).toBe(400);
+    expect(await badBrand.json()).toMatchObject({ reason: "brand_id_required" });
+
+    const badShoot = await POST(
+      signRequest({ brand_id: BRAND_A, v2_shoot_id: "not-a-uuid" }),
+    );
+    expect(badShoot.status).toBe(400);
+    expect(await badShoot.json()).toMatchObject({ reason: "invalid_v2_shoot_id" });
   });
 
   it("rejects body.org_id", async () => {

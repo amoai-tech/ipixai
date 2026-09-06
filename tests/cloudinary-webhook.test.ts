@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const ORG = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const ACME_ORG = "00000000-0000-0000-0000-000000000001";
 const BRAND = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const ASSET = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const SHOOT = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
@@ -139,6 +140,20 @@ describe("IPI-1111 Cloudinary webhook normalize + context", () => {
     const payload = toRpcPayload(renamed!);
     expect(payload.resource_type).toBeNull();
     expect(payload.delivery_type).toBeNull();
+  });
+
+  it("preserves the production Acme org id for trusted schema_version=1 context", async () => {
+    const { readIpixUploadContext } = await import(
+      "../src/lib/cloudinary/upload-context"
+    );
+    const ctx = readIpixUploadContext(
+      `asset_id=${ASSET}|brand_id=${BRAND}|org_id=${ACME_ORG}|schema_version=1|v2_shoot_id=${SHOOT}`,
+    );
+    expect(ctx.assetId).toBe(ASSET);
+    expect(ctx.orgId).toBe(ACME_ORG);
+    expect(ctx.brandId).toBe(BRAND);
+    expect(ctx.v2ShootId).toBe(SHOOT);
+    expect(ctx.schemaVersion).toBe("1");
   });
 
   it("parses pipe-delimited context strings with schema_version=1", async () => {
