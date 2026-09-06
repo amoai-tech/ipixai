@@ -95,10 +95,12 @@ Conditional transformation based on context variable.
 
 ### Variable Scope and Order
 
-**Variables are scoped by declaration order:**
+Variable assignments take effect across URL components in component order. Within a single transformation component, Cloudinary evaluates variable assignments before the other transformations in that component, regardless of textual order.
+
 ```
-✅ $size_300/c_fill,h_$size,w_$size              # Declared before use
-❌ c_fill,h_$size,w_$size/$size_300              # Used before declaration
+✅ $size_300/c_fill,h_$size,w_$size              # Assignment in an earlier component
+✅ c_fill,h_$size,w_$size,$size_300              # Same component: assignment is evaluated first
+❌ c_fill,h_$size,w_$size/$size_300              # Assignment appears only in a later component
 ```
 
 **Variables persist across components:**

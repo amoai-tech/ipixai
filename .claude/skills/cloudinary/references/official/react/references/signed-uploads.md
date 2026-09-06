@@ -24,107 +24,34 @@ CLOUDINARY_API_SECRET=your_secret
 ✅ Read only in server code: `process.env.CLOUDINARY_API_SECRET`
 ✅ Use Cloudinary Node.js SDK v2: `import { v2 as cloudinary } from 'cloudinary'`
 
-## Client Pattern (Working Implementation)
+## iPix signed-upload rule
 
-Use `uploadSignature` as a function (not `signatureEndpoint`):
+Do **not** copy a generic raw Upload Widget signing example into iPix production. The current iPix signing contract in `src/app/api/cloudinary/sign/route.ts` authenticates the operator, resolves the trusted tenant, verifies brand/shoot ownership, and signs server-owned `upload_preset`, `folder`, `public_id`, `type=authenticated`, `context`, and `overwrite=false`.
 
-```tsx
-// 1. Fetch api_key from server first
-const response = await fetch('/api/sign-image', { method: 'POST' });
-const data = await response.json();
+The raw Cloudinary Upload Widget supports signed uploads, but its documented `prepareUploadParams` callback can prepare only a defined subset of upload parameters and does **not** list the delivery `type` parameter. Because iPix requires `type=authenticated`, treat the raw React widget as **not production-equivalent until a targeted browser E2E proves the complete signed request**.
 
-// 2. Configure widget
-const widgetConfig = {
-  cloudName: 'your_cloud',
-  api_key: data.api_key, // from server
-  uploadPreset: 'ipix-signed-upload', // server-approved signed preset
-  uploadSignature: function(callback, params_to_sign) {
-    // Send only harmless widget-generated fields. The server owns the preset,
-    // tenant namespace, context, overwrite policy, and other authorization data.
-    fetch('/api/sign-image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ params_to_sign: { timestamp: params_to_sign.timestamp } }),
-    })
-      .then(r => r.json())
-      .then(data => data.signature ? callback(data.signature) : callback(''))
-      .catch(() => callback(''));
-  }
-};
+For iPix production:
 
-// 3. Create widget with config
-window.cloudinary.createUploadWidget(widgetConfig, callback);
-```
+1. Prefer the existing verified iPix upload/signing implementation.
+2. For `next-cloudinary`, follow `../next/references/signed-uploads.md`, which uses a brand-scoped authenticated adapter before the production signer.
+3. Never send `org_id`, tenant folder/context, `public_id`, delivery type, or overwrite policy from the browser.
+4. Do not weaken `src/app/api/cloudinary/sign/route.ts` merely to fit a widget callback.
+5. Before adopting a raw React Upload Widget path, prove that the final Cloudinary multipart request contains every server-signed parameter with the matching signature, including authenticated delivery semantics.
 
-## Server Pattern (Node/Express with SDK v2)
+## Generic Cloudinary Upload Widget notes
 
-```ts
-import { v2 as cloudinary } from 'cloudinary';
+For a non-iPix signed Upload Widget, Cloudinary supports either `uploadSignature` or `prepareUploadParams`. If `prepareUploadParams` is present, Cloudinary ignores `uploadSignature`; return the signature plus every supported prepared parameter that was included in the signature. Use the widget-provided timestamp rather than generating a replacement timestamp.
 
-app.post('/api/sign-image', async (req, res) => {
-  const principal = await requireAuthenticatedPrincipal(req);
-  const tenant = await resolveAuthorizedTenant(principal);
-  const requested = req.body?.params_to_sign ?? {};
-  const allowed = new Set(['timestamp']);
-  if (Object.keys(requested).some((key) => !allowed.has(key))) {
-    return res.status(400).json({ error: 'unauthorized_upload_parameter' });
-  }
+The official supported prepared fields include `apiKey`, `context`, `folder`, `overwrite`, `publicId`, `resourceType`, `signature`, `uploadPreset`, and `uploadSignatureTimestamp`. Verify the current official Upload Widget docs before implementing because this contract is version-sensitive.
 
-  const paramsToSign = {
-    timestamp: requested.timestamp ?? Math.floor(Date.now() / 1000),
-    upload_preset: 'ipix-signed-upload',
-    folder: `ipix/org/${tenant.orgId}`,
-    context: `schema_version=1|org_id=${tenant.orgId}`,
-    overwrite: false,
-  };
-  const signature = cloudinary.utils.api_sign_request(
-    paramsToSign, process.env.CLOUDINARY_API_SECRET
-  );
-  res.json({ signature, timestamp: paramsToSign.timestamp,
-    api_key: process.env.CLOUDINARY_API_KEY, cloud_name: process.env.CLOUDINARY_CLOUD_NAME });
-});
-```
+## Security rules
 
-## Rules for Secure Uploads
-
-✅ Use signed upload preset (dashboard → Upload presets → Signed)
-✅ Default preset: `ml_default` (if not deleted by user)
-✅ Generate signature on server only using SDK v2
-✅ Keep `server/.env` in `.gitignore`
-✅ Use `uploadSignature` as function
-✅ Include `uploadPreset` in widget config; do not copy it into `params_to_sign`
-✅ Authenticate/authorize before signing and derive tenant ownership server-side
-✅ Server must include the approved `upload_preset` and tenant namespace in signed params
-✅ Allowlist harmless widget-generated parameters; reject attempts to override server-owned fields
-
-## What NOT to Do
-
-❌ Never put API secret in `VITE_` or `NEXT_PUBLIC_` variable
-❌ Never commit API key or secret
-❌ Do not generate signature in client-side JavaScript
-❌ Do not use unsigned preset for secure uploads
-❌ Do not omit `uploadPreset` from widget config
-❌ Do not use Cloudinary Node SDK v1 - use v2
-❌ Do not rely on `signatureEndpoint` - use `uploadSignature` function
-
-## Debugging Signed Uploads
-
-### "Invalid Signature"
-- Check: Using `uploadSignature` function? `api_key` fetched from server? `uploadPreset` in widget config? Server includes `upload_preset` in signature?
-
-### "Missing required parameter - api_key"
-- Fetch `api_key` from server before creating widget
-- API key is NOT secret - safe to use in client
-
-### Preset doesn't exist
-- Use `ml_default` if available (default signed preset)
-- Or create signed preset in dashboard
-
-## Next.js Specifics
-
-- Root `.env.local`: Server-only vars (no `NEXT_PUBLIC_`)
-- Client vars need `NEXT_PUBLIC_` prefix
-- API secret goes in server-only section (no prefix)
+- Keep `CLOUDINARY_API_SECRET` server-only.
+- Authenticate and authorize before signing.
+- Build tenant-sensitive values from trusted server state.
+- Sign exactly the parameters that will be sent in the final upload request.
+- Never infer tenant ownership from Cloudinary `public_id`, folder, context, or metadata.
+- Do not use unsigned presets for authenticated or tenant-scoped iPix uploads.
 
 ## Documentation
 
