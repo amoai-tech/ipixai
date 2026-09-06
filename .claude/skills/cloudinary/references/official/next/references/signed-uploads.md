@@ -14,8 +14,8 @@ When the user wants signed/secure uploads, do this end-to-end:
 import { CldUploadWidget } from 'next-cloudinary';
 
 <CldUploadWidget
-  signatureEndpoint="/api/sign-cloudinary-params"
-  uploadPreset="<signed-preset>"
+  signatureEndpoint={`/api/brands/${brandId}/cloudinary/sign`}
+  uploadPreset="ipix-signed-upload"
   // Do not send tenant folder/context/public ID from the browser.
   options={{ sources: ['local'] }}
   onSuccess={(result) => console.log(result.info)}
@@ -24,21 +24,37 @@ import { CldUploadWidget } from 'next-cloudinary';
 </CldUploadWidget>;
 ```
 
-**2. Create the route handler at `app/api/sign-cloudinary-params/route.ts`:**
+**2. Add a brand-scoped adapter at `app/api/brands/[brandId]/cloudinary/sign/route.ts`:**
 
 ```ts
-// Reuse the production iPix contract instead of signing request fields directly.
-// See: src/app/api/cloudinary/sign/route.ts
-// Required sequence:
-// authenticate caller → resolve trusted org → validate brand/shoot ownership
-// → reject unauthorized paramsToSign keys → apply server-owned preset/folder/context
-// → sign exact params with CLOUDINARY_API_SECRET.
-export { POST, runtime } from '@/app/api/cloudinary/sign/route';
+import { POST as signUpload, runtime } from '@/app/api/cloudinary/sign/route';
+
+export { runtime };
+
+type Context = { params: Promise<{ brandId: string }> };
+
+export async function POST(request: Request, { params }: Context) {
+  const { brandId } = await params;
+  const raw = await request.json();
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return Response.json({ error: 'invalid_body' }, { status: 400 });
+  }
+
+  // CldUploadWidget sends { paramsToSign }. Inject brand_id server-side from the
+  // authenticated route context; the production signer still verifies ownership.
+  const forwarded = new Request(request.url, {
+    method: 'POST',
+    headers: request.headers,
+    body: JSON.stringify({ ...raw, brand_id: brandId }),
+  });
+  return signUpload(forwarded);
+}
 ```
 
 **Rules**:
 - ✅ Authenticate and authorize before signing; never sign arbitrary browser-provided fields.
 - ✅ Tenant namespace, preset, context, ownership IDs, and overwrite policy are server-owned.
+- ✅ `CldUploadWidget` posts only `{ paramsToSign }`; use a brand-scoped authenticated adapter to inject `brand_id` before calling the production iPix signer.
 - ✅ Return shape **must include** `{ signature }`. Do **not** wrap it (`{ data: { signature } }` will not work).
 - ✅ Use the **Node SDK v2** (`import { v2 as cloudinary } from 'cloudinary'`). Do not use v1.
 - ✅ The route runs on the Node.js runtime by default — fine. If you set `export const runtime = 'edge'`, **switch back** to Node: the Node SDK depends on Node-only APIs.
@@ -46,4 +62,4 @@ export { POST, runtime } from '@/app/api/cloudinary/sign/route';
 - ❌ **Don't** add the secret as `NEXT_PUBLIC_CLOUDINARY_API_SECRET` — that exposes it.
 - ❌ **Don't** invent a custom signature shape — the widget calls the endpoint and expects `{ signature }`. If you also want timestamp/api_key, return them too, but the field name `signature` is required.
 
-**Pages Router equivalent**: `pages/api/sign-cloudinary-params.js` exporting a default handler that does `res.status(200).json({ signature })` with the same `cloudinary.utils.api_sign_request` call.
+**Pages Router equivalent**: use an authenticated brand-scoped API route that injects trusted/validated brand context before delegating to the same production signing contract.

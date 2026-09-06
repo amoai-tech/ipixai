@@ -202,7 +202,7 @@ l_logo/fl_layer_apply,g_south_east,x_10,y_10  # Logo bottom-right
 ```
 
 **Important**:
-- `g_auto` works with `c_fill`, `c_lfill`, `c_crop`, `c_thumb`, `c_auto`, `c_fill_pad` (images/video), and `c_auto_pad` (images only)
+- `g_auto` works with `c_fill`, `c_lfill`, `c_crop`, `c_thumb`, `c_auto`, `c_fill_pad` (still images/video), and `c_auto_pad` (still images only); `g_auto` is not supported for animated images
 - When using x, y, h, w together, use all integers OR all floats (don't mix)
 
 ### Format & Quality

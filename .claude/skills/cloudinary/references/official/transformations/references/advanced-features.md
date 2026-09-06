@@ -130,7 +130,7 @@ c_scale,w_mul_1.5/f_auto/q_auto                      # 150% of original width
 **Multiple operations in sequence:**
 ```
 c_scale,w_iw_div_2_mul_3/f_auto/q_auto               # (width ÷ 2) × 3
-c_scale,w_iw_sub_100_div_2/f_auto/q_auto             # (width - 100) ÷ 2
+c_scale,w_iw_sub_100_div_2/f_auto/q_auto             # width - (100 ÷ 2) = width - 50
 ```
 
 **Order of operations:** Standard arithmetic precedence: multiplication/division before addition/subtraction.
@@ -375,13 +375,13 @@ h_ih_sub_100                                         # Initial height - 100px
 **Multiple operations (standard arithmetic precedence):**
 ```
 w_iw_div_2_mul_3                                     # (initial_width ÷ 2) × 3
-h_ih_sub_100_div_2                                   # (initial_height - 100) ÷ 2
+h_ih_sub_100_div_2                                   # initial_height - (100 ÷ 2) = initial_height - 50
 w_iw_mul_0.8_add_50                                  # (initial_width × 0.8) + 50
 ```
 
 **Order matters:**
 ```
-w_100_add_50_mul_2   # (100 + 50) × 2 = 300
+w_100_add_50_mul_2   # 100 + (50 × 2) = 200
 w_100_mul_2_add_50   # (100 × 2) + 50 = 250
 ```
 
@@ -421,9 +421,9 @@ Logo size is 25% of image width, margin is 5% of image width.
 
 **Responsive overlay positioning:**
 ```
-$offset_iw_sub_200_div_2/l_badge/fl_layer_apply,g_north,x_$offset/f_auto/q_auto
+$remaining_iw_sub_200/$offset_$remaining_div_2/l_badge/fl_layer_apply,g_north,x_$offset/f_auto/q_auto
 ```
-Centers 200px badge horizontally: offset = (width - 200) ÷ 2.
+Centers a 200px badge horizontally by staging the grouped subtraction before division: offset = (width - 200) ÷ 2.
 
 ## Real-World Advanced Patterns
 
@@ -673,9 +673,9 @@ if_ar_gt_1.5/c_pad,ar_16:9,b_auto/if_else/if_ar_lt_0.67/c_pad,ar_9:16,b_auto/if_
 
 ### Arithmetic Limitations
 
-1. **Left-to-right only**: No operator precedence
+1. **Standard precedence applies**: multiplication/division before addition/subtraction
    ```
-   w_100_add_50_mul_2   # (100 + 50) × 2, not 100 + (50 × 2)
+   w_100_add_50_mul_2   # 100 + (50 × 2) = 200
    ```
 
 2. **Division truncates**: Results are integers
@@ -683,10 +683,10 @@ if_ar_gt_1.5/c_pad,ar_16:9,b_auto/if_else/if_ar_lt_0.67/c_pad,ar_9:16,b_auto/if_
    w_100_div_3          # Result: 33 (not 33.333...)
    ```
 
-3. **No parentheses**: Can't group operations
+3. **No parentheses**: use staged variables or separate transformation steps when grouped results are required
    ```
-   ❌ w_(100_add_50)_mul_2    # Not supported
-   ✅ w_100_add_50_mul_2       # Left-to-right: (100 + 50) × 2
+   ❌ w_(100_add_50)_mul_2    # Parentheses are not supported
+   ✅ $sum_150/w_$sum_mul_2   # Stage the grouped value, then multiply
    ```
 
 ## When to Use Advanced Features

@@ -373,17 +373,17 @@ Adds logo throughout video.
 
 ### Automatic Breakpoints
 ```
-c_fill,g_auto,w_auto:100:1600/f_auto/q_auto/dpr_auto
+c_limit,w_auto:breakpoints:1600/f_auto/q_auto/dpr_auto
 ```
-Cloudinary generates optimal breakpoints.
+Cloudinary uses content-aware optimal breakpoints; 1600px is the fallback width without Client Hints.
 
 **Note:** Both `w_auto` and `dpr_auto` require Client Hints and only work on Chromium-based browsers. Without Client Hints support, `w_auto` is ignored and `dpr_auto` falls back to `dpr_1.0`.
 
-### Specific Breakpoints
+### Rounded Automatic Widths
 ```
-c_fill,g_auto,w_auto:80:1600/f_auto/q_auto
+c_limit,w_auto:80:1600/f_auto/q_auto
 ```
-Breakpoints from 100px to 1600px in 80px increments.
+Rounds requested widths in 80px steps and uses 1600px as the fallback width.
 
 **Note:** `w_auto` requires Client Hints and only works on Chromium-based browsers.
 
@@ -689,15 +689,15 @@ Delivers 800px image for 2x displays. Explicit DPR values work in all browsers.
 
 ### Auto Breakpoints
 ```
-c_fill,g_auto,w_auto:100:1600/f_auto/q_auto
+c_limit,w_auto:breakpoints:1600/f_auto/q_auto
 ```
-Cloudinary generates optimal responsive breakpoints. Requires Client Hints support.
+Cloudinary uses content-aware optimal breakpoints; 1600px is the fallback width. Requires Client Hints support.
 
-### Breakpoints with Range
+### Rounded Automatic Widths
 ```
-c_fill,g_auto,w_auto:80:1600/f_auto/q_auto
+c_limit,w_auto:80:1600/f_auto/q_auto
 ```
-Breakpoints from 100px to 1600px in 80px steps. Requires Client Hints support.
+Rounds requested widths in 80px steps and uses 1600px as the fallback width. Requires Client Hints support.
 
 ## Fetch Delivery Type
 

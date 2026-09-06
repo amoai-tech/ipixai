@@ -31,7 +31,7 @@ When something isn't working, check:
 - [ ] **Dynamic crops** (`thumb`, etc.): use `crop={{ type: 'thumb', source: true }}` to keep results consistent across breakpoints
 - [ ] **`<CldVideoPlayer>`**: `"use client"` + `import 'next-cloudinary/dist/cld-video-player.css'`
 - [ ] **`<CldUploadWidget>` unsigned**: preset is **Unsigned** in the dashboard, name matches `uploadPreset` exactly
-- [ ] **`<CldUploadWidget>` signed**: `signatureEndpoint="/api/sign-cloudinary-params"`; route returns `{ signature }`; uses Node SDK v2 (`import { v2 as cloudinary } from 'cloudinary'`); runs on Node runtime
+- [ ] **`<CldUploadWidget>` signed**: use a brand-scoped authenticated `signatureEndpoint` adapter that receives `{ paramsToSign }`, injects `brand_id` from the route context, delegates to the production iPix signer, and returns `{ signature }`; Node runtime only
 - [ ] **Use `onSuccess`** (not deprecated `onUpload`); narrow `result.info` with a type guard before reading `public_id`
 - [ ] **Server uploads**: `"use server"` (or route handler), Node runtime, convert `File` → `Buffer` before `upload_stream`
 - [ ] **Delete**: `cloudinary.uploader.destroy(publicId, { resource_type, invalidate: true })`; `result === 'ok'` on success

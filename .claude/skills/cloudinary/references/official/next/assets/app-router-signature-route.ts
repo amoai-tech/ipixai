@@ -27,6 +27,10 @@ import { createClientFromRequest } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
+// This is the production iPix signer, NOT a drop-in CldUploadWidget signatureEndpoint.
+// CldUploadWidget posts only { paramsToSign }; use the brand-scoped adapter documented
+// in references/signed-uploads.md so brand_id is injected before this route is called.
+
 /**
  * IPI-1110 · CLD-SIGN-001 — thin auth wrapper around Cloudinary
  * `api_sign_request` for next-cloudinary `{ paramsToSign }` → `{ signature }`.
