@@ -9,7 +9,12 @@ import { signInAsE2ETestOperator } from "./support/login";
  * `testIgnore` in playwright.config.ts) so the hosted account is signed
  * into exactly twice per full run (setup + this), not once per viewport.
  */
-test.use({ storageState: { cookies: [], origins: [] } });
+test.use({
+  storageState: { cookies: [], origins: [] },
+  trace: "off",
+  screenshot: "off",
+});
+test.setTimeout(60_000);
 
 test("critical journey: login succeeds", async ({ page }) => {
   await signInAsE2ETestOperator(page);

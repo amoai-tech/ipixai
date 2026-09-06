@@ -1,42 +1,74 @@
-import type { Page } from "@playwright/test";
-import { expect } from "@playwright/test";
+import type { Locator, Page, Request } from "@playwright/test";
 
-/**
- * Shared UI login used by auth.setup.ts (the one storageState-producing
- * login) and login-journey.spec.ts (the one deliberate extra UI login that
- * proves the form itself, not just a saved cookie). Centralized so a label,
- * route, or credential-env-var change only needs one edit.
- */
+const AUTH_TOKEN_PATH = "/auth/v1/token";
+const SIGN_IN_TIMEOUT_MS = 30_000;
+
+function isAuthTokenRequest(request: Request) {
+  return request.url().includes(AUTH_TOKEN_PATH);
+}
+
+async function gotoLogin(page: Page) {
+  try {
+    await page.goto("/login");
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("ERR_NETWORK_CHANGED")) {
+      throw error;
+    }
+    await page.goto("/login");
+  }
+}
+
+async function submitPasswordSignIn(page: Page, signIn: Locator) {
+  const appNavigation = page
+    .waitForURL((url) => url.pathname === "/app", { timeout: SIGN_IN_TIMEOUT_MS })
+    .then(() => ({ kind: "success" as const }));
+  const requestFailure = page
+    .waitForEvent("requestfailed", {
+      predicate: isAuthTokenRequest,
+      timeout: SIGN_IN_TIMEOUT_MS,
+    })
+    .then((request) => ({
+      kind: "request-failed" as const,
+      errorText: request.failure()?.errorText ?? "unknown network failure",
+    }));
+
+  await signIn.click();
+  return Promise.race([appNavigation, requestFailure]);
+}
+
+/** Shared real UI login for setup, login-journey, and tenant isolation. */
 export async function signInWithCredentials(
   page: Page,
   email: string,
   password: string,
 ): Promise<void> {
-  await page.goto("/login");
-  // The form is client-only (ssr: false), so it only appears after React
-  // mounts and the submit handler is attached. Waiting for the accessible
-  // "Sign in" button synchronizes with that mount without inspecting private
-  // React internals. In signin mode the toggle reads "Create an account", so
-  // this name is unambiguous.
+  await gotoLogin(page);
+
   const signIn = page.getByRole("button", { name: "Sign in" });
   await signIn.waitFor({ state: "visible" });
-  // The marketing footer exposes an aria-label="Email" mailto link, so target
-  // the form field by role to avoid a strict-mode collision.
-  await page.getByRole("textbox", { name: "Email" }).fill(email);
-  await page.getByLabel("Password").fill(password);
-  await signIn.click();
+  const emailField = page.getByRole("textbox", { name: "Email" });
+  const passwordField = page.getByLabel("Password");
+  await emailField.fill(email);
+  await passwordField.fill(password);
 
-  // The app signs in, verifies claims, then routes to /app (IPI-1058
-  // MARKETING-LOGIN-001 — the Command Center is the default workspace). Wait
-  // for that final route before persisting storageState so auth cookies are
-  // settled. 30s — a cold CI runner compiling /app on demand (Next dev,
-  // first hit) plus a slow Supabase sign-in in sequence measured over 15s
-  // on GitHub Actions; 30s gave headroom without touching the global
-  // Playwright timeout.
-  await expect(page).toHaveURL(
-    (url) => url.pathname === "/app",
-    { timeout: 30_000 },
-  );
+  try {
+    const first = await submitPasswordSignIn(page, signIn);
+    if (first.kind === "success") return;
+
+    if (!first.errorText.includes("ERR_NETWORK_CHANGED")) {
+      throw new Error(`Sign-in request failed: ${first.errorText}`);
+    }
+
+    // Retry once only when Chromium reports a host network-route handoff.
+    // HTTP/auth failures are never retried or hidden.
+    const second = await submitPasswordSignIn(page, signIn);
+    if (second.kind === "success") return;
+    throw new Error(`Sign-in request failed after network retry: ${second.errorText}`);
+  } catch (error) {
+    // Keep failure snapshots/error-context from retaining the raw password.
+    await passwordField.fill("").catch(() => {});
+    throw error;
+  }
 }
 
 export async function signInAsE2ETestOperator(page: Page): Promise<void> {

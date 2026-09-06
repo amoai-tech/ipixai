@@ -16,11 +16,14 @@
     "test": "vitest run",
     "test:design": "vitest run src/components/ui/empty-state.test.tsx src/components/ui/error-state.test.tsx src/components/ui/entity-list.test.tsx src/components/ui/status-chip.test.tsx",
     "channel": "tsx --tsconfig tsconfig.channel.json channel-host.mts",
-    "e2e": "playwright test",
-    "e2e:ui": "playwright test --ui",
-    "e2e:headed": "playwright test --headed",
-    "e2e:debug": "playwright test --debug",
-    "e2e:report": "playwright show-report"
+    "e2e": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test",
+    "e2e:ui": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --ui",
+    "e2e:headed": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --headed",
+    "e2e:debug": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --debug",
+    "e2e:report": "PLAYWRIGHT_BROWSERS_PATH=0 playwright show-report",
+    "e2e:production": "E2E_PRODUCTION_SMOKE=1 PLAYWRIGHT_BROWSERS_PATH=0 playwright test --config=playwright.production.config.ts",
+    "dev:e2e": "node scripts/dev-guard.mjs --port 3015 -- next dev --turbopack -p 3015",
+    "e2e:install": "PLAYWRIGHT_BROWSERS_PATH=0 playwright install chromium"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.58",

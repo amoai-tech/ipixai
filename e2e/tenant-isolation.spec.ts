@@ -3,6 +3,10 @@ import { test, expect, type Browser, type Page } from "@playwright/test";
 import { signInWithCredentials } from "./support/login";
 import { getOwnOrgId, supabaseForPage } from "./support/tenant-supabase";
 
+// Org B signs in with a raw password in this file; do not persist secret-bearing artifacts.
+test.use({ trace: "off", screenshot: "off" });
+test.setTimeout(60_000);
+
 /**
  * usera@ipix.co and userb@ipix.co are dedicated QA users in separate,
  * isolated organizations. Both orgs intentionally have 0 brands, so any

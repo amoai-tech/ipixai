@@ -11,7 +11,8 @@ dotenv.config({ path: path.resolve(__dirname, ".env.test") });
 // .env doesn't exist (CI supplies these as real job env vars instead).
 dotenv.config({ path: path.resolve(__dirname, ".env") });
 
-const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
+const hasExplicitBaseURL = Boolean(process.env.E2E_BASE_URL);
+const baseURL = process.env.E2E_BASE_URL || "http://localhost:3015";
 const isLocalTarget = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(baseURL);
 
 // These tests perform real sign-ins with real credentials — fail closed
@@ -36,20 +37,24 @@ if (!isAllowedBaseUrl) {
 
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: true,
+  // Production smoke has its own guarded config and must never run as part of
+  // the normal localhost/Preview certification suite.
+  testIgnore: /production-smoke\.spec\.ts/,
+  // The canonical suite shares one real Org A account and one Next dev server.
+  // Keep it deterministic locally and in CI; opt into parallelism only for
+  // future tests with isolated accounts/backend state.
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  // 1 worker on CI, not the usual 2 — every project depends on `setup`
-  // signing into one real, shared Org A account; running 2 workers would
-  // race two logins against that single session.
-  workers: process.env.CI ? 1 : undefined,
+  // One worker avoids shared-account races and Turbopack cold-compile storms.
+  workers: 1,
   // https://playwright.dev/docs/ci-intro — 'github' annotates failures
   // directly on the Actions run; keep 'html' too so CI still produces the
   // playwright-report/ dir the workflow uploads as an artifact.
   reporter: process.env.CI ? [["github"], ["html"]] : "html",
   use: {
     baseURL,
-    trace: "on-first-retry",
+    trace: process.env.CI ? "on-first-retry" : "retain-on-failure",
     screenshot: "only-on-failure",
   },
 
@@ -79,17 +84,20 @@ export default defineConfig({
       // login-journey does its own real UI login (not storageState) —
       // one extra hosted sign-in beyond setup is enough; running it per
       // viewport too would sign into the real account 3× per full run.
-      testIgnore: /login-journey\.spec\.ts/,
+      // Keep the production-only smoke excluded here too because project-level
+      // testIgnore replaces the inherited/global value.
+      testIgnore: [/login-journey\.spec\.ts/, /production-smoke\.spec\.ts/],
     },
   ],
 
-  // Only manage a dev server for a local target — a Preview/staging baseURL
-  // (E2E_BASE_URL) is assumed already running and is never started by us.
-  webServer: isLocalTarget
+  // With no explicit E2E_BASE_URL, Playwright owns a dedicated :3015 server.
+  // It never reuses the developer-owned :3000 process, which could be another
+  // branch. Any explicit URL is caller-owned and must already be running.
+  webServer: isLocalTarget && !hasExplicitBaseURL
     ? {
-        command: "npm run dev:ui",
+        command: "npm run dev:e2e",
         url: baseURL,
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: false,
         timeout: 60_000,
       }
     : undefined,
