@@ -46,11 +46,13 @@ jobs:
   # productionPlannerAgent — the only spec that does — so this job also
   # needs a real OPENAI_API_KEY secret with usable quota; every other job
   # keeps the "placeholder" literal since nothing else calls OpenAI for real.
+  # The real key is scoped to only the `npm run e2e` step below (least
+  # privilege) — checkout/setup-node/npm ci/browser install/artifact upload
+  # never see it.
   playwright-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       COPILOTKIT_TELEMETRY_DISABLED: "true"
       E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
       E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
@@ -69,6 +71,8 @@ jobs:
       - run: npm ci
       - run: PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium
       - run: npm run e2e
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

@@ -6,12 +6,30 @@ import { test, expect } from "@playwright/test";
 // playwright.config.ts) so the suite doesn't pay for it twice.
 const RESPONSE_TIMEOUT_MS = 45_000;
 const NAV_TIMEOUT_MS = 30_000;
+// Sequential waits this test can incur, worst case: 2 loading gates + the
+// post-reload user/assistant checks (4 × NAV_TIMEOUT_MS) plus one real LLM
+// response (RESPONSE_TIMEOUT_MS), with headroom for goto/reload's own
+// navigation time and script overhead. A flat constant here previously sat
+// well under the sum of the test's own per-step timeouts, so the outer
+// deadline could fire before an inner wait got to report its real error.
+const TEST_TIMEOUT_MS = RESPONSE_TIMEOUT_MS + NAV_TIMEOUT_MS * 4 + 30_000;
 
 test.describe("planner journey (authenticated)", () => {
+  // Never retry: a retry re-sends the real, paid GPT-4o request and leaves
+  // a second junk thread in the shared QA account. A flaky failure here
+  // should surface, not be hidden by CI's default retries: 2.
+  test.describe.configure({ retries: 0 });
+
   test("operator gets a real budget draft from the Production Planner, and it survives reload", async ({
     page,
   }) => {
-    test.setTimeout(RESPONSE_TIMEOUT_MS + NAV_TIMEOUT_MS + 15_000);
+    test.setTimeout(TEST_TIMEOUT_MS);
+
+    // Unique per run so the post-reload check provably reads back this
+    // run's own thread, not a same-looking prompt left by an earlier run
+    // against the same long-lived shared QA account.
+    const runMarker = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const prompt = `Estimate the shoot budget for 2 crew members, a rental studio, and 10 shots, over 1 shoot day, using default rates. [${runMarker}]`;
 
     await page.goto("/planner");
 
@@ -33,9 +51,7 @@ test.describe("planner journey (authenticated)", () => {
 
     const textarea = page.getByTestId("copilot-chat-textarea");
     await textarea.click();
-    await textarea.fill(
-      "Estimate the shoot budget for 2 crew members, a rental studio, and 10 shots, over 1 shoot day, using default rates.",
-    );
+    await textarea.fill(prompt);
     await page.getByTestId("copilot-send-button").click();
 
     // Real user-visible outcome: a genuine assistant response appears.
@@ -54,12 +70,14 @@ test.describe("planner journey (authenticated)", () => {
     ).toBe(true);
 
     // Persistence: reload and confirm the same real conversation comes back
-    // (confirmed live — auto-restores without an extra click).
+    // (confirmed live — auto-restores without an extra click). Matching on
+    // runMarker (not just the shared prompt prefix) proves this is *this
+    // run's* thread, not a same-looking one left by an earlier run against
+    // the same long-lived shared QA account.
     await page.reload();
-    await expect(page.getByTestId("copilot-user-message").last()).toContainText(
-      "Estimate the shoot budget for 2 crew members",
-      { timeout: NAV_TIMEOUT_MS },
-    );
+    await expect(page.getByTestId("copilot-user-message").last()).toContainText(runMarker, {
+      timeout: NAV_TIMEOUT_MS,
+    });
     await expect(page.getByTestId("copilot-assistant-message").last()).toContainText(/\$[\d,]+/, {
       timeout: NAV_TIMEOUT_MS,
     });
