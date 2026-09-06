@@ -1,3 +1,5 @@
+import { isDatabaseUuid } from "@/lib/database-uuid";
+
 import { forbiddenResponse, membershipLookupFailedResponse } from "./unauthorized";
 
 export type RuntimeOrgResolution =
@@ -8,13 +10,10 @@ export type RuntimeOrgResolution =
 
 export type ProductBootstrap = "app" | "onboarding" | "org_selection";
 
-const UUID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 function uniqueOrgIds(orgIds: string[]): string[] {
   const seen = new Set<string>();
   for (const id of orgIds) {
-    if (!UUID.test(id) || seen.has(id)) continue;
+    if (!isDatabaseUuid(id) || seen.has(id)) continue;
     seen.add(id);
   }
   return [...seen];

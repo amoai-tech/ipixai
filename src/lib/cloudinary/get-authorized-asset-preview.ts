@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isDatabaseUuid } from "@/lib/database-uuid";
 import {
   listMembershipOrgIdsFromServerClient,
   resolveRuntimeTenant,
@@ -14,12 +15,7 @@ import {
 } from "@/lib/cloudinary/preview-contract";
 import { signExactVersionPreviewUrl } from "@/lib/cloudinary/sign-delivery-url";
 
-const UUID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-export function isUuid(value: unknown): value is string {
-  return typeof value === "string" && UUID.test(value);
-}
+export const isUuid = isDatabaseUuid;
 
 export type AuthorizedAssetPreviewOk = {
   ok: true;
