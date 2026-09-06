@@ -6,7 +6,7 @@ Use this when configuring `.env.local`, debugging missing Cloudinary variables, 
 ## Environment Variables
 
 - ✅ **Required**: `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` in `.env.local`. Access via `process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` if you ever need to read it directly (most code doesn't — `next-cloudinary` reads it for you).
-- ✅ **For signed uploads**: `NEXT_PUBLIC_CLOUDINARY_API_KEY` (public) and `CLOUDINARY_API_SECRET` (server only).
+- ✅ **For signed uploads/server SDK operations**: `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` are required server-side. `NEXT_PUBLIC_CLOUDINARY_API_KEY` is optional only when client code reads the key directly instead of receiving `api_key` from the signing response.
 - ✅ Restart the dev server after any `.env*` change.
 - ❌ Do not put `CLOUDINARY_API_SECRET` in `NEXT_PUBLIC_*` or any file that is sent to the browser.
 - ❌ Do not commit `.env`, `.env.local`, `.env.development`, or `.env.production`. Verify they're in `.gitignore`.
@@ -21,6 +21,7 @@ declare namespace NodeJS {
   interface ProcessEnv {
     NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: string;
     NEXT_PUBLIC_CLOUDINARY_API_KEY?: string;
+    CLOUDINARY_API_KEY?: string;
     CLOUDINARY_API_SECRET?: string;
   }
 }

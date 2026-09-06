@@ -435,7 +435,7 @@ https://res.cloudinary.com/demo/video/upload/sample.jpg
 https://res.cloudinary.com/demo/image/upload/sample.jpg
 ```
 
-**Why:** Asset type must match the type of the uploaded asset. Images use `/image/`, videos use `/video/`, other files use `/raw/`.  
+**Why:** Asset type must match the type of the uploaded asset. Images use `/image/`, videos use `/video/`, other files use `/raw/`.
 
 If there is a video with public ID `sample` then `https://res.cloudinary.com/demo/video/upload/sample.jpg` is the correct way to deliver an image thumbnail from the video.
 
@@ -445,7 +445,7 @@ When a transformation doesn't work:
 
 1. **Verify URL structure**
    - Check cloud name exists: `/<cloud_name>/`
-   - **Check asset type is present:** `/image/` or `/video/` or `/raw/` 
+   - **Check asset type is present:** `/image/` or `/video/` or `/raw/`
    - Check delivery type: `/upload/` or `/fetch/` etc.
    - Verify public ID exists and is spelled correctly
 

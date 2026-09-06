@@ -73,14 +73,14 @@ This skill provides React patterns and common errors. For detailed API options (
 
 If the user is **not** using the create-cloudinary-react CLI and only has these rules, generate the following so they get correct config, env, and widget setup.
 
-**1. Environment (.env)**  
+**1. Environment (.env)**
 Create a `.env` file in the project root with **Vite prefix** (required for client access):
 - `VITE_CLOUDINARY_CLOUD_NAME=my_cloud` (required — use your actual cloud name, **never** the literal string `your_cloud_name` which causes 401)
 - `VITE_CLOUDINARY_UPLOAD_PRESET=my_preset` (optional; required for unsigned upload widget — use your actual preset name)
 - **Restart the dev server** after adding or changing `.env`. Use `import.meta.env.VITE_*` in code, not `process.env`.
 - **If env var still empty in browser after restart**: Vite may cache the old value. Clear `node_modules/.vite/`, restart dev server, and do a hard refresh (Cmd+Shift+R / Ctrl+Shift+F5). If still empty, see "Vite env not reaching client" in Common Errors.
 
-**2. Reusable Cloudinary instance (config)**  
+**2. Reusable Cloudinary instance (config)**
 Create a config file (e.g. `src/cloudinary/config.ts`) so the rest of the app can use a single `cld` instance:
 ```ts
 import { Cloudinary } from '@cloudinary/url-gen';
@@ -95,7 +95,7 @@ export const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
 ```
 - Use **this** pattern for the reusable instance. Everywhere else: `import { cld } from './cloudinary/config'` (or the path the user chose) and call `cld.image(publicId)` / `cld.video(publicId)`.
 
-**3. Upload Widget (unsigned, from scratch)**  
+**3. Upload Widget (unsigned, from scratch)**
 
 **Strict pattern (always follow this exactly):**
 1. **Script in `index.html`** (required): Add `<script src="https://upload-widget.cloudinary.com/global/all.js" async></script>` to `index.html`. Do **not** rely only on dynamic script injection from React — it's fragile.
@@ -107,10 +107,10 @@ export const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
 ❌ **Do NOT**: Check only `window.cloudinary` (not enough); do a single check in `onload` (unreliable); skip the script in `index.html`; poll forever without a timeout.
 - **Signed uploads**: Do not use only `uploadPreset`; use the pattern under "Secure (Signed) Uploads" (uploadSignature as function, fetch api_key, server includes upload_preset in signature).
 
-**4. Video player**  
+**4. Video player**
 - Use imperative video element only (create with document.createElement, append to container ref, pass to videoPlayer). See "Cloudinary Video Player (The Player)" for the full pattern.
 
-**5. Summary for rules-only users**  
+**5. Summary for rules-only users**
 - **Env**: Use your bundler's client env prefix and access (Vite: `VITE_` + `import.meta.env.VITE_*`; see "Other bundlers" if not Vite).
 - **Reusable instance**: One config file that creates and exports `cld` (and optionally `uploadPreset`) from `@cloudinary/url-gen`; use it everywhere.
 - **Upload widget**: Script in index.html (required); in useEffect, **poll** until `createUploadWidget` is a function, then create widget once and store in ref; unsigned = cloudName + uploadPreset; signed = use uploadSignature function and backend.
@@ -282,9 +282,9 @@ cld.image('id').overlay(
 - ✅ Example:
   ```tsx
   const img = cld.image('id').resize(fill().width(800));
-  <AdvancedImage 
-    cldImg={img} 
-    plugins={[responsive(), placeholder({ mode: 'blur' }), lazyload()]} 
+  <AdvancedImage
+    cldImg={img}
+    plugins={[responsive(), placeholder({ mode: 'blur' }), lazyload()]}
     width={800}
     height={600}
   />
@@ -352,13 +352,13 @@ cld.image('id').overlay(
 - Client: Widget gets `api_key` (from your backend), `uploadPreset`, and an `uploadSignature` **function** that calls your backend for each upload. API secret stays on server only.
 - Trade-off: Requires a backend (Node/Express, Next.js API route, etc.) to sign requests. More secure; signature validates each upload.
 
-**Rule of thumb**: **Default to unsigned uploads** unless the user explicitly asks for "secure" or "signed" uploads. Do not default to signed — it requires a running backend and will fail out of the box. Use **signed** only when the user explicitly requests secure/signed uploads or needs to restrict who can upload.
+**Rule of thumb**: **Default to signed uploads for production, authenticated, or tenant-scoped workflows.** Use unsigned only for explicitly low-risk public-upload cases with restrictive preset limits such as allowed formats, file-size caps, and no caller-selected public IDs.
 
 ## Secure (Signed) Uploads
 
 **When to use:** Production apps, authenticated users, or when you need to control who can upload (more secure than unsigned).
 
-**Golden rules:** 
+**Golden rules:**
 1. Never expose or commit the API secret (server-only)
 2. Use `server/.env` in `.gitignore` for API key/secret
 3. API key can be sent to client; API secret must stay server-only

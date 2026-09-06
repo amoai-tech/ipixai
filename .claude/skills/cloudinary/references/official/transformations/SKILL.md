@@ -201,8 +201,8 @@ c_thumb,g_face,w_200,h_200                     # Face-centered
 l_logo/fl_layer_apply,g_south_east,x_10,y_10  # Logo bottom-right
 ```
 
-**Important**: 
-- `g_auto` only works with `c_fill`, `c_lfill`, `c_crop`, `c_thumb`, `c_auto`
+**Important**:
+- `g_auto` works with `c_fill`, `c_lfill`, `c_crop`, `c_thumb`, `c_auto`, `c_fill_pad` (still images/video), and `c_auto_pad` (still images only); `g_auto` is not supported for animated images
 - When using x, y, h, w together, use all integers OR all floats (don't mix)
 
 ### Format & Quality
@@ -283,10 +283,10 @@ l_logo/c_scale,fl_relative,w_0.25/fl_layer_apply,g_north_west,x_10,y_10  # Logo 
 l_docs:one_black_pixel/c_scale,fl_relative,h_1.0,w_1.0/o_50/fl_layer_apply # Full-image semi-transparent overlay
 co_yellow,l_text:Arial_40:Hello%20World/fl_layer_apply,g_south            # Text overlay
 u_background/e_background_removal                                          # Custom background
-c_fill,h_400,w_300/l_same_image/c_fill,e_grayscale,h_400,w_300/fl_layer_apply,g_west,x_300 # Side-by-side (600×400)
+$img_current/c_fill,h_400,w_300/l_$img/c_fill,e_grayscale,h_400,w_300/fl_layer_apply,g_west,x_300 # Side-by-side using the current asset as the overlay
 ```
 
-**Important**: 
+**Important**:
 - Color (`co_`) is a qualifier — use in the **same component** as text overlay declaration
 - **Always use `fl_relative`** when you want overlay dimensions as a percentage of the base image
 - **Side-by-side / canvas extension**: to place an overlay *beside* the base, offset it past the base edge — the canvas auto-expands. Use `g_west,x_<base_width>` for horizontal or `g_north,y_<base_height>` for vertical.
@@ -376,7 +376,7 @@ For complete details, limitations, and baseline transformation examples, see [re
 - **`e_background_removal`** (75 tx) - Remove backgrounds (e-commerce, profiles; combine with `f_png` or `b_color,c_pad`)
 - **`b_gen_fill`** (50 tx) - Extend backgrounds (change aspect ratio without cropping; use with `c_pad`)
 - **`e_gen_background_replace:prompt_<text>`** (230 tx) - AI-generated backgrounds (custom environments, seasonal variations; high cost)
-- **`e_gen_replace:from_<obj>;to_<new>`** (120 tx) - Swap objects (product variations, colors; use `;preserve_geometry_true` for clothing)
+- **`e_gen_replace:from_<obj>;to_<new>`** (120 tx) - Swap objects (product variations, colors; use `;preserve-geometry_true` for clothing)
 - **`e_gen_remove:prompt_<text>`** (50 tx) - Remove objects (clean up distractions)
 - **`e_auto_enhance`** (100 tx) - Improve quality (fix poor lighting/exposure)
 - **`e_upscale`** (10-100 tx) - Enlarge without quality loss (low-res to high-res)
@@ -422,7 +422,7 @@ if_ar_gt_1.0/c_fill,w_800,h_450/if_else/c_fill,w_450,h_800/if_end  # Orientation
 **Key rules:**
 - Variable names: alphanumeric, start with letter, no underscores
 - Conditionals: Must close with `if_end`
-- Arithmetic: `add`, `sub`, `mul`, `div` (left-to-right evaluation)
+- Arithmetic: `add`, `sub`, `mul`, `div` (standard precedence: multiplication/division before addition/subtraction)
 
 For complete syntax, arithmetic operations, nested conditionals, and real-world patterns, see [references/advanced-features.md](references/advanced-features.md)
 

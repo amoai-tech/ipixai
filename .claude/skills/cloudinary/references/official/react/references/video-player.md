@@ -40,16 +40,16 @@ import 'cloudinary-video-player/cld-video-player.min.css';
 function VideoPlayerComponent({ cloudName, publicId }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<ReturnType<typeof videoPlayer> | null>(null);
-  
+
   useLayoutEffect(() => {
     // Check container is in DOM
     if (!cloudName || !containerRef.current?.isConnected) return;
-    
+
     // Create imperative video element
     const el = document.createElement('video');
     el.className = 'cld-video-player cld-fluid';
     containerRef.current.appendChild(el);
-    
+
     try {
       const player = videoPlayer(el, {
         cloudName,
@@ -61,22 +61,22 @@ function VideoPlayerComponent({ cloudName, publicId }) {
           posterColor: '#0f0f0f',                // Fallback color
         },
       });
-      
+
       // Source takes an object, not a string
       player.source({ publicId });
       playerRef.current = player;
     } catch (err) {
       console.error('Video player init failed:', err);
-      // Fallback to AdvancedVideo if init fails
+      // Initialization failed; log/report the error. This example does not render an AdvancedVideo fallback.
     }
-    
+
     // Cleanup
     return () => {
       if (playerRef.current) {
-        try { 
-          playerRef.current.dispose(); 
-        } catch (e) { 
-          console.warn('Player disposal error:', e); 
+        try {
+          playerRef.current.dispose();
+        } catch (e) {
+          console.warn('Player disposal error:', e);
         }
         playerRef.current = null;
       }
@@ -86,7 +86,7 @@ function VideoPlayerComponent({ cloudName, publicId }) {
       }
     };
   }, [cloudName, publicId]);
-  
+
   return <div ref={containerRef} />;
 }
 ```
@@ -121,7 +121,7 @@ Takes an **object**, not a string:
 ### If Init Fails
 - CSP restrictions or browser extensions may block player
 - **Do NOT** relax CSP or ask user to disable extensions
-- ✅ Fall back to **AdvancedVideo** with same publicId
+- This example logs/reports initialization failure and does not render a fallback. If the product requires `AdvancedVideo` fallback behavior, implement explicit fallback state and render it.
 
 ## Common Errors
 
@@ -140,7 +140,7 @@ Takes an **object**, not a string:
 ### Failed HEAD requests or CORS console noise
 - Analytics/telemetry from player - doesn't necessarily mean playback fails
 - Do not add preflight GET
-- If video doesn't play, check imperative pattern and fall back to AdvancedVideo
+- If video does not play, check the imperative pattern first. Add `AdvancedVideo` only when the component explicitly implements and renders fallback state.
 
 ### Memory leak
 ❌ Problem: Not disposing player in cleanup

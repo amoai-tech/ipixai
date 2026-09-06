@@ -53,17 +53,19 @@ interface ImportMeta {
 ## Type Guards
 
 ```tsx
-function isUploadWidgetReady(): boolean {
-  return typeof window !== 'undefined' && 
-         typeof window.cloudinary?.createUploadWidget === 'function';
+function getUploadWidgetFactory() {
+  if (typeof window === 'undefined') return null;
+  const createUploadWidget = window.cloudinary?.createUploadWidget;
+  return typeof createUploadWidget === 'function' ? createUploadWidget : null;
 }
 
-// Always poll in useEffect with timeout
+// Always poll in useEffect with timeout and cleanup
 const interval = setInterval(() => {
-  if (isUploadWidgetReady()) {
+  const createUploadWidget = getUploadWidgetFactory();
+  if (createUploadWidget) {
     clearInterval(interval);
     clearTimeout(timeout);
-    window.cloudinary.createUploadWidget(...);
+    createUploadWidget(widgetOptions, handleWidgetResult);
   }
 }, 100);
 ```
@@ -109,10 +111,23 @@ function handleResult(result: unknown) {
 ## Window Type Declaration
 
 ```tsx
+interface UploadWidgetOptions {
+  cloudName: string;
+  uploadPreset?: string;
+  [key: string]: unknown;
+}
+
+interface UploadWidgetInstance {
+  open(): void;
+  close?(): void;
+}
+
+type UploadWidgetCallback = (error: unknown, result: unknown) => void;
+
 declare global {
   interface Window {
     cloudinary?: {
-      createUploadWidget: (config: any, callback: any) => any;
+      createUploadWidget: (config: UploadWidgetOptions, callback: UploadWidgetCallback) => UploadWidgetInstance;
     };
   }
 }

@@ -28,14 +28,10 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Cursor rules: `.cursor/rule
 | `refactor-plan` | Multi-file refactors |
 | `mermaid-diagrams` | Diagrams |
 | `ipix-wireframe` | Lo-fi UI |
-| `cloudinary` | iPixai **router** hub → official skills + Node refs |
-| `cloudinary-docs` | Official [cloudinary-devs/skills](https://github.com/cloudinary-devs/skills) — llms.txt docs |
-| `cloudinary-next` | Official — `next-cloudinary` + Node signed upload patterns |
-| `cloudinary-react` | Official — React SDK patterns |
-| `cloudinary-transformations` | Official — delivery URL / transform syntax |
+| `cloudinary` | Canonical iPix Cloudinary skill → embedded official docs/Next/React/transformation/MCP refs + Node refs |
 | `graphify` | Official `graphify install` 0.9.48 — query `graphify-out/` |
 
-Official Cloudinary four are **copied** into `.claude/skills/` and `.agents/skills/` (and lockfile). Do not symlink to `/home/sk/ipix`. Update: `npx skills add cloudinary-devs/skills --skill '*' --agent cursor --agent claude-code --copy -y`.
+Official Cloudinary upstream packs are embedded under `.claude/skills/cloudinary/references/official/` and are not separate triggerable skills. Refresh snapshots into a temporary directory, then sync only the needed embedded references so the iPix security overlay remains authoritative.
 
 ## Not copied (on purpose)
 

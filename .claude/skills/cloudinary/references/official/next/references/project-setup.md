@@ -25,9 +25,11 @@ Create `.env.local` in the project root (Next.js auto-loads it, and it must be i
 # Required (public, client-safe)
 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
 
-# Required only for the Upload Widget with SIGNED uploads
-NEXT_PUBLIC_CLOUDINARY_API_KEY=your_api_key
+# Required for server-side Cloudinary SDK operations and signed uploads
+CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret  # ⚠️ SERVER ONLY — never NEXT_PUBLIC_
+# Optional only if browser code reads the API key directly:
+NEXT_PUBLIC_CLOUDINARY_API_KEY=your_api_key
 
 # Optional advanced config
 NEXT_PUBLIC_CLOUDINARY_SECURE_DISTRIBUTION=cdn.example.com
@@ -62,7 +64,7 @@ module.exports = {
 Create `app/api/sign-cloudinary-params/route.ts` (App Router) — see **"Signed uploads (App Router)"** below for the canonical implementation.
 
 **5. Summary for rules-only users**
-- **Env**: `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` is required; add `NEXT_PUBLIC_CLOUDINARY_API_KEY` + `CLOUDINARY_API_SECRET` only when signing uploads. Restart dev server after edits.
+- **Env**: `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` is required for client delivery; server SDK upload/destroy/signing requires `CLOUDINARY_API_KEY` + `CLOUDINARY_API_SECRET`. `NEXT_PUBLIC_CLOUDINARY_API_KEY` is optional if the signing response supplies `api_key`. Restart dev server after edits.
 - **No `Cloudinary` instance to construct**: `next-cloudinary` reads env automatically. Just import components/helpers and use them.
 - **Components are client-side**: `CldUploadWidget`, `CldUploadButton`, `CldVideoPlayer` always need `"use client"`. `CldImage` works in both, but make the file a Client Component if you also use refs / event handlers / state with it.
 - **Server work uses the Node SDK** (`cloudinary` v2) inside Server Actions or route handlers — never in client code.

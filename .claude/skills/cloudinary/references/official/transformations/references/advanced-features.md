@@ -54,22 +54,20 @@ $text_!Hello World!/l_text:Arial_40:$text/fl_layer_apply/f_auto/q_auto
 $date_25/co_white,l_text:Arial_60:Day%20$(date)/fl_layer_apply,g_center/f_auto/q_auto
 ```
 
-### Asset Property Variables
+### Asset Properties and User-Defined Variables
 
-Access original asset properties using predefined variables:
+Cloudinary built-in asset characteristics are referenced **without** a `$` prefix in transformation expressions. User-defined variables start with `$`.
 
-**Dimension variables:**
-- `$iw` - Initial width (original width in pixels)
-- `$ih` - Initial height (original height in pixels)
-- `$ar` - Aspect ratio (width/height, e.g., 1.5 for 3:2 ratio)
-- `$cp` - Current page/layer number (for PDFs, multi-page TIFFs)
-- `$tags` - Asset tags (use in conditionals)
+**Common asset characteristics:**
+- `iw` - Initial width (original width in pixels)
+- `ih` - Initial height (original height in pixels)
+- `ar` - Aspect ratio (width/height, e.g., 1.5 for 3:2 ratio)
 
 **Examples:**
 ```
-$iw/w_$iw_div_2/f_auto/q_auto                    # Half original width
-$iw,$ih/c_scale,w_$iw,h_$ih_div_2/f_auto/q_auto  # Half original height
-$ar/c_fill,ar_$ar,w_800/f_auto/q_auto            # Maintain original aspect ratio
+w_iw_div_2/f_auto/q_auto                    # Half original width
+c_scale,w_iw,h_ih_div_2/f_auto/q_auto  # Half original height
+c_fill,ar_ar,w_800/f_auto/q_auto            # Maintain original aspect ratio
 ```
 
 **Use cases:**
@@ -81,13 +79,13 @@ $ar/c_fill,ar_$ar,w_800/f_auto/q_auto            # Maintain original aspect rati
 
 **Structured metadata:**
 ```
-$title_!md:title!/co_white,l_text:Arial_50:$(title)/fl_layer_apply,g_north/f_auto/q_auto
+$title_md:!title!/co_white,l_text:Arial_50:$(title)/fl_layer_apply,g_north/f_auto/q_auto
 ```
 Overlays text from asset's metadata field `title`.
 
 **Context variables:**
 ```
-$category_!ctx:category!/if_ctx:!category!_eq_!featured!/e_saturation:50/if_end/f_auto/q_auto
+$category_ctx:!category!/if_ctx:!category!_eq_!featured!/e_saturation:50/if_end/f_auto/q_auto
 ```
 Conditional transformation based on context variable.
 
@@ -97,10 +95,12 @@ Conditional transformation based on context variable.
 
 ### Variable Scope and Order
 
-**Variables are scoped left-to-right:**
+Variable assignments take effect across URL components in component order. Within a single transformation component, Cloudinary evaluates variable assignments before the other transformations in that component, regardless of textual order.
+
 ```
-✅ $size_300/c_fill,h_$size,w_$size              # Declared before use
-❌ c_fill,h_$size,w_$size/$size_300              # Used before declaration
+✅ $size_300/c_fill,h_$size,w_$size              # Assignment in an earlier component
+✅ c_fill,h_$size,w_$size,$size_300              # Same component: assignment is evaluated first
+❌ c_fill,h_$size,w_$size/$size_300              # Assignment appears only in a later component
 ```
 
 **Variables persist across components:**
@@ -132,10 +132,10 @@ c_scale,w_mul_1.5/f_auto/q_auto                      # 150% of original width
 **Multiple operations in sequence:**
 ```
 c_scale,w_iw_div_2_mul_3/f_auto/q_auto               # (width ÷ 2) × 3
-c_scale,w_iw_sub_100_div_2/f_auto/q_auto             # (width - 100) ÷ 2
+c_scale,w_iw_sub_100_div_2/f_auto/q_auto             # width - (100 ÷ 2) = width - 50
 ```
 
-**Order of operations:** Left to right, no precedence
+**Order of operations:** Standard arithmetic precedence: multiplication/division before addition/subtraction.
 
 ### Practical Arithmetic Examples
 
@@ -153,7 +153,7 @@ Width fixed at 800px, height calculated from aspect ratio.
 
 **Add borders relative to size:**
 ```
-$border_iw_div_100/bo_$(border)px_solid_black/f_auto/q_auto
+$border_iw_div_100/bo_$border_solid_black/f_auto/q_auto
 ```
 Border thickness is 1% of image width.
 
@@ -341,7 +341,7 @@ Perform calculations on dimensions, positions, and other numeric parameters.
 ### Available Operators
 
 - `add` - Addition
-- `sub` - Subtraction  
+- `sub` - Subtraction
 - `mul` - Multiplication
 - `div` - Division
 - `pow` - Power/exponent
@@ -374,16 +374,16 @@ h_ih_sub_100                                         # Initial height - 100px
 
 ### Chained Arithmetic
 
-**Multiple operations (left-to-right evaluation):**
+**Multiple operations (standard arithmetic precedence):**
 ```
 w_iw_div_2_mul_3                                     # (initial_width ÷ 2) × 3
-h_ih_sub_100_div_2                                   # (initial_height - 100) ÷ 2
+h_ih_sub_100_div_2                                   # initial_height - (100 ÷ 2) = initial_height - 50
 w_iw_mul_0.8_add_50                                  # (initial_width × 0.8) + 50
 ```
 
 **Order matters:**
 ```
-w_100_add_50_mul_2   # (100 + 50) × 2 = 300
+w_100_add_50_mul_2   # 100 + (50 × 2) = 200
 w_100_mul_2_add_50   # (100 × 2) + 50 = 250
 ```
 
@@ -423,9 +423,9 @@ Logo size is 25% of image width, margin is 5% of image width.
 
 **Responsive overlay positioning:**
 ```
-$offset_iw_sub_200_div_2/l_badge/fl_layer_apply,g_north,x_$offset/f_auto/q_auto
+$remaining_iw_sub_200/$offset_$remaining_div_2/l_badge/fl_layer_apply,g_north,x_$offset/f_auto/q_auto
 ```
-Centers 200px badge horizontally: offset = (width - 200) ÷ 2.
+Centers a 200px badge horizontally by staging the grouped subtraction before division: offset = (width - 200) ÷ 2.
 
 ## Real-World Advanced Patterns
 
@@ -502,7 +502,7 @@ $size_800/if_md:!category!_eq_!apparel!/c_pad,ar_3:4,b_white,h_$size,w_$size_mul
 ### Seasonal Overlay Based on Context
 
 ```
-$season_!ctx:season!/if_ctx:!season!_eq_!winter!/l_snowflake/fl_layer_apply,g_north_west/if_else/if_ctx:!season!_eq_!summer!/l_sun/fl_layer_apply,g_north_west/if_end/if_end/f_auto/q_auto
+$season_ctx:!season!/if_ctx:!season!_eq_!winter!/l_snowflake/fl_layer_apply,g_north_west/if_else/if_ctx:!season!_eq_!summer!/l_sun/fl_layer_apply,g_north_west/if_end/if_end/f_auto/q_auto
 ```
 Different seasonal icons based on context.
 
@@ -588,7 +588,7 @@ Different seasonal icons based on context.
 **Calculation not working:**
 1. Check operator spelling: `div` not `divide`
 2. Verify asset property names: `iw`, `ih`, `ar` (not `width`, `height`)
-3. Check order of operations (left-to-right)
+3. Check arithmetic precedence (multiplication/division before addition/subtraction)
 4. Ensure result is valid for parameter (e.g., dimensions must be positive integers)
 
 **Division by zero:**
@@ -675,9 +675,9 @@ if_ar_gt_1.5/c_pad,ar_16:9,b_auto/if_else/if_ar_lt_0.67/c_pad,ar_9:16,b_auto/if_
 
 ### Arithmetic Limitations
 
-1. **Left-to-right only**: No operator precedence
+1. **Standard precedence applies**: multiplication/division before addition/subtraction
    ```
-   w_100_add_50_mul_2   # (100 + 50) × 2, not 100 + (50 × 2)
+   w_100_add_50_mul_2   # 100 + (50 × 2) = 200
    ```
 
 2. **Division truncates**: Results are integers
@@ -685,10 +685,10 @@ if_ar_gt_1.5/c_pad,ar_16:9,b_auto/if_else/if_ar_lt_0.67/c_pad,ar_9:16,b_auto/if_
    w_100_div_3          # Result: 33 (not 33.333...)
    ```
 
-3. **No parentheses**: Can't group operations
+3. **No parentheses**: use staged variables or separate transformation steps when grouped results are required
    ```
-   ❌ w_(100_add_50)_mul_2    # Not supported
-   ✅ w_100_add_50_mul_2       # Left-to-right: (100 + 50) × 2
+   ❌ w_(100_add_50)_mul_2    # Parentheses are not supported
+   ✅ $sum_150/w_$sum_mul_2   # Stage the grouped value, then multiply
    ```
 
 ## When to Use Advanced Features

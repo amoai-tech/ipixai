@@ -39,7 +39,7 @@ e_upscale/c_scale,w_2000/f_auto/q_auto
 **Value:** Create contextual product imagery without photoshoots
 
 ```
-e_gen_background_replace:prompt_modern office space/f_auto/q_auto
+e_gen_background_replace:prompt_modern%20office%20space/f_auto/q_auto
 e_gen_background_replace:prompt_<text>;seed_<num>      # Use seed for reproducibility
 ```
 
@@ -53,7 +53,7 @@ e_gen_background_replace:prompt_<text>;seed_<num>      # Use seed for reproducib
 **Value:** Create product variations instantly without reshoots
 
 ```
-e_gen_replace:from_shirt;to_cable knit sweater;preserve-geometry_true
+e_gen_replace:from_shirt;to_cable%20knit%20sweater;preserve-geometry_true
 e_gen_replace:from_<object>;to_<replacement>;multiple_true     # Replace all instances
 ```
 
@@ -77,7 +77,7 @@ e_gen_restore/f_auto/q_auto
 **Value:** Clean up images at scale without manual editing
 
 ```
-e_gen_remove:prompt_the stick/f_auto/q_auto
+e_gen_remove:prompt_the%20stick/f_auto/q_auto
 e_gen_remove:prompt_goose;multiple_true                 # Remove all instances
 e_gen_remove:prompt_(text;person)                       # Remove multiple types
 ```
@@ -99,8 +99,8 @@ e_gen_remove:prompt_(text;person)                       # Remove multiple types
 ## Powerful AI Combinations
 
 ```
-e_background_removal/e_gen_background_replace:prompt_modern office/f_auto/q_auto
-e_gen_remove:prompt_price tag/e_background_removal/b_white,c_pad,w_1.0/e_auto_enhance/f_auto/q_auto
+e_background_removal/e_gen_background_replace:prompt_modern%20office/f_auto/q_auto
+e_gen_remove:prompt_price%20tag/e_background_removal/b_white,c_pad,w_1.0/e_auto_enhance/f_auto/q_auto
 e_gen_restore/e_upscale/c_scale,w_2000/f_auto/q_auto
 e_background_removal/b_gen_fill,c_pad,ar_16:9,w_1200/e_auto_enhance/f_auto/q_auto
 ```
