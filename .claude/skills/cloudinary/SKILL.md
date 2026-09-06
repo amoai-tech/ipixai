@@ -7,7 +7,7 @@ description: >
   debugging, or live Cloudinary verification. Start here instead of separate Cloudinary skills;
   load only the relevant references below, verify version-sensitive behavior against installed
   source/types or current official Cloudinary docs, and preserve iPix tenant/security contracts.
-version: 4.1.0
+version: 4.1.1
 metadata:
   priority: 2
   source: cloudinary-devs/skills + iPix-specific contracts
@@ -141,6 +141,10 @@ Distinguish four separate proofs:
 
 Deletion success does not imply immediate global CDN disappearance. Do not use CDN disappearance as the only deletion proof. For destructive operations, verify the correct `resource_type`, provider identity, version semantics, and whether invalidation is actually required.
 
+### Verified iPix destroy rule
+
+IPI-1113 production certification proved the current destroy path must sign `public_id`; signing `asset_id` alone returned HTTP 400. Do not generalize that result beyond the current SDK/API path: inspect installed SDK types/current Cloudinary docs before changing deletion logic, and sign exactly the fields required by that operation.
+
 ## Authenticated delivery policy
 
 For private/pre-release fashion assets, default to authenticated delivery unless a product requirement explicitly makes the asset public. For authenticated assets:
@@ -155,6 +159,8 @@ For pre-release media, consider `X-Robots-Tag: noindex` where supported and appr
 ## Transformation rules
 
 Load `references/official/transformations/SKILL.md` before constructing non-trivial transformation syntax.
+
+For named transformations, distinguish delivery syntax from SDK/API names. IPI-1113 verified that the delivery URL form is `t_asset-masonry`, while the SDK/API transformation name is `asset-masonry`. Do not pass the `t_` delivery prefix to APIs that expect the transformation name.
 
 Core defaults when compatible with the request:
 - use an explicit crop mode;
@@ -209,6 +215,22 @@ Use live Cloudinary MCP/account inspection only when the answer depends on actua
 - live delivery behavior.
 
 For new MCP configurations prefer Cloudinary's current Streamable HTTP `/mcp` endpoint. Do not create new deprecated `/sse` configurations unless the specific Cloudinary server still requires it. Enable only the MCP tools needed for the current task to reduce context and accidental mutation surface.
+
+## Production troubleshooting order
+
+Before changing Cloudinary application code for production failures, verify configuration first:
+
+`env vars present → cloud name valid against live account → credentials valid → upload preset exists/config correct → named transformation exists → webhook/trigger config → application code`
+
+IPI-1113 proved a stale `CLOUDINARY_CLOUD_NAME` can surface as sign HTTP 503 and delivery HTTP 404. Do not trust secret-manager values merely because they exist; validate the live provider identity/account when production behavior conflicts with local assumptions.
+
+## Verified iPix certification path
+
+For the signed upload/webhook lifecycle, the production-proven journey is:
+
+`trusted sign → SDK upload → signed webhook → Supabase Ready → exact-version signed preview → destroy → archived/deleted mirror → provider gone → cross-org 403`
+
+Treat each boundary as an observable proof. A green CI run alone does not certify the production media lifecycle.
 
 ## Engineering workflow
 
