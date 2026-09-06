@@ -54,16 +54,14 @@ $text_!Hello World!/l_text:Arial_40:$text/fl_layer_apply/f_auto/q_auto
 $date_25/co_white,l_text:Arial_60:Day%20$(date)/fl_layer_apply,g_center/f_auto/q_auto
 ```
 
-### Asset Property Variables
+### Asset Properties and User-Defined Variables
 
-Access original asset properties using predefined variables:
+Cloudinary built-in asset characteristics are referenced **without** a `$` prefix in transformation expressions. User-defined variables start with `$`.
 
-**Dimension variables:**
-- `$iw` - Initial width (original width in pixels)
-- `$ih` - Initial height (original height in pixels)
-- `$ar` - Aspect ratio (width/height, e.g., 1.5 for 3:2 ratio)
-- `$cp` - Current page/layer number (for PDFs, multi-page TIFFs)
-- `$tags` - Asset tags (use in conditionals)
+**Common asset characteristics:**
+- `iw` - Initial width (original width in pixels)
+- `ih` - Initial height (original height in pixels)
+- `ar` - Aspect ratio (width/height, e.g., 1.5 for 3:2 ratio)
 
 **Examples:**
 ```

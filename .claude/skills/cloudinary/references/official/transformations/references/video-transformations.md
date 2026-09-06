@@ -62,30 +62,28 @@ c_fill,h_300,w_450/du_5/fl_splice,l_video:second_clip/c_fill,h_300,w_450/du_5/fl
 
 **Important:** Both videos should be resized to matching dimensions before splicing
 
-## Animated WebP from Video
+## Animated Images from Video
 
-To deliver an animated WebP from a video, use **one** of these valid combinations:
+Use automatic format selection when the consumer accepts the best animated format supported by the requesting browser:
 
-**Path A (simplest):** `f_auto:animated` — sufficient on its own; no extension or fl_ flags required.
 ```
-du_5/f_auto:animated/q_auto                 # First 5 seconds as animated WebP (or GIF where unsupported)
-du_5/e_loop/f_auto:animated/q_auto          # Looping animated WebP
-```
-
-Note: `f_auto:animated` selects the best animated format supported by the requesting browser; it is not limited to WebP/GIF. If a consumer specifically requires animated WebP, use the documented explicit WebP delivery path such as `fl_animated,fl_awebp` with an appropriate WebP delivery signal.
-
-**Path B:** `fl_animated,fl_awebp` together, **plus** a WebP delivery signal (`f_webp`, `f_auto`, or `.webp` extension):
-```
-du_5/fl_animated,fl_awebp/f_webp/q_auto    # Animated WebP via fl_ flags + f_webp
-du_5/e_loop/fl_animated,fl_awebp/f_auto    # Looping, with f_auto as WebP signal
+du_5/f_auto:animated/q_auto                 # First 5 seconds as the optimal animated format
+du_5/e_loop/f_auto:animated/q_auto          # Looping optimal animated format
 ```
 
-Note: `f_auto` is valid here because `fl_awebp` already constrains output to animated WebP.
+`f_auto:animated` may return animated AVIF, GIF, PNG, or WebP depending on browser support and Cloudinary account capabilities.
 
-**WRONG — these do NOT produce animated WebP:**
-- `fl_animated` alone (missing `fl_awebp`)
-- `fl_animated,fl_awebp` with no format parameter and no `.webp` extension
-- `f_auto` alone with a `.webp` extension (returns a still frame, not animated)
+If the consumer specifically requires animated WebP, request WebP explicitly and use the required animation flags:
+
+```
+du_5/f_webp,fl_animated,fl_awebp/q_auto          # Explicit animated WebP
+du_5/e_loop/f_webp,fl_animated,fl_awebp/q_auto   # Looping animated WebP
+```
+
+**WRONG — these do NOT explicitly request animated WebP:**
+- `fl_animated` alone (missing `fl_awebp` and explicit WebP format)
+- `fl_animated,fl_awebp` without `f_webp` or a `.webp` delivery extension
+- describing `f_auto:animated` as WebP-only; it performs automatic animated-format selection
 
 **Additional controls:** `e_loop` makes it loop; `vs_N` controls frame sampling rate; `dl_N` controls frame delay (milliseconds).
 

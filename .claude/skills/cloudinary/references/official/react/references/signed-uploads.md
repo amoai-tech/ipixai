@@ -39,15 +39,12 @@ const widgetConfig = {
   api_key: data.api_key, // from server
   uploadPreset: 'ipix-signed-upload', // server-approved signed preset
   uploadSignature: function(callback, params_to_sign) {
-    const paramsWithPreset = {
-      ...params_to_sign,
-      upload_preset: 'ipix-signed-upload'
-    };
-
+    // Send only harmless widget-generated fields. The server owns the preset,
+    // tenant namespace, context, overwrite policy, and other authorization data.
     fetch('/api/sign-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ params_to_sign: paramsWithPreset }),
+      body: JSON.stringify({ params_to_sign: { timestamp: params_to_sign.timestamp } }),
     })
       .then(r => r.json())
       .then(data => data.signature ? callback(data.signature) : callback(''))
@@ -95,7 +92,7 @@ app.post('/api/sign-image', async (req, res) => {
 ✅ Generate signature on server only using SDK v2
 ✅ Keep `server/.env` in `.gitignore`
 ✅ Use `uploadSignature` as function
-✅ Include `uploadPreset` in widget config
+✅ Include `uploadPreset` in widget config; do not copy it into `params_to_sign`
 ✅ Authenticate/authorize before signing and derive tenant ownership server-side
 ✅ Server must include the approved `upload_preset` and tenant namespace in signed params
 ✅ Allowlist harmless widget-generated parameters; reject attempts to override server-owned fields
