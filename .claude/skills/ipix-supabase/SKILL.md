@@ -84,7 +84,7 @@ supabase, RLS, auth.uid, edge function, Deno.serve, verify_jwt, storage bucket, 
 |-----|-------|
 | **Project ref** | `nvdlhrodvevgwdsneplk` |
 | **Dashboard** | https://supabase.com/dashboard/project/nvdlhrodvevgwdsneplk |
-| **Policy** | **Remote-only for MVP** — do not run `supabase start` |
+| **Policy** | Local fresh-replay (`supabase start` / `db reset --local`) is the proven verification method — CI-enforced via the `supabase-fresh-replay` job on every PR (see IPI-1162). Never run destructive commands against the **linked/production** project outside a reviewed migration: no `db push`, `migration repair`, or `db reset --linked`. |
 | **Commerce** | **Mercur** — never duplicate product/order tables in Supabase |
 
 Mastra schema notes: [`docs/mastra/supabase-mastra.md`](../../../docs/mastra/supabase-mastra.md)  
@@ -136,7 +136,7 @@ Do **not** `cd /home/sk/ipix` from this repo. Prefer Cursor `plugin-supabase-sup
 
 Verify-rls / linked CLI habits live in the old operator repo. Copy the habit, not the paths, until this repo has supabase scripts.
 
-### New migrations (remote-only, preview)
+### New migrations
 
 When this repo has `supabase/migrations/`:
 
@@ -314,6 +314,6 @@ Legacy FashionOS `storage` buckets and shoot-scoped RLS remain — extend with b
 ## Exit conditions
 
 - Routed to correct topic file(s)
-- iPix project ref + remote-only policy respected
+- iPix project ref respected; verified via local fresh-replay; no destructive command run against the linked/production project
 - RLS verify run after policy changes
 - Inventory updated after edge function add/remove

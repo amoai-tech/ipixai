@@ -7,7 +7,7 @@ load_when: table list, schema overview, brands, assets, ai_agent_logs
 
 # Database overview — iPix
 
-**Project ref:** `nvdlhrodvevgwdsneplk` (remote-only MVP)
+**Project ref:** `nvdlhrodvevgwdsneplk` (local fresh-replay CI-verified — see IPI-1162; never mutate the linked/production project directly)
 
 ## iPix MVP tables (PLT-001)
 

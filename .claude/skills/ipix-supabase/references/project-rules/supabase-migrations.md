@@ -20,9 +20,22 @@ migration*: the remote ledger has a version the repo cannot account for. The
 remote-first push turns **every open PR red**, not just yours. The person who applied it usually
 never sees the failure; everyone else does.
 
-This repo is **remote-only** for Postgres: do **not** run `supabase start` / `supabase db reset`.
-Historical migrations do not replay cleanly on a fresh local Docker DB (see `AGENTS.md`). Verify
-against the linked project the same way CI does.
+Historical migrations **do replay cleanly** on a fresh local Docker DB — this is proven and
+CI-enforced: the `supabase-fresh-replay` job runs a real `supabase start` + `db reset --local` on
+every PR and passes (see IPI-1162's migration-history recovery). Use local fresh-replay as your
+first verification step; also verify against the linked project the same way CI does.
+
+The actual safety boundary is the **linked/production** project itself: never run
+`supabase db push`, `migration repair`, or `db reset --linked` outside a reviewed, human-approved
+merge — see IPI-1171, which found that merging a migration-bearing PR to `main` already triggers
+automatic production application, making an extra manual `db push --linked` step both redundant
+and risky (double-apply).
+
+> **Note (2026-09-07):** the "Immediately apply" step and the `supabase-linked-gates` CI job
+> described below reference a `check-supabase-migration-drift.mjs` script and a
+> `.github/workflows/supabase-linked-gates.yml` workflow that do not currently exist in this repo
+> (`scripts/` has no such file; `.github/workflows/` has only `ci.yml`). This section may describe
+> a superseded process — flagged for separate review, not rewritten here.
 
 | Step | Command |
 |------|---------|
