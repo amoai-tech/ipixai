@@ -62,14 +62,26 @@ function IntelligenceRailBody({ pathname }: { pathname: string }) {
         {/* No Approvals/Activity here — IPI-1084 · APPROVAL-001 hasn't
             shipped a real approvals source, and no activity feed exists.
             Real signal only, per IPI-1149's acceptance criteria. */}
-        {stats.recentShootName && (
+        {stats.recentShootLookupFailed ? (
+          // Distinct from "brand genuinely has no shoots" (below): a failed
+          // lookup says so honestly instead of silently looking identical
+          // to a confirmed-empty brand.
           <>
             <p className={styles.railTitle}>Recent production</p>
-            <p className={styles.railBody} data-testid="intelligence-recent-shoot">
-              {stats.recentShootName}
-              {stats.recentShootStatus ? ` · ${stats.recentShootStatus}` : ""}
+            <p className={styles.railBody} data-testid="intelligence-recent-shoot-unavailable">
+              Couldn&apos;t load right now.
             </p>
           </>
+        ) : (
+          stats.recentShootName && (
+            <>
+              <p className={styles.railTitle}>Recent production</p>
+              <p className={styles.railBody} data-testid="intelligence-recent-shoot">
+                {stats.recentShootName}
+                {stats.recentShootStatus ? ` · ${stats.recentShootStatus}` : ""}
+              </p>
+            </>
+          )
         )}
       </>
     );

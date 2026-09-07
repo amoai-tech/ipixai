@@ -75,6 +75,31 @@ const TRUSTED_BRAND_ID_PAGE_SIZE = 500;
 // count. Hitting it is treated as a failure, not a silent partial result.
 const TRUSTED_BRAND_ID_MAX_PAGES = 50;
 
+/** Raw shape shared by every `shoot_portfolio_view` read in this file —
+ *  `loadLatestShootForBrand` and `loadOrgShoots` both select exactly these
+ *  columns, so one type (and one row->DashboardShoot mapping, below) keeps
+ *  them from drifting on fallbacks or channel extraction. */
+type ShootPortfolioRow = {
+  id: string;
+  name: string | null;
+  status: string | null;
+  brand_id: string;
+  dna_score: number | null;
+  target_channels: string[] | null;
+  updated_at: string;
+};
+
+function mapShootPortfolioRow(row: ShootPortfolioRow): DashboardShoot {
+  return {
+    id: row.id,
+    name: row.name ?? "Untitled shoot",
+    status: row.status,
+    brandId: row.brand_id,
+    dnaScore: row.dna_score ?? null,
+    channel: row.target_channels?.[0] ?? null,
+  };
+}
+
 /**
  * DASH-MAIN-002: dedicated, uncapped-per-brand latest-shoot lookup for the
  * Intelligence rail's "Recent production" line. `loadOrgShoots`'s own
@@ -104,17 +129,7 @@ export async function loadLatestShootForBrand(
       return { ok: false };
     }
     if (!data) return { ok: true, shoot: null };
-    return {
-      ok: true,
-      shoot: {
-        id: data.id,
-        name: data.name ?? "Untitled shoot",
-        status: data.status,
-        brandId: data.brand_id,
-        dnaScore: data.dna_score ?? null,
-        channel: data.target_channels?.[0] ?? null,
-      },
-    };
+    return { ok: true, shoot: mapShootPortfolioRow(data) };
   } catch (err) {
     console.error("dashboard.loadLatestShootForBrand: threw", { brandId, err });
     return { ok: false };
@@ -332,17 +347,8 @@ export async function loadOrgShoots(
   if (brandIds.length === 0) {
     return { ok: true, shoots: [] };
   }
-  type Row = {
-    id: string;
-    name: string | null;
-    status: string | null;
-    brand_id: string;
-    dna_score: number | null;
-    target_channels: string[] | null;
-    updated_at: string;
-  };
   try {
-    const batchResult = await runBrandIdBatches<Row[]>(brandIds, async (brandIdBatch) => {
+    const batchResult = await runBrandIdBatches<ShootPortfolioRow[]>(brandIds, async (brandIdBatch) => {
       const { data, error } = await supabase
         .from("shoot_portfolio_view")
         .select("id,name,status,brand_id,dna_score,target_channels,updated_at")
@@ -354,7 +360,7 @@ export async function loadOrgShoots(
         console.error("dashboard.loadOrgShoots: batch query failed", { error });
         return { ok: false };
       }
-      return { ok: true, value: data as Row[] };
+      return { ok: true, value: data as ShootPortfolioRow[] };
     });
     if (!batchResult.ok) return { ok: false };
     const rows = batchResult.values.flat();
@@ -367,14 +373,7 @@ export async function loadOrgShoots(
     });
     return {
       ok: true,
-      shoots: rows.slice(0, SHOOT_LIMIT).map((row) => ({
-        id: row.id,
-        name: row.name ?? "Untitled shoot",
-        status: row.status,
-        brandId: row.brand_id,
-        dnaScore: row.dna_score ?? null,
-        channel: row.target_channels?.[0] ?? null,
-      })),
+      shoots: rows.slice(0, SHOOT_LIMIT).map(mapShootPortfolioRow),
     };
   } catch (err) {
     console.error("dashboard.loadOrgShoots: threw", { err });

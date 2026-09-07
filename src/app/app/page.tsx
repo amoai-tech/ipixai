@@ -113,7 +113,11 @@ export default async function AppHomePage() {
       ])
     : ([new Map<string, string>(), new Map<string, ChannelSpec>()] as const);
 
+  // Kept distinct from "brand has no shoots" (a successful lookup that
+  // simply found none) — see WorkspaceStats.recentShootLookupFailed and
+  // loadLatestShootForBrand's own doc comment.
   const recentShoot = latestBrandShootResult.ok ? (latestBrandShootResult.shoot ?? undefined) : undefined;
+  const recentShootLookupFailed = !latestBrandShootResult.ok;
 
   return (
     <div className="p-8">
@@ -132,6 +136,7 @@ export default async function AppHomePage() {
           brandName={heroBrand?.name}
           recentShootName={recentShoot?.name}
           recentShootStatus={recentShoot?.status ?? undefined}
+          recentShootLookupFailed={recentShootLookupFailed}
         />
       )}
       <CommandCenter

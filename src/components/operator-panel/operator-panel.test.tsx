@@ -217,6 +217,21 @@ describe("OperatorPanel", () => {
     expect(screen.queryByTestId("intelligence-recent-shoot")).toBeNull();
   });
 
+  it("tells the rail a lookup failed instead of silently looking like a confirmed-empty brand", () => {
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={1} shootCount={3} brandName="Acme" recentShootLookupFailed />
+      </OperatorPanel>,
+    );
+    const rail = screen.getByTestId("intelligence-rail");
+    expect(within(rail).getByTestId("intelligence-recent-shoot-unavailable").textContent).toBe(
+      "Couldn't load right now.",
+    );
+    // Never both at once — a failed lookup and a real shoot name are
+    // mutually exclusive outcomes.
+    expect(within(rail).queryByTestId("intelligence-recent-shoot")).toBeNull();
+  });
+
   it("chat welcome and rail stay honest for a zero-brand org — no guessed brand", () => {
     render(
       <OperatorPanel>
