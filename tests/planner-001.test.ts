@@ -49,6 +49,9 @@ describe("IPI-1048 PLANNER-001: production planner replaces the weather demo", (
     // immediately rather than interrogate the operator for optional context.
     expect(instructions).toContain("call the tool immediately");
     expect(instructions).toContain("do not block the first computation");
+    // Optional context is gated: only when a tool returns "needs_input", or
+    // offered afterward to refine a draft — never before the first call.
+    expect(instructions).toContain('optional context may be requested only when a tool returns "needs_input"');
     // Trusted reference shot types can only come from an authorized iPix
     // reference path — the Planner must never solicit raw references from the
     // operator (reference-backed shot-list generation awaits that path).
