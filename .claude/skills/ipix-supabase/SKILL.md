@@ -32,7 +32,7 @@ Single entry point for Supabase work on **iPixai** (same live project as Lumina:
 
 | User intent | Reference |
 |-------------|-----------|
-| **Start here** — iPix project, PLT tables, remote-only, verify-rls | *(this hub)* `SKILL.md` + topic files (`postgres.md`, `realtime.md`, `storage.md`, …) |
+| **Start here** — iPix project, PLT tables, local fresh-replay, verify-rls | *(this hub)* `SKILL.md` + topic files (`postgres.md`, `realtime.md`, `storage.md`, …) |
 | Deno edge functions, JWT, Gemini in functions | [`references/edge-functions/edge-functions.md`](references/edge-functions/edge-functions.md) + [`edge-functions.md`](edge-functions.md) + [`references/edge-functions/edge-functions-inventory.md`](references/edge-functions/edge-functions-inventory.md) — see **Edge Functions reference index** below |
 | Generic migrations, RLS SQL, DB functions, schema, SQL style | [`references/supabase-core/supabase-core.md`](references/supabase-core/supabase-core.md) (+ `MIGRATIONS/RLS-POLICIES/FUNCTIONS/SCHEMA/SQL-STYLE.md`) + `references/project-rules/` |
 | Supabase **CLI** workflows (`supabase` CLI, local/remote) | [`references/cli/cli.md`](references/cli/cli.md) |
@@ -74,7 +74,7 @@ Supabase task in iPix
 
 ## Triggers
 
-supabase, RLS, auth.uid, edge function, Deno.serve, verify_jwt, storage bucket, signed URL, migration, supabase-js, service role, publishable key, brands, brand_scores, ai_agent_logs, verify-rls, remote-only.
+supabase, RLS, auth.uid, edge function, Deno.serve, verify_jwt, storage bucket, signed URL, migration, supabase-js, service role, publishable key, brands, brand_scores, ai_agent_logs, verify-rls, fresh-replay, local Docker.
 
 ---
 
@@ -84,7 +84,7 @@ supabase, RLS, auth.uid, edge function, Deno.serve, verify_jwt, storage bucket, 
 |-----|-------|
 | **Project ref** | `nvdlhrodvevgwdsneplk` |
 | **Dashboard** | https://supabase.com/dashboard/project/nvdlhrodvevgwdsneplk |
-| **Policy** | **Remote-only for MVP** — do not run `supabase start` |
+| **Policy** | Local fresh-replay (`supabase start` / `db reset --local`) is the proven verification method — CI-enforced via the `supabase-fresh-replay` job on every PR (see IPI-1162). In the normal workflow, do **not** manually run `supabase db push --linked`, `supabase migration repair`, or `supabase db reset --linked` against production; production migration application is owned by the reviewed merge/deploy path. |
 | **Commerce** | **Mercur** — never duplicate product/order tables in Supabase |
 
 Mastra schema notes: [`docs/mastra/supabase-mastra.md`](../../../docs/mastra/supabase-mastra.md)  
@@ -136,7 +136,7 @@ Do **not** `cd /home/sk/ipix` from this repo. Prefer Cursor `plugin-supabase-sup
 
 Verify-rls / linked CLI habits live in the old operator repo. Copy the habit, not the paths, until this repo has supabase scripts.
 
-### New migrations (remote-only, preview)
+### New migrations
 
 When this repo has `supabase/migrations/`:
 
@@ -314,6 +314,6 @@ Legacy FashionOS `storage` buckets and shoot-scoped RLS remain — extend with b
 ## Exit conditions
 
 - Routed to correct topic file(s)
-- iPix project ref + remote-only policy respected
+- iPix project ref respected; verified via local fresh-replay; for any `supabase/migrations/**` change, explicit human approval was obtained *before* merge (merge itself applies to production — IPI-1171) and that approval is recorded; no manual destructive command (`db push --linked`, `migration repair`, `db reset --linked`) run outside that approved path
 - RLS verify run after policy changes
 - Inventory updated after edge function add/remove
