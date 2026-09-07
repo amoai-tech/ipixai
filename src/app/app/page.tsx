@@ -16,6 +16,7 @@ import {
   loadOrgShoots,
   loadTrustedBrandIds,
 } from "@/lib/dashboard/command-center";
+import { loadRecentWorkPreviews } from "@/lib/dashboard/recent-work-media";
 
 /**
  * DASH-MAIN-001 — the authenticated `/app` Command Center.
@@ -76,6 +77,16 @@ export default async function AppHomePage() {
       ])
     : ([{ ok: false }, { ok: false }] as const);
 
+  // Depends on shootsResult, so it can't join the Promise.all above — only
+  // runs for the (already display-capped) shoots actually rendered below.
+  const recentWorkPreviews = shootsResult.ok
+    ? await loadRecentWorkPreviews(
+        supabase,
+        operator,
+        shootsResult.shoots.map((shoot) => shoot.id),
+      )
+    : new Map<string, string>();
+
   return (
     <div className="p-8">
       {/* Intelligence rail's derived workspace state — real, uncapped
@@ -92,7 +103,11 @@ export default async function AppHomePage() {
           shootCount={shootCountResult.count}
         />
       )}
-      <CommandCenter brandsResult={brandsResult} shootsResult={shootsResult} />
+      <CommandCenter
+        brandsResult={brandsResult}
+        shootsResult={shootsResult}
+        recentWorkPreviews={recentWorkPreviews}
+      />
     </div>
   );
 }

@@ -110,10 +110,10 @@ describe("CommandCenter", () => {
     expect(screen.queryByTestId("command-center-hero")).toBeNull();
   });
 
-  it("never renders a shoot cover image — no proven secure-delivery path yet", () => {
+  it("renders the honest placeholder when no authorized preview exists for a shoot", () => {
     // Even a shoot with a real DNA score and channel gets the honest
-    // placeholder: cover_url has no bridge to this app's signed-delivery
-    // contract yet (see the .recentThumb comment in command-center.tsx).
+    // placeholder when it has no entry in recentWorkPreviews — cover_url
+    // itself is never rendered directly (see the .recentThumb comment).
     const shoots = {
       ok: true as const,
       shoots: [
@@ -132,6 +132,60 @@ describe("CommandCenter", () => {
     expect(tile?.querySelector("img")).toBeNull();
     expect(screen.getByText("91")).toBeDefined();
     expect(screen.getByText("IG")).toBeDefined();
+  });
+
+  it("renders the real signed image when an authorized preview exists for a shoot", () => {
+    const shoots = {
+      ok: true as const,
+      shoots: [
+        {
+          id: "shoot-6",
+          name: "Shoot Six",
+          status: "active",
+          brandId: "brand-1",
+          dnaScore: null,
+          channel: null,
+        },
+      ],
+    };
+    const recentWorkPreviews = new Map([["shoot-6", "https://res.cloudinary.com/signed-preview"]]);
+    render(
+      <CommandCenter
+        brandsResult={BRANDS_OK}
+        shootsResult={shoots}
+        recentWorkPreviews={recentWorkPreviews}
+      />,
+    );
+    const tile = screen.getByText("Shoot Six").closest("a");
+    const img = tile?.querySelector("img");
+    expect(img).not.toBeNull();
+    expect(img?.getAttribute("src")).toBe("https://res.cloudinary.com/signed-preview");
+  });
+
+  it("does not render an image for a shoot missing from recentWorkPreviews even when others have one", () => {
+    const shoots = {
+      ok: true as const,
+      shoots: [
+        {
+          id: "shoot-7",
+          name: "Shoot Seven",
+          status: "active",
+          brandId: "brand-1",
+          dnaScore: null,
+          channel: null,
+        },
+      ],
+    };
+    const recentWorkPreviews = new Map([["some-other-shoot", "https://res.cloudinary.com/signed-preview"]]);
+    render(
+      <CommandCenter
+        brandsResult={BRANDS_OK}
+        shootsResult={shoots}
+        recentWorkPreviews={recentWorkPreviews}
+      />,
+    );
+    const tile = screen.getByText("Shoot Seven").closest("a");
+    expect(tile?.querySelector("img")).toBeNull();
   });
 
   it("shows a DNA score of exactly 0 rather than treating it as unscored", () => {

@@ -21,6 +21,10 @@ type ShootsResult = { ok: true; shoots: DashboardShoot[] } | { ok: false };
 type Props = {
   brandsResult: BrandsResult;
   shootsResult: ShootsResult;
+  /** shootId -> signed preview URL, from loadRecentWorkPreviews. A shoot
+   *  missing from this map (including when it's empty/omitted) renders the
+   *  honest placeholder, same as before this existed. */
+  recentWorkPreviews?: Map<string, string>;
 };
 
 const QUICK_LINKS = [
@@ -54,11 +58,12 @@ const QUICK_LINKS = [
  * (Card, EmptyState, ErrorState) instead of Lumina's `CommandCenterBrandSync`
  * / sample-image fixtures.
  *
- * Deliberately dropped vs. Lumina: fashion-stock-photo fallbacks (every
- * shoot renders an honest no-image tile — brands have no real cover column,
- * and shoots' `cover_url` has no proven secure-delivery path yet, see the
- * `.recentThumb` comment below), the `?skip=1`/`?skip=approval` dev-preview
- * bypasses, and the approvals block (no owning source until
+ * Deliberately dropped vs. Lumina: fashion-stock-photo fallbacks (a shoot
+ * with no authorized asset still renders an honest no-image tile — brands
+ * have no real cover column, and shoots' `cover_url` is never rendered
+ * directly, see the `.recentThumb` comment below), the `?skip=1`/
+ * `?skip=approval` dev-preview bypasses, and the approvals block (no owning
+ * source until
  * IPI-1084 · APPROVAL-001 — Let Operators Review, Edit, Approve, or Reject
  * AI Plans Before Anything Is Saved ships — see the Linear issue).
  *
@@ -104,7 +109,11 @@ function HeroCard({
   );
 }
 
-export function CommandCenter({ brandsResult, shootsResult }: Props) {
+export function CommandCenter({
+  brandsResult,
+  shootsResult,
+  recentWorkPreviews = new Map(),
+}: Props) {
   const heroBrand = brandsResult.ok ? brandsResult.brands[0] : undefined;
   // "Live" would claim a continuously-current feed this page doesn't have —
   // no websocket/realtime signal backs it. This says only what's actually
@@ -200,18 +209,28 @@ export function CommandCenter({ brandsResult, shootsResult }: Props) {
             {shootsResult.shoots.map((shoot) => (
               <Link key={shoot.id} href="/app/shoots" className={styles.recentTile}>
                 <div className={styles.recentThumb}>
-                  {/* No cover image yet: shoot_portfolio_view.cover_url comes
-                      from mood_board_urls, which has no bridge to this app's
-                      one proven secure-delivery contract (signed
-                      `authenticated`-type Cloudinary assets via
-                      cloudinary_assets + get-authorized-asset-preview.ts).
-                      Rendering it directly would be an unproven, possibly
-                      cross-org-leakable path — honest no-image placeholder
-                      until IPI-1112 · CLD-DELIVERY-001 ships a real signed
-                      preview route for it. */}
-                  <span className={styles.recentThumbPlaceholder} aria-hidden>
-                    <Camera />
-                  </span>
+                  {/* shoot_portfolio_view.cover_url (mood_board_urls) is
+                      never rendered directly — no bridge to this app's one
+                      proven secure-delivery contract. The real cover here
+                      comes only from loadRecentWorkPreviews: a shoot-linked
+                      `assets` row with an `authenticated`-type Cloudinary
+                      mirror, signed by get-authorized-asset-preview.ts, per
+                      IPI-1112 · CLD-DELIVERY-001 — Serve Org-Safe Cloudinary
+                      Previews with Named Transforms. No entry for this shoot
+                      in the map means no authorized asset exists yet —
+                      honest no-image placeholder, not a fabricated cover. */}
+                  {recentWorkPreviews.get(shoot.id) ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- signed, expiring URL; Next/Image would re-request/re-optimize it server-side
+                    <img
+                      src={recentWorkPreviews.get(shoot.id)}
+                      alt=""
+                      className={styles.recentImage}
+                    />
+                  ) : (
+                    <span className={styles.recentThumbPlaceholder} aria-hidden>
+                      <Camera />
+                    </span>
+                  )}
                   {typeof shoot.dnaScore === "number" && (
                     <span
                       className={dnaBadgeClass(shoot.dnaScore)}
