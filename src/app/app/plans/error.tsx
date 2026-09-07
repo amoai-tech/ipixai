@@ -3,10 +3,13 @@
 import { ErrorState } from "@/components/ui/error-state";
 
 /** IPI-1074 · PLANS-001 — plans segment error boundary. */
-export default function AppPlansError() {
+export default function AppPlansError({ reset }: { reset: () => void }) {
   return (
     <div className="p-8">
-      <ErrorState message="Something went wrong loading plans. Please try again shortly." />
+      <ErrorState
+        message="Something went wrong loading plans. Please try again shortly."
+        onRetry={() => reset()}
+      />
     </div>
   );
 }

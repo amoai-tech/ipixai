@@ -33,6 +33,9 @@ export function PlanDashboard({
   const atRisk = rows.filter((row) => isPlanAtRisk(row.status, row.plannedEnd, todayIso)).length;
   const dueToday = rows.filter((row) => isDueToday(row.plannedEnd, todayIso)).length;
   const recent = rows.slice(0, 8);
+  const loadedOnlyNote = result.hasMore
+    ? " Based on loaded plans — more pages exist."
+    : "";
 
   return (
     <div className={styles.root} data-testid="plan-dashboard">
@@ -58,13 +61,13 @@ export function PlanDashboard({
           <span className={styles.metricLabel}>At risk</span>
           <span className={styles.metricValue}>{atRisk}</span>
           <span className={styles.metricNote}>
-            Planned or active with an end date already passed.
+            Planned or active with an end date already passed.{loadedOnlyNote}
           </span>
         </div>
         <div className={styles.metricCard}>
           <span className={styles.metricLabel}>Due today</span>
           <span className={styles.metricValue}>{dueToday}</span>
-          <span className={styles.metricNote}>Planned end date is today.</span>
+          <span className={styles.metricNote}>Planned end date is today.{loadedOnlyNote}</span>
         </div>
         <div className={styles.metricCard}>
           <span className={styles.metricLabel}>Progress</span>

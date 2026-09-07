@@ -311,6 +311,7 @@
 }
 
 .dayTask {
+  font-family: inherit;
   font-size: 0.6875rem;
   font-weight: 500;
   color: var(--color-text-primary);
@@ -321,6 +322,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
 }
 
 .dayTaskToday {

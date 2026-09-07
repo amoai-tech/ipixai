@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
@@ -39,6 +39,26 @@ export function PlanWorkspace({ detail }: { detail: PlanDetail }) {
   );
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
+  const tabRefs = useRef<Record<PlanViewKey, HTMLButtonElement | null>>({
+    timeline: null,
+    kanban: null,
+    calendar: null,
+    list: null,
+  });
+
+  function onTabKeyDown(event: React.KeyboardEvent, key: PlanViewKey) {
+    const index = VIEWS.findIndex((item) => item.key === key);
+    let next: PlanViewKey | null = null;
+    if (event.key === "ArrowRight") next = VIEWS[(index + 1) % VIEWS.length].key;
+    else if (event.key === "ArrowLeft") next = VIEWS[(index - 1 + VIEWS.length) % VIEWS.length].key;
+    else if (event.key === "Home") next = VIEWS[0].key;
+    else if (event.key === "End") next = VIEWS[VIEWS.length - 1].key;
+    if (!next) return;
+    event.preventDefault();
+    setView(next);
+    tabRefs.current[next]?.focus();
+  }
+
   const selectedTask =
     detail.tasks.find((task) => task.id === selectedTaskId) ?? null;
 
@@ -74,8 +94,12 @@ export function PlanWorkspace({ detail }: { detail: PlanDetail }) {
             aria-selected={view === item.key}
             aria-controls={`plan-view-panel-${item.key}`}
             tabIndex={view === item.key ? 0 : -1}
+            ref={(el) => {
+              tabRefs.current[item.key] = el;
+            }}
             className={`${styles.viewTab} ${view === item.key ? styles.viewTabActive : ""}`}
             onClick={() => setView(item.key)}
+            onKeyDown={(event) => onTabKeyDown(event, item.key)}
           >
             {item.label}
           </button>
@@ -107,7 +131,7 @@ export function PlanWorkspace({ detail }: { detail: PlanDetail }) {
         className={styles.viewPanel}
         hidden={view !== "calendar"}
       >
-        <PlanCalendar detail={detail} />
+        <PlanCalendar detail={detail} onSelectTask={openTask} />
       </div>
       <div
         role="tabpanel"

@@ -35,6 +35,8 @@ declare
   v_items jsonb;
   v_next_cursor uuid;
   v_has_more boolean := false;
+  v_cursor_created_at timestamptz;
+  v_cursor_id uuid;
 begin
   if v_actor is null then
     raise exception 'unauthorized' using errcode = '42501';
@@ -50,6 +52,20 @@ begin
   end if;
   if p_search is not null and length(p_search) > 100 then
     raise exception 'search_too_long' using errcode = '22023';
+  end if;
+
+  -- Resolve the cursor only when it references an instance this caller may
+  -- read in this org. A foreign, deleted, or otherwise invisible cursor leaves
+  -- v_cursor_id null, so pagination falls back to page 1 — no existence or
+  -- ordering information about other orgs' instances is ever exposed, and a
+  -- stale cursor recovers safely instead of erroring.
+  if p_cursor is not null then
+    select created_at, id
+    into v_cursor_created_at, v_cursor_id
+    from planner.instances
+    where id = p_cursor
+      and org_id = p_org_id
+      and planner.is_at_least(id, 'viewer');
   end if;
 
   select coalesce(jsonb_agg(x.item), '[]'::jsonb)
@@ -76,7 +92,12 @@ begin
       and (p_entity_type is null or i.entity_type = p_entity_type)
       and (p_status is null or i.status::text = p_status)
       and (p_search is null or p_search = '' or i.name ilike '%' || p_search || '%')
-      and (p_cursor is null or (i.created_at, i.id) < (select created_at, id from planner.instances where id = p_cursor))
+      and (
+        p_cursor is null
+        or v_cursor_id is null
+        or i.created_at < v_cursor_created_at
+        or (i.created_at = v_cursor_created_at and i.id > v_cursor_id)
+      )
     order by i.created_at desc, i.id
     limit v_limit + 1
   ) x;
@@ -201,15 +222,22 @@ begin
   from planner.dependencies d
   where d.instance_id = p_instance_id;
 
-  select json_agg(json_build_object(
-    'id', a.id,
-    'instanceId', a.instance_id,
-    'userId', a.user_id,
-    'role', a.role,
-    'permissions', a.permissions
-  )) into v_assignments
-  from planner.assignments a
-  where a.instance_id = p_instance_id;
+  -- Assignments carry collaborator identity/role/permissions and are only
+  -- readable by managers+ under the existing assignments_select_org policy.
+  -- Mirror that boundary here: viewers/contributors get an empty list.
+  if planner.is_at_least(p_instance_id, 'manager') then
+    select json_agg(json_build_object(
+      'id', a.id,
+      'instanceId', a.instance_id,
+      'userId', a.user_id,
+      'role', a.role,
+      'permissions', a.permissions
+    )) into v_assignments
+    from planner.assignments a
+    where a.instance_id = p_instance_id;
+  else
+    v_assignments := '[]'::json;
+  end if;
 
   select json_agg(json_build_object(
     'id', g.id,

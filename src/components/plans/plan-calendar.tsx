@@ -57,7 +57,13 @@ function cellIso(year: number, month: number, day: number): string {
  * calendar dates compared lexicographically (UTC-safe, no timezone shift).
  * A task appears on every day from startDate through endDate inclusive.
  */
-export function PlanCalendar({ detail }: { detail: PlanDetail }) {
+export function PlanCalendar({
+  detail,
+  onSelectTask,
+}: {
+  detail: PlanDetail;
+  onSelectTask: (task: PlanTask) => void;
+}) {
   const [anchor, setAnchor] = useState<YearMonth | null>(() => defaultAnchor(detail));
 
   if (!anchor) {
@@ -117,9 +123,15 @@ export function PlanCalendar({ detail }: { detail: PlanDetail }) {
               <span className={styles.dayNumber}>{day}</span>
               <div className={styles.dayTasks}>
                 {tasks.map((task) => (
-                  <span key={task.id} className={styles.dayTask} title={task.title}>
+                  <button
+                    key={task.id}
+                    type="button"
+                    className={styles.dayTask}
+                    title={task.title}
+                    onClick={() => onSelectTask(task)}
+                  >
                     {task.title}
-                  </span>
+                  </button>
                 ))}
               </div>
             </div>

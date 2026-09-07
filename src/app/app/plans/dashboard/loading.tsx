@@ -6,7 +6,10 @@ import styles from "@/components/plans/plan-dashboard.module.css";
 export default function AppPlansDashboardLoading() {
   return (
     <div className="p-8">
-      <div className={styles.root} data-testid="plan-dashboard-loading">
+      <div className={styles.root} data-testid="plan-dashboard-loading" aria-busy="true">
+        <span className={styles.srOnly} role="status">
+          Loading plans dashboard
+        </span>
         <Skeleton className={styles.metricCard} />
         <div className={styles.metricsGrid}>
           {Array.from({ length: 6 }, (_, i) => (
