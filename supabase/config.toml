@@ -64,10 +64,12 @@ schema_paths = []
 
 [db.seed]
 # Disabled: supabase/seed.sql does not exist yet, so `enabled = true` here
-# broke `supabase db reset` at the seed stage for every fresh clone (see
-# IPI-1162, PR #87). Re-enable once real synthetic/dev seed data lands —
-# never production/demo brand rows (IPI-1162's fresh-replay record is
-# explicit that no migration or seed may depend on production-only rows).
+# made `supabase db reset` print `WARN: no files matched pattern:
+# supabase/seed.sql` and silently skip the seed stage on every fresh clone
+# and every CI run (see IPI-1162, PR #87). Re-enable once real synthetic/dev
+# seed data lands — never production/demo brand rows (IPI-1162's
+# fresh-replay record is explicit that no migration or seed may depend on
+# production-only rows).
 enabled = false
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
