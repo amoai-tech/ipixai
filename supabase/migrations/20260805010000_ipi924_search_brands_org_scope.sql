@@ -1,0 +1,8 @@
+-- IPI-924 · AGENT-RAG-001 — org-scope search_brands (remote ledger placeholder)
+--
+-- This version is already recorded in the remote project's migration ledger
+-- (applied during implementation before merge). The actual org-scope fix
+-- ships in 20260806010000_ipi924_search_brands_org_scope.sql, which drops the
+-- unscoped overload and creates the org-scoped function with a required
+-- p_org_id. This file exists only to keep the local migration set aligned
+-- with the remote ledger (drift gate SB-CI-001).
