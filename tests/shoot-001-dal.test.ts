@@ -827,4 +827,11 @@ describe("IPI-1067 · SHOOT-001 — cursor serialization", () => {
       timestampMicros("0099-01-01T00:00:00.000000Z")!,
     );
   });
+
+  it("rejects nonexistent calendar dates (shape-only regex would accept them)", () => {
+    // The parts regex only validates shape; the isIsoTimestamp gate rejects
+    // calendar-invalid values so they can never become a merge key.
+    expect(timestampMicros("2026-02-30T00:00:00Z")).toBeNull();
+    expect(timestampMicros("2026-13-01T00:00:00Z")).toBeNull();
+  });
 });

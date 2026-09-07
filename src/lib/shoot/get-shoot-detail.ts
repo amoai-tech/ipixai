@@ -95,6 +95,7 @@ function daysFromCivil(y: number, m: number, d: number): number {
  *  microsecond precision with an exact key to match PostgreSQL
  *  `timestamptz` ordering. Returns null for unparseable input. */
 export function timestampMicros(value: string): bigint | null {
+  if (!isIsoTimestamp(value)) return null;
   const match = ISO_TIMESTAMP_PARTS.exec(value);
   if (!match) return null;
   const [, y, mo, d, h, mi, s, frac, , sign, oh, om] = match;
