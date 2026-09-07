@@ -20,6 +20,7 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Cursor rules: `.cursor/rule
 | `shadcn` | UI components |
 | `vercel-react-best-practices` | Perf |
 | `linear` | IPI issues |
+| `tasks` | Executable Linear task structure, progress tracker, file/workflow checkpoints, Lumina migration standard |
 | `ipix-task-lifecycle` | Five-phase ship |
 | `task-verifier` | Done gate |
 | `pr-workflow` | PRs (lifecycle dependency; not in the original ask list) |

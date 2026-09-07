@@ -9,7 +9,7 @@ description: >
   "forensic verify", "wiring plan", "open PR with verify". Always use for multi-step iPix
   delivery. Do NOT use for one-line typo fixes, explain-only questions, isolated copilotkit/
   supabase/migration/lean/release-notes tasks without full lifecycle, or non-iPix repos.
-version: "1.8.0"
+version: "1.9.0"
 ---
 
 # ipix-task-lifecycle
@@ -18,14 +18,15 @@ version: "1.8.0"
 
 **iPixai gates:** `docs/mastra/10-mastra-convert.md` · split `dev:ui` / `dev:agent` · no prod Supabase writes · no wholesale old-Mastra copy. Graphify is **optional** (no graph in this repo).
 
-**Hub index:** [README.md](README.md) · v1.8.0 — domain-skill routing, worktree gates, verify-matrix link, tracker path fix
+**Hub index:** [README.md](README.md) · v1.9.0 — tasks skill gate, domain-skill routing, worktree gates, verify-matrix link
 
 ---
 
 ## `/task IPI-NNN` — default flow
 
 ```
-Read docs/linear/issues/IPI-*.md + Linear (MCP or script)
+Read Linear issue + current task source
+  → Read .claude/skills/tasks/SKILL.md and validate task structure/progress tracker
   → **Skills:** line → Read each .claude/skills/<slug>/SKILL.md
   → worktree:audit → worktree:add OR worktree:health (existing wt)
   → Phase 1 skip? only if A–E + Skills + prompt lint + spec md synced (below)
@@ -94,6 +95,7 @@ Never push to `main`. Branch: `ipi/<id>-<slug>`.
 
 | Intent | Child |
 |--------|-------|
+| Task structure / progress / migration prompt | [tasks](../tasks/SKILL.md) |
 | Explore intent | [brainstorming](../archive/brainstorming/SKILL.md) |
 | Idea → design + spec dialogue | [feature-design-assistant](references/feature-design-assistant.md) |
 | Implementation plan | [writing-plans](../writing-plans/SKILL.md) |
@@ -174,6 +176,14 @@ Contract: [references/per-task-testing.md](references/per-task-testing.md) · au
 | 3 | [implementation.md](implementation.md) | Code + **Step 1b gate** + per-step proofs green |
 | 4 | [testing.md](testing.md) | [verify-matrix](../pr-workflow/references/verify-matrix.md) green |
 | 5 | [shipping.md](shipping.md) · [pr-workflow](../pr-workflow/SKILL.md) | PR merged · threads resolved · `tasks/plan/todo.md` 🟢 · Linear Done |
+
+---
+
+## Task-format gate before Phase 1
+
+Before Phase 1 planning or any task enrichment, read [tasks](../tasks/SKILL.md). Ensure the live Linear issue has the required structure, progress tracker, file/workflow checkpoints, and explicit source-action-target decisions when migration/reuse is involved.
+
+`tasks` defines **what the issue must contain**. This lifecycle defines **how to execute it**. Do not duplicate the task-format standard here.
 
 ---
 

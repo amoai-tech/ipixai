@@ -97,6 +97,18 @@ Rules: `.cursor/rules/`. Skills: `.claude/skills/` (Cursor: `.cursor/skills` →
 
 Never implement from stale docs, a dirty checkout, or another repository.
 
+## Linear task execution
+
+For every substantial `IPI-*` task, load `.claude/skills/tasks/SKILL.md` before planning or implementation. The Linear issue is the live execution runbook and progress source of truth.
+
+Every executable task must contain the current verified setup, exact user outcome and Definition of Done, architecture/dependency connections, pre-implementation gates, STOP conditions, ordered file/workflow steps, per-step success criteria and verification, a live progress percentage with file/workflow checklists, PR evidence, and post-merge verification.
+
+Agents must update Linear progress after each verified checkpoint. Code existence is not completion. `100%` and Linear `Done` require post-merge observable verification.
+
+When reusing or migrating code, use explicit actions such as **COPY**, **COPY + CLEAN**, **PORT**, **REIMPLEMENT USING CURRENT iPix PATTERN**, **REWRITE**, **MOVE TO IPI-XXX · TASK-ID — Full Task Name**, and **DROP**. Never use `adapt` by itself.
+
+Full standard: `.claude/skills/tasks/SKILL.md`. Execution lifecycle: `.claude/skills/ipix-task-lifecycle/SKILL.md`. Done gate: `.claude/skills/task-verifier/SKILL.md`.
+
 ## Verify before implementation
 
 Do not edit after only reading a Linear task. Full prompt: [`docs/linear/linear-format.md`](docs/linear/linear-format.md).
