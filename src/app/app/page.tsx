@@ -17,6 +17,8 @@ import {
   loadTrustedBrandIds,
 } from "@/lib/dashboard/command-center";
 import { loadRecentWorkPreviews } from "@/lib/dashboard/recent-work-media";
+import { loadChannelSpecs } from "@/lib/shoot/channel-specs";
+import type { ChannelSpec } from "@/lib/shoot/channel-specs";
 
 /**
  * DASH-MAIN-001 — the authenticated `/app` Command Center.
@@ -77,15 +79,26 @@ export default async function AppHomePage() {
       ])
     : ([{ ok: false }, { ok: false }] as const);
 
-  // Depends on shootsResult, so it can't join the Promise.all above — only
-  // runs for the (already display-capped) shoots actually rendered below.
-  const recentWorkPreviews = shootsResult.ok
-    ? await loadRecentWorkPreviews(
-        supabase,
-        operator,
-        shootsResult.shoots.map((shoot) => shoot.id),
-      )
-    : new Map<string, string>();
+  // Both depend on shootsResult, so neither can join the Promise.all above —
+  // but they're independent of each other (one signs preview images, the
+  // other resolves channel -> real aspect-ratio spec), so they run together
+  // here instead of in series.
+  const [recentWorkPreviews, channelSpecs] = shootsResult.ok
+    ? await Promise.all([
+        loadRecentWorkPreviews(
+          supabase,
+          operator,
+          shootsResult.shoots.map((shoot) => shoot.id),
+        ),
+        loadChannelSpecs([
+          ...new Set(
+            shootsResult.shoots
+              .map((shoot) => shoot.channel)
+              .filter((channel): channel is string => channel !== null),
+          ),
+        ]),
+      ])
+    : ([new Map<string, string>(), new Map<string, ChannelSpec>()] as const);
 
   return (
     <div className="p-8">
@@ -107,6 +120,7 @@ export default async function AppHomePage() {
         brandsResult={brandsResult}
         shootsResult={shootsResult}
         recentWorkPreviews={recentWorkPreviews}
+        channelSpecs={channelSpecs}
       />
     </div>
   );

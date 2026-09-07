@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { Camera } from "lucide-react";
 
+import { channelLabel } from "@/lib/shoot/shoot-list-filters";
+
 import styles from "./command-center.module.css";
 
 function dnaBadgeClass(score: number): string {
@@ -31,12 +33,17 @@ export function RecentWorkTile({
   channel,
   dnaScore,
   previewUrl,
+  aspectRatioLabel,
 }: {
   shootId: string;
   name: string;
   channel: string | null;
   dnaScore: number | null;
   previewUrl: string | undefined;
+  /** Real per-channel spec from image_specs (via loadChannelSpecs), never a
+   *  guessed default — undefined for any channel that reference table
+   *  doesn't cover, in which case the meta line shows the channel alone. */
+  aspectRatioLabel?: string;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
   const showImage = Boolean(previewUrl) && !imageFailed;
@@ -81,7 +88,17 @@ export function RecentWorkTile({
         )}
       </div>
       {!showImage && <p className={styles.recentTitle}>{name}</p>}
-      {channel && <p className={styles.recentMeta}>{channel}</p>}
+      {channel && (
+        <p className={styles.recentMeta}>
+          {/* channelLabel: same short display convention already shown
+              elsewhere for shoots (ShootCard, deliverables tab) — real enum
+              values (e.g. "instagram_feed") shouldn't render raw here
+              either. aspectRatioLabel only ever comes from a live
+              image_specs row (see command-center.tsx); no channel gets a
+              guessed ratio appended. */}
+          {aspectRatioLabel ? `${channelLabel(channel)} · ${aspectRatioLabel}` : channelLabel(channel)}
+        </p>
+      )}
     </Link>
   );
 }

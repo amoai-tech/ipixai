@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { buildHeroGreeting } from "@/lib/dashboard/command-center";
 import type { DashboardBrand, DashboardShoot } from "@/lib/dashboard/command-center";
+import type { ChannelSpec } from "@/lib/shoot/channel-specs";
 
 import styles from "./command-center.module.css";
 import { QuickActionChips } from "./quick-action-chips";
@@ -26,6 +27,10 @@ type Props = {
    *  missing from this map (including when it's empty/omitted) renders the
    *  honest placeholder, same as before this existed. */
   recentWorkPreviews?: Map<string, string>;
+  /** channel -> real image_specs row, from loadChannelSpecs. A channel
+   *  missing from this map (unmapped in the reference tables, or the map
+   *  omitted) renders the channel alone — never a guessed aspect ratio. */
+  channelSpecs?: Map<string, ChannelSpec>;
 };
 
 const QUICK_LINKS = [
@@ -108,6 +113,7 @@ export function CommandCenter({
   brandsResult,
   shootsResult,
   recentWorkPreviews = new Map(),
+  channelSpecs = new Map(),
 }: Props) {
   const heroBrand = brandsResult.ok ? brandsResult.brands[0] : undefined;
   // "Live" would claim a continuously-current feed this page doesn't have —
@@ -209,6 +215,7 @@ export function CommandCenter({
                 channel={shoot.channel}
                 dnaScore={shoot.dnaScore}
                 previewUrl={recentWorkPreviews.get(shoot.id)}
+                aspectRatioLabel={shoot.channel ? channelSpecs.get(shoot.channel)?.aspectRatioLabel : undefined}
               />
             ))}
           </div>

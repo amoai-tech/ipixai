@@ -114,6 +114,9 @@ describe("CommandCenter", () => {
     // Even a shoot with a real DNA score and channel gets the honest
     // placeholder when it has no entry in recentWorkPreviews — cover_url
     // itself is never rendered directly (see the .recentThumb comment).
+    // channel is a real shoot.channel enum value here (not the display
+    // label) — the tile must map it through channelLabel(), same as
+    // ShootCard/deliverables-tab do elsewhere.
     const shoots = {
       ok: true as const,
       shoots: [
@@ -123,7 +126,7 @@ describe("CommandCenter", () => {
           status: "active",
           brandId: "brand-1",
           dnaScore: 91,
-          channel: "IG",
+          channel: "instagram_feed",
         },
       ],
     };
@@ -132,6 +135,49 @@ describe("CommandCenter", () => {
     expect(tile?.querySelector("img")).toBeNull();
     expect(screen.getByText("91")).toBeDefined();
     expect(screen.getByText("IG")).toBeDefined();
+  });
+
+  it("appends a real aspect-ratio label only when channelSpecs actually has one", () => {
+    const shoots = {
+      ok: true as const,
+      shoots: [
+        {
+          id: "shoot-10",
+          name: "Shoot Ten",
+          status: "active",
+          brandId: "brand-1",
+          dnaScore: null,
+          channel: "instagram_feed",
+        },
+      ],
+    };
+    const channelSpecs = new Map([
+      ["instagram_feed", { aspectRatioLabel: "4:5", acceptedFormat: "JPG", backgroundRequired: null }],
+    ]);
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={shoots} channelSpecs={channelSpecs} />);
+    expect(screen.getByText("IG · 4:5")).toBeDefined();
+  });
+
+  it("never fabricates an aspect ratio for a channel channelSpecs doesn't cover", () => {
+    // "website" is a real shoot.channel value the image_specs reference
+    // tables don't map (see channel-specs.ts) — the meta line must fall
+    // back to the channel label alone, never a guessed ratio.
+    const shoots = {
+      ok: true as const,
+      shoots: [
+        {
+          id: "shoot-11",
+          name: "Shoot Eleven",
+          status: "active",
+          brandId: "brand-1",
+          dnaScore: null,
+          channel: "website",
+        },
+      ],
+    };
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={shoots} channelSpecs={new Map()} />);
+    expect(screen.getByText("Website")).toBeDefined();
+    expect(screen.queryByText(/·/)).toBeNull();
   });
 
   it("renders the real signed image when an authorized preview exists for a shoot", () => {
