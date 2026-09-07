@@ -25,11 +25,12 @@ CI-enforced: the `supabase-fresh-replay` job runs a real `supabase start` + `db 
 every PR and passes (see IPI-1162's migration-history recovery). Use local fresh-replay as your
 first verification step; also verify against the linked project the same way CI does.
 
-The actual safety boundary is the **linked/production** project itself: never run
-`supabase db push`, `migration repair`, or `db reset --linked` outside a reviewed, human-approved
-merge — see IPI-1171, which found that merging a migration-bearing PR to `main` already triggers
-automatic production application, making an extra manual `db push --linked` step both redundant
-and risky (double-apply).
+The actual safety boundary is the **linked/production** project itself. In the normal workflow,
+do **not** manually run `supabase db push --linked`, `supabase migration repair`, or
+`supabase db reset --linked` against production. See IPI-1171: merging a migration-bearing PR to
+`main` already triggers the production migration path, so an extra manual push is redundant and
+creates unnecessary deployment ownership/race risk. Use `migration repair` only under an explicit,
+reviewed recovery procedure; never use `db reset --linked` on production.
 
 > **Note (2026-09-07):** the "Immediately apply" step and the `supabase-linked-gates` CI job
 > described below reference a `check-supabase-migration-drift.mjs` script and a

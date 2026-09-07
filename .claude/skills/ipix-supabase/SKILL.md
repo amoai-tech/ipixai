@@ -84,7 +84,7 @@ supabase, RLS, auth.uid, edge function, Deno.serve, verify_jwt, storage bucket, 
 |-----|-------|
 | **Project ref** | `nvdlhrodvevgwdsneplk` |
 | **Dashboard** | https://supabase.com/dashboard/project/nvdlhrodvevgwdsneplk |
-| **Policy** | Local fresh-replay (`supabase start` / `db reset --local`) is the proven verification method — CI-enforced via the `supabase-fresh-replay` job on every PR (see IPI-1162). Never run destructive commands against the **linked/production** project outside a reviewed migration: no `db push`, `migration repair`, or `db reset --linked`. |
+| **Policy** | Local fresh-replay (`supabase start` / `db reset --local`) is the proven verification method — CI-enforced via the `supabase-fresh-replay` job on every PR (see IPI-1162). In the normal workflow, do **not** manually run `supabase db push --linked`, `supabase migration repair`, or `supabase db reset --linked` against production; production migration application is owned by the reviewed merge/deploy path. |
 | **Commerce** | **Mercur** — never duplicate product/order tables in Supabase |
 
 Mastra schema notes: [`docs/mastra/supabase-mastra.md`](../../../docs/mastra/supabase-mastra.md)  
