@@ -16,11 +16,10 @@ import styles from "./plan-dashboard.module.css";
 
 /**
  * IPI-1074 · PLANS-001 — plans Dashboard. Metrics are derived from the list
- * RPC only. At Risk and Due Today are real computations; Progress and My
- * Tasks need task/assignment data the list contract doesn't carry, so they
- * show honest "unavailable" copy instead of fabricated numbers. Approval
- * data is likewise absent (production has no gate approvals), shown as
- * "No approvals pending".
+ * RPC only. At Risk and Due Today are real computations; Progress, My Tasks,
+ * and Needs Approval need task/assignment/approval data the list contract
+ * doesn't carry, so they show honest "unavailable" copy instead of fabricated
+ * numbers.
  */
 export function PlanDashboard({
   result,
@@ -81,8 +80,8 @@ export function PlanDashboard({
         </div>
         <div className={styles.metricCard}>
           <span className={styles.metricLabel}>Needs approval</span>
-          <span className={styles.metricValue}>0</span>
-          <span className={styles.metricNote}>No gate approvals pending.</span>
+          <span className={`${styles.metricValue} ${styles.metricValueMuted}`}>Unavailable</span>
+          <span className={styles.metricNote}>Approvals aren&apos;t part of the plans list.</span>
         </div>
       </div>
 

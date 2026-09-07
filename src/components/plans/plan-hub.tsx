@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LayoutDashboard, Search, TriangleAlert } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   PLAN_ENTITY_TYPE_LABELS,
   PLAN_INSTANCE_STATUS_LABELS,
@@ -128,13 +129,16 @@ export function PlanHub({
       </form>
 
       {atRiskCount > 0 ? (
-        <div className={styles.attentionBand} role="status" data-testid="plan-at-risk-band">
+        <Alert className={styles.attentionBand} data-testid="plan-at-risk-band">
           <TriangleAlert size={16} className={styles.attentionIcon} aria-hidden />
-          <span>
-            {atRiskCount} at-risk {atRiskCount === 1 ? "plan" : "plans"} — {atRiskCount === 1 ? "it is" : "they are"} planned or
-            active but the planned end date has already passed.
-          </span>
-        </div>
+          <AlertTitle>
+            {atRiskCount} at-risk {atRiskCount === 1 ? "plan" : "plans"}
+          </AlertTitle>
+          <AlertDescription>
+            {atRiskCount === 1 ? "It is" : "They are"} planned or active but the planned end date has
+            already passed.
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {rows.length === 0 ? (

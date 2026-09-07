@@ -30,6 +30,8 @@ function firstValue(value: string | string[] | undefined): string | null {
   return null;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * IPI-1074 · PLANS-001 — `/app/plans` Hub.
  *
@@ -68,13 +70,16 @@ export default async function AppPlansPage({
   const search = firstValue(sp.q);
   const entityTypeRaw = firstValue(sp.type);
   const statusRaw = firstValue(sp.status);
-  const after = firstValue(sp.after);
+  const afterRaw = firstValue(sp.after);
   const archived = firstValue(sp.archived) === "1";
 
   const entityType = planEntityTypeSchema.safeParse(entityTypeRaw).success
     ? (entityTypeRaw as "shoot" | "campaign" | "crm_deal")
     : null;
   const status = planInstanceStatusSchema.safeParse(statusRaw).success ? statusRaw : null;
+  // The cursor is opaque and fail-closed: a non-UUID value is dropped so the
+  // page falls back to page 1 instead of surfacing a DB coercion error.
+  const after = afterRaw && UUID_RE.test(afterRaw) ? afterRaw : null;
 
   const filters: PlanListFilters = {
     search,

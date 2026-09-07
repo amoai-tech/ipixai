@@ -91,7 +91,11 @@ begin
       and (p_include_archived or i.status <> 'archived')
       and (p_entity_type is null or i.entity_type = p_entity_type)
       and (p_status is null or i.status::text = p_status)
-      and (p_search is null or p_search = '' or i.name ilike '%' || p_search || '%')
+      and (
+        p_search is null
+        or p_search = ''
+        or i.name ilike '%' || replace(replace(replace(p_search, '\', '\\'), '%', '\%'), '_', '\_') || '%' escape '\'
+      )
       and (
         p_cursor is null
         or v_cursor_id is null
@@ -176,7 +180,8 @@ begin
   ) into v_workflow
   from planner.workflows w
   join planner.instances i on i.workflow_id = w.id
-  where i.id = p_instance_id;
+  where i.id = p_instance_id
+    and w.org_id = i.org_id;
 
   select json_agg(json_build_object(
     'id', p.id,
@@ -190,7 +195,9 @@ begin
   ) order by p.order_index) into v_phases
   from planner.phases p
   join planner.instances i on i.workflow_id = p.workflow_id
-  where i.id = p_instance_id;
+  join planner.workflows w on w.id = p.workflow_id
+  where i.id = p_instance_id
+    and w.org_id = i.org_id;
 
   select json_agg(json_build_object(
     'id', t.id,
@@ -274,6 +281,11 @@ begin
   );
 end;
 $$;
+
+-- Revoke the implicit PUBLIC/anon EXECUTE so only authenticated callers can
+-- invoke these SECURITY DEFINER read RPCs.
+revoke execute on function public.planner_list_instances(uuid,text,text,text,boolean,int,uuid) from public, anon;
+revoke execute on function public.planner_get_instance_detail(uuid) from public, anon;
 
 -- Grant EXECUTE to authenticated (matching the existing planner helper grants).
 grant execute on function public.planner_list_instances(uuid,text,text,text,boolean,int,uuid) to authenticated;
