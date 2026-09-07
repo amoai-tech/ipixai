@@ -32,19 +32,25 @@ import { getAuthorizedAssetPreview } from "@/lib/cloudinary/get-authorized-asset
  *   throw from one shoot's lookup can't reject the whole batch and blank
  *   every other shoot's already-succeeding preview.
  *
- * Only the most-recently-created candidate asset per shoot is tried, not
- * every asset the shoot has: `getAuthorizedAssetPreview` is the actual
+ * Up to CANDIDATE_LIMIT most-recently-created assets per shoot are tried,
+ * newest first, stopping at the first one `getAuthorizedAssetPreview`
+ * accepts — not just the single newest: a newer asset can be genuinely
+ * unusable (upload still processing, wrong resource type, no Cloudinary
+ * mirror yet) while an older linked asset is already a valid authenticated
+ * image, and that older one should still render rather than falling back
+ * to the placeholder. `getAuthorizedAssetPreview` stays the actual
  * authorization + signing boundary (org ownership, Cloudinary mirror,
- * resource/delivery type, version), so a candidate that fails it just
- * falls back to the placeholder for that shoot — same "one deterministic
- * representative asset" contract the task asked for, without re-deriving
- * getAuthorizedAssetPreview's own validity checks here.
+ * resource/delivery type, version) for every candidate tried — this file
+ * never re-derives its validity checks, only which candidate to try next.
  *
- * Never throws / never fails the page: a candidate-query failure or an
- * individual preview failure both just omit that shoot's entry, exactly
- * like "no authorized image exists yet" — CommandCenter already renders
- * the neutral placeholder for any shoot missing from the returned map.
+ * Never throws / never fails the page: a candidate-query failure or every
+ * candidate failing its preview check both just omit that shoot's entry,
+ * exactly like "no authorized image exists yet" — CommandCenter already
+ * renders the neutral placeholder for any shoot missing from the returned
+ * map.
  */
+const CANDIDATE_LIMIT = 5;
+
 export async function loadRecentWorkPreviews(
   supabase: SupabaseClient,
   operator: VerifiedOperator,
@@ -54,15 +60,15 @@ export async function loadRecentWorkPreviews(
 
   await Promise.all(
     shootIds.map(async (shootId) => {
+      let candidates: { id: string }[];
       try {
-        const { data: candidate, error } = await supabase
+        const { data, error } = await supabase
           .from("assets")
           .select("id")
           .eq("v2_shoot_id", shootId)
           .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (error || !candidate) {
+          .limit(CANDIDATE_LIMIT);
+        if (error || !data) {
           if (error) {
             console.error("dashboard.loadRecentWorkPreviews: candidate query failed", {
               shootId,
@@ -71,20 +77,47 @@ export async function loadRecentWorkPreviews(
           }
           return;
         }
-
-        const result = await getAuthorizedAssetPreview({
-          assetId: candidate.id,
-          preview: "masonry",
-          operator,
-          // Same narrow-interface cast the existing /api/assets/[assetId]/preview
-          // route uses — the real SupabaseClient is a structural superset.
-          supabase: supabase as never,
-        });
-        if (result.ok) {
-          previews.set(shootId, result.url);
-        }
+        candidates = data;
       } catch (err) {
-        console.error("dashboard.loadRecentWorkPreviews: shoot lookup threw", { shootId, err });
+        console.error("dashboard.loadRecentWorkPreviews: candidate query threw", {
+          shootId,
+          err,
+        });
+        return;
+      }
+
+      // Sequential, not parallel: stop at the first candidate that passes,
+      // newest first — trying every candidate concurrently would fire
+      // needless auth/signing calls for older assets once a newer one
+      // already succeeds (the common case).
+      for (const candidate of candidates) {
+        try {
+          const result = await getAuthorizedAssetPreview({
+            assetId: candidate.id,
+            preview: "masonry",
+            operator,
+            // Same narrow-interface cast the existing /api/assets/[assetId]/preview
+            // route uses — the real SupabaseClient is a structural superset.
+            supabase: supabase as never,
+          });
+          if (result.ok) {
+            previews.set(shootId, result.url);
+            return;
+          }
+        } catch (err) {
+          // A thrown (not {ok:false}) failure is unexpected — getAuthorizedAssetPreview
+          // is designed to return ok:false, never throw, for a bad candidate.
+          // Continuing to the next candidate assumes the failure is specific
+          // to this asset, not the auth/signing path itself; if that ever
+          // proves wrong (e.g. every candidate throws the same systemic
+          // error), the loop still ends after CANDIDATE_LIMIT tries and
+          // falls back to the honest placeholder, not a crash.
+          console.error("dashboard.loadRecentWorkPreviews: candidate preview threw", {
+            shootId,
+            assetId: candidate.id,
+            err,
+          });
+        }
       }
     }),
   );
