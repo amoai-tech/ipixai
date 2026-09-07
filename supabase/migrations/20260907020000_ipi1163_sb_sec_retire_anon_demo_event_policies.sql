@@ -58,3 +58,37 @@ drop policy if exists "anon can insert demo ticket tiers" on public.ticket_tiers
 
 alter policy "organizers can insert events" on public.events
   with check ((select auth.uid()) = organizer_id);
+
+-- ============================================================================
+-- Emergency forward restoration — explicit human authorization required
+-- (manual — run as a separate, reviewed forward migration if ever needed;
+-- do NOT execute automatically or as part of any rollback tooling)
+-- ----------------------------------------------------------------------------
+-- Exact live definitions captured read-only from production
+-- (nvdlhrodvevgwdsneplk) via pg_policies on 2026-09-07, before this
+-- migration's DROP/ALTER ran. Not present in any historical migration file
+-- (that's this ticket's whole premise), so this comment is the only record
+-- of the exact prior SQL if restoration is ever authorized.
+--
+-- create policy "anon can insert demo events" on public.events
+--   for insert to anon
+--   with check (organizer_id = '00000000-0000-0000-0000-000000000000'::uuid);
+--
+-- create policy "anon can insert demo event phases" on public.event_phases
+--   for insert to anon
+--   with check (exists (select 1 from events where events.id = event_phases.event_id
+--     and events.organizer_id = '00000000-0000-0000-0000-000000000000'::uuid));
+--
+-- create policy "anon can insert demo event schedules" on public.event_schedules
+--   for insert to anon
+--   with check (exists (select 1 from events where events.id = event_schedules.event_id
+--     and events.organizer_id = '00000000-0000-0000-0000-000000000000'::uuid));
+--
+-- create policy "anon can insert demo ticket tiers" on public.ticket_tiers
+--   for insert to anon
+--   with check (exists (select 1 from events where events.id = ticket_tiers.event_id
+--     and events.organizer_id = '00000000-0000-0000-0000-000000000000'::uuid));
+--
+-- alter policy "organizers can insert events" on public.events
+--   with check (auth.uid() = organizer_id or organizer_id = '00000000-0000-0000-0000-000000000000'::uuid);
+-- ============================================================================

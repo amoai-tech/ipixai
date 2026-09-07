@@ -20,3 +20,12 @@
 
 alter policy brand_scores_select_via_brand on public.brand_scores
   to authenticated;
+
+-- ============================================================================
+-- Emergency forward restoration — explicit human authorization required
+-- (manual — run as a separate, reviewed forward migration if ever needed;
+-- do NOT execute automatically or as part of any rollback tooling)
+-- ----------------------------------------------------------------------------
+-- alter policy brand_scores_select_via_brand on public.brand_scores
+--   to public;
+-- ============================================================================

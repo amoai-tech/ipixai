@@ -21,3 +21,13 @@
 revoke insert, update, delete, truncate, references, trigger
   on public.events, public.event_phases, public.event_schedules, public.ticket_tiers, public.brand_scores
   from anon;
+
+-- ============================================================================
+-- Emergency forward restoration — explicit human authorization required
+-- (manual — run as a separate, reviewed forward migration if ever needed;
+-- do NOT execute automatically or as part of any rollback tooling)
+-- ----------------------------------------------------------------------------
+-- grant insert, update, delete, truncate, references, trigger
+--   on public.events, public.event_phases, public.event_schedules, public.ticket_tiers, public.brand_scores
+--   to anon;
+-- ============================================================================

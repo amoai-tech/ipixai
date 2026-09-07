@@ -142,17 +142,83 @@ begin
   end if;
 
   -- 6) brand_scores_select_via_brand (IPI-1168, folded into this ticket)
-  --    must be scoped to authenticated only, not PUBLIC. The seed widens
-  --    this back to PUBLIC (20260907030000 already narrowed it once
-  --    during the initial replay, before this seed ran) and ci.yml
-  --    re-applies that migration after seeding, so this proves the real
-  --    fix, not a no-op left over from the replay.
-  if exists (
-    select 1 from pg_policy
-    where polname = 'brand_scores_select_via_brand' and polroles::regrole[] <> array['authenticated'::regrole]
+  --    must exist, on the right relation, scoped to authenticated ONLY.
+  --    The seed widens this back to PUBLIC (20260907030000 already
+  --    narrowed it once during the initial replay, before this seed ran)
+  --    and ci.yml re-applies that migration after seeding, so this proves
+  --    the real fix, not a no-op left over from the replay.
+  --
+  --    Asserts the POSITIVE invariant, not a negative "if exists with a
+  --    wrong role, fail" check: an exists(...)-based negative check has a
+  --    false-positive hole -- if the policy were missing entirely (wrong
+  --    name, wrong relation, dropped by a future edit), exists(...) is
+  --    false and the check would silently pass. Requires a matching row
+  --    to exist on exactly public.brand_scores with polroles exactly
+  --    {authenticated} -- fails for: missing policy, PUBLIC, anon, wrong
+  --    relation, authenticated-plus-extra-roles, or a renamed policy.
+  if not exists (
+    select 1 from pg_policy p
+    where p.polrelid = 'public.brand_scores'::regclass
+      and p.polname = 'brand_scores_select_via_brand'
+      and p.polroles::regrole[] = array['authenticated'::regrole]
   ) then
-    raise exception 'IPI-1163 FAIL: brand_scores_select_via_brand is not scoped to authenticated only (tighten migration not applied or not effective)';
+    raise exception 'IPI-1163 FAIL: brand_scores_select_via_brand missing or not scoped exactly to authenticated on public.brand_scores';
   end if;
+
+  -- 7) behavioral proof, not just the role-scope catalog check: the role
+  --    boundary (TO authenticated) is only half the policy -- the
+  --    ownership predicate (is_org_member(b.org_id)) must remain
+  --    authoritative and unweakened. Real org + org_member + brand +
+  --    brand_scores row: anon must see zero rows (role boundary), and an
+  --    authenticated non-member of that org must ALSO see zero rows
+  --    (ownership predicate) -- only an actual org member sees it.
+  declare
+    scores_org      uuid := gen_random_uuid();
+    scores_brand    uuid := gen_random_uuid();
+    scores_row_id   uuid := gen_random_uuid();
+    org_member      uuid := gen_random_uuid();
+    non_member      uuid := gen_random_uuid();
+    visible_rows    int;
+  begin
+    insert into auth.users (id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+    values
+      (org_member, 'authenticated', 'authenticated', 'ipi1163-member@ipix.test', now(), '{"provider":"email"}'::jsonb, '{}'::jsonb, now(), now()),
+      (non_member, 'authenticated', 'authenticated', 'ipi1163-nonmember@ipix.test', now(), '{"provider":"email"}'::jsonb, '{}'::jsonb, now(), now());
+    insert into public.organizations (id, name, slug, type, owner_id, plan)
+    values (scores_org, 'IPI1163 Scores Org', 'ipi1163-scores-org', 'agency', org_member, 'free');
+    -- organizations has an auto-owner trigger that already inserts the
+    -- owner's org_members row; ON CONFLICT DO NOTHING covers both that
+    -- and the case where it doesn't (repo behavior, not under test here).
+    insert into public.org_members (org_id, user_id, role) values (scores_org, org_member, 'owner')
+      on conflict (org_id, user_id) do nothing;
+    insert into public.brands (id, user_id, org_id, name, brand_url)
+    values (scores_brand, org_member, scores_org, 'IPI1163 Scores Brand', null);
+    insert into public.brand_scores (id, brand_id, score_type, score)
+    values (scores_row_id, scores_brand, 'ipi1163-test', 50);
+
+    execute 'set local role anon';
+    select count(*) into visible_rows from public.brand_scores where id = scores_row_id;
+    reset role;
+    if visible_rows <> 0 then
+      raise exception 'IPI-1163 FAIL: anon can see a brand_scores row (role boundary not enforced)';
+    end if;
+
+    perform set_config('request.jwt.claim.sub', non_member::text, true);
+    execute format('set local role authenticated; set local request.jwt.claims = %L', json_build_object('sub', non_member)::text);
+    select count(*) into visible_rows from public.brand_scores where id = scores_row_id;
+    reset role;
+    if visible_rows <> 0 then
+      raise exception 'IPI-1163 FAIL: authenticated non-org-member can see a brand_scores row (ownership predicate weakened or bypassed)';
+    end if;
+
+    perform set_config('request.jwt.claim.sub', org_member::text, true);
+    execute format('set local role authenticated; set local request.jwt.claims = %L', json_build_object('sub', org_member)::text);
+    select count(*) into visible_rows from public.brand_scores where id = scores_row_id;
+    reset role;
+    if visible_rows <> 1 then
+      raise exception 'IPI-1163 FAIL: authenticated org member cannot see their own org''s brand_scores row (legitimate path broken)';
+    end if;
+  end;
 
   raise notice 'IPI-1163 anon demo-event policy retirement regression PASS';
 end;
