@@ -9,6 +9,7 @@ import {
   loadShootDetailForOrg,
   preauthorizeShootForOrg,
   SHOOT_BROWSE_PAGE_SIZE,
+  timestampMicros,
 } from "@/lib/shoot/get-shoot-detail";
 
 const ORG_A = "aaaaaaaa-0000-4000-8000-000000000001";
@@ -18,6 +19,22 @@ const BRAND_B1 = "dddddddd-0000-4000-8000-000000000002";
 const SHOOT_A1 = "eeeeeeee-0000-4000-8000-000000000001";
 const SHOOT_A2 = "eeeeeeee-0000-4000-8000-000000000002";
 const SHOOT_B1 = "ffffffff-0000-4000-8000-000000000001";
+
+/** Fixed epoch-microsecond expectations derived from PostgreSQL 16
+ *  (`SELECT (EXTRACT(EPOCH FROM ts AT TIME ZONE 'UTC') * 1000000)::numeric`).
+ *  These literals are the independent oracle: a regression in the production
+ *  `timestampMicros` conversion cannot self-validate, because the expected
+ *  values never call it. PostgreSQL rejects year 0000 (out of range), so the
+ *  supported contract is unsigned years 0001–9999. */
+const PG_EPOCH_MICROS = {
+  "0099-01-01T00:00:00.000000Z": BigInt("-59042995200000000"),
+  "0099-01-01T00:00:00.000001Z": BigInt("-59042995199999999"),
+  "0100-01-01T00:00:00.000000Z": BigInt("-59011459200000000"),
+  "2026-09-07T12:00:00.123456Z": BigInt("1788782400123456"),
+  "2026-09-07T12:00:00.123000Z": BigInt("1788782400123000"),
+  "2026-09-07T12:00:00.123Z": BigInt("1788782400123000"),
+  "2026-09-07T10:00:00.000000Z": BigInt("1788775200000000"),
+} as const;
 
 type OrderCall = { column: string; opts: { ascending: boolean } };
 
@@ -60,28 +77,10 @@ function parseCursorFilter(filter: string): { updatedAt: string; id: string } | 
 /** Converts an ISO timestamp (Z or ±HH:MM offset, 0-6 fraction digits) to
  *  integer microseconds since the epoch — the precision Postgres
  *  `timestamptz` carries. The fake's cursor filter must compare numerically:
- *  lexically '.123400Z' < '.123Z', but numerically 123400µs > 123000µs. */
-function toMicros(iso: string): number {
-  const match = iso.match(
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|([+-])(\d{2}):(\d{2}))$/,
-  );
-  if (!match) return Number.NaN;
-  const [, y, mo, d, h, mi, s, frac, , sign, oh, om] = match;
-  const micros =
-    Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s)) * 1000 +
-    Number((frac ?? "").padEnd(6, "0"));
-  if (!sign) return micros;
-  const offsetMicros = (Number(oh) * 60 + Number(om)) * 60 * 1_000_000;
-  return sign === "+" ? micros - offsetMicros : micros + offsetMicros;
-}
-
-/**
- * Mimics the `shoot_portfolio_view` browse read: `.in("brand_id", …)`,
- * chainable `.order()`, optional `.or()` cursor filter, `.limit()`. The
- * builder is thenable (production awaits the final chain) and `.or()` may
- * be called after `.limit()` (production re-assigns `query = query.or(…)`).
- * Records select/order/or calls so tests can assert the exact contract.
- */
+ *  lexically '.123400Z' < '.123Z', but numerically 123400µs > 123000µs.
+ *  Uses the production `timestampMicros` (single implementation — the
+ *  literal assertions below keep the tests an independent behavioral
+ *  check). */
 function fakeShootBrowseSupabase(
   rowsByBrandId: Record<string, BrowseRowFixture[]>,
   calls: { selects?: string[]; orders?: OrderCall[]; ors?: string[]; froms?: { count: number } } = {},
@@ -101,9 +100,10 @@ function fakeShootBrowseSupabase(
       if (cursorFilter) {
         const cursor = parseCursorFilter(cursorFilter);
         if (cursor) {
-          const cursorMicros = toMicros(cursor.updatedAt);
+          const cursorMicros = timestampMicros(cursor.updatedAt);
           rows = rows.filter((row) => {
-            const rowMicros = toMicros(row.updated_at);
+            const rowMicros = timestampMicros(row.updated_at);
+            if (cursorMicros === null || rowMicros === null) return false;
             return (
               rowMicros < cursorMicros ||
               (rowMicros === cursorMicros && row.id > cursor.id)
@@ -458,6 +458,45 @@ describe("IPI-1067 · SHOOT-001 — listShootsForOrg", () => {
     // must order by instant, or the cursor predicate skips rows forever.
     expect(result.shoots.map((s) => s.name)).toEqual(["Micro 123400", "Micro 123", "Micro 100"]);
   });
+
+  it("orders years 0001-0099 before 0100 in the merged page (Date.UTC quirk)", async () => {
+    const secondBrand = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const supabase = fakeShootBrowseSupabase({
+      [BRAND_A1]: [browseRow({ id: SHOOT_A1, name: "Year 99", updated_at: "0099-01-01T00:00:00Z" })],
+      [secondBrand]: [
+        browseRow({ id: SHOOT_B1, name: "Year 100", updated_at: "0100-01-01T00:00:00Z" }),
+      ],
+    });
+
+    const result = await listShootsForOrg(supabase, [BRAND_A1, secondBrand]);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // PostgreSQL orders 0099 < 0100; Date.UTC would put 0099 after 0100.
+    expect(result.shoots.map((s) => s.name)).toEqual(["Year 100", "Year 99"]);
+  });
+
+  it("keeps one-microsecond ordering for years 0001-0099 across batches (lossless merge key)", async () => {
+    // Epoch microseconds for year 0099 exceed Number.MAX_SAFE_INTEGER, so a
+    // number key would compare these two rows equal and fall back to the id
+    // tie-break. The newer row carries the LARGER id (ffff… > eeee…), so the
+    // lossy tie-break would reverse PostgreSQL order.
+    const secondBrand = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const supabase = fakeShootBrowseSupabase({
+      [BRAND_A1]: [
+        browseRow({ id: SHOOT_B1, name: "Year 99 +1µs", updated_at: "0099-01-01T00:00:00.000001Z" }),
+      ],
+      [secondBrand]: [
+        browseRow({ id: SHOOT_A1, name: "Year 99", updated_at: "0099-01-01T00:00:00.000000Z" }),
+      ],
+    });
+
+    const result = await listShootsForOrg(supabase, [BRAND_A1, secondBrand]);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.shoots.map((s) => s.name)).toEqual(["Year 99 +1µs", "Year 99"]);
+  });
 });
 
 describe("IPI-1067 · SHOOT-001 — preauthorizeShootForOrg", () => {
@@ -768,16 +807,49 @@ describe("IPI-1067 · SHOOT-001 — cursor serialization", () => {
     ).toEqual({ updatedAt: "2026-09-01T10:00:00Z", id: SHOOT_A1 });
   });
 
-  it("toMicros is microsecond-faithful across precision and offsets", () => {
-    expect(toMicros("2026-09-07T12:00:00.123456Z") - toMicros("2026-09-07T12:00:00.123000Z")).toBe(
-      456,
+  it("timestampMicros is microsecond-faithful across precision and offsets", () => {
+    // Anchored to fixed PostgreSQL-derived literals, not to the production
+    // function itself — a precision regression cannot self-validate.
+    expect(timestampMicros("2026-09-07T12:00:00.123456Z")).toBe(PG_EPOCH_MICROS["2026-09-07T12:00:00.123456Z"]);
+    expect(timestampMicros("2026-09-07T12:00:00.123000Z")).toBe(PG_EPOCH_MICROS["2026-09-07T12:00:00.123000Z"]);
+    expect(timestampMicros("2026-09-07T12:00:00.123Z")).toBe(PG_EPOCH_MICROS["2026-09-07T12:00:00.123Z"]);
+    expect(timestampMicros("2026-09-07T12:00:00.123456+00:00")).toBe(
+      PG_EPOCH_MICROS["2026-09-07T12:00:00.123456Z"],
     );
-    expect(toMicros("2026-09-07T12:00:00.123Z") - toMicros("2026-09-07T12:00:00.123000Z")).toBe(0);
-    expect(toMicros("2026-09-07T12:00:00.123456+00:00")).toBe(
-      toMicros("2026-09-07T12:00:00.123456Z"),
+    expect(timestampMicros("2026-09-07T12:00:00.000000+02:00")).toBe(
+      PG_EPOCH_MICROS["2026-09-07T10:00:00.000000Z"],
     );
-    expect(toMicros("2026-09-07T12:00:00.000000+02:00")).toBe(
-      toMicros("2026-09-07T10:00:00.000000Z"),
+  });
+
+  it("orders years 0001-0099 before 0100 (Date.UTC 0-99 quirk)", () => {
+    // Date.UTC(99, 0, 1) is 1999 — the days-from-civil comparator must
+    // agree with PostgreSQL, where 0099 < 0100. Each side is pinned to its
+    // PostgreSQL-derived literal, so the ordering is independently anchored.
+    expect(timestampMicros("0099-01-01T00:00:00Z")).toBe(PG_EPOCH_MICROS["0099-01-01T00:00:00.000000Z"]);
+    expect(timestampMicros("0100-01-01T00:00:00Z")).toBe(PG_EPOCH_MICROS["0100-01-01T00:00:00.000000Z"]);
+    expect(PG_EPOCH_MICROS["0099-01-01T00:00:00.000000Z"]).toBeLessThan(
+      PG_EPOCH_MICROS["0100-01-01T00:00:00.000000Z"],
     );
+  });
+
+  it("keeps one-microsecond ordering for years 0001-0099 (lossless merge key)", () => {
+    // Epoch microseconds for year 0099 exceed Number.MAX_SAFE_INTEGER, so a
+    // number key would compare these two instants equal and the merge sort
+    // would fall back to the id tie-break, reversing PostgreSQL order. The
+    // two PostgreSQL-derived literals differ by exactly one microsecond.
+    expect(timestampMicros("0099-01-01T00:00:00.000001Z")).toBe(PG_EPOCH_MICROS["0099-01-01T00:00:00.000001Z"]);
+    expect(timestampMicros("0099-01-01T00:00:00.000000Z")).toBe(PG_EPOCH_MICROS["0099-01-01T00:00:00.000000Z"]);
+    expect(PG_EPOCH_MICROS["0099-01-01T00:00:00.000001Z"]).toBe(
+      PG_EPOCH_MICROS["0099-01-01T00:00:00.000000Z"] + BigInt(1),
+    );
+  });
+
+  it("rejects nonexistent calendar dates (shape-only regex would accept them)", () => {
+    // The parts regex only validates shape; the isIsoTimestamp gate rejects
+    // calendar-invalid values so they can never become a merge key.
+    expect(timestampMicros("2026-02-30T00:00:00Z")).toBeNull();
+    expect(timestampMicros("2026-13-01T00:00:00Z")).toBeNull();
+    // PostgreSQL rejects year 0000 (out of range); the contract is 0001–9999.
+    expect(timestampMicros("0000-01-01T00:00:00Z")).toBeNull();
   });
 });

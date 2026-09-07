@@ -62,6 +62,7 @@ function isIsoTimestamp(value: string): boolean {
   const year = Number(value.slice(0, 4));
   const month = Number(value.slice(5, 7));
   const day = Number(value.slice(8, 10));
+  if (year < 1) return false;
   if (month < 1 || month > 12 || day < 1) return false;
   const lastDayOfMonth = new Date(0);
   lastDayOfMonth.setUTCFullYear(year, month, 0);
@@ -71,20 +72,42 @@ function isIsoTimestamp(value: string): boolean {
 const ISO_TIMESTAMP_PARTS =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|([+-])(\d{2}):(\d{2}))$/;
 
-/** Parses an ISO 8601 timestamp to integer microseconds since the epoch.
+/** Days since 1970-01-01 for a civil date (Howard Hinnant's algorithm).
+ *  Exact for every year — unlike `Date.UTC`, which maps years 0–99 to
+ *  1900–1999 and would misorder `0099` after `0100`. */
+function daysFromCivil(y: number, m: number, d: number): number {
+  y -= m <= 2 ? 1 : 0;
+  const era = Math.floor(y / 400);
+  const yoe = y - era * 400;
+  const doy = Math.floor((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + d - 1;
+  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+  return era * 146097 + doe - 719468;
+}
+
+/** Parses an ISO 8601 timestamp to integer microseconds since the epoch as
+ *  a bigint — the lossless merge key for the browse sort.
+ *
  *  `Date.parse` truncates sub-millisecond precision (`.123400Z` and
- *  `.123Z` parse to the same instant), so the merge sort must compare at
- *  microsecond precision to match PostgreSQL `timestamptz` ordering.
- *  Returns NaN for unparseable input. */
-function timestampMicros(value: string): number {
+ *  `.123Z` parse to the same instant), and a JavaScript `number` cannot
+ *  represent epoch microseconds for years 0000–0099 (|value| exceeds
+ *  `Number.MAX_SAFE_INTEGER`, so timestamps one microsecond apart compare
+ *  equal and the sort falls back to the `id` tie-break, which can differ
+ *  from PostgreSQL order). The merge sort must therefore compare at
+ *  microsecond precision with an exact key to match PostgreSQL
+ *  `timestamptz` ordering. Returns null for unparseable input. */
+export function timestampMicros(value: string): bigint | null {
+  if (!isIsoTimestamp(value)) return null;
   const match = ISO_TIMESTAMP_PARTS.exec(value);
-  if (!match) return Number.NaN;
+  if (!match) return null;
   const [, y, mo, d, h, mi, s, frac, , sign, oh, om] = match;
   const micros =
-    Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s)) * 1000 +
-    Number((frac ?? "").padEnd(6, "0"));
+    BigInt(daysFromCivil(Number(y), Number(mo), Number(d))) * BigInt(86_400_000_000) +
+    BigInt(h) * BigInt(3_600_000_000) +
+    BigInt(mi) * BigInt(60_000_000) +
+    BigInt(s) * BigInt(1_000_000) +
+    BigInt((frac ?? "").padEnd(6, "0"));
   if (!sign) return micros;
-  const offsetMicros = (Number(oh) * 60 + Number(om)) * 60 * 1_000_000;
+  const offsetMicros = (BigInt(oh) * BigInt(60) + BigInt(om)) * BigInt(60_000_000);
   return sign === "+" ? micros - offsetMicros : micros + offsetMicros;
 }
 
@@ -201,7 +224,7 @@ export async function listShootsForOrg(
     rows.sort((a, b) => {
       const aTime = timestampMicros(a.updated_at);
       const bTime = timestampMicros(b.updated_at);
-      if (Number.isNaN(aTime) || Number.isNaN(bTime)) return 0;
+      if (aTime === null || bTime === null) return 0;
       if (aTime !== bTime) return aTime < bTime ? 1 : -1;
       return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
     });
