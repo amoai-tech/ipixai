@@ -83,24 +83,29 @@ function daysFromCivil(y: number, m: number, d: number): number {
   return era * 146097 + doe - 719468;
 }
 
-/** Parses an ISO 8601 timestamp to integer microseconds since the epoch.
+/** Parses an ISO 8601 timestamp to integer microseconds since the epoch as
+ *  a bigint — the lossless merge key for the browse sort.
+ *
  *  `Date.parse` truncates sub-millisecond precision (`.123400Z` and
- *  `.123Z` parse to the same instant), so the merge sort must compare at
- *  microsecond precision to match PostgreSQL `timestamptz` ordering.
- *  Returns NaN for unparseable input. */
-function timestampMicros(value: string): number {
+ *  `.123Z` parse to the same instant), and a JavaScript `number` cannot
+ *  represent epoch microseconds for years 0000–0099 (|value| exceeds
+ *  `Number.MAX_SAFE_INTEGER`, so timestamps one microsecond apart compare
+ *  equal and the sort falls back to the `id` tie-break, which can differ
+ *  from PostgreSQL order). The merge sort must therefore compare at
+ *  microsecond precision with an exact key to match PostgreSQL
+ *  `timestamptz` ordering. Returns null for unparseable input. */
+export function timestampMicros(value: string): bigint | null {
   const match = ISO_TIMESTAMP_PARTS.exec(value);
-  if (!match) return Number.NaN;
+  if (!match) return null;
   const [, y, mo, d, h, mi, s, frac, , sign, oh, om] = match;
   const micros =
-    (daysFromCivil(Number(y), Number(mo), Number(d)) * 86400 +
-      Number(h) * 3600 +
-      Number(mi) * 60 +
-      Number(s)) *
-      1_000_000 +
-    Number((frac ?? "").padEnd(6, "0"));
+    BigInt(daysFromCivil(Number(y), Number(mo), Number(d))) * BigInt(86_400_000_000) +
+    BigInt(h) * BigInt(3_600_000_000) +
+    BigInt(mi) * BigInt(60_000_000) +
+    BigInt(s) * BigInt(1_000_000) +
+    BigInt((frac ?? "").padEnd(6, "0"));
   if (!sign) return micros;
-  const offsetMicros = (Number(oh) * 60 + Number(om)) * 60 * 1_000_000;
+  const offsetMicros = (BigInt(oh) * BigInt(60) + BigInt(om)) * BigInt(60_000_000);
   return sign === "+" ? micros - offsetMicros : micros + offsetMicros;
 }
 
@@ -217,7 +222,7 @@ export async function listShootsForOrg(
     rows.sort((a, b) => {
       const aTime = timestampMicros(a.updated_at);
       const bTime = timestampMicros(b.updated_at);
-      if (Number.isNaN(aTime) || Number.isNaN(bTime)) return 0;
+      if (aTime === null || bTime === null) return 0;
       if (aTime !== bTime) return aTime < bTime ? 1 : -1;
       return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
     });
