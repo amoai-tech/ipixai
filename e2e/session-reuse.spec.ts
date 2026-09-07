@@ -2,6 +2,7 @@ import { test, expect, type Browser, type BrowserContext, type Page } from "@pla
 
 import { createCleanContext, gotoPageWithRetry } from "./support/context";
 import { signInWithCredentials, SIGN_IN_TIMEOUT_MS } from "./support/login";
+import { supabaseForPage } from "./support/tenant-supabase";
 
 // Session-reuse regression: proves sign-out is local (a user's other sessions
 // survive) and that a secondary user always starts from a clean browser, so
@@ -9,11 +10,12 @@ import { signInWithCredentials, SIGN_IN_TIMEOUT_MS } from "./support/login";
 // user-visible application behavior — no direct database probes. No
 // secret-bearing artifacts.
 test.use({ trace: "off", screenshot: "off" });
-// Every sign-in can take up to SIGN_IN_TIMEOUT_MS, and these journeys perform
-// several sequential sign-ins plus dashboard navigations. Budget the whole
-// test from that constant (3 sign-ins + navigation headroom) instead of a
-// magic number that silently under-budgets the cumulative work.
-test.setTimeout(SIGN_IN_TIMEOUT_MS * 4);
+// Every sign-in can take up to SIGN_IN_TIMEOUT_MS, and each sign-in may run a
+// second attempt after an ERR_NETWORK_CHANGED retry. Test 1 performs 3
+// sign-ins (up to 6 attempts) plus dashboard navigations, so budget the whole
+// test from that constant: 6 × SIGN_IN_TIMEOUT_MS for sign-ins plus one
+// SIGN_IN_TIMEOUT_MS of navigation-retry headroom. No magic numbers.
+test.setTimeout(SIGN_IN_TIMEOUT_MS * 7);
 
 async function requireEnv(name: string): Promise<string> {
   const value = process.env[name];
@@ -45,16 +47,12 @@ async function signInClean(
  * QA B then signs in from a brand-new clean context and sees its own (empty)
  * tenant, proving it never inherited QA A's session.
  *
- * Known limitation (documented, not fixable in a browser test): the /app
- * session check (getClaims) validates only the ACCESS TOKEN (signature +
- * expiry), not revocation. Per Supabase docs, access tokens of revoked
- * sessions stay valid until they expire (~1h), so session B's token — issued
- * seconds before this re-navigation — would remain valid even if the route
- * regressed to GLOBAL scope (which revokes refresh tokens, not access
- * tokens). This test therefore proves the positive (local sign-out keeps the
- * user's other sessions alive) but cannot catch a global-scope regression
- * within the access-token validity window. The production behavior itself is
- * verified against the official signOut scope contract.
+ * The /app session check (getClaims) validates only the ACCESS TOKEN, which
+ * stays valid until expiry even after a session is revoked — so the Dashboard
+ * assertion alone cannot distinguish local from global sign-out. We therefore
+ * also exercise session B's REFRESH path directly (refreshSession): global
+ * sign-out revokes refresh tokens immediately, local sign-out does not, so a
+ * successful refresh is the true local-vs-global discriminator.
  */
 test("signing out in one browser leaves the user's other sessions signed in", async ({
   browser,
@@ -80,6 +78,21 @@ test("signing out in one browser leaves the user's other sessions signed in", as
     // the Dashboard still rendering is the local-vs-global proof.
     await gotoPageWithRetry(sessionB.page, "/app");
     await expect(sessionB.page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+
+    // The real local-vs-global discriminator: global sign-out revokes the
+    // user's refresh tokens, local sign-out does not. /app's getClaims() only
+    // checks the access token (valid until expiry even when revoked), so
+    // exercise session B's refresh path directly — it must still succeed.
+    const supabaseB = await supabaseForPage(sessionB.page);
+    const { data: refreshed, error: refreshError } = await supabaseB.auth.refreshSession();
+    expect(
+      refreshError,
+      `session B refresh failed after local sign-out: ${refreshError?.message ?? "unknown"}`,
+    ).toBeNull();
+    expect(
+      refreshed.session,
+      "session B must still hold a valid session after local sign-out",
+    ).not.toBeNull();
 
     // QA B authenticates in a brand-new, fully logged-out browser context so
     // it can never inherit QA A's cookies/localStorage (the original failure
