@@ -68,9 +68,8 @@ function toMicros(iso: string): number {
   if (!match) return Number.NaN;
   const [, y, mo, d, h, mi, s, frac, , sign, oh, om] = match;
   const micros =
-    (Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s)) * 1000 +
-      Number((frac ?? "").padEnd(6, "0"))) *
-    1000;
+    Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s)) * 1000 +
+    Number((frac ?? "").padEnd(6, "0"));
   if (!sign) return micros;
   const offsetMicros = (Number(oh) * 60 + Number(om)) * 60 * 1_000_000;
   return sign === "+" ? micros - offsetMicros : micros + offsetMicros;
@@ -438,6 +437,27 @@ describe("IPI-1067 · SHOOT-001 — listShootsForOrg", () => {
 
     expect(result).toEqual({ ok: false });
   });
+
+  it("merges cross-batch rows by timestamp instant, not string (mixed precision)", async () => {
+    const secondBrand = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const supabase = fakeShootBrowseSupabase({
+      [BRAND_A1]: [
+        browseRow({ id: SHOOT_A1, name: "Micro 123", updated_at: "2026-09-07T12:00:00.123Z" }),
+        browseRow({ id: SHOOT_A2, name: "Micro 100", updated_at: "2026-09-07T12:00:00.100Z" }),
+      ],
+      [secondBrand]: [
+        browseRow({ id: SHOOT_B1, name: "Micro 123400", updated_at: "2026-09-07T12:00:00.123400Z" }),
+      ],
+    });
+
+    const result = await listShootsForOrg(supabase, [BRAND_A1, secondBrand]);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Lexically '.123400Z' < '.123Z', but 123400µs > 123000µs — the merge
+    // must order by instant, or the cursor predicate skips rows forever.
+    expect(result.shoots.map((s) => s.name)).toEqual(["Micro 123400", "Micro 123", "Micro 100"]);
+  });
 });
 
 describe("IPI-1067 · SHOOT-001 — preauthorizeShootForOrg", () => {
@@ -704,6 +724,30 @@ describe("IPI-1067 · SHOOT-001 — cursor serialization", () => {
     ).toBeNull();
   });
 
+  it("rejects timestamps with impossible calendar dates (e.g. Feb 30)", () => {
+    const encode = (value: unknown) =>
+      Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
+    // Date.parse normalizes these instead of returning NaN — the calendar
+    // check must reject them or Postgres rejects the interpolated filter.
+    expect(
+      decodeShootListCursor(encode({ updatedAt: "2026-02-30T10:00:00Z", id: SHOOT_A1 })),
+    ).toBeNull();
+    expect(
+      decodeShootListCursor(encode({ updatedAt: "2026-04-31T10:00:00Z", id: SHOOT_A1 })),
+    ).toBeNull();
+  });
+
+  it("accepts valid calendar dates including leap-day", () => {
+    const encode = (value: unknown) =>
+      Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
+    expect(
+      decodeShootListCursor(encode({ updatedAt: "2026-02-28T10:00:00Z", id: SHOOT_A1 })),
+    ).toEqual({ updatedAt: "2026-02-28T10:00:00Z", id: SHOOT_A1 });
+    expect(
+      decodeShootListCursor(encode({ updatedAt: "2024-02-29T10:00:00Z", id: SHOOT_A1 })),
+    ).toEqual({ updatedAt: "2024-02-29T10:00:00Z", id: SHOOT_A1 });
+  });
+
   it("accepts microsecond, offset, and zero-fraction ISO timestamps", () => {
     const encode = (value: unknown) =>
       Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
@@ -722,5 +766,18 @@ describe("IPI-1067 · SHOOT-001 — cursor serialization", () => {
     expect(
       decodeShootListCursor(encode({ updatedAt: "2026-09-01T10:00:00Z", id: SHOOT_A1 })),
     ).toEqual({ updatedAt: "2026-09-01T10:00:00Z", id: SHOOT_A1 });
+  });
+
+  it("toMicros is microsecond-faithful across precision and offsets", () => {
+    expect(toMicros("2026-09-07T12:00:00.123456Z") - toMicros("2026-09-07T12:00:00.123000Z")).toBe(
+      456,
+    );
+    expect(toMicros("2026-09-07T12:00:00.123Z") - toMicros("2026-09-07T12:00:00.123000Z")).toBe(0);
+    expect(toMicros("2026-09-07T12:00:00.123456+00:00")).toBe(
+      toMicros("2026-09-07T12:00:00.123456Z"),
+    );
+    expect(toMicros("2026-09-07T12:00:00.000000+02:00")).toBe(
+      toMicros("2026-09-07T10:00:00.000000Z"),
+    );
   });
 });

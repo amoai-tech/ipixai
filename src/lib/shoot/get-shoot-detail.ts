@@ -59,7 +59,33 @@ const ISO_TIMESTAMP =
 
 function isIsoTimestamp(value: string): boolean {
   if (!ISO_TIMESTAMP.test(value)) return false;
-  return !Number.isNaN(Date.parse(value));
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(5, 7));
+  const day = Number(value.slice(8, 10));
+  if (month < 1 || month > 12 || day < 1) return false;
+  const lastDayOfMonth = new Date(0);
+  lastDayOfMonth.setUTCFullYear(year, month, 0);
+  return day <= lastDayOfMonth.getUTCDate() && !Number.isNaN(Date.parse(value));
+}
+
+const ISO_TIMESTAMP_PARTS =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|([+-])(\d{2}):(\d{2}))$/;
+
+/** Parses an ISO 8601 timestamp to integer microseconds since the epoch.
+ *  `Date.parse` truncates sub-millisecond precision (`.123400Z` and
+ *  `.123Z` parse to the same instant), so the merge sort must compare at
+ *  microsecond precision to match PostgreSQL `timestamptz` ordering.
+ *  Returns NaN for unparseable input. */
+function timestampMicros(value: string): number {
+  const match = ISO_TIMESTAMP_PARTS.exec(value);
+  if (!match) return Number.NaN;
+  const [, y, mo, d, h, mi, s, frac, , sign, oh, om] = match;
+  const micros =
+    Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s)) * 1000 +
+    Number((frac ?? "").padEnd(6, "0"));
+  if (!sign) return micros;
+  const offsetMicros = (Number(oh) * 60 + Number(om)) * 60 * 1_000_000;
+  return sign === "+" ? micros - offsetMicros : micros + offsetMicros;
 }
 
 /** Parses a `?after=` cursor. Fail-closed: anything malformed (bad base64,
@@ -173,7 +199,10 @@ export async function listShootsForOrg(
 
     const rows = batchResult.values.flat();
     rows.sort((a, b) => {
-      if (a.updated_at !== b.updated_at) return a.updated_at < b.updated_at ? 1 : -1;
+      const aTime = timestampMicros(a.updated_at);
+      const bTime = timestampMicros(b.updated_at);
+      if (Number.isNaN(aTime) || Number.isNaN(bTime)) return 0;
+      if (aTime !== bTime) return aTime < bTime ? 1 : -1;
       return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
     });
 
