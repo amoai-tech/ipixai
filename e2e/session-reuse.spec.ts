@@ -44,6 +44,17 @@ async function signInClean(
  * after a fresh /app navigation is exactly what distinguishes scope "local".
  * QA B then signs in from a brand-new clean context and sees its own (empty)
  * tenant, proving it never inherited QA A's session.
+ *
+ * Known limitation (documented, not fixable in a browser test): the /app
+ * session check (getClaims) validates only the ACCESS TOKEN (signature +
+ * expiry), not revocation. Per Supabase docs, access tokens of revoked
+ * sessions stay valid until they expire (~1h), so session B's token — issued
+ * seconds before this re-navigation — would remain valid even if the route
+ * regressed to GLOBAL scope (which revokes refresh tokens, not access
+ * tokens). This test therefore proves the positive (local sign-out keeps the
+ * user's other sessions alive) but cannot catch a global-scope regression
+ * within the access-token validity window. The production behavior itself is
+ * verified against the official signOut scope contract.
  */
 test("signing out in one browser leaves the user's other sessions signed in", async ({
   browser,
