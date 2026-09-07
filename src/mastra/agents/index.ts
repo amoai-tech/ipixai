@@ -19,7 +19,7 @@ export const AgentState = z.object({
 export const productionPlannerAgent = new Agent({
   id: "production-planner",
   name: "Production Planner",
-  model: openai("gpt-4o"),
+  model: openai("gpt-5.6-luna"),
   tools: planningTools,
   instructions: `You are the iPix Production Planner, an assistant for fashion production teams.
 
