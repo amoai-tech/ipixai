@@ -126,6 +126,24 @@ begin
     raise exception 'IPI-1163 FAIL: anon inserted into ticket_tiers (retirement migration not applied or not effective)';
   end if;
 
+  -- 4b) independently prove the RLS policies themselves are gone, not just
+  --     that INSERT fails. Once 20260907040000 revokes anon's table-level
+  --     INSERT grant, an INSERT fails on the GRANT layer alone even if one
+  --     of these 4 policies accidentally survived retirement -- the
+  --     behavioral denials in case 1/4 above can't distinguish "policy
+  --     removed" from "policy still there but grant revoked underneath
+  --     it". Assert directly on pg_policy, relation-qualified so a
+  --     same-named policy on the wrong table can't produce a false pass.
+  if exists (
+    select 1 from pg_policy
+    where (polrelid = 'public.events'::regclass and polname = 'anon can insert demo events')
+       or (polrelid = 'public.event_phases'::regclass and polname = 'anon can insert demo event phases')
+       or (polrelid = 'public.event_schedules'::regclass and polname = 'anon can insert demo event schedules')
+       or (polrelid = 'public.ticket_tiers'::regclass and polname = 'anon can insert demo ticket tiers')
+  ) then
+    raise exception 'IPI-1163 FAIL: a retired anonymous INSERT policy still exists on its relation (RLS retirement incomplete, independent of the ACL revoke)';
+  end if;
+
   -- 5) least-privilege: anon's excess table-level INSERT/UPDATE/DELETE
   --    grants must be gone too, not just the policies (20260907040000).
   --    SELECT must remain (events_select_anon and the 2 published-only
@@ -168,31 +186,40 @@ begin
   -- 7) behavioral proof, not just the role-scope catalog check: the role
   --    boundary (TO authenticated) is only half the policy -- the
   --    ownership predicate (is_org_member(b.org_id)) must remain
-  --    authoritative and unweakened. Real org + org_member + brand +
-  --    brand_scores row: anon must see zero rows (role boundary), and an
-  --    authenticated non-member of that org must ALSO see zero rows
-  --    (ownership predicate) -- only an actual org member sees it.
+  --    authoritative and unweakened. Real Org A + Org B, each with their
+  --    own member: anon sees zero rows (role boundary), an authenticated
+  --    user with NO org membership sees zero rows, and -- the real
+  --    cross-tenant case, not just "has no org at all" -- an authenticated
+  --    Org B MEMBER also sees zero rows of Org A's data. Only Org A's own
+  --    member sees it.
   declare
-    scores_org      uuid := gen_random_uuid();
+    org_a           uuid := gen_random_uuid();
+    org_b           uuid := gen_random_uuid();
     scores_brand    uuid := gen_random_uuid();
     scores_row_id   uuid := gen_random_uuid();
-    org_member      uuid := gen_random_uuid();
+    org_a_member    uuid := gen_random_uuid();
+    org_b_member    uuid := gen_random_uuid();
     non_member      uuid := gen_random_uuid();
     visible_rows    int;
   begin
     insert into auth.users (id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
     values
-      (org_member, 'authenticated', 'authenticated', 'ipi1163-member@ipix.test', now(), '{"provider":"email"}'::jsonb, '{}'::jsonb, now(), now()),
+      (org_a_member, 'authenticated', 'authenticated', 'ipi1163-orga-member@ipix.test', now(), '{"provider":"email"}'::jsonb, '{}'::jsonb, now(), now()),
+      (org_b_member, 'authenticated', 'authenticated', 'ipi1163-orgb-member@ipix.test', now(), '{"provider":"email"}'::jsonb, '{}'::jsonb, now(), now()),
       (non_member, 'authenticated', 'authenticated', 'ipi1163-nonmember@ipix.test', now(), '{"provider":"email"}'::jsonb, '{}'::jsonb, now(), now());
     insert into public.organizations (id, name, slug, type, owner_id, plan)
-    values (scores_org, 'IPI1163 Scores Org', 'ipi1163-scores-org', 'agency', org_member, 'free');
+    values
+      (org_a, 'IPI1163 Org A', 'ipi1163-org-a', 'agency', org_a_member, 'free'),
+      (org_b, 'IPI1163 Org B', 'ipi1163-org-b', 'agency', org_b_member, 'free');
     -- organizations has an auto-owner trigger that already inserts the
     -- owner's org_members row; ON CONFLICT DO NOTHING covers both that
     -- and the case where it doesn't (repo behavior, not under test here).
-    insert into public.org_members (org_id, user_id, role) values (scores_org, org_member, 'owner')
+    insert into public.org_members (org_id, user_id, role) values
+      (org_a, org_a_member, 'owner'),
+      (org_b, org_b_member, 'owner')
       on conflict (org_id, user_id) do nothing;
     insert into public.brands (id, user_id, org_id, name, brand_url)
-    values (scores_brand, org_member, scores_org, 'IPI1163 Scores Brand', null);
+    values (scores_brand, org_a_member, org_a, 'IPI1163 Org A Brand', null);
     insert into public.brand_scores (id, brand_id, score_type, score)
     values (scores_row_id, scores_brand, 'ipi1163-test', 50);
 
@@ -211,12 +238,23 @@ begin
       raise exception 'IPI-1163 FAIL: authenticated non-org-member can see a brand_scores row (ownership predicate weakened or bypassed)';
     end if;
 
-    perform set_config('request.jwt.claim.sub', org_member::text, true);
-    execute format('set local role authenticated; set local request.jwt.claims = %L', json_build_object('sub', org_member)::text);
+    -- The real cross-tenant case: org_b_member IS a valid member of a
+    -- real org (Org B) -- distinct from "has no org at all" above -- and
+    -- must still see zero rows of Org A's brand_scores.
+    perform set_config('request.jwt.claim.sub', org_b_member::text, true);
+    execute format('set local role authenticated; set local request.jwt.claims = %L', json_build_object('sub', org_b_member)::text);
+    select count(*) into visible_rows from public.brand_scores where id = scores_row_id;
+    reset role;
+    if visible_rows <> 0 then
+      raise exception 'IPI-1163 FAIL: an authenticated Org B member can see Org A''s brand_scores row (cross-tenant isolation broken)';
+    end if;
+
+    perform set_config('request.jwt.claim.sub', org_a_member::text, true);
+    execute format('set local role authenticated; set local request.jwt.claims = %L', json_build_object('sub', org_a_member)::text);
     select count(*) into visible_rows from public.brand_scores where id = scores_row_id;
     reset role;
     if visible_rows <> 1 then
-      raise exception 'IPI-1163 FAIL: authenticated org member cannot see their own org''s brand_scores row (legitimate path broken)';
+      raise exception 'IPI-1163 FAIL: authenticated Org A member cannot see their own org''s brand_scores row (legitimate path broken)';
     end if;
   end;
 
