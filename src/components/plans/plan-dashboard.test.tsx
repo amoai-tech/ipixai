@@ -97,9 +97,13 @@ describe("PlanDashboard", () => {
       <PlanDashboard result={result(rows, false)} todayIso="2026-09-07" />,
     );
 
-    const values = screen.getAllByText(/^\d+$/).map((el) => el.textContent);
-    expect(values).toContain("3"); // total plans
-    expect(values).toContain("1"); // at risk (active, end passed)
-    expect(values).toContain("1"); // due today (planned end today)
+    const metricValue = (label: string) =>
+      screen
+        .getByText(label)
+        .parentElement?.querySelector("span:nth-of-type(2)")?.textContent;
+
+    expect(metricValue("Total plans")).toBe("3");
+    expect(metricValue("At risk")).toBe("1"); // active, end passed
+    expect(metricValue("Due today")).toBe("1"); // planned end today
   });
 });
