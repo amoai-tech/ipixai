@@ -159,9 +159,11 @@ test.describe("populated Command Center (authenticated, real org data)", () => {
         // authorized preview (or, in this dev/CI environment, Cloudinary
         // isn't configured at all — see IGNORABLE_SERVER_REPLAY above) — so
         // every tile fell back to its placeholder (recent-work-tile.tsx's
-        // showImage=false branch). Assert the placeholder rendered rather
-        // than silently passing.
-        await expect(shootList.getByText(/./)).toBeVisible();
+        // showImage=false branch). Assert a real placeholder tile rendered
+        // rather than silently passing — .first() because every populated
+        // tile renders its own title/meta text, so the bare matcher below
+        // resolves to several elements, not one.
+        await expect(shootList.getByText(/./).first()).toBeVisible();
         return;
       }
 
