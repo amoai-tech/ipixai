@@ -12,10 +12,10 @@ import {
 } from "@/lib/auth/runtime-org";
 import {
   countOrgShoots,
+  loadLatestShootForBrand,
   loadOrgBrands,
   loadOrgShoots,
   loadTrustedBrandIds,
-  resolveHeroContext,
 } from "@/lib/dashboard/command-center";
 import { loadRecentWorkPreviews } from "@/lib/dashboard/recent-work-media";
 import { loadChannelSpecs } from "@/lib/shoot/channel-specs";
@@ -73,12 +73,24 @@ export default async function AppHomePage() {
     loadOrgBrands(supabase, tenant.orgId),
     loadTrustedBrandIds(supabase, tenant.orgId),
   ]);
-  const [shootsResult, shootCountResult] = trustedBrandIdsResult.ok
-    ? await Promise.all([
-        loadOrgShoots(supabase, trustedBrandIdsResult.brandIds),
-        countOrgShoots(supabase, trustedBrandIdsResult.brandIds),
-      ])
-    : ([{ ok: false }, { ok: false }] as const);
+  // Real, hero-brand-scoped "recent production" — deliberately NOT
+  // resolveHeroContext's old array-scan over the (org-wide, capped)
+  // shoots list below: that could miss the hero brand's own latest shoot
+  // whenever other brands' shoots crowd it out of the global top
+  // SHOOT_LIMIT. See loadLatestShootForBrand's own doc comment.
+  const heroBrand = brandsResult.ok ? brandsResult.brands[0] : undefined;
+
+  const [shootsResult, shootCountResult, latestBrandShootResult] = await Promise.all([
+    trustedBrandIdsResult.ok
+      ? loadOrgShoots(supabase, trustedBrandIdsResult.brandIds)
+      : Promise.resolve({ ok: false } as const),
+    trustedBrandIdsResult.ok
+      ? countOrgShoots(supabase, trustedBrandIdsResult.brandIds)
+      : Promise.resolve({ ok: false } as const),
+    heroBrand
+      ? loadLatestShootForBrand(supabase, heroBrand.id)
+      : Promise.resolve({ ok: true, shoot: null } as const),
+  ]);
 
   // Both depend on shootsResult, so neither can join the Promise.all above —
   // but they're independent of each other (one signs preview images, the
@@ -101,13 +113,7 @@ export default async function AppHomePage() {
       ])
     : ([new Map<string, string>(), new Map<string, ChannelSpec>()] as const);
 
-  // Same call CommandCenter's own hero uses — lets the rail/chat name the
-  // current brand and its own most recent shoot without a second query or a
-  // second matching rule (see resolveHeroContext's own doc comment).
-  const heroContext = resolveHeroContext(
-    brandsResult.ok ? brandsResult.brands : undefined,
-    shootsResult.ok ? shootsResult.shoots : undefined,
-  );
+  const recentShoot = latestBrandShootResult.ok ? (latestBrandShootResult.shoot ?? undefined) : undefined;
 
   return (
     <div className="p-8">
@@ -123,9 +129,9 @@ export default async function AppHomePage() {
         <ReportWorkspaceStats
           brandCount={trustedBrandIdsResult.brandIds.length}
           shootCount={shootCountResult.count}
-          brandName={heroContext.brand?.name}
-          recentShootName={heroContext.recentShoot?.name}
-          recentShootStatus={heroContext.recentShoot?.status ?? undefined}
+          brandName={heroBrand?.name}
+          recentShootName={recentShoot?.name}
+          recentShootStatus={recentShoot?.status ?? undefined}
         />
       )}
       <CommandCenter

@@ -26,6 +26,14 @@ function dnaBadgeClass(score: number): string {
  * below-thumb title the no-preview-yet path already renders (never a
  * broken-image icon) — `showImage` is the single source of truth both
  * branches below key off, so the two paths can't drift out of sync.
+ *
+ * Failure is tracked against the specific URL that failed, not as a bare
+ * boolean: the parent keys tiles by `shootId` (see command-center.tsx), so
+ * React preserves this component and its state across a refresh of the
+ * server props — if `previewUrl` itself changes (a fixed/rotated signed
+ * URL for the same shoot), a boolean flag would keep hiding the new,
+ * possibly-good image forever. Comparing against `previewUrl` means a
+ * genuinely new URL always gets its own chance to load.
  */
 export function RecentWorkTile({
   shootId,
@@ -45,8 +53,8 @@ export function RecentWorkTile({
    *  doesn't cover, in which case the meta line shows the channel alone. */
   aspectRatioLabel?: string;
 }) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const showImage = Boolean(previewUrl) && !imageFailed;
+  const [failedUrl, setFailedUrl] = useState<string | undefined>(undefined);
+  const showImage = Boolean(previewUrl) && previewUrl !== failedUrl;
 
   return (
     <Link href={`/app/shoots/${shootId}`} className={styles.recentTile}>
@@ -68,7 +76,7 @@ export function RecentWorkTile({
               src={previewUrl}
               alt=""
               className={styles.recentImage}
-              onError={() => setImageFailed(true)}
+              onError={() => setFailedUrl(previewUrl)}
             />
             <span className={styles.recentThumbScrim} aria-hidden />
             <span className={styles.recentLabel}>{name}</span>

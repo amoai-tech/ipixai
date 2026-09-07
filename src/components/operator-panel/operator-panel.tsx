@@ -16,6 +16,15 @@ import type { WorkspaceStats } from "./workspace-stats";
 // Keep in sync with operator-panel.module.css @media (max-width: 767px)
 const MOBILE_NAV = "(max-width: 767px)";
 
+/** Single source of truth for "N brand(s) · N shoot(s)" — the rail and the
+ *  chat welcome each rendered their own brandNoun/shootNoun before this,
+ *  so the two surfaces could silently drift on pluralization wording. */
+function formatPortfolioCounts(stats: Pick<WorkspaceStats, "brandCount" | "shootCount">): string {
+  const brandNoun = stats.brandCount === 1 ? "brand" : "brands";
+  const shootNoun = stats.shootCount === 1 ? "shoot" : "shoots";
+  return `${stats.brandCount} ${brandNoun} · ${stats.shootCount} ${shootNoun}`;
+}
+
 function useMobileNav() {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -39,8 +48,6 @@ function useMobileNav() {
 function IntelligenceRailBody({ pathname }: { pathname: string }) {
   const stats = useWorkspaceStats();
   if (pathname === "/app" && stats) {
-    const brandNoun = stats.brandCount === 1 ? "brand" : "brands";
-    const shootNoun = stats.shootCount === 1 ? "shoot" : "shoots";
     return (
       <>
         <p className={styles.railTitle}>Overview</p>
@@ -50,7 +57,7 @@ function IntelligenceRailBody({ pathname }: { pathname: string }) {
           </p>
         )}
         <p className={styles.railBody} aria-live="polite" data-testid="intelligence-workspace-stats">
-          {stats.brandCount} {brandNoun} · {stats.shootCount} {shootNoun} in this workspace.
+          {formatPortfolioCounts(stats)} in this workspace.
         </p>
         {/* No Approvals/Activity here — IPI-1084 · APPROVAL-001 hasn't
             shipped a real approvals source, and no activity feed exists.
@@ -89,9 +96,7 @@ function portfolioWelcomeText(pathname: string, stats: WorkspaceStats | null): s
   if (stats.brandCount === 0) {
     return "Start by creating a brand or planning your first shoot.";
   }
-  const brandNoun = stats.brandCount === 1 ? "brand" : "brands";
-  const shootNoun = stats.shootCount === 1 ? "shoot" : "shoots";
-  const portfolio = `${stats.brandCount} ${brandNoun} · ${stats.shootCount} ${shootNoun}`;
+  const portfolio = formatPortfolioCounts(stats);
   return stats.brandName
     ? `You're working with ${stats.brandName}. Portfolio: ${portfolio}. Ask about recent production or your next shoot.`
     : `Portfolio: ${portfolio}. Ask about recent production or your next shoot.`;

@@ -283,6 +283,51 @@ describe("CommandCenter", () => {
     expect(screen.getByText("Shoot Nine").closest(".recentThumb")).toBeNull();
   });
 
+  it("retries a fresh preview URL for the same shoot after an earlier URL failed", () => {
+    // Regression guard: the parent keys this tile by shootId (stable across
+    // a server-props refresh), so React preserves the component and its
+    // failure state across a rerender. If that state were a bare boolean
+    // instead of tracking the specific URL that failed, a genuinely new
+    // signed URL for the same shoot would stay stuck on the placeholder
+    // forever, even though it never actually failed to load.
+    const shoots = {
+      ok: true as const,
+      shoots: [
+        {
+          id: "shoot-9",
+          name: "Shoot Nine",
+          status: "active",
+          brandId: "brand-1",
+          dnaScore: null,
+          channel: null,
+        },
+      ],
+    };
+    const { rerender } = render(
+      <CommandCenter
+        brandsResult={BRANDS_OK}
+        shootsResult={shoots}
+        recentWorkPreviews={new Map([["shoot-9", "https://res.cloudinary.com/now-broken"]])}
+      />,
+    );
+    const firstImg = screen.getByText("Shoot Nine").closest("a")?.querySelector("img");
+    fireEvent.error(firstImg as HTMLImageElement);
+    expect(screen.getByText("Shoot Nine").closest(".recentThumb")).toBeNull();
+
+    rerender(
+      <CommandCenter
+        brandsResult={BRANDS_OK}
+        shootsResult={shoots}
+        recentWorkPreviews={new Map([["shoot-9", "https://res.cloudinary.com/refreshed"]])}
+      />,
+    );
+
+    const tile = screen.getByText("Shoot Nine").closest("a");
+    const img = tile?.querySelector("img");
+    expect(img?.getAttribute("src")).toBe("https://res.cloudinary.com/refreshed");
+    expect(screen.getByText("Shoot Nine").closest(".recentThumb")).not.toBeNull();
+  });
+
   it("does not render an image for a shoot missing from recentWorkPreviews even when others have one", () => {
     const shoots = {
       ok: true as const,

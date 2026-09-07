@@ -76,6 +76,52 @@ const TRUSTED_BRAND_ID_PAGE_SIZE = 500;
 const TRUSTED_BRAND_ID_MAX_PAGES = 50;
 
 /**
+ * DASH-MAIN-002: dedicated, uncapped-per-brand latest-shoot lookup for the
+ * Intelligence rail's "Recent production" line. `loadOrgShoots`'s own
+ * result is capped at SHOOT_LIMIT and sorted *org-wide* across every
+ * trusted brand — the hero brand's own latest shoot can fall outside that
+ * global top-SHOOT_LIMIT (e.g. every other brand shipped more recently)
+ * even though it's real and exists, silently making a real "recent
+ * production" claim disappear. A single brand-scoped `.limit(1)` read has
+ * no such cap, so it can't miss the row this way.
+ */
+export async function loadLatestShootForBrand(
+  supabase: SupabaseClient,
+  brandId: string,
+): Promise<{ ok: true; shoot: DashboardShoot | null } | { ok: false }> {
+  try {
+    const { data, error } = await supabase
+      .from("shoot_portfolio_view")
+      .select("id,name,status,brand_id,dna_score,target_channels,updated_at")
+      .eq("brand_id", brandId)
+      // Same deterministic-order contract as loadOrgShoots.
+      .order("updated_at", { ascending: false })
+      .order("id", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.error("dashboard.loadLatestShootForBrand: query failed", { brandId, error });
+      return { ok: false };
+    }
+    if (!data) return { ok: true, shoot: null };
+    return {
+      ok: true,
+      shoot: {
+        id: data.id,
+        name: data.name ?? "Untitled shoot",
+        status: data.status,
+        brandId: data.brand_id,
+        dnaScore: data.dna_score ?? null,
+        channel: data.target_channels?.[0] ?? null,
+      },
+    };
+  } catch (err) {
+    console.error("dashboard.loadLatestShootForBrand: threw", { brandId, err });
+    return { ok: false };
+  }
+}
+
+/**
  * DASH-MAIN-001: org-scoped brand read for the Command Center.
  *
  * `orgId` must already be the AUTH-002 trusted org (never a client-supplied

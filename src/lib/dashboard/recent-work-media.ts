@@ -66,13 +66,28 @@ export async function loadRecentWorkPreviews(
   // getAuthorizedAssetPreview's full org-ownership + Cloudinary mirror +
   // resource/delivery-type + version check — this only removes redundant
   // *lookups* feeding into it. Safe to cache the in-flight promise (not
-  // just its resolved value) despite the concurrent shoot loop below:
-  // JS's single-threaded execution means whichever call reaches `??=`
-  // first assigns it atomically before any other candidate's call can
-  // observe `cachedOrgIds` as still null.
+  // just its resolved value) despite the concurrent shoot loop below: JS's
+  // single-threaded execution means whichever call reaches the `if` first
+  // assigns it atomically before any other candidate's call can observe
+  // `cachedOrgIds` as still null.
+  //
+  // A failed result is NOT kept cached — an `{ ok: false }` resolution or a
+  // rejection clears it back to null so the *next* candidate gets a fresh
+  // attempt, rather than every remaining candidate in this call replaying
+  // the one transient failure the first caller happened to hit.
   let cachedOrgIds: ReturnType<typeof listMembershipOrgIdsFromServerClient> | null = null;
-  const listOrgIds = () =>
-    (cachedOrgIds ??= listMembershipOrgIdsFromServerClient(supabase, operator.id));
+  const listOrgIds = () => {
+    if (!cachedOrgIds) {
+      cachedOrgIds = listMembershipOrgIdsFromServerClient(supabase, operator.id).then((result) => {
+        if (!result.ok) cachedOrgIds = null;
+        return result;
+      });
+      cachedOrgIds.catch(() => {
+        cachedOrgIds = null;
+      });
+    }
+    return cachedOrgIds;
+  };
 
   await Promise.all(
     shootIds.map(async (shootId) => {

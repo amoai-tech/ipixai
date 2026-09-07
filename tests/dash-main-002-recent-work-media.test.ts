@@ -11,6 +11,14 @@ vi.mock("@/lib/cloudinary/get-authorized-asset-preview", () => ({
   getAuthorizedAssetPreview: previewMock.getAuthorizedAssetPreview,
 }));
 
+const runtimeOrgMock = vi.hoisted(() => ({
+  listMembershipOrgIdsFromServerClient: vi.fn(),
+}));
+
+vi.mock("@/lib/auth/runtime-org", () => ({
+  listMembershipOrgIdsFromServerClient: runtimeOrgMock.listMembershipOrgIdsFromServerClient,
+}));
+
 // Imported after the mock so recent-work-media.ts picks up the mocked helper.
 const { loadRecentWorkPreviews } = await import("@/lib/dashboard/recent-work-media");
 
@@ -72,6 +80,7 @@ function fakeAssetsSupabase(
 
 afterEach(() => {
   previewMock.getAuthorizedAssetPreview.mockReset();
+  runtimeOrgMock.listMembershipOrgIdsFromServerClient.mockReset();
 });
 
 describe("loadRecentWorkPreviews", () => {
@@ -179,6 +188,57 @@ describe("loadRecentWorkPreviews", () => {
     expect(seenListOrgIds).toHaveLength(3);
     expect(new Set(seenListOrgIds).size).toBe(1);
     expect(seenListOrgIds[0]).toBeTypeOf("function");
+  });
+
+  it("retries the membership lookup for a later candidate after an earlier lookup resolved ok:false", async () => {
+    // Regression guard: caching the *promise* (not just deduping in-flight
+    // calls) previously meant one transient `{ ok: false }` poisoned every
+    // remaining candidate for the whole loadRecentWorkPreviews call, since
+    // they all awaited the same already-settled failed promise.
+    const supabase = fakeAssetsSupabase({
+      [SHOOT_1]: [{ id: ASSET_NEWEST }, { id: ASSET_MIDDLE }],
+    });
+    runtimeOrgMock.listMembershipOrgIdsFromServerClient
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({ ok: true, orgIds: ["org-1"] });
+    previewMock.getAuthorizedAssetPreview.mockImplementation(async ({ assetId, listOrgIds }) => {
+      const membership = await listOrgIds();
+      if (!membership.ok) return { ok: false, reason: "membership_lookup_failed" };
+      return assetId === ASSET_NEWEST
+        ? { ok: false, reason: "missing_cloudinary_mirror" }
+        : { ok: true, url: "https://res.cloudinary.com/signed/middle" };
+    });
+
+    const result = await loadRecentWorkPreviews(supabase, OPERATOR, [SHOOT_1]);
+
+    expect(result.get(SHOOT_1)).toBe("https://res.cloudinary.com/signed/middle");
+    expect(runtimeOrgMock.listMembershipOrgIdsFromServerClient).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries the membership lookup for a later candidate after an earlier lookup rejected", async () => {
+    const supabase = fakeAssetsSupabase({
+      [SHOOT_1]: [{ id: ASSET_NEWEST }, { id: ASSET_MIDDLE }],
+    });
+    runtimeOrgMock.listMembershipOrgIdsFromServerClient
+      .mockRejectedValueOnce(new Error("network blip"))
+      .mockResolvedValueOnce({ ok: true, orgIds: ["org-1"] });
+    previewMock.getAuthorizedAssetPreview.mockImplementation(async ({ assetId, listOrgIds }) => {
+      let membership: { ok: true; orgIds: string[] } | { ok: false };
+      try {
+        membership = await listOrgIds();
+      } catch {
+        return { ok: false, reason: "membership_lookup_failed" };
+      }
+      if (!membership.ok) return { ok: false, reason: "membership_lookup_failed" };
+      return assetId === ASSET_NEWEST
+        ? { ok: false, reason: "missing_cloudinary_mirror" }
+        : { ok: true, url: "https://res.cloudinary.com/signed/middle" };
+    });
+
+    const result = await loadRecentWorkPreviews(supabase, OPERATOR, [SHOOT_1]);
+
+    expect(result.get(SHOOT_1)).toBe("https://res.cloudinary.com/signed/middle");
+    expect(runtimeOrgMock.listMembershipOrgIdsFromServerClient).toHaveBeenCalledTimes(2);
   });
 
   it("all candidates invalid: no map entry (placeholder remains)", async () => {
