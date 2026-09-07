@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-// Makes one real GPT-4o call through the hosted Production Planner agent —
+// Makes one real configured OpenAI-model call through the hosted Production Planner agent —
 // see e2e/login-journey.spec.ts for the precedent of a real hosted call
 // scoped to chromium only (mobile-chromium excludes this file, see
 // playwright.config.ts) so the suite doesn't pay for it twice.
@@ -15,7 +15,7 @@ const NAV_TIMEOUT_MS = 30_000;
 const TEST_TIMEOUT_MS = RESPONSE_TIMEOUT_MS + NAV_TIMEOUT_MS * 4 + 30_000;
 
 test.describe("planner journey (authenticated)", () => {
-  // Never retry: a retry re-sends the real, paid GPT-4o request and leaves
+  // Never retry: a retry re-sends the real, paid OpenAI request and leaves
   // a second junk thread in the shared QA account. A flaky failure here
   // should surface, not be hidden by CI's default retries: 2.
   test.describe.configure({ retries: 0 });
@@ -29,7 +29,7 @@ test.describe("planner journey (authenticated)", () => {
     // run's own thread, not a same-looking prompt left by an earlier run
     // against the same long-lived shared QA account.
     const runMarker = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const prompt = `Estimate the shoot budget for 2 crew members, a rental studio, and 10 shots, over 1 shoot day, using default rates. [${runMarker}]`;
+    const prompt = `Estimate the shoot budget for 2 crew members, a rental studio, 10 shots, and 20 total assets to be post-produced, over 1 shoot day, in USD, using default rates. [${runMarker}]`;
 
     await page.goto("/planner");
 
