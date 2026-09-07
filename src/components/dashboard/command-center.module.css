@@ -248,12 +248,17 @@
 }
 
 .recentScroll {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr));
+  /* Fixed-width horizontal row, matching the pinned Lumina reference
+     exactly — not the auto-fill grid this tile used before there was a
+     real image to fill it with. */
+  display: flex;
   gap: var(--space-3);
+  overflow-x: auto;
+  padding-bottom: 0.375rem;
 }
 
 .recentTile {
+  flex: 0 0 8.625rem;
   display: block;
   color: inherit;
   text-decoration: none;
@@ -285,23 +290,53 @@
   color: var(--color-text-muted);
 }
 
+/* Only painted over a real image (see .recentLabel) — a dark scrim on the
+   light .recentThumbPlaceholder background would look like a rendering
+   glitch, not a design choice. */
+.recentThumbScrim {
+  position: absolute;
+  inset: 0;
+  background: var(--image-scrim);
+}
+
+.recentLabel {
+  /* Position/size match the pinned Lumina reference exactly (left 9px,
+     bottom 8px, 11px font) — not on our --space/--font-size scale, and
+     small enough that snapping to the nearest token would visibly shift
+     the label the certification is checking against. */
+  position: absolute;
+  left: 0.5625rem;
+  bottom: 0.5rem;
+  max-width: calc(100% - 1rem);
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-inverse);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .recentDnaBadge {
+  /* Filled colored pill + white text (Lumina's .recentMatch), not this
+     tile's old white-pill/colored-text treatment. .recentDnaHigh/Mid/Low
+     below supply the fill — iPix's own --color-dna-* tokens already equal
+     Lumina's --color-approved/--color-warning-text/--color-dna-low 1:1. */
   position: absolute;
   top: var(--space-2);
   right: var(--space-2);
   min-width: 1.5rem;
   padding: 2px 6px;
   border-radius: var(--radius-pill);
-  background: var(--primitive-white);
-  font-family: var(--font-mono);
+  color: var(--color-text-inverse);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-align: center;
 }
 
-.recentDnaHigh { color: var(--color-dna-high); }
-.recentDnaMid { color: var(--color-dna-mid); }
-.recentDnaLow { color: var(--color-dna-low); }
+.recentDnaHigh { background: var(--color-dna-high); }
+.recentDnaMid { background: var(--color-dna-mid); }
+.recentDnaLow { background: var(--color-dna-low); }
 
 .recentTitle {
   margin: var(--space-2) 0 0;

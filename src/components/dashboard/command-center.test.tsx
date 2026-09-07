@@ -77,10 +77,10 @@ describe("CommandCenter", () => {
     expect(screen.getByText("No shoots yet")).toBeDefined();
   });
 
-  it("links each shoot card to /app/shoots", () => {
+  it("links each shoot card to its own /app/shoots/:id detail page", () => {
     render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
     const anchor = screen.getByText("Shoot One").closest("a");
-    expect(anchor?.getAttribute("href")).toBe("/app/shoots");
+    expect(anchor?.getAttribute("href")).toBe("/app/shoots/shoot-1");
   });
 
   it("keeps the brands section intact when the shoots read fails independently", () => {
@@ -160,6 +160,46 @@ describe("CommandCenter", () => {
     const img = tile?.querySelector("img");
     expect(img).not.toBeNull();
     expect(img?.getAttribute("src")).toBe("https://res.cloudinary.com/signed-preview");
+  });
+
+  it("overlays the title on a real image (Lumina-parity), not duplicated below it", () => {
+    const shoots = {
+      ok: true as const,
+      shoots: [
+        {
+          id: "shoot-8",
+          name: "Shoot Eight",
+          status: "active",
+          brandId: "brand-1",
+          dnaScore: null,
+          channel: null,
+        },
+      ],
+    };
+    const recentWorkPreviews = new Map([["shoot-8", "https://res.cloudinary.com/signed-preview"]]);
+    render(
+      <CommandCenter
+        brandsResult={BRANDS_OK}
+        shootsResult={shoots}
+        recentWorkPreviews={recentWorkPreviews}
+      />,
+    );
+    const tile = screen.getByText("Shoot Eight").closest("a");
+    // Overlaid inside the thumb (sibling of the <img>), not the below-thumb
+    // <p> the placeholder path uses — and exactly one match, not both.
+    expect(screen.getAllByText("Shoot Eight")).toHaveLength(1);
+    const titleNode = screen.getByText("Shoot Eight");
+    expect(titleNode.tagName).toBe("SPAN");
+    expect(titleNode.parentElement).toBe(tile?.querySelector("img")?.parentElement);
+  });
+
+  it("keeps the title below the thumb (not overlaid) for a shoot with no authorized preview", () => {
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
+    const titleNode = screen.getByText("Shoot One");
+    expect(titleNode.tagName).toBe("P");
+    // A <p> sibling of .recentThumb, not nested inside it (CSS modules are
+    // mocked to their literal key string in this test file).
+    expect(titleNode.closest(".recentThumb")).toBeNull();
   });
 
   it("does not render an image for a shoot missing from recentWorkPreviews even when others have one", () => {
