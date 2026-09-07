@@ -123,10 +123,31 @@ describe("ensureMastraThread + listMastraThreadsForResource", () => {
     await ensureMastraThread(memory, { threadId, resourceId });
 
     const stored = await memory.getThreadById({ threadId });
+    // Prove the thread actually exists before asserting on its title — a
+    // silently-failed createThread would also make `stored` undefined, and
+    // `undefined?.title` is falsy too, so this line by itself can't tell
+    // "never created" apart from "created untitled".
+    expect(stored).toBeDefined();
     // Mastra's generateTitle only runs when `!thread.title` — asserting the
     // exact falsy value (not just "not the old placeholder") proves the gate
     // that actually decides whether generation fires stays open.
-    expect(stored?.title).toBeFalsy();
+    expect(stored!.title).toBeFalsy();
+  });
+
+  it("does not persist a whitespace-only title (IPI-1164)", async () => {
+    const memory = isolatedMemory();
+    const threadId = "aaaaaaaa-1111-4aaa-8aaa-aaaaaaaaaaaa";
+    const resourceId = "org:org-a::user:user-a";
+
+    await ensureMastraThread(memory, { threadId, resourceId, title: "   " });
+
+    const stored = await memory.getThreadById({ threadId });
+    expect(stored).toBeDefined();
+    // A whitespace-only title is truthy as a string, so an untrimmed check
+    // would persist "   " and leave generateTitle permanently blocked while
+    // the list UI's fallback masks it as "Planner chat" — stored and
+    // displayed truth would disagree.
+    expect(stored!.title).toBeFalsy();
   });
 
   it("still shows a fallback title for an untitled thread in the list (IPI-1164)", async () => {

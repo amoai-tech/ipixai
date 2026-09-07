@@ -70,10 +70,11 @@ export async function ensureMastraThread(
   // @mastra/core's agent runtime) — persisting a placeholder here would
   // permanently block it for every planner thread. "Planner chat" is still
   // the display fallback for an untitled thread, in listMastraThreadsForResource.
+  const title = input.title?.trim();
   await memory.createThread({
     threadId,
     resourceId: input.resourceId,
-    ...(input.title ? { title: input.title } : {}),
+    ...(title ? { title } : {}),
   });
   return { created: true };
 }
