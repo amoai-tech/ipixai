@@ -9,11 +9,13 @@ import {
 } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
-import { buildHeroGreeting } from "@/lib/dashboard/command-center";
+import { buildHeroGreeting, resolveHeroContext } from "@/lib/dashboard/command-center";
 import type { DashboardBrand, DashboardShoot } from "@/lib/dashboard/command-center";
+import type { ChannelSpec } from "@/lib/shoot/channel-specs";
 
 import styles from "./command-center.module.css";
 import { QuickActionChips } from "./quick-action-chips";
+import { RecentWorkTile } from "./recent-work-tile";
 
 type BrandsResult = { ok: true; brands: DashboardBrand[] } | { ok: false };
 type ShootsResult = { ok: true; shoots: DashboardShoot[] } | { ok: false };
@@ -25,6 +27,10 @@ type Props = {
    *  missing from this map (including when it's empty/omitted) renders the
    *  honest placeholder, same as before this existed. */
   recentWorkPreviews?: Map<string, string>;
+  /** channel -> real image_specs row, from loadChannelSpecs. A channel
+   *  missing from this map (unmapped in the reference tables, or the map
+   *  omitted) renders the channel alone — never a guessed aspect ratio. */
+  channelSpecs?: Map<string, ChannelSpec>;
 };
 
 const QUICK_LINKS = [
@@ -72,12 +78,6 @@ const QUICK_LINKS = [
  * static and stay usable regardless of either query's outcome. Planner
  * stays off this page; it's optional per accepted scope.
  */
-function dnaBadgeClass(score: number): string {
-  if (score >= 80) return `${styles.recentDnaBadge} ${styles.recentDnaHigh}`;
-  if (score >= 60) return `${styles.recentDnaBadge} ${styles.recentDnaMid}`;
-  return `${styles.recentDnaBadge} ${styles.recentDnaLow}`;
-}
-
 /**
  * COPY+CLEAN of Lumina's PortfolioHeroCard hierarchy: media, "Production
  * Planner" label, then a real-data-only headline/subline (buildHeroGreeting).
@@ -113,8 +113,8 @@ export function CommandCenter({
   brandsResult,
   shootsResult,
   recentWorkPreviews = new Map(),
+  channelSpecs = new Map(),
 }: Props) {
-  const heroBrand = brandsResult.ok ? brandsResult.brands[0] : undefined;
   // "Live" would claim a continuously-current feed this page doesn't have —
   // no websocket/realtime signal backs it. This says only what's actually
   // true: whether this request's own reads succeeded — never "ready" while
@@ -122,10 +122,13 @@ export function CommandCenter({
   const hasLoadError = !brandsResult.ok || !shootsResult.ok;
   // Shoots load org-wide, not scoped to heroBrand — shoots[0] alone could
   // name a different brand's most recent shoot under this brand's hero
-  // copy. Match on brandId so the hero never implies a false association.
-  const recentShootName = shootsResult.ok
-    ? shootsResult.shoots.find((shoot) => shoot.brandId === heroBrand?.id)?.name
-    : undefined;
+  // copy. resolveHeroContext matches on brandId so the hero never implies a
+  // false association (shared with OperatorPanel's rail/chat welcome).
+  const { brand: heroBrand, recentShoot } = resolveHeroContext(
+    brandsResult.ok ? brandsResult.brands : undefined,
+    shootsResult.ok ? shootsResult.shoots : undefined,
+  );
+  const recentShootName = recentShoot?.name;
 
   return (
     <div className={styles.root} data-testid="command-center">
@@ -207,42 +210,15 @@ export function CommandCenter({
         ) : (
           <div className={styles.recentScroll} data-testid="command-center-shoot-list">
             {shootsResult.shoots.map((shoot) => (
-              <Link key={shoot.id} href="/app/shoots" className={styles.recentTile}>
-                <div className={styles.recentThumb}>
-                  {/* shoot_portfolio_view.cover_url (mood_board_urls) is
-                      never rendered directly — no bridge to this app's one
-                      proven secure-delivery contract. The real cover here
-                      comes only from loadRecentWorkPreviews: a shoot-linked
-                      `assets` row with an `authenticated`-type Cloudinary
-                      mirror, signed by get-authorized-asset-preview.ts, per
-                      IPI-1112 · CLD-DELIVERY-001 — Serve Org-Safe Cloudinary
-                      Previews with Named Transforms. No entry for this shoot
-                      in the map means no authorized asset exists yet —
-                      honest no-image placeholder, not a fabricated cover. */}
-                  {recentWorkPreviews.get(shoot.id) ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- signed, expiring URL; Next/Image would re-request/re-optimize it server-side
-                    <img
-                      src={recentWorkPreviews.get(shoot.id)}
-                      alt=""
-                      className={styles.recentImage}
-                    />
-                  ) : (
-                    <span className={styles.recentThumbPlaceholder} aria-hidden>
-                      <Camera />
-                    </span>
-                  )}
-                  {typeof shoot.dnaScore === "number" && (
-                    <span
-                      className={dnaBadgeClass(shoot.dnaScore)}
-                      aria-label={`DNA score: ${Math.round(shoot.dnaScore)}`}
-                    >
-                      {Math.round(shoot.dnaScore)}
-                    </span>
-                  )}
-                </div>
-                <p className={styles.recentTitle}>{shoot.name}</p>
-                {shoot.channel && <p className={styles.recentMeta}>{shoot.channel}</p>}
-              </Link>
+              <RecentWorkTile
+                key={shoot.id}
+                shootId={shoot.id}
+                name={shoot.name}
+                channel={shoot.channel}
+                dnaScore={shoot.dnaScore}
+                previewUrl={recentWorkPreviews.get(shoot.id)}
+                aspectRatioLabel={shoot.channel ? channelSpecs.get(shoot.channel)?.aspectRatioLabel : undefined}
+              />
             ))}
           </div>
         )}

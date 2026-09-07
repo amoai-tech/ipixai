@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 
 // Mock every CSS module the tree imports (CommandCenter + composed atoms).
 vi.mock("./command-center.module.css", () => ({
@@ -77,10 +77,10 @@ describe("CommandCenter", () => {
     expect(screen.getByText("No shoots yet")).toBeDefined();
   });
 
-  it("links each shoot card to /app/shoots", () => {
+  it("links each shoot card to its own /app/shoots/:id detail page", () => {
     render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
     const anchor = screen.getByText("Shoot One").closest("a");
-    expect(anchor?.getAttribute("href")).toBe("/app/shoots");
+    expect(anchor?.getAttribute("href")).toBe("/app/shoots/shoot-1");
   });
 
   it("keeps the brands section intact when the shoots read fails independently", () => {
@@ -114,6 +114,9 @@ describe("CommandCenter", () => {
     // Even a shoot with a real DNA score and channel gets the honest
     // placeholder when it has no entry in recentWorkPreviews — cover_url
     // itself is never rendered directly (see the .recentThumb comment).
+    // channel is a real shoot.channel enum value here (not the display
+    // label) — the tile must map it through channelLabel(), same as
+    // ShootCard/deliverables-tab do elsewhere.
     const shoots = {
       ok: true as const,
       shoots: [
@@ -123,7 +126,7 @@ describe("CommandCenter", () => {
           status: "active",
           brandId: "brand-1",
           dnaScore: 91,
-          channel: "IG",
+          channel: "instagram_feed",
         },
       ],
     };
@@ -132,6 +135,49 @@ describe("CommandCenter", () => {
     expect(tile?.querySelector("img")).toBeNull();
     expect(screen.getByText("91")).toBeDefined();
     expect(screen.getByText("IG")).toBeDefined();
+  });
+
+  it("appends a real aspect-ratio label only when channelSpecs actually has one", () => {
+    const shoots = {
+      ok: true as const,
+      shoots: [
+        {
+          id: "shoot-10",
+          name: "Shoot Ten",
+          status: "active",
+          brandId: "brand-1",
+          dnaScore: null,
+          channel: "instagram_feed",
+        },
+      ],
+    };
+    const channelSpecs = new Map([
+      ["instagram_feed", { aspectRatioLabel: "4:5", acceptedFormat: "JPG", backgroundRequired: null }],
+    ]);
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={shoots} channelSpecs={channelSpecs} />);
+    expect(screen.getByText("IG · 4:5")).toBeDefined();
+  });
+
+  it("never fabricates an aspect ratio for a channel channelSpecs doesn't cover", () => {
+    // "website" is a real shoot.channel value the image_specs reference
+    // tables don't map (see channel-specs.ts) — the meta line must fall
+    // back to the channel label alone, never a guessed ratio.
+    const shoots = {
+      ok: true as const,
+      shoots: [
+        {
+          id: "shoot-11",
+          name: "Shoot Eleven",
+          status: "active",
+          brandId: "brand-1",
+          dnaScore: null,
+          channel: "website",
+        },
+      ],
+    };
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={shoots} channelSpecs={new Map()} />);
+    expect(screen.getByText("Website")).toBeDefined();
+    expect(screen.queryByText(/·/)).toBeNull();
   });
 
   it("renders the real signed image when an authorized preview exists for a shoot", () => {
@@ -160,6 +206,126 @@ describe("CommandCenter", () => {
     const img = tile?.querySelector("img");
     expect(img).not.toBeNull();
     expect(img?.getAttribute("src")).toBe("https://res.cloudinary.com/signed-preview");
+  });
+
+  it("renders the title exactly once, inside the image region, when a real image exists", () => {
+    // Unit-testable proxy for "overlaid on the image, not duplicated below
+    // it" — jsdom doesn't compute real layout/position, so the actual
+    // visual placement (Lumina parity) is verified separately by browser
+    // screenshot, not asserted here. What this test can and does prove:
+    // the title text appears exactly once (no separate below-thumb copy),
+    // and it's contained within the same region as the media, not a
+    // sibling of it.
+    const shoots = {
+      ok: true as const,
+      shoots: [
+        {
+          id: "shoot-8",
+          name: "Shoot Eight",
+          status: "active",
+          brandId: "brand-1",
+          dnaScore: null,
+          channel: null,
+        },
+      ],
+    };
+    const recentWorkPreviews = new Map([["shoot-8", "https://res.cloudinary.com/signed-preview"]]);
+    render(
+      <CommandCenter
+        brandsResult={BRANDS_OK}
+        shootsResult={shoots}
+        recentWorkPreviews={recentWorkPreviews}
+      />,
+    );
+    expect(screen.getAllByText("Shoot Eight")).toHaveLength(1);
+    expect(screen.getByText("Shoot Eight").closest(".recentThumb")).not.toBeNull();
+  });
+
+  it("renders the title outside the image region when no authorized preview exists", () => {
+    // Same unit-testable proxy as above, inverted: for the placeholder
+    // path the title is not part of the media region (CSS modules are
+    // mocked to their literal key string in this test file).
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
+    expect(screen.getByText("Shoot One").closest(".recentThumb")).toBeNull();
+  });
+
+  it("recovers to the honest placeholder and below-thumb title when the signed image fails to load", () => {
+    const shoots = {
+      ok: true as const,
+      shoots: [
+        {
+          id: "shoot-9",
+          name: "Shoot Nine",
+          status: "active",
+          brandId: "brand-1",
+          dnaScore: null,
+          channel: null,
+        },
+      ],
+    };
+    const recentWorkPreviews = new Map([["shoot-9", "https://res.cloudinary.com/now-broken"]]);
+    render(
+      <CommandCenter
+        brandsResult={BRANDS_OK}
+        shootsResult={shoots}
+        recentWorkPreviews={recentWorkPreviews}
+      />,
+    );
+    const tile = screen.getByText("Shoot Nine").closest("a");
+    const img = tile?.querySelector("img");
+    expect(img).not.toBeNull();
+
+    fireEvent.error(img as HTMLImageElement);
+
+    // Same shape as "no preview at all": no <img>, honest placeholder,
+    // title moves out of the (now placeholder) media region.
+    expect(tile?.querySelector("img")).toBeNull();
+    expect(screen.getByText("Shoot Nine").closest(".recentThumb")).toBeNull();
+  });
+
+  it("retries a fresh preview URL for the same shoot after an earlier URL failed", () => {
+    // Regression guard: the parent keys this tile by shootId (stable across
+    // a server-props refresh), so React preserves the component and its
+    // failure state across a rerender. If that state were a bare boolean
+    // instead of tracking the specific URL that failed, a genuinely new
+    // signed URL for the same shoot would stay stuck on the placeholder
+    // forever, even though it never actually failed to load.
+    const shoots = {
+      ok: true as const,
+      shoots: [
+        {
+          id: "shoot-9",
+          name: "Shoot Nine",
+          status: "active",
+          brandId: "brand-1",
+          dnaScore: null,
+          channel: null,
+        },
+      ],
+    };
+    const { rerender } = render(
+      <CommandCenter
+        brandsResult={BRANDS_OK}
+        shootsResult={shoots}
+        recentWorkPreviews={new Map([["shoot-9", "https://res.cloudinary.com/now-broken"]])}
+      />,
+    );
+    const firstImg = screen.getByText("Shoot Nine").closest("a")?.querySelector("img");
+    fireEvent.error(firstImg as HTMLImageElement);
+    expect(screen.getByText("Shoot Nine").closest(".recentThumb")).toBeNull();
+
+    rerender(
+      <CommandCenter
+        brandsResult={BRANDS_OK}
+        shootsResult={shoots}
+        recentWorkPreviews={new Map([["shoot-9", "https://res.cloudinary.com/refreshed"]])}
+      />,
+    );
+
+    const tile = screen.getByText("Shoot Nine").closest("a");
+    const img = tile?.querySelector("img");
+    expect(img?.getAttribute("src")).toBe("https://res.cloudinary.com/refreshed");
+    expect(screen.getByText("Shoot Nine").closest(".recentThumb")).not.toBeNull();
   });
 
   it("does not render an image for a shoot missing from recentWorkPreviews even when others have one", () => {

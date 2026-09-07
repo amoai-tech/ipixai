@@ -11,9 +11,19 @@ import { cn } from "@/lib/utils";
 import { navItemIsActive, OPERATOR_NAV } from "./nav";
 import styles from "./operator-panel.module.css";
 import { useWorkspaceStats, WorkspaceStatsProvider } from "./workspace-stats";
+import type { WorkspaceStats } from "./workspace-stats";
 
 // Keep in sync with operator-panel.module.css @media (max-width: 767px)
 const MOBILE_NAV = "(max-width: 767px)";
+
+/** Single source of truth for "N brand(s) · N shoot(s)" — the rail and the
+ *  chat welcome each rendered their own brandNoun/shootNoun before this,
+ *  so the two surfaces could silently drift on pluralization wording. */
+function formatPortfolioCounts(stats: Pick<WorkspaceStats, "brandCount" | "shootCount">): string {
+  const brandNoun = stats.brandCount === 1 ? "brand" : "brands";
+  const shootNoun = stats.shootCount === 1 ? "shoot" : "shoots";
+  return `${stats.brandCount} ${brandNoun} · ${stats.shootCount} ${shootNoun}`;
+}
 
 function useMobileNav() {
   const [isMobile, setIsMobile] = useState(false);
@@ -29,27 +39,88 @@ function useMobileNav() {
 }
 
 /**
- * `/app`-specific derived state: real, uncapped brand/shoot counts for the
- * dashboard route only (see AppHomePage's ReportWorkspaceStats). Every
- * other route — and the dashboard before its counts have loaded — falls
- * back to the same generic copy the rail always showed, never a fabricated
- * or stale count.
+ * `/app`-specific derived state: real, uncapped brand/shoot counts (and the
+ * real first-brand name, when there is one) for the dashboard route only
+ * (see AppHomePage's ReportWorkspaceStats). Every other route — and the
+ * dashboard before its stats have loaded — falls back to the same generic
+ * copy the rail always showed, never a fabricated or stale value.
  */
 function IntelligenceRailBody({ pathname }: { pathname: string }) {
   const stats = useWorkspaceStats();
   if (pathname === "/app" && stats) {
-    const brandNoun = stats.brandCount === 1 ? "brand" : "brands";
-    const shootNoun = stats.shootCount === 1 ? "shoot" : "shoots";
     return (
-      <p className={styles.railBody} aria-live="polite" data-testid="intelligence-workspace-stats">
-        {stats.brandCount} {brandNoun} · {stats.shootCount} {shootNoun} in this workspace.
-      </p>
+      <>
+        <p className={styles.railTitle}>Overview</p>
+        {stats.brandName && (
+          <p className={styles.railBody} data-testid="intelligence-brand-context">
+            Current brand: {stats.brandName}
+          </p>
+        )}
+        <p className={styles.railBody} aria-live="polite" data-testid="intelligence-workspace-stats">
+          {formatPortfolioCounts(stats)} in this workspace.
+        </p>
+        {/* No Approvals/Activity here — IPI-1084 · APPROVAL-001 hasn't
+            shipped a real approvals source, and no activity feed exists.
+            Real signal only, per IPI-1149's acceptance criteria. */}
+        {stats.recentShootLookupFailed ? (
+          // Distinct from "brand genuinely has no shoots" (below): a failed
+          // lookup says so honestly instead of silently looking identical
+          // to a confirmed-empty brand.
+          <>
+            <p className={styles.railTitle}>Recent production</p>
+            <p className={styles.railBody} data-testid="intelligence-recent-shoot-unavailable">
+              Couldn&apos;t load right now.
+            </p>
+          </>
+        ) : (
+          stats.recentShootName && (
+            <>
+              <p className={styles.railTitle}>Recent production</p>
+              <p className={styles.railBody} data-testid="intelligence-recent-shoot">
+                {stats.recentShootName}
+                {stats.recentShootStatus ? ` · ${stats.recentShootStatus}` : ""}
+              </p>
+            </>
+          )
+        )}
+      </>
     );
   }
   return (
     <p className={styles.railBody}>
       Planner chat stays in its own screen. Open it without replacing this workspace.
     </p>
+  );
+}
+
+/**
+ * IPI-1149 · DASH-MAIN-002 — portfolio-aware Production Planner welcome
+ * copy. Reuses the same real WorkspaceStats the rail above renders; this
+ * only changes *display* copy, not what the agent itself knows — no second
+ * agent-context path (that's IPI-1087 · PLANNER-CONTEXT-001's job). Every
+ * route besides `/app`, and `/app` before its stats arrive, keeps the
+ * original generic copy.
+ */
+function portfolioWelcomeText(pathname: string, stats: WorkspaceStats | null): string {
+  if (pathname !== "/app" || !stats) {
+    return "Ask a question to get started.";
+  }
+  if (stats.brandCount === 0) {
+    return "Start by creating a brand or planning your first shoot.";
+  }
+  const portfolio = formatPortfolioCounts(stats);
+  return stats.brandName
+    ? `You're working with ${stats.brandName}. Portfolio: ${portfolio}. Ask about recent production or your next shoot.`
+    : `Portfolio: ${portfolio}. Ask about recent production or your next shoot.`;
+}
+
+/** Reads WorkspaceStats from inside the provider (OperatorPanel's own body
+ *  sits above it in the tree, so it can't call the hook directly) and hands
+ *  CopilotChat portfolio-aware welcome copy instead of a static string. */
+function PlannerChatDock({ pathname }: { pathname: string }) {
+  const stats = useWorkspaceStats();
+  return (
+    <CopilotChat agentId="default" labels={{ welcomeMessageText: portfolioWelcomeText(pathname, stats) }} />
   );
 }
 
@@ -164,17 +235,13 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
       <main className={styles.main}>
         <div className={styles.mainScroll}>{children}</div>
         <div className={styles.chatDock} data-testid="operator-chat-dock">
-          {/* agentId="default" now resolves to productionPlannerAgent
-              (src/mastra/agents/index.ts, IPI-1048 · PLANNER-001) — still no
-              brand/shoot context wired into this dock's copy/suggestions yet.
-              Updating this dock's welcome copy/props for that is Dashboard
-              composition work, out of scope here — owning follow-up remains
-              IPI-1149 · DASH-MAIN-002 — Restore the Portfolio-First Command
-              Center Experience in iPix V2 */}
-          <CopilotChat
-            agentId="default"
-            labels={{ welcomeMessageText: "Ask a question to get started." }}
-          />
+          {/* agentId="default" resolves to productionPlannerAgent
+              (src/mastra/agents/index.ts, IPI-1048 · PLANNER-001). Welcome
+              copy is portfolio-aware (portfolioWelcomeText, above) — display
+              only, sourced from the same WorkspaceStats the rail reads. The
+              agent's own runtime context is untouched here; that's
+              IPI-1087 · PLANNER-CONTEXT-001's job. */}
+          <PlannerChatDock pathname={pathname} />
         </div>
       </main>
 

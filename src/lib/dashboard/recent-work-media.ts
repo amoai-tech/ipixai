@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { listMembershipOrgIdsFromServerClient } from "@/lib/auth/runtime-org";
 import type { VerifiedOperator } from "@/lib/auth/verified-operator";
 import { getAuthorizedAssetPreview } from "@/lib/cloudinary/get-authorized-asset-preview";
 
@@ -57,6 +58,37 @@ export async function loadRecentWorkPreviews(
 ): Promise<Map<string, string>> {
   const previews = new Map<string, string>();
 
+  // Resolved once per call, not once per candidate: left to its default,
+  // getAuthorizedAssetPreview re-runs this exact org_members lookup on
+  // every single call it gets — up to shootIds.length * CANDIDATE_LIMIT
+  // times for one page load, all for the same operator, same request. The
+  // authorization boundary itself is untouched: every candidate still runs
+  // getAuthorizedAssetPreview's full org-ownership + Cloudinary mirror +
+  // resource/delivery-type + version check — this only removes redundant
+  // *lookups* feeding into it. Safe to cache the in-flight promise (not
+  // just its resolved value) despite the concurrent shoot loop below: JS's
+  // single-threaded execution means whichever call reaches the `if` first
+  // assigns it atomically before any other candidate's call can observe
+  // `cachedOrgIds` as still null.
+  //
+  // A failed result is NOT kept cached — an `{ ok: false }` resolution or a
+  // rejection clears it back to null so the *next* candidate gets a fresh
+  // attempt, rather than every remaining candidate in this call replaying
+  // the one transient failure the first caller happened to hit.
+  let cachedOrgIds: ReturnType<typeof listMembershipOrgIdsFromServerClient> | null = null;
+  const listOrgIds = () => {
+    if (!cachedOrgIds) {
+      cachedOrgIds = listMembershipOrgIdsFromServerClient(supabase, operator.id).then((result) => {
+        if (!result.ok) cachedOrgIds = null;
+        return result;
+      });
+      cachedOrgIds.catch(() => {
+        cachedOrgIds = null;
+      });
+    }
+    return cachedOrgIds;
+  };
+
   await Promise.all(
     shootIds.map(async (shootId) => {
       let candidates: { id: string }[];
@@ -100,6 +132,7 @@ export async function loadRecentWorkPreviews(
             assetId: candidate.id,
             preview: "masonry",
             operator,
+            listOrgIds,
             // Same narrow-interface cast the existing /api/assets/[assetId]/preview
             // route uses — the real SupabaseClient is a structural superset.
             supabase: supabase as never,

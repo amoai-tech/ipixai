@@ -60,7 +60,9 @@ vi.mock("./operator-panel.module.css", () => ({
 // CopilotKit's internals.
 vi.mock("@copilotkit/react-core/v2", () => ({
   CopilotKit: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  CopilotChat: () => <div data-testid="copilot-chat-stub" />,
+  CopilotChat: ({ labels }: { labels?: { welcomeMessageText?: string } }) => (
+    <div data-testid="copilot-chat-stub">{labels?.welcomeMessageText}</div>
+  ),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -168,6 +170,84 @@ describe("OperatorPanel", () => {
     expect(
       within(screen.getByTestId("intelligence-rail")).getByText("2 brands · 1 shoot in this workspace."),
     ).toBeDefined();
+  });
+
+  it("chat welcome stays generic with no real workspace stats", () => {
+    render(
+      <OperatorPanel>
+        <p>Body</p>
+      </OperatorPanel>,
+    );
+    expect(screen.getByTestId("copilot-chat-stub").textContent).toBe("Ask a question to get started.");
+  });
+
+  it("chat welcome and rail name the real brand and its own recent shoot when populated", () => {
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats
+          brandCount={3}
+          shootCount={12}
+          brandName="Maaji"
+          recentShootName="Spring hero"
+          recentShootStatus="in_review"
+        />
+      </OperatorPanel>,
+    );
+    expect(screen.getByTestId("copilot-chat-stub").textContent).toBe(
+      "You're working with Maaji. Portfolio: 3 brands · 12 shoots. Ask about recent production or your next shoot.",
+    );
+    const rail = screen.getByTestId("intelligence-rail");
+    expect(within(rail).getByTestId("intelligence-brand-context").textContent).toBe(
+      "Current brand: Maaji",
+    );
+    expect(within(rail).getByTestId("intelligence-recent-shoot").textContent).toBe(
+      "Spring hero · in_review",
+    );
+  });
+
+  it("never fabricates a recent-shoot line when the brand has none", () => {
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={1} shootCount={0} brandName="Acme" />
+      </OperatorPanel>,
+    );
+    expect(screen.getByTestId("copilot-chat-stub").textContent).toBe(
+      "You're working with Acme. Portfolio: 1 brand · 0 shoots. Ask about recent production or your next shoot.",
+    );
+    expect(screen.queryByTestId("intelligence-recent-shoot")).toBeNull();
+  });
+
+  it("tells the rail a lookup failed instead of silently looking like a confirmed-empty brand", () => {
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={1} shootCount={3} brandName="Acme" recentShootLookupFailed />
+      </OperatorPanel>,
+    );
+    const rail = screen.getByTestId("intelligence-rail");
+    expect(within(rail).getByTestId("intelligence-recent-shoot-unavailable").textContent).toBe(
+      "Couldn't load right now.",
+    );
+    // Never both at once — a failed lookup and a real shoot name are
+    // mutually exclusive outcomes.
+    expect(within(rail).queryByTestId("intelligence-recent-shoot")).toBeNull();
+  });
+
+  it("chat welcome and rail stay honest for a zero-brand org — no guessed brand", () => {
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={0} shootCount={0} />
+      </OperatorPanel>,
+    );
+    expect(screen.getByTestId("copilot-chat-stub").textContent).toBe(
+      "Start by creating a brand or planning your first shoot.",
+    );
+    const rail = screen.getByTestId("intelligence-rail");
+    expect(within(rail).queryByTestId("intelligence-brand-context")).toBeNull();
+    expect(within(rail).queryByTestId("intelligence-recent-shoot")).toBeNull();
+    // No fabricated Approvals/Activity anywhere in the rail — real signal
+    // only, per IPI-1149's acceptance criteria.
+    expect(within(rail).queryByText(/approval/i)).toBeNull();
+    expect(within(rail).queryByText(/activity/i)).toBeNull();
   });
 
   it("toggles mobile navigation open and closed", () => {

@@ -12,11 +12,14 @@ import {
 } from "@/lib/auth/runtime-org";
 import {
   countOrgShoots,
+  loadLatestShootForBrand,
   loadOrgBrands,
   loadOrgShoots,
   loadTrustedBrandIds,
 } from "@/lib/dashboard/command-center";
 import { loadRecentWorkPreviews } from "@/lib/dashboard/recent-work-media";
+import { loadChannelSpecs } from "@/lib/shoot/channel-specs";
+import type { ChannelSpec } from "@/lib/shoot/channel-specs";
 
 /**
  * DASH-MAIN-001 — the authenticated `/app` Command Center.
@@ -70,22 +73,51 @@ export default async function AppHomePage() {
     loadOrgBrands(supabase, tenant.orgId),
     loadTrustedBrandIds(supabase, tenant.orgId),
   ]);
-  const [shootsResult, shootCountResult] = trustedBrandIdsResult.ok
-    ? await Promise.all([
-        loadOrgShoots(supabase, trustedBrandIdsResult.brandIds),
-        countOrgShoots(supabase, trustedBrandIdsResult.brandIds),
-      ])
-    : ([{ ok: false }, { ok: false }] as const);
+  // Real, hero-brand-scoped "recent production" — deliberately NOT
+  // resolveHeroContext's old array-scan over the (org-wide, capped)
+  // shoots list below: that could miss the hero brand's own latest shoot
+  // whenever other brands' shoots crowd it out of the global top
+  // SHOOT_LIMIT. See loadLatestShootForBrand's own doc comment.
+  const heroBrand = brandsResult.ok ? brandsResult.brands[0] : undefined;
 
-  // Depends on shootsResult, so it can't join the Promise.all above — only
-  // runs for the (already display-capped) shoots actually rendered below.
-  const recentWorkPreviews = shootsResult.ok
-    ? await loadRecentWorkPreviews(
-        supabase,
-        operator,
-        shootsResult.shoots.map((shoot) => shoot.id),
-      )
-    : new Map<string, string>();
+  const [shootsResult, shootCountResult, latestBrandShootResult] = await Promise.all([
+    trustedBrandIdsResult.ok
+      ? loadOrgShoots(supabase, trustedBrandIdsResult.brandIds)
+      : Promise.resolve({ ok: false } as const),
+    trustedBrandIdsResult.ok
+      ? countOrgShoots(supabase, trustedBrandIdsResult.brandIds)
+      : Promise.resolve({ ok: false } as const),
+    heroBrand
+      ? loadLatestShootForBrand(supabase, heroBrand.id)
+      : Promise.resolve({ ok: true, shoot: null } as const),
+  ]);
+
+  // Both depend on shootsResult, so neither can join the Promise.all above —
+  // but they're independent of each other (one signs preview images, the
+  // other resolves channel -> real aspect-ratio spec), so they run together
+  // here instead of in series.
+  const [recentWorkPreviews, channelSpecs] = shootsResult.ok
+    ? await Promise.all([
+        loadRecentWorkPreviews(
+          supabase,
+          operator,
+          shootsResult.shoots.map((shoot) => shoot.id),
+        ),
+        loadChannelSpecs([
+          ...new Set(
+            shootsResult.shoots
+              .map((shoot) => shoot.channel)
+              .filter((channel): channel is string => channel !== null),
+          ),
+        ]),
+      ])
+    : ([new Map<string, string>(), new Map<string, ChannelSpec>()] as const);
+
+  // Kept distinct from "brand has no shoots" (a successful lookup that
+  // simply found none) — see WorkspaceStats.recentShootLookupFailed and
+  // loadLatestShootForBrand's own doc comment.
+  const recentShoot = latestBrandShootResult.ok ? (latestBrandShootResult.shoot ?? undefined) : undefined;
+  const recentShootLookupFailed = !latestBrandShootResult.ok;
 
   return (
     <div className="p-8">
@@ -101,12 +133,17 @@ export default async function AppHomePage() {
         <ReportWorkspaceStats
           brandCount={trustedBrandIdsResult.brandIds.length}
           shootCount={shootCountResult.count}
+          brandName={heroBrand?.name}
+          recentShootName={recentShoot?.name}
+          recentShootStatus={recentShoot?.status ?? undefined}
+          recentShootLookupFailed={recentShootLookupFailed}
         />
       )}
       <CommandCenter
         brandsResult={brandsResult}
         shootsResult={shootsResult}
         recentWorkPreviews={recentWorkPreviews}
+        channelSpecs={channelSpecs}
       />
     </div>
   );

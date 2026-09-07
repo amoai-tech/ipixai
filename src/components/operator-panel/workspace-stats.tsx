@@ -2,7 +2,25 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 
-export type WorkspaceStats = { brandCount: number; shootCount: number };
+export type WorkspaceStats = {
+  brandCount: number;
+  shootCount: number;
+  /** Real first-brand name (page.tsx's own `resolveHeroContext`, the same
+   *  row CommandCenter's hero uses) — undefined when there's no brand yet.
+   *  Never a guessed/default brand. */
+  brandName?: string;
+  /** Real name/status of that brand's own most-recently-updated shoot,
+   *  from the dedicated per-brand lookup (command-center.ts's
+   *  loadLatestShootForBrand) — undefined when the brand genuinely has
+   *  none. */
+  recentShootName?: string;
+  recentShootStatus?: string;
+  /** True only when the lookup itself failed (query error/throw) — kept
+   *  distinct from "the brand genuinely has no shoots yet" (both
+   *  recentShootName fields simply undefined) so the rail can say "we
+   *  couldn't check" instead of silently implying there's nothing to show. */
+  recentShootLookupFailed?: boolean;
+};
 
 type WorkspaceStatsContextValue = {
   stats: WorkspaceStats | null;
@@ -39,11 +57,33 @@ export function useWorkspaceStats(): WorkspaceStats | null {
  * OperatorPanel shell's rail. Unmounting (navigating away from `/app`)
  * clears the value so the rail never shows another route's stale counts.
  */
-export function ReportWorkspaceStats({ brandCount, shootCount }: WorkspaceStats) {
+export function ReportWorkspaceStats({
+  brandCount,
+  shootCount,
+  brandName,
+  recentShootName,
+  recentShootStatus,
+  recentShootLookupFailed,
+}: WorkspaceStats) {
   const setStats = useContext(WorkspaceStatsContext)?.setStats;
   useEffect(() => {
-    setStats?.({ brandCount, shootCount });
+    setStats?.({
+      brandCount,
+      shootCount,
+      brandName,
+      recentShootName,
+      recentShootStatus,
+      recentShootLookupFailed,
+    });
     return () => setStats?.(null);
-  }, [brandCount, shootCount, setStats]);
+  }, [
+    brandCount,
+    shootCount,
+    brandName,
+    recentShootName,
+    recentShootStatus,
+    recentShootLookupFailed,
+    setStats,
+  ]);
   return null;
 }

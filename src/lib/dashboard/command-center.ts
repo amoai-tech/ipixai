@@ -45,6 +45,23 @@ export function buildHeroGreeting(input: {
   return { headline, subline: "Ask the Production Planner what to work on next." };
 }
 
+/**
+ * DASH-MAIN-002: shared hero-brand + recent-own-shoot resolution. Shoots
+ * load org-wide (see DashboardShoot.brandId), so "recent" here means the
+ * most-recently-updated shoot that actually belongs to the hero brand, not
+ * just shoots[0]. Both CommandCenter's hero and OperatorPanel's rail/chat
+ * welcome (via ReportWorkspaceStats) call this — kept in one place so the
+ * two surfaces can't independently drift on what counts as "recent".
+ */
+export function resolveHeroContext(
+  brands: DashboardBrand[] | undefined,
+  shoots: DashboardShoot[] | undefined,
+): { brand: DashboardBrand | undefined; recentShoot: DashboardShoot | undefined } {
+  const brand = brands?.[0];
+  const recentShoot = shoots?.find((shoot) => shoot.brandId === brand?.id);
+  return { brand, recentShoot };
+}
+
 const BRAND_LIMIT = 6;
 const SHOOT_LIMIT = 6;
 // Page size for the org's own brand id list used to scope Shoots — not a
@@ -57,6 +74,67 @@ const TRUSTED_BRAND_ID_PAGE_SIZE = 500;
 // this loop forever — 50 pages * 500 is far beyond any real org's brand
 // count. Hitting it is treated as a failure, not a silent partial result.
 const TRUSTED_BRAND_ID_MAX_PAGES = 50;
+
+/** Raw shape shared by every `shoot_portfolio_view` read in this file —
+ *  `loadLatestShootForBrand` and `loadOrgShoots` both select exactly these
+ *  columns, so one type (and one row->DashboardShoot mapping, below) keeps
+ *  them from drifting on fallbacks or channel extraction. */
+type ShootPortfolioRow = {
+  id: string;
+  name: string | null;
+  status: string | null;
+  brand_id: string;
+  dna_score: number | null;
+  target_channels: string[] | null;
+  updated_at: string;
+};
+
+function mapShootPortfolioRow(row: ShootPortfolioRow): DashboardShoot {
+  return {
+    id: row.id,
+    name: row.name ?? "Untitled shoot",
+    status: row.status,
+    brandId: row.brand_id,
+    dnaScore: row.dna_score ?? null,
+    channel: row.target_channels?.[0] ?? null,
+  };
+}
+
+/**
+ * DASH-MAIN-002: dedicated, uncapped-per-brand latest-shoot lookup for the
+ * Intelligence rail's "Recent production" line. `loadOrgShoots`'s own
+ * result is capped at SHOOT_LIMIT and sorted *org-wide* across every
+ * trusted brand — the hero brand's own latest shoot can fall outside that
+ * global top-SHOOT_LIMIT (e.g. every other brand shipped more recently)
+ * even though it's real and exists, silently making a real "recent
+ * production" claim disappear. A single brand-scoped `.limit(1)` read has
+ * no such cap, so it can't miss the row this way.
+ */
+export async function loadLatestShootForBrand(
+  supabase: SupabaseClient,
+  brandId: string,
+): Promise<{ ok: true; shoot: DashboardShoot | null } | { ok: false }> {
+  try {
+    const { data, error } = await supabase
+      .from("shoot_portfolio_view")
+      .select("id,name,status,brand_id,dna_score,target_channels,updated_at")
+      .eq("brand_id", brandId)
+      // Same deterministic-order contract as loadOrgShoots.
+      .order("updated_at", { ascending: false })
+      .order("id", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.error("dashboard.loadLatestShootForBrand: query failed", { brandId, error });
+      return { ok: false };
+    }
+    if (!data) return { ok: true, shoot: null };
+    return { ok: true, shoot: mapShootPortfolioRow(data) };
+  } catch (err) {
+    console.error("dashboard.loadLatestShootForBrand: threw", { brandId, err });
+    return { ok: false };
+  }
+}
 
 /**
  * DASH-MAIN-001: org-scoped brand read for the Command Center.
@@ -269,17 +347,8 @@ export async function loadOrgShoots(
   if (brandIds.length === 0) {
     return { ok: true, shoots: [] };
   }
-  type Row = {
-    id: string;
-    name: string | null;
-    status: string | null;
-    brand_id: string;
-    dna_score: number | null;
-    target_channels: string[] | null;
-    updated_at: string;
-  };
   try {
-    const batchResult = await runBrandIdBatches<Row[]>(brandIds, async (brandIdBatch) => {
+    const batchResult = await runBrandIdBatches<ShootPortfolioRow[]>(brandIds, async (brandIdBatch) => {
       const { data, error } = await supabase
         .from("shoot_portfolio_view")
         .select("id,name,status,brand_id,dna_score,target_channels,updated_at")
@@ -291,7 +360,7 @@ export async function loadOrgShoots(
         console.error("dashboard.loadOrgShoots: batch query failed", { error });
         return { ok: false };
       }
-      return { ok: true, value: data as Row[] };
+      return { ok: true, value: data as ShootPortfolioRow[] };
     });
     if (!batchResult.ok) return { ok: false };
     const rows = batchResult.values.flat();
@@ -304,14 +373,7 @@ export async function loadOrgShoots(
     });
     return {
       ok: true,
-      shoots: rows.slice(0, SHOOT_LIMIT).map((row) => ({
-        id: row.id,
-        name: row.name ?? "Untitled shoot",
-        status: row.status,
-        brandId: row.brand_id,
-        dnaScore: row.dna_score ?? null,
-        channel: row.target_channels?.[0] ?? null,
-      })),
+      shoots: rows.slice(0, SHOOT_LIMIT).map(mapShootPortfolioRow),
     };
   } catch (err) {
     console.error("dashboard.loadOrgShoots: threw", { err });
