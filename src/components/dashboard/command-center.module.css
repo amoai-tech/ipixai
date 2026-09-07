@@ -320,8 +320,7 @@
 .recentDnaBadge {
   /* Filled colored pill + white text (Lumina's .recentMatch), not this
      tile's old white-pill/colored-text treatment. .recentDnaHigh/Mid/Low
-     below supply the fill — iPix's own --color-dna-* tokens already equal
-     Lumina's --color-approved/--color-warning-text/--color-dna-low 1:1. */
+     below supply the fill. */
   position: absolute;
   top: var(--space-2);
   right: var(--space-2);
@@ -334,8 +333,17 @@
   text-align: center;
 }
 
-.recentDnaHigh { background: var(--color-dna-high); }
-.recentDnaMid { background: var(--color-dna-mid); }
+/* Component-scoped fills, not the shared --color-dna-high/mid tokens:
+   white text on those (green-600 #059669, amber-500 #d97706) measures
+   3.77:1 / 3.19:1 — both fail WCAG AA's 4.5:1 for this small (12px) text.
+   Darkened to the same hue at ~5:1 for a safety margin, verified against
+   #ffffff via the standard relative-luminance formula. --color-dna-low
+   (red-600, 4.83:1) already passes and is reused unchanged — this only
+   touches the two fills that were actually failing, not every consumer of
+   the shared tokens (e.g. the DNA score bar elsewhere uses them purely as
+   a fill with no overlaid text, where this ratio doesn't apply). */
+.recentDnaHigh { background: #047e58; }
+.recentDnaMid { background: #a75c05; }
 .recentDnaLow { background: var(--color-dna-low); }
 
 .recentTitle {

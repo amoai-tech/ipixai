@@ -14,6 +14,7 @@ import type { DashboardBrand, DashboardShoot } from "@/lib/dashboard/command-cen
 
 import styles from "./command-center.module.css";
 import { QuickActionChips } from "./quick-action-chips";
+import { RecentWorkTile } from "./recent-work-tile";
 
 type BrandsResult = { ok: true; brands: DashboardBrand[] } | { ok: false };
 type ShootsResult = { ok: true; shoots: DashboardShoot[] } | { ok: false };
@@ -72,12 +73,6 @@ const QUICK_LINKS = [
  * static and stay usable regardless of either query's outcome. Planner
  * stays off this page; it's optional per accepted scope.
  */
-function dnaBadgeClass(score: number): string {
-  if (score >= 80) return `${styles.recentDnaBadge} ${styles.recentDnaHigh}`;
-  if (score >= 60) return `${styles.recentDnaBadge} ${styles.recentDnaMid}`;
-  return `${styles.recentDnaBadge} ${styles.recentDnaLow}`;
-}
-
 /**
  * COPY+CLEAN of Lumina's PortfolioHeroCard hierarchy: media, "Production
  * Planner" label, then a real-data-only headline/subline (buildHeroGreeting).
@@ -206,56 +201,16 @@ export function CommandCenter({
           />
         ) : (
           <div className={styles.recentScroll} data-testid="command-center-shoot-list">
-            {shootsResult.shoots.map((shoot) => {
-              // Read once — used for both the image/placeholder branch below
-              // and to decide where the title renders (overlaid on a real
-              // image, matching the pinned Lumina reference; below the
-              // placeholder otherwise, where an image-style dark scrim would
-              // read as a rendering glitch rather than a design choice).
-              const previewUrl = recentWorkPreviews.get(shoot.id);
-              return (
-                <Link
-                  key={shoot.id}
-                  href={`/app/shoots/${shoot.id}`}
-                  className={styles.recentTile}
-                >
-                  <div className={styles.recentThumb}>
-                    {/* shoot_portfolio_view.cover_url (mood_board_urls) is
-                        never rendered directly — no bridge to this app's one
-                        proven secure-delivery contract. The real cover here
-                        comes only from loadRecentWorkPreviews: a shoot-linked
-                        `assets` row with an `authenticated`-type Cloudinary
-                        mirror, signed by get-authorized-asset-preview.ts, per
-                        IPI-1112 · CLD-DELIVERY-001 — Serve Org-Safe Cloudinary
-                        Previews with Named Transforms. No entry for this shoot
-                        in the map means no authorized asset exists yet —
-                        honest no-image placeholder, not a fabricated cover. */}
-                    {previewUrl ? (
-                      <>
-                        {/* eslint-disable-next-line @next/next/no-img-element -- signed, expiring URL; Next/Image would re-request/re-optimize it server-side */}
-                        <img src={previewUrl} alt="" className={styles.recentImage} />
-                        <span className={styles.recentThumbScrim} aria-hidden />
-                        <span className={styles.recentLabel}>{shoot.name}</span>
-                      </>
-                    ) : (
-                      <span className={styles.recentThumbPlaceholder} aria-hidden>
-                        <Camera />
-                      </span>
-                    )}
-                    {typeof shoot.dnaScore === "number" && (
-                      <span
-                        className={dnaBadgeClass(shoot.dnaScore)}
-                        aria-label={`DNA score: ${Math.round(shoot.dnaScore)}`}
-                      >
-                        {Math.round(shoot.dnaScore)}
-                      </span>
-                    )}
-                  </div>
-                  {!previewUrl && <p className={styles.recentTitle}>{shoot.name}</p>}
-                  {shoot.channel && <p className={styles.recentMeta}>{shoot.channel}</p>}
-                </Link>
-              );
-            })}
+            {shootsResult.shoots.map((shoot) => (
+              <RecentWorkTile
+                key={shoot.id}
+                shootId={shoot.id}
+                name={shoot.name}
+                channel={shoot.channel}
+                dnaScore={shoot.dnaScore}
+                previewUrl={recentWorkPreviews.get(shoot.id)}
+              />
+            ))}
           </div>
         )}
       </section>

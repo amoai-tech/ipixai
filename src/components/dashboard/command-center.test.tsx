@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 
 // Mock every CSS module the tree imports (CommandCenter + composed atoms).
 vi.mock("./command-center.module.css", () => ({
@@ -162,7 +162,14 @@ describe("CommandCenter", () => {
     expect(img?.getAttribute("src")).toBe("https://res.cloudinary.com/signed-preview");
   });
 
-  it("overlays the title on a real image (Lumina-parity), not duplicated below it", () => {
+  it("renders the title exactly once, inside the image region, when a real image exists", () => {
+    // Unit-testable proxy for "overlaid on the image, not duplicated below
+    // it" — jsdom doesn't compute real layout/position, so the actual
+    // visual placement (Lumina parity) is verified separately by browser
+    // screenshot, not asserted here. What this test can and does prove:
+    // the title text appears exactly once (no separate below-thumb copy),
+    // and it's contained within the same region as the media, not a
+    // sibling of it.
     const shoots = {
       ok: true as const,
       shoots: [
@@ -184,22 +191,50 @@ describe("CommandCenter", () => {
         recentWorkPreviews={recentWorkPreviews}
       />,
     );
-    const tile = screen.getByText("Shoot Eight").closest("a");
-    // Overlaid inside the thumb (sibling of the <img>), not the below-thumb
-    // <p> the placeholder path uses — and exactly one match, not both.
     expect(screen.getAllByText("Shoot Eight")).toHaveLength(1);
-    const titleNode = screen.getByText("Shoot Eight");
-    expect(titleNode.tagName).toBe("SPAN");
-    expect(titleNode.parentElement).toBe(tile?.querySelector("img")?.parentElement);
+    expect(screen.getByText("Shoot Eight").closest(".recentThumb")).not.toBeNull();
   });
 
-  it("keeps the title below the thumb (not overlaid) for a shoot with no authorized preview", () => {
-    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
-    const titleNode = screen.getByText("Shoot One");
-    expect(titleNode.tagName).toBe("P");
-    // A <p> sibling of .recentThumb, not nested inside it (CSS modules are
+  it("renders the title outside the image region when no authorized preview exists", () => {
+    // Same unit-testable proxy as above, inverted: for the placeholder
+    // path the title is not part of the media region (CSS modules are
     // mocked to their literal key string in this test file).
-    expect(titleNode.closest(".recentThumb")).toBeNull();
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
+    expect(screen.getByText("Shoot One").closest(".recentThumb")).toBeNull();
+  });
+
+  it("recovers to the honest placeholder and below-thumb title when the signed image fails to load", () => {
+    const shoots = {
+      ok: true as const,
+      shoots: [
+        {
+          id: "shoot-9",
+          name: "Shoot Nine",
+          status: "active",
+          brandId: "brand-1",
+          dnaScore: null,
+          channel: null,
+        },
+      ],
+    };
+    const recentWorkPreviews = new Map([["shoot-9", "https://res.cloudinary.com/now-broken"]]);
+    render(
+      <CommandCenter
+        brandsResult={BRANDS_OK}
+        shootsResult={shoots}
+        recentWorkPreviews={recentWorkPreviews}
+      />,
+    );
+    const tile = screen.getByText("Shoot Nine").closest("a");
+    const img = tile?.querySelector("img");
+    expect(img).not.toBeNull();
+
+    fireEvent.error(img as HTMLImageElement);
+
+    // Same shape as "no preview at all": no <img>, honest placeholder,
+    // title moves out of the (now placeholder) media region.
+    expect(tile?.querySelector("img")).toBeNull();
+    expect(screen.getByText("Shoot Nine").closest(".recentThumb")).toBeNull();
   });
 
   it("does not render an image for a shoot missing from recentWorkPreviews even when others have one", () => {

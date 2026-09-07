@@ -84,7 +84,13 @@ describe("loadRecentWorkPreviews", () => {
     expect(previewMock.getAuthorizedAssetPreview).not.toHaveBeenCalled();
   });
 
-  it("queries each shoot independently, newest-first, bounded (not .limit(1))", async () => {
+  it("resolves a shoot's signed preview from its one real candidate asset", async () => {
+    // Query-shape assertions below are a deliberate regression guard, not
+    // incidental implementation coupling: this exact shoot/query shape is
+    // what regressed twice before (a global `.in()` read subject to
+    // Supabase's 1000-row cap, then a `.limit(1)` that could never fall
+    // back to an older asset) — asserting the call shape is the only way
+    // to catch either regression recurring without a live database.
     const orderCalls: OrderCall[] = [];
     const limitCalls: number[] = [];
     const supabase = fakeAssetsSupabase(
@@ -145,6 +151,34 @@ describe("loadRecentWorkPreviews", () => {
 
     expect(seen).toEqual([ASSET_NEWEST]);
     expect(result.get(SHOOT_1)).toBe("https://res.cloudinary.com/signed/newest");
+  });
+
+  it("resolves the operator's org membership once per call, not once per candidate/shoot", async () => {
+    // Real query-amplification risk this guards: getAuthorizedAssetPreview
+    // otherwise redoes the same org_members lookup on every candidate it
+    // authorizes. Two shoots with three tried candidates each would be six
+    // separate lookups without caching — this asserts every call receives
+    // the exact same listOrgIds reference, proving one shared closure is
+    // reused rather than a fresh one built per shoot or per candidate.
+    const supabase = fakeAssetsSupabase({
+      [SHOOT_1]: [{ id: ASSET_NEWEST }, { id: ASSET_MIDDLE }],
+      [SHOOT_2]: [{ id: ASSET_OLDEST }],
+    });
+    const seenListOrgIds: unknown[] = [];
+    previewMock.getAuthorizedAssetPreview.mockImplementation(async ({ assetId, listOrgIds }) => {
+      seenListOrgIds.push(listOrgIds);
+      if (assetId === ASSET_MIDDLE || assetId === ASSET_OLDEST) {
+        return { ok: true, url: `https://res.cloudinary.com/signed/${assetId}` };
+      }
+      return { ok: false, reason: "missing_cloudinary_mirror" };
+    });
+
+    await loadRecentWorkPreviews(supabase, OPERATOR, [SHOOT_1, SHOOT_2]);
+
+    // ASSET_NEWEST (fails) + ASSET_MIDDLE (succeeds) for shoot 1, ASSET_OLDEST for shoot 2.
+    expect(seenListOrgIds).toHaveLength(3);
+    expect(new Set(seenListOrgIds).size).toBe(1);
+    expect(seenListOrgIds[0]).toBeTypeOf("function");
   });
 
   it("all candidates invalid: no map entry (placeholder remains)", async () => {
