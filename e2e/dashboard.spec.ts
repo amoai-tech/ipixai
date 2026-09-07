@@ -125,13 +125,22 @@ test.describe("dashboard (authenticated)", () => {
   // IPI-1149 · DASH-MAIN-002 — portfolio-aware chat welcome + Intelligence
   // rail Overview, proven live against the same real 0-brand QA org as the
   // empty-state test above (no seeded populated org exists for this e2e
-  // account — see PR description for that separately-tracked gap).
-  test("chat welcome and Intelligence rail stay honest for the QA org's real 0-brand state", async ({
-    page,
-  }) => {
+  // account — see PR description for that separately-tracked gap). The
+  // rail itself (operator-panel.module.css .rail{display:none} below the
+  // mobile breakpoint — pre-existing, not introduced by this PR) only
+  // renders on desktop, same reasoning marketing-nav.spec.ts already uses
+  // for its own desktop-only nav — so its visibility assertions are
+  // desktop-scoped; the chat welcome copy isn't rail-gated and is checked
+  // on every project.
+  test("chat welcome stays honest for the QA org's real 0-brand state", async ({ page }) => {
     await page.goto("/app");
     await expect(page.getByRole("heading", { name: "No brands yet" })).toBeVisible();
     await expect(page.getByText("Start by creating a brand or planning your first shoot.")).toBeVisible();
+  });
+
+  test("Intelligence rail stays honest for the QA org's real 0-brand state", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "chromium", "rail is desktop-only (operator-panel.module.css)");
+    await page.goto("/app");
     const rail = page.getByTestId("intelligence-rail");
     await expect(rail.getByText("0 brands · 0 shoots in this workspace.")).toBeVisible();
     // No fabricated brand context, recent-production line, or
