@@ -129,7 +129,7 @@ test.describe("populated Command Center (authenticated, real org data)", () => {
 
   test("an authorized Recent Work image, when present, loads over HTTP 200 from Cloudinary", async ({
     browser,
-  }) => {
+  }, testInfo) => {
     test.setTimeout(TEST_TIMEOUT_MS);
     const { page, close } = await signInPopulatedOrg(browser);
     try {
@@ -163,17 +163,35 @@ test.describe("populated Command Center (authenticated, real org data)", () => {
         // rather than silently passing — .first() because every populated
         // tile renders its own title/meta text, so the bare matcher below
         // resolves to several elements, not one.
+        //
+        // This is *not* proof of the signed-preview → HTTP 200 path — that
+        // path is only exercised when a Cloudinary-configured environment
+        // actually returns a preview. Flagged in the report, not just this
+        // comment, so a green run here is never read as full media-path
+        // certification.
+        testInfo.annotations.push({
+          type: "note",
+          description:
+            "No Cloudinary preview response observed — the HTTP 200 signed-preview path was NOT exercised this run (placeholder path only).",
+        });
         await expect(shootList.getByText(/./).first()).toBeVisible();
         return;
       }
 
       const preview = cloudinaryResponses[0];
-      // Never the full signed URL in a possibly-retained failure message —
-      // only the HTTP status and a redacted asset label identify it.
+      // Every assertion below is boolean/status-only — never the raw signed
+      // URL itself — so a failure's "Received"/"Expected" output can't leak
+      // it. Only the HTTP status and a redacted asset label (the URL's last
+      // path segment) identify which preview failed.
       const redactedLabel = new URL(preview.url).pathname.split("/").pop() ?? "unknown-asset";
       expect(preview.status, `expected HTTP 200 for authorized preview (${redactedLabel})`).toBe(200);
-      // Never the raw, unsigned column this contract explicitly forbids.
-      expect(preview.url).not.toMatch(/mood_board_urls/);
+      // Never the raw, unsigned column this contract explicitly forbids —
+      // asserted as a boolean so a failure never prints the actual URL.
+      const isRawMoodBoardUrl = preview.url.includes("mood_board_urls");
+      expect(
+        isRawMoodBoardUrl,
+        `authorized preview must never be a raw mood_board_urls URL (asset: ${redactedLabel})`,
+      ).toBe(false);
     } finally {
       await close();
     }
