@@ -115,6 +115,47 @@ describe("ensureMastraThread + listMastraThreadsForResource", () => {
     expect(sameOwner.created).toBe(false);
   });
 
+  it("leaves a new thread's title unset so Mastra's generateTitle can still fire (IPI-1164)", async () => {
+    const memory = isolatedMemory();
+    const threadId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    const resourceId = "org:org-a::user:user-a";
+
+    await ensureMastraThread(memory, { threadId, resourceId });
+
+    const stored = await memory.getThreadById({ threadId });
+    // Mastra's generateTitle only runs when `!thread.title` — asserting the
+    // exact falsy value (not just "not the old placeholder") proves the gate
+    // that actually decides whether generation fires stays open.
+    expect(stored?.title).toBeFalsy();
+  });
+
+  it("still shows a fallback title for an untitled thread in the list (IPI-1164)", async () => {
+    const memory = isolatedMemory();
+    const threadId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+    const resourceId = "org:org-a::user:user-a";
+
+    await ensureMastraThread(memory, { threadId, resourceId });
+    const listed = await listMastraThreadsForResource(memory, resourceId);
+
+    expect(listed).toHaveLength(1);
+    expect(listed[0].title).toBe("Planner chat");
+  });
+
+  it("persists an explicit title when the caller provides one", async () => {
+    const memory = isolatedMemory();
+    const threadId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+    const resourceId = "org:org-a::user:user-a";
+
+    await ensureMastraThread(memory, {
+      threadId,
+      resourceId,
+      title: "Spring Lookbook Shoot",
+    });
+
+    const stored = await memory.getThreadById({ threadId });
+    expect(stored?.title).toBe("Spring Lookbook Shoot");
+  });
+
   it("lists more than 50 threads for one resource", async () => {
     const memory = isolatedMemory();
     const resourceId = "org:org-a::user:user-a";
