@@ -268,10 +268,13 @@
   overflow: hidden;
 }
 
-/* .recentImage (real cover <img>, object-fit:cover, sized to fill the
-   thumbnail) is deliberately not defined yet — no cover render path exists
-   until IPI-1112 · CLD-DELIVERY-001 ships a proven signed-preview route; see
-   command-center.tsx's comment on .recentThumb. */
+.recentImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
 .recentThumbPlaceholder {
   position: absolute;
