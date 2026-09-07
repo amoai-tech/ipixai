@@ -15,6 +15,9 @@ declare
   org_2        uuid := gen_random_uuid();
   blocked      boolean;
   fn_def       text;
+  fn_oid       oid;
+  fn_secdef    boolean;
+  fn_config    text[];
 begin
   -- 0) catalog-level check on the exact installed zero-argument function:
   --    the wrong-id defect (new.id instead of old.id) is behaviorally
@@ -23,16 +26,29 @@ begin
   --    behavioral cases below can distinguish old.id from new.id. Without
   --    this, a future edit could silently reintroduce `new.id` and every
   --    behavioral case would still pass. Assert directly on source instead.
-  select pg_get_functiondef(to_regprocedure('public.block_brand_org_change()'))
-    into fn_def;
-  if fn_def is null then
+  --
+  --    Also assert the security contract (SECURITY DEFINER + search_path
+  --    = public) directly on pg_proc, not just the SQL text: a future
+  --    edit could drop either while still passing the old.id/new.id text
+  --    checks, silently changing the function's execution privileges or
+  --    reintroducing a search_path injection surface.
+  fn_oid := to_regprocedure('public.block_brand_org_change()');
+  if fn_oid is null then
     raise exception 'IPI-1167 FAIL: public.block_brand_org_change() not found';
   end if;
+  select pg_get_functiondef(fn_oid) into fn_def;
   if fn_def !~* 'brand_id\s*=\s*old\.id' then
     raise exception 'IPI-1167 FAIL: installed function does not reference old.id in the campaign lookup (wrong-id regression)';
   end if;
   if fn_def ~* 'brand_id\s*=\s*new\.id' then
     raise exception 'IPI-1167 FAIL: installed function references new.id in the campaign lookup (wrong-id regression reintroduced)';
+  end if;
+  select prosecdef, proconfig into fn_secdef, fn_config from pg_proc where oid = fn_oid;
+  if not fn_secdef then
+    raise exception 'IPI-1167 FAIL: installed function is no longer SECURITY DEFINER';
+  end if;
+  if fn_config is null or not (fn_config @> array['search_path=public']) then
+    raise exception 'IPI-1167 FAIL: installed function no longer has search_path=public set (found: %)', fn_config;
   end if;
 
   insert into public.brands (id, org_id) values
