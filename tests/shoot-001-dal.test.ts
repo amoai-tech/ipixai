@@ -57,6 +57,25 @@ function parseCursorFilter(filter: string): { updatedAt: string; id: string } | 
   return { updatedAt: match[1], id: match[3] };
 }
 
+/** Converts an ISO timestamp (Z or ±HH:MM offset, 0-6 fraction digits) to
+ *  integer microseconds since the epoch — the precision Postgres
+ *  `timestamptz` carries. The fake's cursor filter must compare numerically:
+ *  lexically '.123400Z' < '.123Z', but numerically 123400µs > 123000µs. */
+function toMicros(iso: string): number {
+  const match = iso.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|([+-])(\d{2}):(\d{2}))$/,
+  );
+  if (!match) return Number.NaN;
+  const [, y, mo, d, h, mi, s, frac, , sign, oh, om] = match;
+  const micros =
+    (Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s)) * 1000 +
+      Number((frac ?? "").padEnd(6, "0"))) *
+    1000;
+  if (!sign) return micros;
+  const offsetMicros = (Number(oh) * 60 + Number(om)) * 60 * 1_000_000;
+  return sign === "+" ? micros - offsetMicros : micros + offsetMicros;
+}
+
 /**
  * Mimics the `shoot_portfolio_view` browse read: `.in("brand_id", …)`,
  * chainable `.order()`, optional `.or()` cursor filter, `.limit()`. The
@@ -83,11 +102,14 @@ function fakeShootBrowseSupabase(
       if (cursorFilter) {
         const cursor = parseCursorFilter(cursorFilter);
         if (cursor) {
-          rows = rows.filter(
-            (row) =>
-              row.updated_at < cursor.updatedAt ||
-              (row.updated_at === cursor.updatedAt && row.id > cursor.id),
-          );
+          const cursorMicros = toMicros(cursor.updatedAt);
+          rows = rows.filter((row) => {
+            const rowMicros = toMicros(row.updated_at);
+            return (
+              rowMicros < cursorMicros ||
+              (rowMicros === cursorMicros && row.id > cursor.id)
+            );
+          });
         }
       }
       const sorted = [...rows].sort((a, b) => {
@@ -341,6 +363,56 @@ describe("IPI-1067 · SHOOT-001 — listShootsForOrg", () => {
     expect(cursor).toEqual(page1.nextCursor);
   });
 
+  it("paginates microsecond timestamps without skipping or duplicating rows", async () => {
+    // 23 rows at 10:00:00.000Z + three rows sharing 12:00:00 with distinct
+    // microsecond fractions — the exact precision Postgres timestamptz
+    // carries. A cursor truncated to milliseconds ('.123Z') would skip the
+    // '.123400Z' and '.123000Z' rows on page 2.
+    const rows = [
+      ...Array.from({ length: 23 }, (_, i) =>
+        browseRow({
+          id: `aaaaaaaa-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
+          name: `Base ${i + 1}`,
+          updated_at: "2026-09-08T10:00:00.000Z",
+        }),
+      ),
+      browseRow({
+        id: "bbbbbbbb-0000-4000-8000-000000000001",
+        name: "Micro 456",
+        updated_at: "2026-09-07T12:00:00.123456Z",
+      }),
+      browseRow({
+        id: "bbbbbbbb-0000-4000-8000-000000000002",
+        name: "Micro 400",
+        updated_at: "2026-09-07T12:00:00.123400Z",
+      }),
+      browseRow({
+        id: "bbbbbbbb-0000-4000-8000-000000000003",
+        name: "Micro 000",
+        updated_at: "2026-09-07T12:00:00.123000Z",
+      }),
+    ];
+    const supabase = fakeShootBrowseSupabase({ [BRAND_A1]: rows });
+
+    const page1 = await listShootsForOrg(supabase, [BRAND_A1]);
+
+    expect(page1.ok).toBe(true);
+    if (!page1.ok) return;
+    expect(page1.shoots).toHaveLength(SHOOT_BROWSE_PAGE_SIZE);
+    expect(page1.nextCursor).not.toBeNull();
+    // The cursor preserves the exact microsecond string — never truncated.
+    expect(page1.nextCursor?.updatedAt).toBe("2026-09-07T12:00:00.123456Z");
+
+    const page2 = await listShootsForOrg(supabase, [BRAND_A1], { after: page1.nextCursor });
+
+    expect(page2.ok).toBe(true);
+    if (!page2.ok) return;
+    expect(page2.shoots.map((s) => s.name)).toEqual(["Micro 400", "Micro 000"]);
+    expect(page2.nextCursor).toBeNull();
+    const page1Ids = new Set(page1.shoots.map((s) => s.id));
+    expect(page2.shoots.every((s) => !page1Ids.has(s.id))).toBe(true);
+  });
+
   it("returns nextCursor null when the page is short (no more rows)", async () => {
     const supabase = fakeShootBrowseSupabase({
       [BRAND_A1]: [browseRow({ id: SHOOT_A1 }), browseRow({ id: SHOOT_A2 })],
@@ -543,6 +615,7 @@ describe("IPI-1067 · SHOOT-001 — loadShootDetailForOrg (public-contract-first
       rpcPayload: {
         ...validDetailPayload,
         shoot: { ...validDetailPayload.shoot, brand_id: BRAND_B1 },
+        brand: { ...validDetailPayload.brand, id: BRAND_B1 },
       },
       rpcCalls,
     });
@@ -550,6 +623,23 @@ describe("IPI-1067 · SHOOT-001 — loadShootDetailForOrg (public-contract-first
     const result = await loadShootDetailForOrg(supabase, SHOOT_A1, [BRAND_A1]);
 
     expect(result).toEqual({ ok: false, status: "not_found" });
+    expect(rpcCalls.count).toBe(1);
+  });
+
+  it("fails closed when the hydrated payload's brand object contradicts the shoot's brand (malformed)", async () => {
+    const rpcCalls = { count: 0 };
+    const supabase = fakeDetailSupabase({
+      viewRowsByBrandId: { [BRAND_A1]: [{ id: SHOOT_A1 }] },
+      rpcPayload: {
+        ...validDetailPayload,
+        shoot: { ...validDetailPayload.shoot, brand_id: BRAND_B1 },
+      },
+      rpcCalls,
+    });
+
+    const result = await loadShootDetailForOrg(supabase, SHOOT_A1, [BRAND_A1]);
+
+    expect(result).toEqual({ ok: false, status: "malformed" });
     expect(rpcCalls.count).toBe(1);
   });
 });
@@ -603,15 +693,34 @@ describe("IPI-1067 · SHOOT-001 — cursor serialization", () => {
     ).toBeNull();
   });
 
-  it("rejects non-canonical timestamps and non-UUID ids before they reach the filter", () => {
+  it("rejects non-ISO timestamps and non-UUID ids before they reach the filter", () => {
     const encode = (value: unknown) =>
       Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
-    // Date-only and non-millisecond forms are not what cursorFromRow emits.
+    // Date-only and non-ISO forms are not what cursorFromRow emits.
     expect(decodeShootListCursor(encode({ updatedAt: "2026-09-01", id: SHOOT_A1 }))).toBeNull();
-    expect(decodeShootListCursor(encode({ updatedAt: "2026-09-01T10:00:00Z", id: SHOOT_A1 }))).toBeNull();
     expect(decodeShootListCursor(encode({ updatedAt: "not-a-date", id: SHOOT_A1 }))).toBeNull();
     expect(
       decodeShootListCursor(encode({ updatedAt: "2026-09-01T10:00:00.000Z", id: "not-a-uuid" })),
     ).toBeNull();
+  });
+
+  it("accepts microsecond, offset, and zero-fraction ISO timestamps", () => {
+    const encode = (value: unknown) =>
+      Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
+    // Postgres timestamptz precision (1-6 fraction digits) and the
+    // zero-fraction form PostgREST emits must all round-trip.
+    expect(
+      decodeShootListCursor(
+        encode({ updatedAt: "2026-09-07T12:00:00.123456Z", id: SHOOT_A1 }),
+      ),
+    ).toEqual({ updatedAt: "2026-09-07T12:00:00.123456Z", id: SHOOT_A1 });
+    expect(
+      decodeShootListCursor(
+        encode({ updatedAt: "2026-09-07T12:00:00.123456+00:00", id: SHOOT_A1 }),
+      ),
+    ).toEqual({ updatedAt: "2026-09-07T12:00:00.123456+00:00", id: SHOOT_A1 });
+    expect(
+      decodeShootListCursor(encode({ updatedAt: "2026-09-01T10:00:00Z", id: SHOOT_A1 })),
+    ).toEqual({ updatedAt: "2026-09-01T10:00:00Z", id: SHOOT_A1 });
   });
 });

@@ -155,7 +155,10 @@ describe("ShootDetailWorkspace", () => {
 
   it("renders the deliverables tab with deliverable rows and child-status labels", () => {
     render(<ShootDetailWorkspace detail={DETAIL} />);
-    screen.getByRole("tab", { name: "Deliverables" }).click();
+    const deliverablesTab = screen.getByRole("tab", { name: "Deliverables" });
+    fireEvent.click(deliverablesTab);
+    expect(deliverablesTab.getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByTestId("shoot-tab-panel-deliverables").hasAttribute("hidden")).toBe(false);
     expect(screen.getByText("IG")).toBeDefined();
     expect(screen.getByText(/9:16/)).toBeDefined();
     expect(screen.getByText("Planned")).toBeDefined();

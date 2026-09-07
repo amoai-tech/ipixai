@@ -39,12 +39,14 @@ export const SHOOT_STATUS_DOT_TOKENS: Record<ShootStatus, string> = {
 };
 
 export function shootStatusLabel(status: string | null | undefined): string {
-  if (status && status in SHOOT_STATUS_LABELS) return SHOOT_STATUS_LABELS[status as ShootStatus];
+  if (status && Object.prototype.hasOwnProperty.call(SHOOT_STATUS_LABELS, status)) {
+    return SHOOT_STATUS_LABELS[status as ShootStatus];
+  }
   return "Unknown";
 }
 
 export function shootStatusDotToken(status: string | null | undefined): string {
-  if (status && status in SHOOT_STATUS_DOT_TOKENS) {
+  if (status && Object.prototype.hasOwnProperty.call(SHOOT_STATUS_DOT_TOKENS, status)) {
     return SHOOT_STATUS_DOT_TOKENS[status as ShootStatus];
   }
   return "var(--color-text-muted)";
@@ -69,12 +71,16 @@ export const SHOT_STATUS_DOT_TOKENS: Record<string, string> = {
 };
 
 export function shotStatusLabel(status: string | null | undefined): string {
-  if (status && status in SHOT_STATUS_LABELS) return SHOT_STATUS_LABELS[status];
+  if (status && Object.prototype.hasOwnProperty.call(SHOT_STATUS_LABELS, status)) {
+    return SHOT_STATUS_LABELS[status];
+  }
   return "Unknown";
 }
 
 export function shotStatusDotToken(status: string | null | undefined): string {
-  if (status && status in SHOT_STATUS_DOT_TOKENS) return SHOT_STATUS_DOT_TOKENS[status];
+  if (status && Object.prototype.hasOwnProperty.call(SHOT_STATUS_DOT_TOKENS, status)) {
+    return SHOT_STATUS_DOT_TOKENS[status];
+  }
   return "var(--color-text-muted)";
 }
 
@@ -93,12 +99,14 @@ export const DELIVERABLE_STATUS_DOT_TOKENS: Record<string, string> = {
 };
 
 export function deliverableStatusLabel(status: string | null | undefined): string {
-  if (status && status in DELIVERABLE_STATUS_LABELS) return DELIVERABLE_STATUS_LABELS[status];
+  if (status && Object.prototype.hasOwnProperty.call(DELIVERABLE_STATUS_LABELS, status)) {
+    return DELIVERABLE_STATUS_LABELS[status];
+  }
   return "Unknown";
 }
 
 export function deliverableStatusDotToken(status: string | null | undefined): string {
-  if (status && status in DELIVERABLE_STATUS_DOT_TOKENS) {
+  if (status && Object.prototype.hasOwnProperty.call(DELIVERABLE_STATUS_DOT_TOKENS, status)) {
     return DELIVERABLE_STATUS_DOT_TOKENS[status];
   }
   return "var(--color-text-muted)";
@@ -116,7 +124,9 @@ export const SHOOT_TYPE_LABELS: Record<string, string> = {
 };
 
 export function shootTypeLabel(type: string | null | undefined): string {
-  if (type && type in SHOOT_TYPE_LABELS) return SHOOT_TYPE_LABELS[type];
+  if (type && Object.prototype.hasOwnProperty.call(SHOOT_TYPE_LABELS, type)) {
+    return SHOOT_TYPE_LABELS[type];
+  }
   return "Shoot";
 }
 
@@ -134,7 +144,9 @@ export const CHANNEL_LABELS: Record<string, string> = {
 };
 
 export function channelLabel(channel: string | null | undefined): string {
-  if (channel && channel in CHANNEL_LABELS) return CHANNEL_LABELS[channel];
+  if (channel && Object.prototype.hasOwnProperty.call(CHANNEL_LABELS, channel)) {
+    return CHANNEL_LABELS[channel];
+  }
   return channel ?? "No channel";
 }
 

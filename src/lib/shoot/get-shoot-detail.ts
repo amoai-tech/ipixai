@@ -48,13 +48,18 @@ export function encodeShootListCursor(cursor: ShootListCursor): string {
   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
 }
 
-/** True only for the canonical UTC form produced by `cursorFromRow`
- *  (`toISOString()` output). Anything else — date-only strings, missing
- *  milliseconds, non-ISO text — is rejected so it can never be
+/** ISO 8601 timestamp with optional fractional seconds (1–6 digits —
+ *  PostgreSQL microsecond precision) and `Z` or `±HH:MM` offset. This is
+ *  the shape PostgREST returns for `timestamptz` and the shape
+ *  `cursorFromRow` preserves verbatim. Anything else — date-only strings,
+ *  non-ISO text, filter syntax characters — is rejected so it can never be
  *  interpolated into the PostgREST `.or()` filter. */
-function isCanonicalIsoTimestamp(value: string): boolean {
-  const date = new Date(value);
-  return !Number.isNaN(date.getTime()) && date.toISOString() === value;
+const ISO_TIMESTAMP =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/;
+
+function isIsoTimestamp(value: string): boolean {
+  if (!ISO_TIMESTAMP.test(value)) return false;
+  return !Number.isNaN(Date.parse(value));
 }
 
 /** Parses a `?after=` cursor. Fail-closed: anything malformed (bad base64,
@@ -72,7 +77,7 @@ export function decodeShootListCursor(raw: string | null | undefined): ShootList
       parsed !== null &&
       typeof (parsed as ShootListCursor).updatedAt === "string" &&
       typeof (parsed as ShootListCursor).id === "string" &&
-      isCanonicalIsoTimestamp((parsed as ShootListCursor).updatedAt) &&
+      isIsoTimestamp((parsed as ShootListCursor).updatedAt) &&
       isDatabaseUuid((parsed as ShootListCursor).id)
     ) {
       return { updatedAt: (parsed as ShootListCursor).updatedAt, id: (parsed as ShootListCursor).id };
@@ -97,20 +102,23 @@ type BrowseRow = {
   asset_count: number | null;
 };
 
-/** Normalizes a row's updated_at to a canonical UTC ISO cursor value.
- *  Returns null when the timestamp is unparseable — such a row cannot be
- *  cursor-anchored, so it is skipped (with a warning) rather than silently
- *  breaking pagination. */
+/** Preserves a row's exact database `updated_at` string as the cursor
+ *  value — never round-tripped through JavaScript `Date`, which truncates
+ *  PostgreSQL microsecond precision and would make pagination skip rows
+ *  between the truncated and original timestamps. The string is still
+ *  validated as a parseable ISO timestamp (fail-closed: an unparseable
+ *  row cannot be cursor-anchored, so it is skipped with a warning rather
+ *  than silently breaking pagination). */
 function cursorFromRow(row: BrowseRow): ShootListCursor | null {
-  const updatedAt = new Date(row.updated_at);
-  if (Number.isNaN(updatedAt.getTime())) {
+  const updatedAt = row.updated_at;
+  if (typeof updatedAt !== "string" || Number.isNaN(Date.parse(updatedAt))) {
     console.warn("shoot.listShootsForOrg: row has unparseable updated_at, skipping", {
       shootId: row.id,
-      updatedAt: row.updated_at,
+      updatedAt,
     });
     return null;
   }
-  return { updatedAt: updatedAt.toISOString(), id: row.id };
+  return { updatedAt, id: row.id };
 }
 
 /**
@@ -391,6 +399,14 @@ export async function loadShootDetailForOrg(
   }
   const hydrated = await hydrateShootDetail(supabase, shootId);
   if (hydrated.status !== "found") return hydrated;
+  if (hydrated.data.brand.id !== hydrated.data.shoot.brand_id) {
+    console.error("shoot.loadShootDetailForOrg: payload brand id mismatch", {
+      shootId,
+      brandId: hydrated.data.shoot.brand_id,
+      brandObjectId: hydrated.data.brand.id,
+    });
+    return { ok: false, status: "malformed" };
+  }
   if (!brandIds.includes(hydrated.data.shoot.brand_id)) {
     console.warn("shoot.loadShootDetailForOrg: hydrated brand outside trusted set", {
       shootId,
