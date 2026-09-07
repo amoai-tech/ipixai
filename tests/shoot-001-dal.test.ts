@@ -61,6 +61,15 @@ function parseCursorFilter(filter: string): { updatedAt: string; id: string } | 
  *  integer microseconds since the epoch — the precision Postgres
  *  `timestamptz` carries. The fake's cursor filter must compare numerically:
  *  lexically '.123400Z' < '.123Z', but numerically 123400µs > 123000µs. */
+function daysFromCivil(y: number, m: number, d: number): number {
+  y -= m <= 2 ? 1 : 0;
+  const era = Math.floor(y / 400);
+  const yoe = y - era * 400;
+  const doy = Math.floor((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + d - 1;
+  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+  return era * 146097 + doe - 719468;
+}
+
 function toMicros(iso: string): number {
   const match = iso.match(
     /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|([+-])(\d{2}):(\d{2}))$/,
@@ -68,7 +77,11 @@ function toMicros(iso: string): number {
   if (!match) return Number.NaN;
   const [, y, mo, d, h, mi, s, frac, , sign, oh, om] = match;
   const micros =
-    Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s)) * 1000 +
+    (daysFromCivil(Number(y), Number(mo), Number(d)) * 86400 +
+      Number(h) * 3600 +
+      Number(mi) * 60 +
+      Number(s)) *
+      1_000_000 +
     Number((frac ?? "").padEnd(6, "0"));
   if (!sign) return micros;
   const offsetMicros = (Number(oh) * 60 + Number(om)) * 60 * 1_000_000;
@@ -458,6 +471,23 @@ describe("IPI-1067 · SHOOT-001 — listShootsForOrg", () => {
     // must order by instant, or the cursor predicate skips rows forever.
     expect(result.shoots.map((s) => s.name)).toEqual(["Micro 123400", "Micro 123", "Micro 100"]);
   });
+
+  it("orders years 0000-0099 before 0100 in the merged page (Date.UTC quirk)", async () => {
+    const secondBrand = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const supabase = fakeShootBrowseSupabase({
+      [BRAND_A1]: [browseRow({ id: SHOOT_A1, name: "Year 99", updated_at: "0099-01-01T00:00:00Z" })],
+      [secondBrand]: [
+        browseRow({ id: SHOOT_B1, name: "Year 100", updated_at: "0100-01-01T00:00:00Z" }),
+      ],
+    });
+
+    const result = await listShootsForOrg(supabase, [BRAND_A1, secondBrand]);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // PostgreSQL orders 0099 < 0100; Date.UTC would put 0099 after 0100.
+    expect(result.shoots.map((s) => s.name)).toEqual(["Year 100", "Year 99"]);
+  });
 });
 
 describe("IPI-1067 · SHOOT-001 — preauthorizeShootForOrg", () => {
@@ -779,5 +809,12 @@ describe("IPI-1067 · SHOOT-001 — cursor serialization", () => {
     expect(toMicros("2026-09-07T12:00:00.000000+02:00")).toBe(
       toMicros("2026-09-07T10:00:00.000000Z"),
     );
+  });
+
+  it("orders years 0000-0099 before 0100 (Date.UTC 0-99 quirk)", () => {
+    // Date.UTC(99, 0, 1) is 1999 — the days-from-civil comparator must
+    // agree with PostgreSQL, where 0099 < 0100.
+    expect(toMicros("0099-01-01T00:00:00Z")).toBeLessThan(toMicros("0100-01-01T00:00:00Z"));
+    expect(toMicros("0000-01-01T00:00:00Z")).toBeLessThan(toMicros("0099-01-01T00:00:00Z"));
   });
 });

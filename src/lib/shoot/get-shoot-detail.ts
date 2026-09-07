@@ -71,6 +71,18 @@ function isIsoTimestamp(value: string): boolean {
 const ISO_TIMESTAMP_PARTS =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|([+-])(\d{2}):(\d{2}))$/;
 
+/** Days since 1970-01-01 for a civil date (Howard Hinnant's algorithm).
+ *  Exact for every year — unlike `Date.UTC`, which maps years 0–99 to
+ *  1900–1999 and would misorder `0099` after `0100`. */
+function daysFromCivil(y: number, m: number, d: number): number {
+  y -= m <= 2 ? 1 : 0;
+  const era = Math.floor(y / 400);
+  const yoe = y - era * 400;
+  const doy = Math.floor((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + d - 1;
+  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+  return era * 146097 + doe - 719468;
+}
+
 /** Parses an ISO 8601 timestamp to integer microseconds since the epoch.
  *  `Date.parse` truncates sub-millisecond precision (`.123400Z` and
  *  `.123Z` parse to the same instant), so the merge sort must compare at
@@ -81,7 +93,11 @@ function timestampMicros(value: string): number {
   if (!match) return Number.NaN;
   const [, y, mo, d, h, mi, s, frac, , sign, oh, om] = match;
   const micros =
-    Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s)) * 1000 +
+    (daysFromCivil(Number(y), Number(mo), Number(d)) * 86400 +
+      Number(h) * 3600 +
+      Number(mi) * 60 +
+      Number(s)) *
+      1_000_000 +
     Number((frac ?? "").padEnd(6, "0"));
   if (!sign) return micros;
   const offsetMicros = (Number(oh) * 60 + Number(om)) * 60 * 1_000_000;
