@@ -37,6 +37,23 @@ alter function public.set_updated_at() security invoker;
 -- reconciliation) — production has evolved past what any migration
 -- captured; brings the recovered chain's final state in line with the real,
 -- currently-desired auth/profile contract.
+--
+-- Two more gaps found by PR review, same root cause (real production
+-- objects never captured by any migration), fixed here:
+--   a. public.profiles never gained auth_provider/provider_user_id/
+--      onboarding_status anywhere in the 320-file chain — only this
+--      function referenced them. Verified live against production's real
+--      column list/defaults before adding.
+--   b. No migration anywhere creates the on_auth_user_created trigger on
+--      auth.users that actually invokes handle_new_user() — the function
+--      existed in history, but nothing wired it up. Without it, no fresh
+--      signup ever gets a profiles row. Verified live against production's
+--      real pg_get_triggerdef before adding, verbatim.
+alter table public.profiles
+  add column if not exists auth_provider text,
+  add column if not exists provider_user_id text,
+  add column if not exists onboarding_status text not null default 'pending';
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -80,6 +97,11 @@ exception when others then
   return new;
 end;
 $function$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
 
 -- 3. create_default_event_phases: restore SECURITY DEFINER (the trigger's
 -- inserts into event_phases genuinely need it — event_phases' own RLS

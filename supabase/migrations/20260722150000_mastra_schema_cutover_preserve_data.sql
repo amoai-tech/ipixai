@@ -87,6 +87,7 @@ DECLARE
     'mastra_threads','mastra_workflow_snapshot'
   ];
   present_count int;
+  destination_count int;
   r text;
   unexpected_count bigint;
 BEGIN
@@ -94,9 +95,16 @@ BEGIN
   FROM pg_tables WHERE schemaname = 'public' AND tablename = ANY (moved_tables);
 
   IF present_count = 0 THEN
-    IF NOT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'mastra' AND tablename = 'mastra_threads') THEN
+    -- Verify the full 18-table destination inventory, not just one table —
+    -- a database with 1 of 18 mastra.* destinations (a damaged/partial
+    -- IPI-628 apply) must fail closed here, not silently pass this guard
+    -- and then have Step 4's grant loop process whatever subset exists.
+    SELECT count(*) INTO destination_count
+    FROM pg_tables WHERE schemaname = 'mastra' AND tablename = ANY (moved_tables);
+    IF destination_count <> 18 THEN
       RAISE EXCEPTION
-        'IPI-784 fresh-replay check failed: mastra.mastra_threads missing — IPI-628 (20260722093028) must apply first';
+        'IPI-784 fresh-replay check failed: expected all 18 mastra.* destination tables, found % — IPI-628 (20260722093028) must apply cleanly first',
+        destination_count;
     END IF;
     RAISE NOTICE 'IPI-784: zero public.mastra_* source tables present — fresh replay, nothing to cut over, skipping Steps 1-3';
   ELSIF present_count <> 18 THEN
