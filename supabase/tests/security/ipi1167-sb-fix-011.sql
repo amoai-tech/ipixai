@@ -14,7 +14,27 @@ declare
   org_1        uuid := gen_random_uuid();
   org_2        uuid := gen_random_uuid();
   blocked      boolean;
+  fn_def       text;
 begin
+  -- 0) catalog-level check on the exact installed zero-argument function:
+  --    the wrong-id defect (new.id instead of old.id) is behaviorally
+  --    unreachable given the FK on campaigns.brand_id (no ON UPDATE
+  --    CASCADE -- see the migration's own comment), so none of the
+  --    behavioral cases below can distinguish old.id from new.id. Without
+  --    this, a future edit could silently reintroduce `new.id` and every
+  --    behavioral case would still pass. Assert directly on source instead.
+  select pg_get_functiondef(to_regprocedure('public.block_brand_org_change()'))
+    into fn_def;
+  if fn_def is null then
+    raise exception 'IPI-1167 FAIL: public.block_brand_org_change() not found';
+  end if;
+  if fn_def !~* 'brand_id\s*=\s*old\.id' then
+    raise exception 'IPI-1167 FAIL: installed function does not reference old.id in the campaign lookup (wrong-id regression)';
+  end if;
+  if fn_def ~* 'brand_id\s*=\s*new\.id' then
+    raise exception 'IPI-1167 FAIL: installed function references new.id in the campaign lookup (wrong-id regression reintroduced)';
+  end if;
+
   insert into public.brands (id, org_id) values
     (brand_free,  org_1),
     (brand_bound, org_1),
