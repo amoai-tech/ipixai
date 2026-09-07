@@ -17,6 +17,10 @@ describe("IPI-1048 PLANNER-001: production planner replaces the weather demo", (
     expect(productionPlannerAgent.name).toBe("Production Planner");
   });
 
+  it("uses GPT-5.6 Luna as the configured OpenAI model", () => {
+    expect(productionPlannerAgent.model.modelId).toBe("gpt-5.6-luna");
+  });
+
   it("no weather tool is attached — IPI-1049 · TOOL-001 owns the actual tool set", async () => {
     const tools = await productionPlannerAgent.listTools();
     expect(Object.keys(tools)).not.toContain("get-weather");
