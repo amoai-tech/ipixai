@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
-import { buildHeroGreeting } from "@/lib/dashboard/command-center";
+import { buildHeroGreeting, resolveHeroContext } from "@/lib/dashboard/command-center";
 import type { DashboardBrand, DashboardShoot } from "@/lib/dashboard/command-center";
 import type { ChannelSpec } from "@/lib/shoot/channel-specs";
 
@@ -115,7 +115,6 @@ export function CommandCenter({
   recentWorkPreviews = new Map(),
   channelSpecs = new Map(),
 }: Props) {
-  const heroBrand = brandsResult.ok ? brandsResult.brands[0] : undefined;
   // "Live" would claim a continuously-current feed this page doesn't have —
   // no websocket/realtime signal backs it. This says only what's actually
   // true: whether this request's own reads succeeded — never "ready" while
@@ -123,10 +122,13 @@ export function CommandCenter({
   const hasLoadError = !brandsResult.ok || !shootsResult.ok;
   // Shoots load org-wide, not scoped to heroBrand — shoots[0] alone could
   // name a different brand's most recent shoot under this brand's hero
-  // copy. Match on brandId so the hero never implies a false association.
-  const recentShootName = shootsResult.ok
-    ? shootsResult.shoots.find((shoot) => shoot.brandId === heroBrand?.id)?.name
-    : undefined;
+  // copy. resolveHeroContext matches on brandId so the hero never implies a
+  // false association (shared with OperatorPanel's rail/chat welcome).
+  const { brand: heroBrand, recentShoot } = resolveHeroContext(
+    brandsResult.ok ? brandsResult.brands : undefined,
+    shootsResult.ok ? shootsResult.shoots : undefined,
+  );
+  const recentShootName = recentShoot?.name;
 
   return (
     <div className={styles.root} data-testid="command-center">

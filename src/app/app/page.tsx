@@ -15,6 +15,7 @@ import {
   loadOrgBrands,
   loadOrgShoots,
   loadTrustedBrandIds,
+  resolveHeroContext,
 } from "@/lib/dashboard/command-center";
 import { loadRecentWorkPreviews } from "@/lib/dashboard/recent-work-media";
 import { loadChannelSpecs } from "@/lib/shoot/channel-specs";
@@ -100,6 +101,14 @@ export default async function AppHomePage() {
       ])
     : ([new Map<string, string>(), new Map<string, ChannelSpec>()] as const);
 
+  // Same call CommandCenter's own hero uses — lets the rail/chat name the
+  // current brand and its own most recent shoot without a second query or a
+  // second matching rule (see resolveHeroContext's own doc comment).
+  const heroContext = resolveHeroContext(
+    brandsResult.ok ? brandsResult.brands : undefined,
+    shootsResult.ok ? shootsResult.shoots : undefined,
+  );
+
   return (
     <div className="p-8">
       {/* Intelligence rail's derived workspace state — real, uncapped
@@ -114,6 +123,9 @@ export default async function AppHomePage() {
         <ReportWorkspaceStats
           brandCount={trustedBrandIdsResult.brandIds.length}
           shootCount={shootCountResult.count}
+          brandName={heroContext.brand?.name}
+          recentShootName={heroContext.recentShoot?.name}
+          recentShootStatus={heroContext.recentShoot?.status ?? undefined}
         />
       )}
       <CommandCenter

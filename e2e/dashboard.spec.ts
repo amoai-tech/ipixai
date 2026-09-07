@@ -122,6 +122,26 @@ test.describe("dashboard (authenticated)", () => {
     await expect(page.getByText("Review approvals")).toHaveCount(0);
   });
 
+  // IPI-1149 · DASH-MAIN-002 — portfolio-aware chat welcome + Intelligence
+  // rail Overview, proven live against the same real 0-brand QA org as the
+  // empty-state test above (no seeded populated org exists for this e2e
+  // account — see PR description for that separately-tracked gap).
+  test("chat welcome and Intelligence rail stay honest for the QA org's real 0-brand state", async ({
+    page,
+  }) => {
+    await page.goto("/app");
+    await expect(page.getByRole("heading", { name: "No brands yet" })).toBeVisible();
+    await expect(page.getByText("Start by creating a brand or planning your first shoot.")).toBeVisible();
+    const rail = page.getByTestId("intelligence-rail");
+    await expect(rail.getByText("0 brands · 0 shoots in this workspace.")).toBeVisible();
+    // No fabricated brand context, recent-production line, or
+    // Approvals/Activity — real signal only.
+    await expect(rail.getByTestId("intelligence-brand-context")).toHaveCount(0);
+    await expect(rail.getByTestId("intelligence-recent-shoot")).toHaveCount(0);
+    await expect(rail.getByText(/approval/i)).toHaveCount(0);
+    await expect(rail.getByText(/activity/i)).toHaveCount(0);
+  });
+
   test("Plan a shoot chip navigates to /app/plans", async ({ page }) => {
     test.setTimeout(TEST_TIMEOUT_MS);
     await page.goto("/app");

@@ -45,6 +45,23 @@ export function buildHeroGreeting(input: {
   return { headline, subline: "Ask the Production Planner what to work on next." };
 }
 
+/**
+ * DASH-MAIN-002: shared hero-brand + recent-own-shoot resolution. Shoots
+ * load org-wide (see DashboardShoot.brandId), so "recent" here means the
+ * most-recently-updated shoot that actually belongs to the hero brand, not
+ * just shoots[0]. Both CommandCenter's hero and OperatorPanel's rail/chat
+ * welcome (via ReportWorkspaceStats) call this — kept in one place so the
+ * two surfaces can't independently drift on what counts as "recent".
+ */
+export function resolveHeroContext(
+  brands: DashboardBrand[] | undefined,
+  shoots: DashboardShoot[] | undefined,
+): { brand: DashboardBrand | undefined; recentShoot: DashboardShoot | undefined } {
+  const brand = brands?.[0];
+  const recentShoot = shoots?.find((shoot) => shoot.brandId === brand?.id);
+  return { brand, recentShoot };
+}
+
 const BRAND_LIMIT = 6;
 const SHOOT_LIMIT = 6;
 // Page size for the org's own brand id list used to scope Shoots — not a
