@@ -77,6 +77,26 @@ begin
     raise exception 'IPI-1163 FAIL: authenticated sentinel bypass on organizers-can-insert-events still works (retirement migration not applied or not effective)';
   end if;
 
+  -- 3b) event_phases_insert's own authenticated-side sentinel bypass:
+  --     catalog-level check, not behavioral. Confirmed empirically while
+  --     writing this test: this branch is ALREADY unreachable via a real
+  --     authenticated call regardless of the fix, because its subquery
+  --     against events is itself gated by events' own SELECT RLS
+  --     (events_select), and an authenticated non-owner can't see a
+  --     sentinel-owned, unpublished event at all -- so a behavioral
+  --     before/after test can't distinguish "sentinel branch removed"
+  --     from "sentinel branch present but its subquery sees nothing
+  --     anyway" (same class of unreachable-behavior gap as IPI-1167's
+  --     old.id/new.id fix -- see that migration's own comment). Assert
+  --     directly on the installed policy expression instead.
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'event_phases' and policyname = 'event_phases_insert'
+      and with_check like '%' || sentinel::text || '%'
+  ) then
+    raise exception 'IPI-1163 FAIL: event_phases_insert still references the sentinel organizer_id (retirement migration not applied or not effective)';
+  end if;
+
   -- 4) anon inserting into the 3 child tables, referencing the legitimate
   --    real_event_id from case 2 (so a denial here can only be the dropped
   --    anon INSERT policy, not an FK violation on a nonexistent event) ->
@@ -124,6 +144,21 @@ begin
   reset role;
   if allowed then
     raise exception 'IPI-1163 FAIL: anon inserted into ticket_tiers (retirement migration not applied or not effective)';
+  end if;
+
+  -- 5) least-privilege: anon's excess table-level INSERT/UPDATE/DELETE
+  --    grants must be gone too, not just the policies (20260907040000).
+  --    SELECT must remain (events_select_anon and the 2 published-only
+  --    read policies are intentionally kept).
+  if has_table_privilege('anon', 'public.events', 'insert')
+     or has_table_privilege('anon', 'public.event_phases', 'insert')
+     or has_table_privilege('anon', 'public.event_schedules', 'insert')
+     or has_table_privilege('anon', 'public.ticket_tiers', 'insert')
+     or has_table_privilege('anon', 'public.brand_scores', 'insert') then
+    raise exception 'IPI-1163 FAIL: anon still holds an INSERT grant on one of the 5 tables (grant revoke migration not applied or not effective)';
+  end if;
+  if not has_table_privilege('anon', 'public.events', 'select') then
+    raise exception 'IPI-1163 FAIL: anon lost SELECT on events (should be retained for events_select_anon)';
   end if;
 
   raise notice 'IPI-1163 anon demo-event policy retirement regression PASS';

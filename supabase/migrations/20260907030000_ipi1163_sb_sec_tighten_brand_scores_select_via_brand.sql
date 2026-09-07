@@ -1,5 +1,9 @@
--- IPI-1168 · SB-FIX-012 — tighten brand_scores_select_via_brand from PUBLIC
--- to authenticated.
+-- IPI-1163 · SB-SEC — tighten brand_scores_select_via_brand from PUBLIC
+-- to authenticated. (Originally filed as a separate ticket, IPI-1168 ·
+-- SB-FIX-012, before being found to duplicate IPI-1163's own scope and
+-- consolidated there -- see IPI-1168's cancellation comment. Renamed from
+-- this file's original ipi1168 filename to reflect single ownership;
+-- unapplied, so renaming now is safe.)
 --
 -- Confirmed live on production via read-only pg_policy query (2026-09-07):
 -- polroles = '{-}' (PUBLIC, i.e. every role including anon), using

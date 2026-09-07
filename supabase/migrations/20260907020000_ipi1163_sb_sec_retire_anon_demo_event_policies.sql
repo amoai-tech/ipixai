@@ -31,18 +31,19 @@
 -- across supabase/migrations/ for its exact name) — unlike, e.g.,
 -- event_phases_insert, which WAS consolidated under a new name.
 --
--- Deliberately NOT touched here (becomes permanently unreachable dead code
--- once this migration lands, since no path can create a new sentinel-
--- tagged event afterward -- same class as trigger_set_timestamps in
--- IPI-1162's Slice 4A, confirmed dead but not recreated/removed either):
---   - event_phases_insert's authenticated-side sentinel OR-branch
---     (20260730032752_consolidate_multiple_permissive_policies_event_phases.sql)
---   - events_select_anon's sentinel OR-branch
---     (20260730032949_consolidate_multiple_permissive_policies_events_anon.sql)
--- Both are already correctly recovered history (byte-identical to
--- production), not drift -- retiring them too is optional cleanup of dead
--- code, not required to close the write-access exposure, and is left for a
--- separate decision if wanted.
+-- event_phases_insert's authenticated-side sentinel OR-branch
+-- (20260730032752_consolidate_multiple_permissive_policies_event_phases.sql)
+-- IS also narrowed below, even though it's already unreachable once the 4
+-- DROPs above land (nothing can create a new sentinel-tagged event
+-- afterward): it's a write-authorization bypass, and defense-in-depth says
+-- a dormant write bypass shouldn't be left sitting in the policy even when
+-- currently unreachable, unlike a read-only one.
+--
+-- events_select_anon's sentinel OR-branch
+-- (20260730032949_consolidate_multiple_permissive_policies_events_anon.sql)
+-- is left alone: read-only, harmless dead code once nothing can create a
+-- sentinel-tagged row, and already correctly recovered history (byte-
+-- identical to production, not drift) -- optional cleanup, not required.
 --
 -- Requires explicit human authorization before production apply -- see the
 -- IPI-1163 deployment plan. This file only lands the proposal in Git.
@@ -54,3 +55,12 @@ drop policy if exists "anon can insert demo ticket tiers" on public.ticket_tiers
 
 alter policy "organizers can insert events" on public.events
   with check ((select auth.uid()) = organizer_id);
+
+alter policy "event_phases_insert" on public.event_phases
+  with check (
+    exists (
+      select 1 from events
+      where events.id = event_phases.event_id
+        and events.organizer_id = auth.uid()
+    )
+  );
