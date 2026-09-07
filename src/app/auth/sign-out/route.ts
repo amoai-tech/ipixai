@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   if (!supabase) {
     return NextResponse.json({ error: "sign_out_failed" }, { status: 500 });
   }
-  const { error } = await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut({ scope: "local" });
   if (error) {
     return NextResponse.json({ error: "sign_out_failed" }, { status: 500 });
   }

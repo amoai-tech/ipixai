@@ -1,20 +1,30 @@
 import type { Locator, Page, Request } from "@playwright/test";
 
+import { gotoPageWithRetry } from "./context";
+
 const AUTH_TOKEN_PATH = "/auth/v1/token";
-const SIGN_IN_TIMEOUT_MS = 30_000;
+export const SIGN_IN_TIMEOUT_MS = 30_000;
 
 function isAuthTokenRequest(request: Request) {
   return request.url().includes(AUTH_TOKEN_PATH);
 }
 
 async function gotoLogin(page: Page) {
-  try {
-    await page.goto("/login");
-  } catch (error) {
-    if (!(error instanceof Error) || !error.message.includes("ERR_NETWORK_CHANGED")) {
-      throw error;
-    }
-    await page.goto("/login");
+  await gotoPageWithRetry(page, "/login");
+
+  // Fail fast on a dirty/contaminated session. If this browser already has
+  // another user signed in, the shared redirect-if-authenticated guard
+  // (src/lib/auth/redirect-if-authenticated.ts) bounces /login away (e.g. to
+  // /app) instead of rendering the form. That means we are NOT actually on
+  // the login page, and waiting out the 30s sign-in timeout would just be
+  // misreported as a login failure. Surface the real cause immediately.
+  const pathname = new URL(page.url()).pathname;
+  if (pathname !== "/login") {
+    throw new Error(
+      `Attempted to sign in but the browser is already authenticated (redirected to "${pathname}"). ` +
+        "Start every sign-in from a fresh, clean browser context — use " +
+        "createCleanContext(browser) so secondary test users never inherit another session.",
+    );
   }
 }
 
