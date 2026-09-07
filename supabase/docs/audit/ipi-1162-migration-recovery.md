@@ -34,10 +34,18 @@ Five iterations of the `D → E → F` loop were needed. Each is a real, named, 
 
 | # | Blocker | Root cause | Fix |
 |---|---|---|---|
-| 1 | `IPI-737` backfill fails: "Nike brand row not found" | Demo brand rows only ever existed as production dashboard/manual inserts, never a migration | New migration (`20260720072000`), timestamped just before, inserting the fixture rows (`ON CONFLICT DO NOTHING`) |
+| 1 | `IPI-737` backfill fails: "Nike brand row not found" | Demo brand rows only ever existed as production dashboard/manual inserts, never a migration | **Corrected after initial commit** (see below) — `IPI-737`'s own migration made presence-tolerant instead of manufacturing the rows |
 | 2 | `GRANT USAGE ON SCHEMA mastra TO hyperdrive_mastra_runtime` — role does not exist | Role provisioned directly against the DB (IPI-617), predates the migration chain, documented in the migration's own comment | New migration (`20260722094054`) creating the role `NOLOGIN` |
 | 3 (superseded) | Mastra schema cutover expects 18 legacy `public.mastra_*` tables to preserve data from | Those tables are Mastra's own app-level `PostgresStore` auto-init output, never a migration | *(see correction below — this fix was wrong and reverted)* |
 | 4 | `IPI-1089` onboarding migration: `LOCK TABLE can only be used in transaction blocks` | Postgres requires `LOCK TABLE` inside an explicit transaction; this CLI does not auto-wrap migration files | Wrapped the unchanged original statements in `BEGIN;`/`COMMIT;` |
+
+### Correction after initial commit: blocker #1's fix was reconsidered
+
+PR #87's first commit fixed the `IPI-737` blocker with a new seed migration (`20260720072000`) that inserted a synthetic auth user, org, and the two demo brand rows outright. On review this was correctly identified as broader than necessary: it injected demo/application data into every fresh environment and added a migration timestamp production never had, just to satisfy an old production-only assumption.
+
+**Corrected approach**: made `IPI-737`'s own migration (`20260720072001`) presence-tolerant instead — per-row: absent → skip, present-and-`NULL` → backfill the expected URL (the migration's real original intent), present-with-expected-value → no-op, present-with-anything-else → fail closed (the original invariant, preserved). The seed-fixture migration was deleted entirely; nothing else in the 320-file chain depended on those synthetic rows (verified: only that file and one unrelated code-comment referenced the org id). Re-verified: `db reset --local` exit 0, the three synthetic rows (org, auth user, both brands) are correctly absent on a fresh database, linked diff unchanged in shape.
+
+This is treated as a narrow, disclosed exception to "never rewrite historical migrations": the file being adjusted is one this task itself is introducing to git for the first time (not previously-applied-and-trusted history in this repo), the adjustment doesn't change production's real behavior (both rows already exist there with the expected values), and a forward migration genuinely cannot fix a failure that aborts replay before it would ever run.
 
 ### Correction mid-session: the naive fix for #3 was actively wrong
 
