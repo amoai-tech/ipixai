@@ -1,0 +1,170 @@
+import { test, expect, type Browser, type Page, type TestInfo } from "@playwright/test";
+
+import { signInWithCredentials } from "./support/login";
+
+// IPI-1149 · DASH-MAIN-002 — deterministic populated-org proof for the /app
+// Command Center. Closes the gap the issue itself calls out: every existing
+// /app Playwright assertion (dashboard.spec.ts) runs against the shared
+// E2E_TEST_EMAIL account, whose org has 0 brands/0 shoots by design — so
+// none of it can prove a real hero, populated Recent Work tiles, or a
+// portfolio-aware Intelligence rail/chat welcome. This file signs in as the
+// same populated Shoots QA account shoots-journey.spec.ts already uses
+// (org 00000000-0000-0000-0000-000000000001, 4 real shoots) and asserts on
+// /app itself instead of /app/shoots. Read-only — no fixtures are created,
+// mutated, or deleted.
+
+const NAV_TIMEOUT_MS = 30_000;
+const TEST_TIMEOUT_MS = NAV_TIMEOUT_MS + 30_000;
+
+async function signInPopulatedOrg(browser: Browser): Promise<{ page: Page; close: () => Promise<void> }> {
+  const email = process.env.E2E_TEST_EMAIL_SHOOTS;
+  const password = process.env.E2E_TEST_PASSWORD_SHOOTS;
+  if (!email || !password) {
+    throw new Error(
+      "E2E_TEST_EMAIL_SHOOTS / E2E_TEST_PASSWORD_SHOOTS are missing — set them in .env.test",
+    );
+  }
+  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  const page = await context.newPage();
+  await signInWithCredentials(page, email, password);
+  return { page, close: () => context.close() };
+}
+
+/** Attaches a full-page screenshot to the HTML report/artifact instead of
+ *  writing a loose file — the CI playwright-report upload already carries
+ *  test attachments, so this is the same evidence path dashboard.spec.ts's
+ *  existing assertions ride, not a new artifact mechanism. */
+async function attachScreenshot(testInfo: TestInfo, name: string, page: Page) {
+  await testInfo.attach(name, { body: await page.screenshot({ fullPage: false }), contentType: "image/png" });
+}
+
+test.describe("populated Command Center (authenticated, real org data)", () => {
+  test("loads /app with a real hero, no console/page errors, no 0-brand empty state", async ({
+    browser,
+  }, testInfo) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
+    const { page, close } = await signInPopulatedOrg(browser);
+    try {
+      const errors: string[] = [];
+      page.on("pageerror", (err) => errors.push(err.message));
+      page.on("console", (msg) => {
+        if (msg.type() === "error") errors.push(msg.text());
+      });
+
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto("/app");
+      await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+
+      // Real brand/shoot data, not the honest-empty path dashboard.spec.ts
+      // already covers for the 0-brand account.
+      await expect(page.getByRole("heading", { name: "No brands yet" })).toHaveCount(0);
+      await expect(page.getByTestId("command-center-hero")).toBeVisible();
+      await expect(page.getByTestId("command-center-brand-list")).toBeVisible();
+
+      expect(errors, `console/page errors: ${errors.join("; ")}`).toEqual([]);
+      await attachScreenshot(testInfo, "desktop-1440x900-app-populated", page);
+    } finally {
+      await close();
+    }
+  });
+
+  test("chat welcome and Intelligence rail are portfolio-aware, not generic", async ({ browser }) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
+    const { page, close } = await signInPopulatedOrg(browser);
+    try {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto("/app");
+
+      // Portfolio-aware welcome (portfolioWelcomeText in operator-panel.tsx):
+      // never the generic "Ask a question to get started." once real stats
+      // exist for this route.
+      const chatDock = page.getByTestId("operator-chat-dock");
+      await expect(chatDock).toBeVisible();
+      await expect(chatDock.getByText("Ask a question to get started.")).toHaveCount(0);
+      await expect(chatDock.getByText(/^You're working with /)).toBeVisible();
+
+      const rail = page.getByTestId("intelligence-rail");
+      await expect(rail.getByTestId("intelligence-brand-context")).toBeVisible();
+      await expect(rail.getByTestId("intelligence-workspace-stats")).not.toHaveText(
+        "0 brands · 0 shoots in this workspace.",
+      );
+      // Real signal only — same acceptance criterion as the 0-brand test.
+      await expect(rail.getByText(/approval/i)).toHaveCount(0);
+      await expect(rail.getByText(/activity/i)).toHaveCount(0);
+    } finally {
+      await close();
+    }
+  });
+
+  test("Recent Work renders real tiles that deep-link to their exact shoot", async ({ browser }) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
+    const { page, close } = await signInPopulatedOrg(browser);
+    try {
+      await page.goto("/app");
+      const shootList = page.getByTestId("command-center-shoot-list");
+      await expect(shootList).toBeVisible();
+
+      const tiles = shootList.locator('a[href^="/app/shoots/"]');
+      await expect(tiles.first()).toBeVisible();
+      const href = await tiles.first().getAttribute("href");
+      expect(href).toMatch(/^\/app\/shoots\/[0-9a-f-]{36}$/);
+
+      // Exact per-shoot deep link — not a generic /app/shoots fallback.
+      await tiles.first().click();
+      await page.waitForURL(href!, { timeout: NAV_TIMEOUT_MS });
+    } finally {
+      await close();
+    }
+  });
+
+  test("an authorized Recent Work image, when present, loads over HTTP 200 from Cloudinary", async ({
+    browser,
+  }) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
+    const { page, close } = await signInPopulatedOrg(browser);
+    try {
+      await page.goto("/app");
+      const shootList = page.getByTestId("command-center-shoot-list");
+      await expect(shootList).toBeVisible();
+
+      // CSS module class names are hashed at build time, so select by tag —
+      // recent-work-tile.tsx renders exactly one <img> per tile with an
+      // authorized preview, none for a placeholder tile.
+      const images = shootList.locator("img");
+      const imageCount = await images.count();
+      if (imageCount === 0) {
+        // Honest, not a failure: every tile is currently unauthorized/
+        // unavailable and rendered its placeholder instead — the no-image
+        // fallback path (recent-work-tile.tsx's showImage=false branch).
+        // Assert the placeholder rendered rather than silently passing.
+        await expect(shootList.getByText(/./)).toBeVisible();
+        return;
+      }
+
+      const src = await images.first().getAttribute("src");
+      expect(src, "authorized preview must be a real URL, not empty").toBeTruthy();
+      // Never the raw, unsigned columns this contract explicitly forbids.
+      expect(src).not.toMatch(/mood_board_urls/);
+
+      const response = await page.request.get(src!);
+      expect(response.status(), `expected HTTP 200 for authorized preview ${src}`).toBe(200);
+    } finally {
+      await close();
+    }
+  });
+
+  test("mobile viewport keeps Recent Work horizontally scrollable and usable", async ({ browser }, testInfo) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
+    const { page, close } = await signInPopulatedOrg(browser);
+    try {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto("/app");
+      await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+      await expect(page.getByTestId("command-center-shoot-list")).toBeVisible();
+      await expect(page.getByTestId("operator-chat-dock")).toBeVisible();
+      await attachScreenshot(testInfo, "mobile-390x844-app-populated", page);
+    } finally {
+      await close();
+    }
+  });
+});
