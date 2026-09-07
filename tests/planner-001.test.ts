@@ -44,6 +44,15 @@ describe("IPI-1048 PLANNER-001: production planner replaces the weather demo", (
     // "no tools yet" caveat — stays true after IPI-1049 attaches real tools.
     expect(instructions).toContain("never claim");
     expect(instructions).toContain("unless the operator explicitly confirms");
+    // IPI-1049 · TOOL-001 follow-up (Planner behavior gap): when every
+    // schema-required input is already known the Planner must call the tool
+    // immediately rather than interrogate the operator for optional context.
+    expect(instructions).toContain("call the tool immediately");
+    expect(instructions).toContain("do not block the first computation");
+    // Trusted reference shot types can only come from an authorized iPix
+    // reference path — the Planner must never solicit raw references from the
+    // operator (reference-backed shot-list generation awaits that path).
+    expect(instructions).not.toContain("ask the operator for known reference shot types");
   });
 
   it("keeps the existing resource-scoped Postgres/Memory configuration attached", async () => {
