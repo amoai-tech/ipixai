@@ -1,5 +1,6 @@
 import { test, expect, type Browser, type Page } from "@playwright/test";
 
+import { createCleanContext } from "./support/context";
 import { signInWithCredentials } from "./support/login";
 import { getOwnOrgId, supabaseForPage } from "./support/tenant-supabase";
 
@@ -35,12 +36,12 @@ async function signInOrgB(browser: Browser): Promise<{ page: Page; close: () => 
       "E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B are missing — set them in .env.test",
     );
   }
-  // browser.newContext() defaults to the project's own `use` options — which,
-  // under chromium/mobile-chromium, is Org A's storageState. Without this
-  // override the "fresh" Org B context silently starts pre-authenticated as
-  // Org A instead of logged out, so /login redirects away and Org B never
-  // actually signs in. Empty storageState is the explicit logged-out state.
-  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  // Every secondary test user must start from a fully logged-out browser so
+  // it never inherits Org A's Supabase session. browser.newContext() defaults
+  // to the project's own `use` options (Org A storageState under
+  // chromium/mobile-chromium); createCleanContext overrides to the explicit
+  // empty logged-out state (see e2e/support/context.ts).
+  const context = await createCleanContext(browser);
   const page = await context.newPage();
   await signInWithCredentials(page, email, password);
   return { page, close: () => context.close() };

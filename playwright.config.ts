@@ -92,6 +92,7 @@ export default defineConfig({
         /login-journey\.spec\.ts/,
         /production-smoke\.spec\.ts/,
         /planner-journey\.spec\.ts/,
+        /session-reuse\.spec\.ts/,
       ],
     },
   ],
