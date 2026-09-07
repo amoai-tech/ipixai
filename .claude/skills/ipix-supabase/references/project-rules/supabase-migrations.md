@@ -32,19 +32,25 @@ do **not** manually run `supabase db push --linked`, `supabase migration repair`
 creates unnecessary deployment ownership/race risk. Use `migration repair` only under an explicit,
 reviewed recovery procedure; never use `db reset --linked` on production.
 
-> **Note (2026-09-07):** the "Immediately apply" step and the `supabase-linked-gates` CI job
-> described below reference a `check-supabase-migration-drift.mjs` script and a
+> **NON-AUTHORITATIVE (2026-09-07) — step 5 and "After merge" below:** IPI-1171 confirmed (3
+> cases) that merging a migration-bearing PR to `main` already auto-applies pending migrations to
+> production — no manual push was run or needed in any of those merges. Manually running
+> `supabase db push --linked` right after merging, as step 5 and "After merge" instruct, is now
+> redundant at best and a double-apply/race risk at worst. The real current gate is explicit human
+> approval **before** the merge (see IPI-1163's approval-then-merge-then-verify sequence), not a
+> manual push after it. They also reference a `check-supabase-migration-drift.mjs` script and a
 > `.github/workflows/supabase-linked-gates.yml` workflow that do not currently exist in this repo
-> (`scripts/` has no such file; `.github/workflows/` has only `ci.yml`). This section may describe
-> a superseded process — flagged for separate review, not rewritten here.
+> (`scripts/` has no such file; `.github/workflows/` has only `ci.yml`). Tracked in **IPI-1174** —
+> treat step 5 and "After merge" as historical until that resolves whether they should be rewritten
+> or removed.
 
 | Step | Command |
 |------|---------|
 | 1. Create the file | `supabase migration new <short_description>` |
-| 2. Verify (linked, not local Docker) | See **Verify before opening the PR** below |
+| 2. Verify — local fresh-replay first (matches CI); linked-project check is a separate, read-only, human-reviewed step | See **Verify before opening the PR** below |
 | 3. Commit + open a PR | one migration concern per PR |
-| 4. Merge to `main` | PR CI must be green (`--pr` drift mode allows this branch's new file) |
-| 5. **Immediately** apply | `supabase db push --linked` in the same session as the merge |
+| 4. Merge to `main` | PR CI must be green (`--pr` drift mode allows this branch's new file); get explicit human approval before merging — the merge itself already applies to production (IPI-1171) |
+| 5. ~~**Immediately** apply~~ NON-AUTHORITATIVE, see note above | ~~`supabase db push --linked` in the same session as the merge~~ — merge already applied it |
 | 6. Types (if schema changed) | `npm run supabase:types` → commit `app/src/types/supabase.ts` in a **follow-up PR the same day** |
 
 Never use the Dashboard SQL editor for schema changes. It writes straight to the remote with no
@@ -52,15 +58,22 @@ file, which is the same failure with no paper trail.
 
 ### Verify before opening the PR
 
-Unmerged migrations are intentionally **local-only**. Use **PR mode** for the drift script — never
-`--main` on a branch that still has pending files (CI's push-to-`main` job uses `--main` and exits
-nonzero on any local-only version).
+**First, local fresh-replay** — this is the proven, CI-enforced check (IPI-1162):
+
+```bash
+supabase stop --no-backup && supabase start   # or: supabase db reset --local
+```
+
+**Then, separately, a read-only check against the linked project** — this only inspects state
+(drift, pending status, lint); it does not apply anything. Unmerged migrations are intentionally
+**local-only**. Use **PR mode** for the drift script — never `--main` on a branch that still has
+pending files (CI's push-to-`main` job uses `--main` and exits nonzero on any local-only version).
 
 ```bash
 git fetch origin main
 # Allows local-only versions that this branch *adds* vs origin/main
 node scripts/check-supabase-migration-drift.mjs --pr --base origin/main
-supabase db push --linked --dry-run          # should list this migration as pending
+supabase db push --linked --dry-run          # read-only preview — should list this migration as pending, applies nothing
 supabase db lint --linked \
   -s public,planner \
   --level warning \
@@ -68,10 +81,10 @@ supabase db lint --linked \
 ```
 
 Structural RLS / grant probes run in CI (`supabase-verify-rls` → linked `psql` +
-`supabase test db --db-url "$DATABASE_URL"`). Do **not** substitute `supabase db reset` or a
-local `supabase test db` against Docker.
+`supabase test db --db-url "$DATABASE_URL"`) — these are read-only probes against the linked
+project, required in addition to local fresh-replay, not a substitute for it.
 
-### After merge — apply before `main` can stay green
+### After merge — NON-AUTHORITATIVE, see the note above (IPI-1174)
 
 Merging at step 4 puts a **local-only** version on `main` until step 5 finishes. Every push to
 `main` runs `check-supabase-migration-drift.mjs --main`, which fails while that gap exists
