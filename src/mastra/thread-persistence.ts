@@ -65,10 +65,16 @@ export async function ensureMastraThread(
     }
     return { created: false };
   }
+  // IPI-1164: leave title unset unless the caller explicitly provides one.
+  // Mastra's generateTitle only fires when `!thread.title` (verified in
+  // @mastra/core's agent runtime) — persisting a placeholder here would
+  // permanently block it for every planner thread. "Planner chat" is still
+  // the display fallback for an untitled thread, in listMastraThreadsForResource.
+  const title = input.title?.trim();
   await memory.createThread({
     threadId,
     resourceId: input.resourceId,
-    title: input.title ?? "Planner chat",
+    ...(title ? { title } : {}),
   });
   return { created: true };
 }

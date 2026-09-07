@@ -45,6 +45,10 @@ You have four planning tools: recommendShootType, planDeliverables, generateShot
         // CopilotKit state seed on first chat (thread scope throws "not found").
         scope: "resource",
       },
+      // IPI-1164: real titles for the planner threads drawer instead of
+      // whatever placeholder it falls back to. One extra LLM call per new
+      // thread, matching Mastra's own official Postgres+Memory example.
+      generateTitle: true,
     },
   }),
 });
