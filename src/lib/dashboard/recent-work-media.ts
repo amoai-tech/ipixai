@@ -22,12 +22,11 @@ import { getAuthorizedAssetPreview } from "@/lib/cloudinary/get-authorized-asset
  * every shoot has one yet — most tiles are expected to still fall back to
  * the honest placeholder, that's real state, not a bug here.
  *
- * Each shoot is queried and resolved independently — its own `.limit(1)`
- * candidate lookup, its own `getAuthorizedAssetPreview` call, its own
- * try/catch:
+ * Each shoot is queried and resolved independently — its own bounded
+ * candidate query, its own candidate loop, its own try/catch:
  * - independent queries (not one `.in("v2_shoot_id", shootIds)` read) so one
  *   shoot with many assets can never crowd another displayed shoot's
- *   candidate out of a capped response;
+ *   candidates out of a capped response;
  * - independent try/catch (not one shared `Promise.all`) so an unexpected
  *   throw from one shoot's lookup can't reject the whole batch and blank
  *   every other shoot's already-succeeding preview.
