@@ -24,14 +24,12 @@ const SHOOT_B1 = "ffffffff-0000-4000-8000-000000000001";
  *  (`SELECT (EXTRACT(EPOCH FROM ts AT TIME ZONE 'UTC') * 1000000)::numeric`).
  *  These literals are the independent oracle: a regression in the production
  *  `timestampMicros` conversion cannot self-validate, because the expected
- *  values never call it. Note PostgreSQL itself rejects year 0000 (out of
- *  range), so that anchor is the proleptic-Gregorian extension of the same
- *  calendar the DB uses for years 0001+. */
+ *  values never call it. PostgreSQL rejects year 0000 (out of range), so the
+ *  supported contract is unsigned years 0001–9999. */
 const PG_EPOCH_MICROS = {
   "0099-01-01T00:00:00.000000Z": BigInt("-59042995200000000"),
   "0099-01-01T00:00:00.000001Z": BigInt("-59042995199999999"),
   "0100-01-01T00:00:00.000000Z": BigInt("-59011459200000000"),
-  "0000-01-01T00:00:00.000000Z": BigInt("-62167219200000000"),
   "2026-09-07T12:00:00.123456Z": BigInt("1788782400123456"),
   "2026-09-07T12:00:00.123000Z": BigInt("1788782400123000"),
   "2026-09-07T12:00:00.123Z": BigInt("1788782400123000"),
@@ -461,7 +459,7 @@ describe("IPI-1067 · SHOOT-001 — listShootsForOrg", () => {
     expect(result.shoots.map((s) => s.name)).toEqual(["Micro 123400", "Micro 123", "Micro 100"]);
   });
 
-  it("orders years 0000-0099 before 0100 in the merged page (Date.UTC quirk)", async () => {
+  it("orders years 0001-0099 before 0100 in the merged page (Date.UTC quirk)", async () => {
     const secondBrand = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
     const supabase = fakeShootBrowseSupabase({
       [BRAND_A1]: [browseRow({ id: SHOOT_A1, name: "Year 99", updated_at: "0099-01-01T00:00:00Z" })],
@@ -478,7 +476,7 @@ describe("IPI-1067 · SHOOT-001 — listShootsForOrg", () => {
     expect(result.shoots.map((s) => s.name)).toEqual(["Year 100", "Year 99"]);
   });
 
-  it("keeps one-microsecond ordering for years 0000-0099 across batches (lossless merge key)", async () => {
+  it("keeps one-microsecond ordering for years 0001-0099 across batches (lossless merge key)", async () => {
     // Epoch microseconds for year 0099 exceed Number.MAX_SAFE_INTEGER, so a
     // number key would compare these two rows equal and fall back to the id
     // tie-break. The newer row carries the LARGER id (ffff… > eeee…), so the
@@ -823,7 +821,7 @@ describe("IPI-1067 · SHOOT-001 — cursor serialization", () => {
     );
   });
 
-  it("orders years 0000-0099 before 0100 (Date.UTC 0-99 quirk)", () => {
+  it("orders years 0001-0099 before 0100 (Date.UTC 0-99 quirk)", () => {
     // Date.UTC(99, 0, 1) is 1999 — the days-from-civil comparator must
     // agree with PostgreSQL, where 0099 < 0100. Each side is pinned to its
     // PostgreSQL-derived literal, so the ordering is independently anchored.
@@ -832,13 +830,9 @@ describe("IPI-1067 · SHOOT-001 — cursor serialization", () => {
     expect(PG_EPOCH_MICROS["0099-01-01T00:00:00.000000Z"]).toBeLessThan(
       PG_EPOCH_MICROS["0100-01-01T00:00:00.000000Z"],
     );
-    expect(timestampMicros("0000-01-01T00:00:00Z")).toBe(PG_EPOCH_MICROS["0000-01-01T00:00:00.000000Z"]);
-    expect(PG_EPOCH_MICROS["0000-01-01T00:00:00.000000Z"]).toBeLessThan(
-      PG_EPOCH_MICROS["0099-01-01T00:00:00.000000Z"],
-    );
   });
 
-  it("keeps one-microsecond ordering for years 0000-0099 (lossless merge key)", () => {
+  it("keeps one-microsecond ordering for years 0001-0099 (lossless merge key)", () => {
     // Epoch microseconds for year 0099 exceed Number.MAX_SAFE_INTEGER, so a
     // number key would compare these two instants equal and the merge sort
     // would fall back to the id tie-break, reversing PostgreSQL order. The
@@ -855,5 +849,7 @@ describe("IPI-1067 · SHOOT-001 — cursor serialization", () => {
     // calendar-invalid values so they can never become a merge key.
     expect(timestampMicros("2026-02-30T00:00:00Z")).toBeNull();
     expect(timestampMicros("2026-13-01T00:00:00Z")).toBeNull();
+    // PostgreSQL rejects year 0000 (out of range); the contract is 0001–9999.
+    expect(timestampMicros("0000-01-01T00:00:00Z")).toBeNull();
   });
 });
