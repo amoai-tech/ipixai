@@ -324,6 +324,45 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/tests/security/ipi1147-sb-sec-010.sql
 
+  # IPI-1167 · SB-FIX-011 — production's live block_brand_org_change() had
+  # drifted from the recovered/local historical body: a NULL-unsafe `!=`
+  # comparison and a wrong-id (new.id instead of old.id) reference let a
+  # brand's org_id change past the campaign-reference guard whenever org_id
+  # was (or became) NULL. Seeds that exact buggy body on a minimal mock
+  # schema, applies the real fix migration, and proves the NULL-unsafety
+  # is closed in both directions plus the baseline block/allow paths.
+  block-brand-org-change-acl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Seed buggy body, apply fix migration, run NULL-unsafety regression
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/ipi1167-sb-fix-011-seed.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20260907010000_ipi1167_sb_fix_011_block_brand_org_change_null_safety.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/ipi1167-sb-fix-011.sql
+
   # IPI-1162 · SB-MIG-003 — the actual acceptance criterion this task exists
   # to prove: a genuinely fresh Postgres (not a hand-seeded bare container,
   # unlike every job above) replays the full recovered migration chain via
