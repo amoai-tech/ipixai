@@ -1,6 +1,6 @@
-import { test, expect, type Browser, type Page } from "@playwright/test";
+import { test, expect, type Browser } from "@playwright/test";
 
-import { signInWithCredentials } from "./support/login";
+import { signInIsolatedContext } from "./support/login";
 
 // IPI-1067 · SHOOT-001 — browser proof for the shoots browse + detail routes.
 //
@@ -17,32 +17,22 @@ import { signInWithCredentials } from "./support/login";
 const NAV_TIMEOUT_MS = 30_000;
 const TEST_TIMEOUT_MS = NAV_TIMEOUT_MS + 15_000;
 
-async function signInOrgA(browser: Browser): Promise<{ page: Page; close: () => Promise<void> }> {
-  const email = process.env.E2E_TEST_EMAIL_SHOOTS;
-  const password = process.env.E2E_TEST_PASSWORD_SHOOTS;
-  if (!email || !password) {
-    throw new Error(
-      "E2E_TEST_EMAIL_SHOOTS / E2E_TEST_PASSWORD_SHOOTS are missing — set them in .env.test",
-    );
-  }
-  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
-  const page = await context.newPage();
-  await signInWithCredentials(page, email, password);
-  return { page, close: () => context.close() };
+async function signInOrgA(browser: Browser) {
+  return signInIsolatedContext(
+    browser,
+    process.env.E2E_TEST_EMAIL_SHOOTS,
+    process.env.E2E_TEST_PASSWORD_SHOOTS,
+    "E2E_TEST_EMAIL_SHOOTS / E2E_TEST_PASSWORD_SHOOTS are missing — set them in .env.test",
+  );
 }
 
-async function signInOrgB(browser: Browser): Promise<{ page: Page; close: () => Promise<void> }> {
-  const email = process.env.E2E_TEST_EMAIL_ORG_B;
-  const password = process.env.E2E_TEST_PASSWORD_ORG_B;
-  if (!email || !password) {
-    throw new Error(
-      "E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B are missing — set them in .env.test",
-    );
-  }
-  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
-  const page = await context.newPage();
-  await signInWithCredentials(page, email, password);
-  return { page, close: () => context.close() };
+async function signInOrgB(browser: Browser) {
+  return signInIsolatedContext(
+    browser,
+    process.env.E2E_TEST_EMAIL_ORG_B,
+    process.env.E2E_TEST_PASSWORD_ORG_B,
+    "E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B are missing — set them in .env.test",
+  );
 }
 
 test.describe("shoots browse (authenticated)", () => {
