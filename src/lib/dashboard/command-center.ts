@@ -199,7 +199,7 @@ const BATCH_CONCURRENCY = 5;
  * (SQL `IN (x, x)` doesn't return `x`'s rows twice), so this is specifically
  * about the cross-chunk case.
  */
-async function runBrandIdBatches<T>(
+export async function runBrandIdBatches<T>(
   ids: string[],
   run: (batch: string[]) => Promise<{ ok: true; value: T } | { ok: false }>,
 ): Promise<{ ok: true; values: T[] } | { ok: false }> {

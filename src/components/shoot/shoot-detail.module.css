@@ -1,0 +1,230 @@
+/* IPI-1067 · SHOOT-001 — shoot detail shell + lifecycle tabs.
+   COPY+CLEAN of Lumina's shoot-detail styles, adapted to tokens.css. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.backLink {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+}
+
+.backLink:hover {
+  color: var(--color-text-primary);
+}
+
+.backLink:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.heading {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+.subheading {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.metaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.metaLabel {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.metaValue {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.brief {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.briefTitle {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.briefBody {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+}
+
+/* Tabs shell (client) */
+.tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tabList {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0;
+}
+
+.tabButton {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  padding: 8px 12px;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+.tabButton:hover {
+  color: var(--color-text-primary);
+}
+
+.tabButton:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+
+.tabActive {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-border-focus);
+}
+
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tabPanelHidden {
+  display: none;
+}
+
+/* Tab content */
+.sectionTitle {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.listItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-card);
+}
+
+.itemTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.itemMeta {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.itemBody {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.placeholderNote {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-border-strong);
+  background: var(--color-bg-subtle);
+}
+
+.skeletonHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeletonTitle {
+  height: 28px;
+  width: 45%;
+  border-radius: var(--radius-sm);
+}
+
+.skeletonLine {
+  height: 14px;
+  width: 60%;
+  border-radius: var(--radius-sm);
+}
+
+.skeletonMeta {
+  height: 64px;
+  border-radius: var(--radius-md);
+}
