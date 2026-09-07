@@ -1,4 +1,4 @@
-import type { Locator, Page, Request } from "@playwright/test";
+import type { Browser, Locator, Page, Request } from "@playwright/test";
 
 import { gotoPageWithRetry } from "./context";
 
@@ -89,4 +89,28 @@ export async function signInAsE2ETestOperator(page: Page): Promise<void> {
   }
 
   await signInWithCredentials(page, email, password);
+}
+
+/**
+ * Shared "second account" sign-in: opens a fresh logged-out browser context
+ * (so this session never inherits the project's default storageState),
+ * signs in with the given credentials, and returns the page plus a cleanup
+ * callback. Every spec that needs a dedicated non-default account — the
+ * Shoots-journey populated org, DASH-MAIN-002's populated Command Center
+ * proof, tenant-isolation's Org B — used to duplicate this same
+ * context+signIn+close body; this is the one copy.
+ */
+export async function signInIsolatedContext(
+  browser: Browser,
+  email: string | undefined,
+  password: string | undefined,
+  missingCredentialsMessage: string,
+): Promise<{ page: Page; close: () => Promise<void> }> {
+  if (!email || !password) {
+    throw new Error(missingCredentialsMessage);
+  }
+  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  const page = await context.newPage();
+  await signInWithCredentials(page, email, password);
+  return { page, close: () => context.close() };
 }
