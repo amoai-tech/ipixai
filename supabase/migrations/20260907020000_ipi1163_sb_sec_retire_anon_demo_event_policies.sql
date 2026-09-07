@@ -19,8 +19,17 @@
 -- events" policy was recovered in its already-narrow, no-sentinel form —
 -- see 20250125000002_create_events_core.sql). It only has an effect against
 -- PRODUCTION, where these policies are live but were never captured in
--- migration history. IF EXISTS / ALTER POLICY make it safe to run on any
--- environment regardless.
+-- migration history.
+--
+-- The 4 DROP POLICY IF EXISTS statements are unconditionally safe. The
+-- ALTER POLICY statement below is NOT self-guarding — Postgres has no
+-- ALTER POLICY IF EXISTS — so it requires "organizers can insert events"
+-- to already exist. That precondition holds on every environment built
+-- from this recovered chain: the policy is created by the very first
+-- historical migration (20250125000002_create_events_core.sql) and is
+-- never dropped or renamed by any later migration (confirmed by grep
+-- across supabase/migrations/ for its exact name) — unlike, e.g.,
+-- event_phases_insert, which WAS consolidated under a new name.
 --
 -- Deliberately NOT touched here (becomes permanently unreachable dead code
 -- once this migration lands, since no path can create a new sentinel-
@@ -44,4 +53,4 @@ drop policy if exists "anon can insert demo event schedules" on public.event_sch
 drop policy if exists "anon can insert demo ticket tiers" on public.ticket_tiers;
 
 alter policy "organizers can insert events" on public.events
-  with check (auth.uid() = organizer_id);
+  with check ((select auth.uid()) = organizer_id);
