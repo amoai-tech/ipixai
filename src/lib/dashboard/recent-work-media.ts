@@ -4,10 +4,13 @@ import type { VerifiedOperator } from "@/lib/auth/verified-operator";
 import { getAuthorizedAssetPreview } from "@/lib/cloudinary/get-authorized-asset-preview";
 
 /**
- * DASH-MAIN-002: representative recent-work image per shoot, through the
- * one proven secure-delivery contract (IPI-1112 · CLD-DELIVERY-001) — never
- * a raw `mood_board_urls`/`cover_url` render (see command-center.ts's
- * loadOrgShoots comment on why that column isn't even selected).
+ * IPI-1149 · DASH-MAIN-002 — Finish and Certify the Portfolio-First Command
+ * Center in iPix V2: representative recent-work image per shoot, through
+ * the one proven secure-delivery contract from
+ * IPI-1112 · CLD-DELIVERY-001 — Serve Org-Safe Cloudinary Previews with
+ * Named Transforms. Never a raw `mood_board_urls`/`cover_url` render (see
+ * command-center.ts's loadOrgShoots comment on why that column isn't even
+ * selected).
  *
  * Kept out of command-center.ts deliberately: get-authorized-asset-preview.ts
  * imports "server-only", and command-center.ts is a shared util imported by
@@ -18,6 +21,16 @@ import { getAuthorizedAssetPreview } from "@/lib/cloudinary/get-authorized-asset
  * `assets.v2_shoot_id` is the only link from a V2 shoot to an asset, and not
  * every shoot has one yet — most tiles are expected to still fall back to
  * the honest placeholder, that's real state, not a bug here.
+ *
+ * Each shoot is queried and resolved independently — its own `.limit(1)`
+ * candidate lookup, its own `getAuthorizedAssetPreview` call, its own
+ * try/catch:
+ * - independent queries (not one `.in("v2_shoot_id", shootIds)` read) so one
+ *   shoot with many assets can never crowd another displayed shoot's
+ *   candidate out of a capped response;
+ * - independent try/catch (not one shared `Promise.all`) so an unexpected
+ *   throw from one shoot's lookup can't reject the whole batch and blank
+ *   every other shoot's already-succeeding preview.
  *
  * Only the most-recently-created candidate asset per shoot is tried, not
  * every asset the shoot has: `getAuthorizedAssetPreview` is the actual
@@ -38,45 +51,40 @@ export async function loadRecentWorkPreviews(
   shootIds: string[],
 ): Promise<Map<string, string>> {
   const previews = new Map<string, string>();
-  if (shootIds.length === 0) return previews;
-
-  let candidates: { id: string; v2_shoot_id: string | null }[];
-  try {
-    const { data, error } = await supabase
-      .from("assets")
-      .select("id, v2_shoot_id")
-      .in("v2_shoot_id", shootIds)
-      .order("created_at", { ascending: false });
-    if (error || !data) {
-      console.error("dashboard.loadRecentWorkPreviews: candidate query failed", { error });
-      return previews;
-    }
-    candidates = data as { id: string; v2_shoot_id: string | null }[];
-  } catch (err) {
-    console.error("dashboard.loadRecentWorkPreviews: candidate query threw", { err });
-    return previews;
-  }
-
-  // First (most-recent, per the query's own order) candidate wins per shoot.
-  const assetIdByShootId = new Map<string, string>();
-  for (const row of candidates) {
-    if (row.v2_shoot_id && !assetIdByShootId.has(row.v2_shoot_id)) {
-      assetIdByShootId.set(row.v2_shoot_id, row.id);
-    }
-  }
 
   await Promise.all(
-    [...assetIdByShootId.entries()].map(async ([shootId, assetId]) => {
-      const result = await getAuthorizedAssetPreview({
-        assetId,
-        preview: "masonry",
-        operator,
-        // Same narrow-interface cast the existing /api/assets/[assetId]/preview
-        // route uses — the real SupabaseClient is a structural superset.
-        supabase: supabase as never,
-      });
-      if (result.ok) {
-        previews.set(shootId, result.url);
+    shootIds.map(async (shootId) => {
+      try {
+        const { data: candidate, error } = await supabase
+          .from("assets")
+          .select("id")
+          .eq("v2_shoot_id", shootId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error || !candidate) {
+          if (error) {
+            console.error("dashboard.loadRecentWorkPreviews: candidate query failed", {
+              shootId,
+              error,
+            });
+          }
+          return;
+        }
+
+        const result = await getAuthorizedAssetPreview({
+          assetId: candidate.id,
+          preview: "masonry",
+          operator,
+          // Same narrow-interface cast the existing /api/assets/[assetId]/preview
+          // route uses — the real SupabaseClient is a structural superset.
+          supabase: supabase as never,
+        });
+        if (result.ok) {
+          previews.set(shootId, result.url);
+        }
+      } catch (err) {
+        console.error("dashboard.loadRecentWorkPreviews: shoot lookup threw", { shootId, err });
       }
     }),
   );

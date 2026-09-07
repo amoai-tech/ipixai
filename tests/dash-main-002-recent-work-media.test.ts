@@ -21,30 +21,45 @@ const ASSET_NEW = "aaaaaaaa-1111-4111-8111-111111111111";
 const ASSET_OLD = "aaaaaaaa-2222-4222-8222-222222222222";
 
 type OrderCall = { column: string; opts: { ascending: boolean } };
+type PerShootRow = { id: string } | null;
 
-/** Mimics `.from("assets").select("id, v2_shoot_id").in("v2_shoot_id", …).order(…)`. */
+/** Mimics `.from("assets").select("id").eq("v2_shoot_id", shootId).order(…)
+ *  .limit(1).maybeSingle()` — one independent query per shoot, not one
+ *  combined `.in()` read, so a fake per shootId is required (a busy shoot's
+ *  assets can never crowd out another displayed shoot's candidate here). */
 function fakeAssetsSupabase(
-  rows: { id: string; v2_shoot_id: string | null }[],
-  opts?: { error?: unknown; inCalls?: unknown[][]; orderCalls?: OrderCall[] },
+  rowByShootId: Record<string, PerShootRow>,
+  opts?: { errorForShootId?: string; eqCalls?: string[]; orderCalls?: OrderCall[] },
 ) {
   const fake = {
     from(table: string) {
       expect(table).toBe("assets");
       return {
         select(columns: string) {
-          expect(columns).toBe("id, v2_shoot_id");
+          expect(columns).toBe("id");
           return {
-            in(column: string, values: string[]) {
+            eq(column: string, shootId: string) {
               expect(column).toBe("v2_shoot_id");
-              opts?.inCalls?.push(values);
+              opts?.eqCalls?.push(shootId);
               return {
                 order(column: string, orderOpts: { ascending: boolean }) {
                   opts?.orderCalls?.push({ column, opts: orderOpts });
-                  return Promise.resolve(
-                    opts?.error
-                      ? { data: null, error: opts.error }
-                      : { data: rows, error: null },
-                  );
+                  return {
+                    limit(n: number) {
+                      expect(n).toBe(1);
+                      return {
+                        maybeSingle() {
+                          if (opts?.errorForShootId === shootId) {
+                            return Promise.resolve({ data: null, error: { message: "boom" } });
+                          }
+                          return Promise.resolve({
+                            data: rowByShootId[shootId] ?? null,
+                            error: null,
+                          });
+                        },
+                      };
+                    },
+                  };
                 },
               };
             },
@@ -62,22 +77,17 @@ afterEach(() => {
 
 describe("loadRecentWorkPreviews", () => {
   it("returns an empty map without querying when there are no shoots", async () => {
-    const supabase = fakeAssetsSupabase([]);
+    const eqCalls: string[] = [];
+    const supabase = fakeAssetsSupabase({}, { eqCalls });
     const result = await loadRecentWorkPreviews(supabase, OPERATOR, []);
     expect(result.size).toBe(0);
+    expect(eqCalls).toEqual([]);
     expect(previewMock.getAuthorizedAssetPreview).not.toHaveBeenCalled();
   });
 
-  it("picks the most-recently-created asset per shoot and signs it via the real preview helper", async () => {
+  it("queries each shoot independently (own .eq/.limit(1), not a combined .in() read) and signs the candidate via getAuthorizedAssetPreview", async () => {
     const orderCalls: OrderCall[] = [];
-    // Query already returns created_at DESC — ASSET_NEW must win over ASSET_OLD.
-    const supabase = fakeAssetsSupabase(
-      [
-        { id: ASSET_NEW, v2_shoot_id: SHOOT_1 },
-        { id: ASSET_OLD, v2_shoot_id: SHOOT_1 },
-      ],
-      { orderCalls },
-    );
+    const supabase = fakeAssetsSupabase({ [SHOOT_1]: { id: ASSET_NEW } }, { orderCalls });
     previewMock.getAuthorizedAssetPreview.mockResolvedValue({
       ok: true,
       url: "https://res.cloudinary.com/signed/shoot-1",
@@ -93,8 +103,15 @@ describe("loadRecentWorkPreviews", () => {
     expect(result.get(SHOOT_1)).toBe("https://res.cloudinary.com/signed/shoot-1");
   });
 
+  it("omits a shoot from the result when it has no candidate asset", async () => {
+    const supabase = fakeAssetsSupabase({ [SHOOT_1]: null });
+    const result = await loadRecentWorkPreviews(supabase, OPERATOR, [SHOOT_1]);
+    expect(result.size).toBe(0);
+    expect(previewMock.getAuthorizedAssetPreview).not.toHaveBeenCalled();
+  });
+
   it("omits a shoot from the result when its candidate fails authorization/signing", async () => {
-    const supabase = fakeAssetsSupabase([{ id: ASSET_NEW, v2_shoot_id: SHOOT_1 }]);
+    const supabase = fakeAssetsSupabase({ [SHOOT_1]: { id: ASSET_NEW } });
     previewMock.getAuthorizedAssetPreview.mockResolvedValue({
       ok: false,
       reason: "missing_cloudinary_mirror",
@@ -106,16 +123,39 @@ describe("loadRecentWorkPreviews", () => {
     expect(result.size).toBe(0);
   });
 
-  it("resolves each shoot independently — one failure doesn't drop another shoot's real preview", async () => {
-    const supabase = fakeAssetsSupabase([
-      { id: ASSET_NEW, v2_shoot_id: SHOOT_1 },
-      { id: ASSET_OLD, v2_shoot_id: SHOOT_2 },
-    ]);
+  it("resolves each shoot independently — one shoot's candidate-query error doesn't drop another shoot's real preview", async () => {
+    const supabase = fakeAssetsSupabase(
+      { [SHOOT_1]: { id: ASSET_NEW }, [SHOOT_2]: { id: ASSET_OLD } },
+      { errorForShootId: SHOOT_2 },
+    );
+    previewMock.getAuthorizedAssetPreview.mockResolvedValue({
+      ok: true,
+      url: "https://res.cloudinary.com/signed/shoot-1",
+    });
+
+    const result = await loadRecentWorkPreviews(supabase, OPERATOR, [SHOOT_1, SHOOT_2]);
+
+    expect(result.get(SHOOT_1)).toBe("https://res.cloudinary.com/signed/shoot-1");
+    expect(result.has(SHOOT_2)).toBe(false);
+    // Only the shoot with a real candidate reaches the signing helper.
+    expect(previewMock.getAuthorizedAssetPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves each shoot independently — one shoot's preview call rejecting doesn't drop another shoot's real preview", async () => {
+    // The real regression this guards: a shared Promise.all over every
+    // shoot's getAuthorizedAssetPreview call means one unexpected throw
+    // (not just an {ok:false} result) rejects the whole batch and blanks
+    // every other shoot's already-succeeding preview. Each shoot's own
+    // try/catch must contain that.
+    const supabase = fakeAssetsSupabase({
+      [SHOOT_1]: { id: ASSET_NEW },
+      [SHOOT_2]: { id: ASSET_OLD },
+    });
     previewMock.getAuthorizedAssetPreview.mockImplementation(async ({ assetId }) => {
       if (assetId === ASSET_NEW) {
         return { ok: true, url: "https://res.cloudinary.com/signed/shoot-1" };
       }
-      return { ok: false, reason: "asset_not_found" };
+      throw new Error("unexpected failure signing shoot-2's candidate");
     });
 
     const result = await loadRecentWorkPreviews(supabase, OPERATOR, [SHOOT_1, SHOOT_2]);
@@ -124,15 +164,34 @@ describe("loadRecentWorkPreviews", () => {
     expect(result.has(SHOOT_2)).toBe(false);
   });
 
-  it("returns an empty map (not a throw) when the candidate query fails", async () => {
-    const supabase = fakeAssetsSupabase([], { error: { message: "boom" } });
-    const result = await loadRecentWorkPreviews(supabase, OPERATOR, [SHOOT_1]);
-    expect(result.size).toBe(0);
-    expect(previewMock.getAuthorizedAssetPreview).not.toHaveBeenCalled();
-  });
+  it("does not throw and omits the shoot when its own candidate query throws", async () => {
+    const supabase = {
+      from(table: string) {
+        expect(table).toBe("assets");
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  order() {
+                    return {
+                      limit() {
+                        return {
+                          maybeSingle() {
+                            throw new Error("connection reset");
+                          },
+                        };
+                      },
+                    };
+                  },
+                };
+              },
+            };
+          },
+        };
+      },
+    } as unknown as SupabaseClient;
 
-  it("ignores a candidate row with a null v2_shoot_id rather than crashing", async () => {
-    const supabase = fakeAssetsSupabase([{ id: ASSET_NEW, v2_shoot_id: null }]);
     const result = await loadRecentWorkPreviews(supabase, OPERATOR, [SHOOT_1]);
     expect(result.size).toBe(0);
     expect(previewMock.getAuthorizedAssetPreview).not.toHaveBeenCalled();

@@ -214,8 +214,9 @@ export function CommandCenter({
                       proven secure-delivery contract. The real cover here
                       comes only from loadRecentWorkPreviews: a shoot-linked
                       `assets` row with an `authenticated`-type Cloudinary
-                      mirror, signed by get-authorized-asset-preview.ts
-                      (IPI-1112 · CLD-DELIVERY-001). No entry for this shoot
+                      mirror, signed by get-authorized-asset-preview.ts, per
+                      IPI-1112 · CLD-DELIVERY-001 — Serve Org-Safe Cloudinary
+                      Previews with Named Transforms. No entry for this shoot
                       in the map means no authorized asset exists yet —
                       honest no-image placeholder, not a fabricated cover. */}
                   {recentWorkPreviews.get(shoot.id) ? (
