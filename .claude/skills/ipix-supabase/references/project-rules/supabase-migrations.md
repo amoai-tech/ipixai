@@ -64,15 +64,16 @@ file, which is the same failure with no paper trail.
 supabase stop --no-backup && supabase start   # or: supabase db reset --local
 ```
 
-**Then, separately, a read-only check against the linked project** — this only inspects state
-(drift, pending status, lint); it does not apply anything. Unmerged migrations are intentionally
-**local-only**. Use **PR mode** for the drift script — never `--main` on a branch that still has
-pending files (CI's push-to-`main` job uses `--main` and exits nonzero on any local-only version).
+**Then, optionally, a manual read-only check against the linked project** — this only inspects
+state (pending status, lint); it does not apply anything and is **not** part of CI. Unmerged
+migrations are intentionally **local-only**.
+
+> **`scripts/check-supabase-migration-drift.mjs` does not exist in this repo** (nor does a
+> `supabase-linked-gates.yml` workflow) — skip it. Drift is a **manual**, human-run check when
+> you specifically need it, not an active verification step.
 
 ```bash
 git fetch origin main
-# Allows local-only versions that this branch *adds* vs origin/main
-node scripts/check-supabase-migration-drift.mjs --pr --base origin/main
 supabase db push --linked --dry-run          # read-only preview — should list this migration as pending, applies nothing
 supabase db lint --linked \
   -s public,planner \
@@ -80,9 +81,12 @@ supabase db lint --linked \
   --fail-on error
 ```
 
-Structural RLS / grant probes run in CI (`supabase-verify-rls` → linked `psql` +
-`supabase test db --db-url "$DATABASE_URL"`) — these are read-only probes against the linked
-project, required in addition to local fresh-replay, not a substitute for it.
+**Local fresh-replay is the actual CI gate** — `supabase-fresh-replay` runs `supabase db reset
+--local` plus schema/RLS/RPC assertions on every PR (`.github/workflows/ci.yml`), all against a
+local Postgres, never a linked project. There is no `supabase-verify-rls` CI job and no CI step
+that connects to a linked/remote `DATABASE_URL`; the linked-project commands above are manual,
+read-only, human-run checks — run them when you want extra confidence, not because CI requires
+them.
 
 ### After merge — NON-AUTHORITATIVE, see the note above (IPI-1174)
 
