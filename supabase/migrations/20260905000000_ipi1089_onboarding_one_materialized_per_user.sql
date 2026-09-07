@@ -6,6 +6,16 @@
 -- stay unchanged (issue contract), so the invariant is enforced at the schema
 -- level: a partial unique index on materialized sessions.
 
+-- IPI-1162 · SB-MIG-003 fresh-replay adaptation: LOCK TABLE requires an
+-- explicit transaction block (Postgres rejects it as a standalone
+-- autocommitted statement) — added BEGIN/COMMIT around the unchanged
+-- original statements below; this is a mechanical execution-environment fix,
+-- not a content or behavior change. This latent issue never surfaced before
+-- because it was first applied to production incrementally (one file per
+-- deploy, under whatever tool wrapped it at the time), not via a from-scratch
+-- replay of the full chain.
+BEGIN;
+
 -- Serialize concurrent materialization: SHARE ROW EXCLUSIVE blocks writers
 -- (including the RPC's inserts) while allowing reads, so a concurrent RPC cannot
 -- insert a duplicate between the cleanup and the index scan.
@@ -50,3 +60,5 @@ drop policy if exists onboarding_sessions_delete_own on public.onboarding_sessio
 create policy onboarding_sessions_delete_own on public.onboarding_sessions
   for delete to authenticated
   using (auth.uid() = user_id and status = 'draft');
+
+COMMIT;

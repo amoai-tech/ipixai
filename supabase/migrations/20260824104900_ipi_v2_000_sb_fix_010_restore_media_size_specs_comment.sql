@@ -1,0 +1,41 @@
+-- IPI-1028 · SB-FIX-010 — Restore media_size_specs retirement metadata.
+-- Follow-up to PR #983 (20260824065443). Do not edit that applied file.
+-- This migration is COMMENT-only. No GRANT, REVOKE, POLICY, or DML.
+
+-- ---------------------------------------------------------------------------
+-- Runbook: ACL + rollback (verified live 2026-08-24, project nvdlhrodvevgwdsneplk)
+-- ---------------------------------------------------------------------------
+-- PUBLIC vs direct role grants:
+--   PostgreSQL table privileges come from (1) GRANT TO PUBLIC and (2) GRANT TO
+--   a named role. REVOKE FROM PUBLIC does not drop a separate GRANT TO anon.
+--   #983 used REVOKE ALL FROM public, anon, authenticated so both layers go.
+--
+-- Pre-#983 leftover (why SB-FIX-004 existed):
+--   CLD-SPEC-001 already revoked SELECT/INSERT/UPDATE/DELETE from anon and
+--   authenticated. JWT roles still held leftover REFERENCES / TRIGGER /
+--   TRUNCATE. Chatbot + Firecrawl tables were already JWT-empty.
+--
+-- Post-#983 / current table ACL (do not change here):
+--   relacl = {postgres=arwdDxtm/postgres, service_role=arwdDxtm/postgres}
+--   information_schema: postgres + service_role only (SELECT..TRIGGER)
+--   has_table_privilege: anon SELECT/INSERT = false; authenticated SELECT/INSERT
+--     = false; service_role SELECT = true. No PUBLIC entry in relacl.
+--
+-- Least-privilege restore of backend access (never re-open client JWT):
+--   -- NOT: GRANT ... TO PUBLIC
+--   -- NOT: GRANT ... TO anon
+--   -- NOT: GRANT ... TO authenticated
+--   GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+--     ON TABLE public.media_size_specs TO service_role;
+--
+-- Rollback of THIS comment-only migration (restore the #983 caption):
+--   COMMENT ON TABLE public.media_size_specs IS
+--     'Retired lookup (CLD-SPEC-001). Backend/service-role only; intentionally fail-closed. Use image_specs.';
+--
+-- Rollback of #983 grants (only if a product caller needs JWT table privs —
+-- none in app/; this would reopen the leftover REFERENCES/TRIGGER/TRUNCATE hole):
+--   do not GRANT TO PUBLIC or anon. Prefer service_role only (SQL above).
+-- ---------------------------------------------------------------------------
+
+comment on table public.media_size_specs is
+  'DEPRECATED 2026-08-10 (CLD-SPEC-001 / IPI-963): conflicting duplicates; canonical model is image_specs (+ platforms, image_type_defs). Frozen — no new reads/writes. Drop scheduled after one-sprint zero-reference window. Backend/service-role only; intentionally fail-closed. Use image_specs.';
