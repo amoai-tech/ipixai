@@ -3,7 +3,7 @@ import type { Locator, Page, Request } from "@playwright/test";
 import { gotoPageWithRetry } from "./context";
 
 const AUTH_TOKEN_PATH = "/auth/v1/token";
-const SIGN_IN_TIMEOUT_MS = 30_000;
+export const SIGN_IN_TIMEOUT_MS = 30_000;
 
 function isAuthTokenRequest(request: Request) {
   return request.url().includes(AUTH_TOKEN_PATH);

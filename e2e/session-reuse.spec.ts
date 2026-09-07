@@ -1,14 +1,19 @@
-import { test, expect, type Browser } from "@playwright/test";
+import { test, expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 import { createCleanContext, gotoPageWithRetry } from "./support/context";
-import { signInWithCredentials } from "./support/login";
-import { getOwnOrgId } from "./support/tenant-supabase";
+import { signInWithCredentials, SIGN_IN_TIMEOUT_MS } from "./support/login";
 
-// Session-reuse regression: proves sign-out is local and that a secondary
-// user always starts from a clean browser, so QA B can never accidentally
-// inherit QA A's auth state. No secret-bearing artifacts.
+// Session-reuse regression: proves sign-out is local (a user's other sessions
+// survive) and that a secondary user always starts from a clean browser, so
+// QA B can never accidentally inherit QA A's auth state. All assertions are
+// user-visible application behavior — no direct database probes. No
+// secret-bearing artifacts.
 test.use({ trace: "off", screenshot: "off" });
-test.setTimeout(90_000);
+// Every sign-in can take up to SIGN_IN_TIMEOUT_MS, and these journeys perform
+// several sequential sign-ins plus dashboard navigations. Budget the whole
+// test from that constant (3 sign-ins + navigation headroom) instead of a
+// magic number that silently under-budgets the cumulative work.
+test.setTimeout(SIGN_IN_TIMEOUT_MS * 4);
 
 async function requireEnv(name: string): Promise<string> {
   const value = process.env[name];
@@ -18,61 +23,67 @@ async function requireEnv(name: string): Promise<string> {
   return value;
 }
 
+/** Sign `email`/`password` in from a brand-new clean context and land on /app. */
+async function signInClean(
+  browser: Browser,
+  email: string,
+  password: string,
+): Promise<{ context: BrowserContext; page: Page }> {
+  const context = await createCleanContext(browser);
+  const page = await context.newPage();
+  await signInWithCredentials(page, email, password);
+  await gotoPageWithRetry(page, "/app");
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  return { context, page };
+}
+
 /**
- * QA A signs in, signs out through the real UI, then QA B signs in from a
- * brand-new clean context. Proves sign-out is local (the signed-out browser
- * renders the login form, not a residual session) and that QA B never
- * inherits QA A's tenant.
- *
- * Both users authenticate in their own clean contexts rather than the shared
- * auth.setup storageState: signing out QA A revokes that session server-side
- * (scope "local" revokes the current session, just not the user's other
- * sessions), so it must not invalidate a fixture other tests rely on.
+ * Local sign-out proof. QA A holds two sessions (two browsers). Signing out
+ * in the first must NOT revoke the second: Supabase global sign-out would
+ * kill every session for the user, so the second browser staying signed in
+ * after a fresh /app navigation is exactly what distinguishes scope "local".
+ * QA B then signs in from a brand-new clean context and sees its own (empty)
+ * tenant, proving it never inherited QA A's session.
  */
-test("QA A sign-out is local and QA B starts from a clean session", async ({ browser }) => {
+test("signing out in one browser leaves the user's other sessions signed in", async ({
+  browser,
+}) => {
   const emailA = await requireEnv("E2E_TEST_EMAIL");
   const passwordA = await requireEnv("E2E_TEST_PASSWORD");
   const emailB = await requireEnv("E2E_TEST_EMAIL_ORG_B");
   const passwordB = await requireEnv("E2E_TEST_PASSWORD_ORG_B");
 
-  const contextA = await createCleanContext(browser);
-  const pageA = await contextA.newPage();
+  const sessionA = await signInClean(browser, emailA, passwordA);
+  const sessionB = await signInClean(browser, emailA, passwordA);
   try {
-    await signInWithCredentials(pageA, emailA, passwordA);
-    const orgAId = await getOwnOrgId(pageA);
-
     // Real-UI sign-out: operator-panel posts to /auth/sign-out, which now uses
     // supabase.auth.signOut({ scope: "local" }) — only this browser signs out.
-    await gotoPageWithRetry(pageA, "/app");
-    await expect(pageA.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-    await pageA.getByRole("button", { name: "Sign out" }).click();
+    await sessionA.page.getByRole("button", { name: "Sign out" }).click();
 
-    // Local sign-out must land the user back on the login page.
-    await expect(pageA).toHaveURL(/\/login$/);
+    // The signed-out browser lands back on the login form.
+    await expect(sessionA.page).toHaveURL(/\/login$/);
+    await expect(sessionA.page.getByRole("button", { name: "Sign in" })).toBeVisible();
 
-    // The same browser that just signed out must render the login form (not be
-    // bounced away by a residual session), and a fresh sign-in must work.
-    const signIn = pageA.getByRole("button", { name: "Sign in" });
-    await expect(signIn).toBeVisible();
+    // The user's OTHER session must survive. Re-navigating forces a fresh
+    // server render: /app redirects to /login when the session is gone, so
+    // the Dashboard still rendering is the local-vs-global proof.
+    await gotoPageWithRetry(sessionB.page, "/app");
+    await expect(sessionB.page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
-    // QA B authenticates in a brand-new, fully logged-out browser context so it
-    // can never inherit QA A's cookies/localStorage (the original failure mode).
-    const contextB = await createCleanContext(browser);
-    const pageB = await contextB.newPage();
+    // QA B authenticates in a brand-new, fully logged-out browser context so
+    // it can never inherit QA A's cookies/localStorage (the original failure
+    // mode). A dirty context would have bounced the sign-in as "already
+    // authenticated"; succeeding as a fresh user is the isolation proof, and
+    // QA B's dashboard renders its own empty tenant.
+    const sessionC = await signInClean(browser, emailB, passwordB);
     try {
-      await signInWithCredentials(pageB, emailB, passwordB);
-      const orgBId = await getOwnOrgId(pageB);
-
-      // QA A and QA B must belong to different organizations, proving the fresh
-      // session did not inherit QA A's tenant.
-      expect(orgAId, "Org A and Org B sessions must belong to different organizations").not.toBe(
-        orgBId,
-      );
+      await expect(sessionC.page.getByTestId("command-center-brand-list")).toHaveCount(0);
     } finally {
-      await contextB.close();
+      await sessionC.context.close();
     }
   } finally {
-    await contextA.close();
+    await sessionA.context.close();
+    await sessionB.context.close();
   }
 });
 
@@ -84,21 +95,19 @@ test("QA A sign-out is local and QA B starts from a clean session", async ({ bro
  * /login server guard bounces the authenticated browser to /app, which the
  * helper detects and reports.
  */
-test("login helper fails fast when the session is already dirty", async ({ browser }) => {
+test("an already-authenticated browser cannot sign in again — the attempt fails fast", async ({
+  browser,
+}) => {
   const email = await requireEnv("E2E_TEST_EMAIL");
   const password = await requireEnv("E2E_TEST_PASSWORD");
 
-  const context = await createCleanContext(browser);
-  const page = await context.newPage();
+  const session = await signInClean(browser, email, password);
   try {
-    await signInWithCredentials(page, email, password);
-    await gotoPageWithRetry(page, "/app");
-    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-
-    await expect(signInWithCredentials(page, email, password)).rejects.toThrow(
+    await expect(session.page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    await expect(signInWithCredentials(session.page, email, password)).rejects.toThrow(
       /already authenticated/i,
     );
   } finally {
-    await context.close();
+    await session.context.close();
   }
 });
