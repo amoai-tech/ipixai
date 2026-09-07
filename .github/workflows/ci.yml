@@ -453,4 +453,24 @@ jobs:
             end if;
           end $$;
           SQL
+
+          # IPI-1163 · SB-SEC — proposed retirement of the anon demo-event
+          # policies (PROPOSED pending explicit product/security
+          # authorization, not yet applied to production — see the
+          # migration's own header and the IPI-1163 deployment plan).
+          # Needs the real events/event_phases/event_schedules/ticket_tiers
+          # + auth.users schema from the full replay above, not a bare-
+          # Postgres mock, so it runs here rather than as its own job.
+          # Seeds production's live-only sentinel policies (never in git
+          # per IPI-1162's Case B decision) on top of this already-migrated
+          # database, then re-applies the retirement migration (already
+          # ran once during the replay above as a same-environment no-op;
+          # re-running it here is what actually removes the just-seeded
+          # live-drift policies) and proves anon write access is closed.
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/ipi1163-sb-sec-seed-live-drift.sql
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20260907020000_ipi1163_sb_sec_retire_anon_demo_event_policies.sql
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/ipi1163-sb-sec.sql
       - run: supabase stop
