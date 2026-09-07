@@ -24,14 +24,32 @@ const ASSET_OLDEST = "aaaaaaaa-3333-4333-8333-333333333333";
 type OrderCall = { column: string; opts: { ascending: boolean } };
 type CandidateRow = { id: string };
 
-/** Mimics `.from("assets").select("id").eq("v2_shoot_id", shootId).order(…)
- *  .limit(CANDIDATE_LIMIT)` — one independent, bounded query per shoot (not
- *  one combined `.in()` read, and not `.limit(1)`), so a fake per shootId
- *  returns its own ordered candidate list. */
+/** Mimics `.from("assets").select("id").eq("v2_shoot_id", shootId)
+ *  .order("created_at", …).order("id", …).limit(CANDIDATE_LIMIT)` — one
+ *  independent, bounded query per shoot (not one combined `.in()` read, and
+ *  not `.limit(1)`), chainable through both `.order()` calls (created_at
+ *  desc, then id asc as the stable tie-breaker) before `.limit()`, so a fake
+ *  per shootId returns its own ordered candidate list. */
 function fakeAssetsSupabase(
   rowsByShootId: Record<string, CandidateRow[] | null>,
   opts?: { errorForShootId?: string; eqCalls?: string[]; orderCalls?: OrderCall[]; limitCalls?: number[] },
 ) {
+  const orderBuilder = (shootId: string) => ({
+    order(column: string, orderOpts: { ascending: boolean }) {
+      opts?.orderCalls?.push({ column, opts: orderOpts });
+      return orderBuilder(shootId);
+    },
+    limit(n: number) {
+      opts?.limitCalls?.push(n);
+      if (opts?.errorForShootId === shootId) {
+        return Promise.resolve({ data: null, error: { message: "boom" } });
+      }
+      return Promise.resolve({
+        data: rowsByShootId[shootId] ?? [],
+        error: null,
+      });
+    },
+  });
   const fake = {
     from(table: string) {
       expect(table).toBe("assets");
@@ -42,23 +60,7 @@ function fakeAssetsSupabase(
             eq(column: string, shootId: string) {
               expect(column).toBe("v2_shoot_id");
               opts?.eqCalls?.push(shootId);
-              return {
-                order(column: string, orderOpts: { ascending: boolean }) {
-                  opts?.orderCalls?.push({ column, opts: orderOpts });
-                  return {
-                    limit(n: number) {
-                      opts?.limitCalls?.push(n);
-                      if (opts?.errorForShootId === shootId) {
-                        return Promise.resolve({ data: null, error: { message: "boom" } });
-                      }
-                      return Promise.resolve({
-                        data: rowsByShootId[shootId] ?? [],
-                        error: null,
-                      });
-                    },
-                  };
-                },
-              };
+              return orderBuilder(shootId);
             },
           };
         },
@@ -96,7 +98,12 @@ describe("loadRecentWorkPreviews", () => {
 
     const result = await loadRecentWorkPreviews(supabase, OPERATOR, [SHOOT_1]);
 
-    expect(orderCalls).toEqual([{ column: "created_at", opts: { ascending: false } }]);
+    expect(orderCalls).toEqual([
+      { column: "created_at", opts: { ascending: false } },
+      // Stable tie-breaker for assets sharing a created_at timestamp — same
+      // contract as command-center.ts's own created_at-ordered reads.
+      { column: "id", opts: { ascending: true } },
+    ]);
     // Bounded (>1, so an older-valid fallback is possible), not unlimited.
     expect(limitCalls).toEqual([5]);
     expect(result.get(SHOOT_1)).toBe("https://res.cloudinary.com/signed/shoot-1");

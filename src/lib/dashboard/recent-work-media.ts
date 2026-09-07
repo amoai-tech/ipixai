@@ -65,7 +65,12 @@ export async function loadRecentWorkPreviews(
           .from("assets")
           .select("id")
           .eq("v2_shoot_id", shootId)
+          // Same stable-tie-breaker contract as command-center.ts's own
+          // created_at-ordered reads: two assets sharing a created_at
+          // timestamp (concurrent uploads) would otherwise sort in an
+          // unspecified, request-to-request-unstable order.
           .order("created_at", { ascending: false })
+          .order("id", { ascending: true })
           .limit(CANDIDATE_LIMIT);
         if (error || !data) {
           if (error) {
