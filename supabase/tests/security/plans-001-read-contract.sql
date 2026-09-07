@@ -138,7 +138,13 @@ begin
   -- ── S1: assigned Org A viewer sees Org A plan. ─────────────────────────
   perform set_config('request.jwt.claim.sub', user_a::text, true);
   select public.planner_list_instances(org_a, null, null, null, false, 20, null) into v_json;
+  if v_json is null or (v_json::jsonb ->> 'ok') is distinct from 'true' then
+    raise exception 'S1: list RPC must return ok=true';
+  end if;
   v_rows := (v_json::jsonb -> 'rows');
+  if v_rows is null then
+    raise exception 'S1: rows must be non-null';
+  end if;
   if jsonb_array_length(v_rows) <> 4 then
     raise exception 'S1: org A viewer must see 4 org A plans, got %', jsonb_array_length(v_rows);
   end if;
@@ -152,7 +158,13 @@ begin
   -- ── S2: same-org member with no Planner assignment → empty list, P0002. ─
   perform set_config('request.jwt.claim.sub', user_a2::text, true);
   select public.planner_list_instances(org_a, null, null, null, false, 20, null) into v_json;
+  if v_json is null or (v_json::jsonb ->> 'ok') is distinct from 'true' then
+    raise exception 'S2: list RPC must return ok=true';
+  end if;
   v_rows := (v_json::jsonb -> 'rows');
+  if v_rows is null then
+    raise exception 'S2: rows must be non-null';
+  end if;
   if jsonb_array_length(v_rows) <> 0 then
     raise exception 'S2: unassigned org A member must get empty list, got %', jsonb_array_length(v_rows);
   end if;
@@ -184,14 +196,26 @@ begin
   -- ── S5: foreign cursor → safe page 1, no existence/order leak. ─────────
   perform set_config('request.jwt.claim.sub', user_a::text, true);
   select public.planner_list_instances(org_a, null, null, null, false, 20, inst_b) into v_json;
+  if v_json is null or (v_json::jsonb ->> 'ok') is distinct from 'true' then
+    raise exception 'S5: list RPC must return ok=true';
+  end if;
   v_rows := (v_json::jsonb -> 'rows');
+  if v_rows is null then
+    raise exception 'S5: rows must be non-null';
+  end if;
   if jsonb_array_length(v_rows) <> 4 then
     raise exception 'S5: foreign cursor must fall back to full page 1, got % rows', jsonb_array_length(v_rows);
   end if;
 
   -- ── S6: stale/deleted cursor → safe page 1. ────────────────────────────
   select public.planner_list_instances(org_a, null, null, null, false, 20, gen_random_uuid()) into v_json;
+  if v_json is null or (v_json::jsonb ->> 'ok') is distinct from 'true' then
+    raise exception 'S6: list RPC must return ok=true';
+  end if;
   v_rows := (v_json::jsonb -> 'rows');
+  if v_rows is null then
+    raise exception 'S6: rows must be non-null';
+  end if;
   if jsonb_array_length(v_rows) <> 4 then
     raise exception 'S6: stale cursor must fall back to full page 1, got % rows', jsonb_array_length(v_rows);
   end if;
@@ -200,24 +224,36 @@ begin
   -- Scope to status='active' so only inst_a/inst_a2 (same created_at) are in
   -- the page set; inst_pct (draft) is excluded from this pagination probe.
   select public.planner_list_instances(org_a, null, null, 'active', false, 1, null) into v_json;
+  if v_json is null or (v_json::jsonb ->> 'ok') is distinct from 'true' then
+    raise exception 'S7: page-1 RPC must return ok=true';
+  end if;
   v_page1 := (v_json::jsonb -> 'rows');
   v_page1_cursor := (v_json::jsonb ->> 'nextCursor')::uuid;
   v_has_more := (v_json::jsonb ->> 'hasMore')::boolean;
-  if jsonb_array_length(v_page1) <> 1 or not v_has_more then
+  if v_page1 is null then
+    raise exception 'S7: page 1 rows must be non-null';
+  end if;
+  if jsonb_array_length(v_page1) <> 1 or v_has_more is distinct from true then
     raise exception 'S7: page 1 must return 1 row with hasMore=true';
   end if;
   select public.planner_list_instances(org_a, null, null, 'active', false, 1, v_page1_cursor) into v_json;
+  if v_json is null or (v_json::jsonb ->> 'ok') is distinct from 'true' then
+    raise exception 'S7: page-2 RPC must return ok=true';
+  end if;
   v_page2 := (v_json::jsonb -> 'rows');
   v_page2_cursor := (v_json::jsonb ->> 'nextCursor')::uuid;
   v_has_more := (v_json::jsonb ->> 'hasMore')::boolean;
-  if jsonb_array_length(v_page2) <> 1 or v_has_more then
+  if v_page2 is null then
+    raise exception 'S7: page 2 rows must be non-null';
+  end if;
+  if jsonb_array_length(v_page2) <> 1 or v_has_more is distinct from false then
     raise exception 'S7: page 2 must return 1 row with hasMore=false';
   end if;
-  if (v_page1 -> 0 ->> 'id') = (v_page2 -> 0 ->> 'id') then
+  if (v_page1 -> 0 ->> 'id') is not distinct from (v_page2 -> 0 ->> 'id') then
     raise exception 'S7: duplicate row across pages';
   end if;
-  if (v_page1 -> 0 ->> 'id') <> least(inst_a::text, inst_a2::text)
-     or (v_page2 -> 0 ->> 'id') <> greatest(inst_a::text, inst_a2::text) then
+  if (v_page1 -> 0 ->> 'id') is distinct from least(inst_a::text, inst_a2::text)
+     or (v_page2 -> 0 ->> 'id') is distinct from greatest(inst_a::text, inst_a2::text) then
     raise exception 'S7: equal-created_at rows must order by id ASC across pages';
   end if;
   if v_page2_cursor is not null then
@@ -227,21 +263,33 @@ begin
   -- ── S8: viewer detail → assignments = []. ──────────────────────────────
   perform set_config('request.jwt.claim.sub', user_a::text, true);
   select public.planner_get_instance_detail(inst_a) into v_json;
+  if v_json is null or (v_json::jsonb ->> 'ok') is distinct from 'true' then
+    raise exception 'S8: detail RPC must return ok=true';
+  end if;
   v_assignments := v_json::jsonb -> 'assignments';
+  if v_assignments is null then
+    raise exception 'S8: assignments must be non-null';
+  end if;
   if jsonb_array_length(v_assignments) <> 0 then
     raise exception 'S8: viewer must get empty assignments, got %', jsonb_array_length(v_assignments);
   end if;
-  if (v_json::jsonb -> 'instance' ->> 'id') <> inst_a::text then
+  if (v_json::jsonb -> 'instance' ->> 'id') is distinct from inst_a::text then
     raise exception 'S8: viewer detail must return inst_a';
   end if;
-  if jsonb_array_length(v_json::jsonb -> 'tasks') <> 2 then
+  if (v_json::jsonb -> 'tasks') is null or jsonb_array_length(v_json::jsonb -> 'tasks') <> 2 then
     raise exception 'S8: viewer detail must include both tasks';
   end if;
 
   -- ── S9: manager detail → assignments visible. ──────────────────────────
   perform set_config('request.jwt.claim.sub', user_a3::text, true);
   select public.planner_get_instance_detail(inst_a) into v_json;
+  if v_json is null or (v_json::jsonb ->> 'ok') is distinct from 'true' then
+    raise exception 'S9: detail RPC must return ok=true';
+  end if;
   v_assignments := v_json::jsonb -> 'assignments';
+  if v_assignments is null then
+    raise exception 'S9: assignments must be non-null';
+  end if;
   if jsonb_array_length(v_assignments) <> 2 then
     raise exception 'S9: manager must see both assignments, got %', jsonb_array_length(v_assignments);
   end if;
@@ -250,24 +298,48 @@ begin
   perform set_config('request.jwt.claim.sub', user_a::text, true);
   -- '%' is literal: '100%' must match only inst_pct, NOT inst_pct2 ('100X …').
   select public.planner_list_instances(org_a, '100%', null, null, false, 20, null) into v_json;
+  if v_json is null or (v_json::jsonb ->> 'ok') is distinct from 'true' then
+    raise exception 'S10: list RPC must return ok=true';
+  end if;
   v_rows := (v_json::jsonb -> 'rows');
-  if jsonb_array_length(v_rows) <> 1 or (v_rows -> 0 ->> 'id') <> inst_pct::text then
+  if v_rows is null then
+    raise exception 'S10: rows must be non-null';
+  end if;
+  if jsonb_array_length(v_rows) <> 1 or (v_rows -> 0 ->> 'id') is distinct from inst_pct::text then
     raise exception 'S10: literal %% search must match only inst_pct, got %', jsonb_array_length(v_rows);
   end if;
   -- '_' is literal: both inst_pct and inst_pct2 contain 'cotton_shoot'.
   select public.planner_list_instances(org_a, 'cotton_shoot', null, null, false, 20, null) into v_json;
+  if v_json is null or (v_json::jsonb ->> 'ok') is distinct from 'true' then
+    raise exception 'S10: list RPC must return ok=true';
+  end if;
   v_rows := (v_json::jsonb -> 'rows');
+  if v_rows is null then
+    raise exception 'S10: rows must be non-null';
+  end if;
   if jsonb_array_length(v_rows) <> 2 then
     raise exception 'S10: literal _ search must match both cotton_shoot plans, got %', jsonb_array_length(v_rows);
   end if;
   select public.planner_list_instances(org_a, 'cottonXshoot', null, null, false, 20, null) into v_json;
+  if v_json is null or (v_json::jsonb ->> 'ok') is distinct from 'true' then
+    raise exception 'S10: list RPC must return ok=true';
+  end if;
   v_rows := (v_json::jsonb -> 'rows');
+  if v_rows is null then
+    raise exception 'S10: rows must be non-null';
+  end if;
   if jsonb_array_length(v_rows) <> 0 then
     raise exception 'S10: _ must not act as a wildcard (cottonXshoot must match nothing)';
   end if;
   select public.planner_list_instances(org_a, 'shoot\v2', null, null, false, 20, null) into v_json;
+  if v_json is null or (v_json::jsonb ->> 'ok') is distinct from 'true' then
+    raise exception 'S10: list RPC must return ok=true';
+  end if;
   v_rows := (v_json::jsonb -> 'rows');
-  if jsonb_array_length(v_rows) <> 1 or (v_rows -> 0 ->> 'id') <> inst_pct::text then
+  if v_rows is null then
+    raise exception 'S10: rows must be non-null';
+  end if;
+  if jsonb_array_length(v_rows) <> 1 or (v_rows -> 0 ->> 'id') is distinct from inst_pct::text then
     raise exception 'S10: literal backslash search must match only inst_pct';
   end if;
 
