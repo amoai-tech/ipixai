@@ -20,6 +20,24 @@ const SHOOT_A1 = "eeeeeeee-0000-4000-8000-000000000001";
 const SHOOT_A2 = "eeeeeeee-0000-4000-8000-000000000002";
 const SHOOT_B1 = "ffffffff-0000-4000-8000-000000000001";
 
+/** Fixed epoch-microsecond expectations derived from PostgreSQL 16
+ *  (`SELECT (EXTRACT(EPOCH FROM ts AT TIME ZONE 'UTC') * 1000000)::numeric`).
+ *  These literals are the independent oracle: a regression in the production
+ *  `timestampMicros` conversion cannot self-validate, because the expected
+ *  values never call it. Note PostgreSQL itself rejects year 0000 (out of
+ *  range), so that anchor is the proleptic-Gregorian extension of the same
+ *  calendar the DB uses for years 0001+. */
+const PG_EPOCH_MICROS = {
+  "0099-01-01T00:00:00.000000Z": BigInt("-59042995200000000"),
+  "0099-01-01T00:00:00.000001Z": BigInt("-59042995199999999"),
+  "0100-01-01T00:00:00.000000Z": BigInt("-59011459200000000"),
+  "0000-01-01T00:00:00.000000Z": BigInt("-62167219200000000"),
+  "2026-09-07T12:00:00.123456Z": BigInt("1788782400123456"),
+  "2026-09-07T12:00:00.123000Z": BigInt("1788782400123000"),
+  "2026-09-07T12:00:00.123Z": BigInt("1788782400123000"),
+  "2026-09-07T10:00:00.000000Z": BigInt("1788775200000000"),
+} as const;
+
 type OrderCall = { column: string; opts: { ascending: boolean } };
 
 type BrowseRowFixture = {
@@ -792,39 +810,43 @@ describe("IPI-1067 · SHOOT-001 — cursor serialization", () => {
   });
 
   it("timestampMicros is microsecond-faithful across precision and offsets", () => {
-    expect(
-      timestampMicros("2026-09-07T12:00:00.123456Z")! -
-        timestampMicros("2026-09-07T12:00:00.123000Z")!,
-    ).toBe(BigInt(456));
-    expect(
-      timestampMicros("2026-09-07T12:00:00.123Z")! -
-        timestampMicros("2026-09-07T12:00:00.123000Z")!,
-    ).toBe(BigInt(0));
+    // Anchored to fixed PostgreSQL-derived literals, not to the production
+    // function itself — a precision regression cannot self-validate.
+    expect(timestampMicros("2026-09-07T12:00:00.123456Z")).toBe(PG_EPOCH_MICROS["2026-09-07T12:00:00.123456Z"]);
+    expect(timestampMicros("2026-09-07T12:00:00.123000Z")).toBe(PG_EPOCH_MICROS["2026-09-07T12:00:00.123000Z"]);
+    expect(timestampMicros("2026-09-07T12:00:00.123Z")).toBe(PG_EPOCH_MICROS["2026-09-07T12:00:00.123Z"]);
     expect(timestampMicros("2026-09-07T12:00:00.123456+00:00")).toBe(
-      timestampMicros("2026-09-07T12:00:00.123456Z"),
+      PG_EPOCH_MICROS["2026-09-07T12:00:00.123456Z"],
     );
     expect(timestampMicros("2026-09-07T12:00:00.000000+02:00")).toBe(
-      timestampMicros("2026-09-07T10:00:00.000000Z"),
+      PG_EPOCH_MICROS["2026-09-07T10:00:00.000000Z"],
     );
   });
 
   it("orders years 0000-0099 before 0100 (Date.UTC 0-99 quirk)", () => {
     // Date.UTC(99, 0, 1) is 1999 — the days-from-civil comparator must
-    // agree with PostgreSQL, where 0099 < 0100.
-    expect(timestampMicros("0099-01-01T00:00:00Z")!).toBeLessThan(
-      timestampMicros("0100-01-01T00:00:00Z")!,
+    // agree with PostgreSQL, where 0099 < 0100. Each side is pinned to its
+    // PostgreSQL-derived literal, so the ordering is independently anchored.
+    expect(timestampMicros("0099-01-01T00:00:00Z")).toBe(PG_EPOCH_MICROS["0099-01-01T00:00:00.000000Z"]);
+    expect(timestampMicros("0100-01-01T00:00:00Z")).toBe(PG_EPOCH_MICROS["0100-01-01T00:00:00.000000Z"]);
+    expect(PG_EPOCH_MICROS["0099-01-01T00:00:00.000000Z"]).toBeLessThan(
+      PG_EPOCH_MICROS["0100-01-01T00:00:00.000000Z"],
     );
-    expect(timestampMicros("0000-01-01T00:00:00Z")!).toBeLessThan(
-      timestampMicros("0099-01-01T00:00:00Z")!,
+    expect(timestampMicros("0000-01-01T00:00:00Z")).toBe(PG_EPOCH_MICROS["0000-01-01T00:00:00.000000Z"]);
+    expect(PG_EPOCH_MICROS["0000-01-01T00:00:00.000000Z"]).toBeLessThan(
+      PG_EPOCH_MICROS["0099-01-01T00:00:00.000000Z"],
     );
   });
 
   it("keeps one-microsecond ordering for years 0000-0099 (lossless merge key)", () => {
     // Epoch microseconds for year 0099 exceed Number.MAX_SAFE_INTEGER, so a
     // number key would compare these two instants equal and the merge sort
-    // would fall back to the id tie-break, reversing PostgreSQL order.
-    expect(timestampMicros("0099-01-01T00:00:00.000001Z")!).toBeGreaterThan(
-      timestampMicros("0099-01-01T00:00:00.000000Z")!,
+    // would fall back to the id tie-break, reversing PostgreSQL order. The
+    // two PostgreSQL-derived literals differ by exactly one microsecond.
+    expect(timestampMicros("0099-01-01T00:00:00.000001Z")).toBe(PG_EPOCH_MICROS["0099-01-01T00:00:00.000001Z"]);
+    expect(timestampMicros("0099-01-01T00:00:00.000000Z")).toBe(PG_EPOCH_MICROS["0099-01-01T00:00:00.000000Z"]);
+    expect(PG_EPOCH_MICROS["0099-01-01T00:00:00.000001Z"]).toBe(
+      PG_EPOCH_MICROS["0099-01-01T00:00:00.000000Z"] + BigInt(1),
     );
   });
 
