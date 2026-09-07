@@ -321,3 +321,95 @@ jobs:
             -f supabase/migrations/20260904213817_ipi1147_sb_sec_010_search_path_fix.sql
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/tests/security/ipi1147-sb-sec-010.sql
+
+  # IPI-1162 · SB-MIG-003 — the actual acceptance criterion this task exists
+  # to prove: a genuinely fresh Postgres (not a hand-seeded bare container,
+  # unlike every job above) replays the full recovered migration chain via
+  # the real `supabase start` + `db reset --local` path, then a fixed set of
+  # schema/RLS/RPC assertions confirms the result. DB-only — no app E2E
+  # needed for a migration-history task.
+  #
+  # CLI pinned to 2.116.0, not "latest": supabase/cli#6347 is an open
+  # regression in 2.115.0/2.116.0 where a pipelined migration batch is not a
+  # real transaction block, so a bare LOCK TABLE statement fails 25P01. Two
+  # migrations in this chain need an explicit BEGIN/COMMIT to work around it
+  # (matching that issue's own suggested fix, not an invented workaround) —
+  # pinning keeps this job from silently depending on that exact bug's
+  # current behavior if a future CLI version changes how it's handled.
+  supabase-fresh-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.116.0
+      - run: supabase start
+      - run: supabase db reset --local
+      - name: Schema / RLS / RPC assertions
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          declare
+            missing_schema text;
+            rls_gap_count int;
+            planner_rpc_count int;
+            leftover_shadow_count int;
+          begin
+            select string_agg(s, ', ') into missing_schema
+            from unnest(array['public','planner','mastra','shoot','talent']) s
+            where not exists (select 1 from pg_namespace where nspname = s);
+            if missing_schema is not null then
+              raise exception 'fresh replay missing schema(s): %', missing_schema;
+            end if;
+
+            select count(*) into rls_gap_count
+            from pg_class c
+            join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname in ('public','planner','mastra','shoot','talent')
+              and c.relkind = 'r'
+              and not c.relrowsecurity;
+            if rls_gap_count > 0 then
+              raise exception 'fresh replay: % table(s) without RLS enabled across the 5 schemas', rls_gap_count;
+            end if;
+
+            select count(*) into planner_rpc_count
+            from pg_proc where pronamespace = 'public'::regnamespace and proname like 'planner_%';
+            if planner_rpc_count < 10 then
+              raise exception 'fresh replay: expected >= 10 planner_* RPCs, found %', planner_rpc_count;
+            end if;
+
+            select count(*) into leftover_shadow_count
+            from pg_tables where schemaname = 'public' and tablename like 'mastra\_%' escape '\';
+            if leftover_shadow_count <> 0 then
+              raise exception 'fresh replay: % leftover public.mastra_* shadow table(s) after cutover', leftover_shadow_count;
+            end if;
+
+            if not exists (select 1 from pg_roles where rolname = 'hyperdrive_mastra_runtime') then
+              raise exception 'fresh replay: hyperdrive_mastra_runtime role missing';
+            end if;
+
+            if not exists (select 1 from pg_trigger where tgname = 'on_auth_user_created' and tgrelid = 'auth.users'::regclass) then
+              raise exception 'fresh replay: on_auth_user_created trigger missing on auth.users';
+            end if;
+          end $$;
+          SQL
+
+          # End-to-end proof, not just schema-level: a real signup on this
+          # fresh database must actually produce a profiles row (the exact
+          # bug this task's own review caught and fixed).
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          insert into auth.users (id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+          values ('11111111-1111-4111-8111-111111111111','authenticated','authenticated','ci-fresh-replay@ipix.test',now(),'{"provider":"email"}'::jsonb,'{"full_name":"CI Fresh Replay"}'::jsonb,now(),now());
+          do $$
+          begin
+            if not exists (select 1 from public.profiles where id = '11111111-1111-4111-8111-111111111111') then
+              raise exception 'fresh replay: signup did not create a profiles row';
+            end if;
+          end $$;
+          SQL
+      - run: supabase stop
