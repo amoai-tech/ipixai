@@ -22,6 +22,7 @@ declare
   inst_a2 uuid := gen_random_uuid();  -- same created_at as inst_a (ordering test)
   inst_b uuid := gen_random_uuid();
   inst_pct uuid := gen_random_uuid(); -- name contains literal % _ \
+  inst_pct2 uuid := gen_random_uuid(); -- '100X cotton_shoot' — proves % is literal
   task_a uuid := gen_random_uuid();
   task_b uuid := gen_random_uuid();
   same_ts timestamptz := now();
@@ -101,7 +102,8 @@ begin
     (inst_a,  org_a, wf_a, 'shoot',    gen_random_uuid(), 'Org A shoot',      'active', same_ts),
     (inst_a2, org_a, wf_a, 'shoot',    gen_random_uuid(), 'Org A shoot two',  'active', same_ts),
     (inst_b,  org_b, wf_b, 'campaign', gen_random_uuid(), 'Org B campaign',   'active', now()),
-    (inst_pct,org_a, wf_a, 'shoot',    gen_random_uuid(), '100% cotton_shoot\v2', 'draft', now());
+    (inst_pct,org_a, wf_a, 'shoot',    gen_random_uuid(), '100% cotton_shoot\v2', 'draft', now()),
+    (inst_pct2,org_a, wf_a, 'shoot',    gen_random_uuid(), '100X cotton_shoot',    'draft', now());
 
   insert into planner.tasks (id, instance_id, phase_id, title, status, sort_order) values
     (task_a, inst_a, phase_a, 'Task A', 'todo', 1),
@@ -111,16 +113,34 @@ begin
     (inst_a,   user_a,  'viewer'),
     (inst_a2,  user_a,  'viewer'),
     (inst_pct, user_a,  'viewer'),
+    (inst_pct2,user_a,  'viewer'),
     (inst_a,   user_a3, 'manager');
 
   execute 'set local role authenticated';
+
+  -- ── S0: unsigned caller (no JWT sub) fails closed on both RPCs. ────────
+  perform set_config('request.jwt.claim.sub', '', true);
+  begin
+    select public.planner_list_instances(org_a, null, null, null, false, 20, null) into v_json;
+    raise exception 'S0: unsigned caller list must raise 42501';
+  exception
+    when sqlstate '42501' then
+      null;
+  end;
+  begin
+    select public.planner_get_instance_detail(inst_a) into v_json;
+    raise exception 'S0: unsigned caller detail must raise 42501';
+  exception
+    when sqlstate '42501' then
+      null;
+  end;
 
   -- ── S1: assigned Org A viewer sees Org A plan. ─────────────────────────
   perform set_config('request.jwt.claim.sub', user_a::text, true);
   select public.planner_list_instances(org_a, null, null, null, false, 20, null) into v_json;
   v_rows := (v_json::jsonb -> 'rows');
-  if jsonb_array_length(v_rows) <> 3 then
-    raise exception 'S1: org A viewer must see 3 org A plans, got %', jsonb_array_length(v_rows);
+  if jsonb_array_length(v_rows) <> 4 then
+    raise exception 'S1: org A viewer must see 4 org A plans, got %', jsonb_array_length(v_rows);
   end if;
   if not exists (select 1 from jsonb_array_elements(v_rows) r where r->>'id' = inst_a::text) then
     raise exception 'S1: org A viewer must see inst_a in list';
@@ -165,14 +185,14 @@ begin
   perform set_config('request.jwt.claim.sub', user_a::text, true);
   select public.planner_list_instances(org_a, null, null, null, false, 20, inst_b) into v_json;
   v_rows := (v_json::jsonb -> 'rows');
-  if jsonb_array_length(v_rows) <> 3 then
+  if jsonb_array_length(v_rows) <> 4 then
     raise exception 'S5: foreign cursor must fall back to full page 1, got % rows', jsonb_array_length(v_rows);
   end if;
 
   -- ── S6: stale/deleted cursor → safe page 1. ────────────────────────────
   select public.planner_list_instances(org_a, null, null, null, false, 20, gen_random_uuid()) into v_json;
   v_rows := (v_json::jsonb -> 'rows');
-  if jsonb_array_length(v_rows) <> 3 then
+  if jsonb_array_length(v_rows) <> 4 then
     raise exception 'S6: stale cursor must fall back to full page 1, got % rows', jsonb_array_length(v_rows);
   end if;
 
@@ -228,15 +248,17 @@ begin
 
   -- ── S10: literal % _ \ search matches only the literal string. ─────────
   perform set_config('request.jwt.claim.sub', user_a::text, true);
+  -- '%' is literal: '100%' must match only inst_pct, NOT inst_pct2 ('100X …').
   select public.planner_list_instances(org_a, '100%', null, null, false, 20, null) into v_json;
   v_rows := (v_json::jsonb -> 'rows');
   if jsonb_array_length(v_rows) <> 1 or (v_rows -> 0 ->> 'id') <> inst_pct::text then
-    raise exception 'S10: literal %% search must match only inst_pct';
+    raise exception 'S10: literal %% search must match only inst_pct, got %', jsonb_array_length(v_rows);
   end if;
+  -- '_' is literal: both inst_pct and inst_pct2 contain 'cotton_shoot'.
   select public.planner_list_instances(org_a, 'cotton_shoot', null, null, false, 20, null) into v_json;
   v_rows := (v_json::jsonb -> 'rows');
-  if jsonb_array_length(v_rows) <> 1 or (v_rows -> 0 ->> 'id') <> inst_pct::text then
-    raise exception 'S10: literal _ search must match only inst_pct';
+  if jsonb_array_length(v_rows) <> 2 then
+    raise exception 'S10: literal _ search must match both cotton_shoot plans, got %', jsonb_array_length(v_rows);
   end if;
   select public.planner_list_instances(org_a, 'cottonXshoot', null, null, false, 20, null) into v_json;
   v_rows := (v_json::jsonb -> 'rows');
