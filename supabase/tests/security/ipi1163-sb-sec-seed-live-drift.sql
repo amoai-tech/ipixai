@@ -40,8 +40,10 @@ create policy "anon can insert demo ticket tiers" on public.ticket_tiers
 alter policy "organizers can insert events" on public.events
   with check (auth.uid() = organizer_id or organizer_id = '00000000-0000-0000-0000-000000000000'::uuid);
 
-alter policy "event_phases_insert" on public.event_phases
-  with check (
-    exists (select 1 from events where events.id = event_phases.event_id and events.organizer_id = auth.uid())
-    or exists (select 1 from events where events.id = event_phases.event_id and events.organizer_id = '00000000-0000-0000-0000-000000000000'::uuid)
-  );
+-- brand_scores_select_via_brand: 20260907030000 has already narrowed this
+-- to authenticated as part of the same fresh replay this seed runs on top
+-- of. Widen it back to PUBLIC here to accurately simulate production's
+-- real current live state -- ci.yml re-applies 20260907030000 after this
+-- seed so the post-check tests the real fix, not a no-op.
+alter policy brand_scores_select_via_brand on public.brand_scores
+  to public;

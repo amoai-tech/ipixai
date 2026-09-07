@@ -474,6 +474,8 @@ jobs:
           psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/migrations/20260907020000_ipi1163_sb_sec_retire_anon_demo_event_policies.sql
           psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20260907030000_ipi1163_sb_sec_tighten_brand_scores_select_via_brand.sql
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/migrations/20260907040000_ipi1163_sb_sec_revoke_excess_anon_grants.sql
           psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/tests/security/ipi1163-sb-sec.sql

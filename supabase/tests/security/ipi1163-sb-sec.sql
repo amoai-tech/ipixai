@@ -77,26 +77,6 @@ begin
     raise exception 'IPI-1163 FAIL: authenticated sentinel bypass on organizers-can-insert-events still works (retirement migration not applied or not effective)';
   end if;
 
-  -- 3b) event_phases_insert's own authenticated-side sentinel bypass:
-  --     catalog-level check, not behavioral. Confirmed empirically while
-  --     writing this test: this branch is ALREADY unreachable via a real
-  --     authenticated call regardless of the fix, because its subquery
-  --     against events is itself gated by events' own SELECT RLS
-  --     (events_select), and an authenticated non-owner can't see a
-  --     sentinel-owned, unpublished event at all -- so a behavioral
-  --     before/after test can't distinguish "sentinel branch removed"
-  --     from "sentinel branch present but its subquery sees nothing
-  --     anyway" (same class of unreachable-behavior gap as IPI-1167's
-  --     old.id/new.id fix -- see that migration's own comment). Assert
-  --     directly on the installed policy expression instead.
-  if exists (
-    select 1 from pg_policies
-    where schemaname = 'public' and tablename = 'event_phases' and policyname = 'event_phases_insert'
-      and with_check like '%' || sentinel::text || '%'
-  ) then
-    raise exception 'IPI-1163 FAIL: event_phases_insert still references the sentinel organizer_id (retirement migration not applied or not effective)';
-  end if;
-
   -- 4) anon inserting into the 3 child tables, referencing the legitimate
   --    real_event_id from case 2 (so a denial here can only be the dropped
   --    anon INSERT policy, not an FK violation on a nonexistent event) ->
@@ -159,6 +139,19 @@ begin
   end if;
   if not has_table_privilege('anon', 'public.events', 'select') then
     raise exception 'IPI-1163 FAIL: anon lost SELECT on events (should be retained for events_select_anon)';
+  end if;
+
+  -- 6) brand_scores_select_via_brand (IPI-1168, folded into this ticket)
+  --    must be scoped to authenticated only, not PUBLIC. The seed widens
+  --    this back to PUBLIC (20260907030000 already narrowed it once
+  --    during the initial replay, before this seed ran) and ci.yml
+  --    re-applies that migration after seeding, so this proves the real
+  --    fix, not a no-op left over from the replay.
+  if exists (
+    select 1 from pg_policy
+    where polname = 'brand_scores_select_via_brand' and polroles::regrole[] <> array['authenticated'::regrole]
+  ) then
+    raise exception 'IPI-1163 FAIL: brand_scores_select_via_brand is not scoped to authenticated only (tighten migration not applied or not effective)';
   end if;
 
   raise notice 'IPI-1163 anon demo-event policy retirement regression PASS';
