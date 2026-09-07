@@ -3,7 +3,7 @@ import { ClipboardList } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusChip } from "@/components/ui/status-chip";
 import type { ShootDetail } from "@/lib/shoot/get-shoot-detail";
-import { shootStatusDotToken, shootStatusLabel } from "@/lib/shoot/shoot-list-filters";
+import { shotStatusDotToken, shotStatusLabel } from "@/lib/shoot/shoot-list-filters";
 
 import styles from "../shoot-detail.module.css";
 
@@ -29,8 +29,8 @@ export function ShotsTab({ detail }: { detail: ShootDetail }) {
               {shot.status ? (
                 <span style={{ marginLeft: 8 }}>
                   <StatusChip
-                    dot={shootStatusDotToken(shot.status)}
-                    label={shootStatusLabel(shot.status)}
+                    dot={shotStatusDotToken(shot.status)}
+                    label={shotStatusLabel(shot.status)}
                     bare
                   />
                 </span>

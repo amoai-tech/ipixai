@@ -50,6 +50,60 @@ export function shootStatusDotToken(status: string | null | undefined): string {
   return "var(--color-text-muted)";
 }
 
+/**
+ * Child-record statuses are their own contracts — do NOT reuse the shoot
+ * vocabulary for them. `shoot.shot_status` enum: pending / captured /
+ * approved (live DB, 2026-09-06). Dot tokens reuse the existing
+ * `--status-*` palette by lifecycle stage.
+ */
+export const SHOT_STATUS_LABELS: Record<string, string> = {
+  pending: "Pending",
+  captured: "Captured",
+  approved: "Approved",
+};
+
+export const SHOT_STATUS_DOT_TOKENS: Record<string, string> = {
+  pending: "var(--status-planning-text)",
+  captured: "var(--status-active-text)",
+  approved: "var(--status-complete-text)",
+};
+
+export function shotStatusLabel(status: string | null | undefined): string {
+  if (status && status in SHOT_STATUS_LABELS) return SHOT_STATUS_LABELS[status];
+  return "Unknown";
+}
+
+export function shotStatusDotToken(status: string | null | undefined): string {
+  if (status && status in SHOT_STATUS_DOT_TOKENS) return SHOT_STATUS_DOT_TOKENS[status];
+  return "var(--color-text-muted)";
+}
+
+/** `shoot.shoot_deliverables.status` CHECK constraint: planned / covered /
+ *  delivered (live DB, 2026-09-06). */
+export const DELIVERABLE_STATUS_LABELS: Record<string, string> = {
+  planned: "Planned",
+  covered: "Covered",
+  delivered: "Delivered",
+};
+
+export const DELIVERABLE_STATUS_DOT_TOKENS: Record<string, string> = {
+  planned: "var(--status-planning-text)",
+  covered: "var(--status-active-text)",
+  delivered: "var(--status-complete-text)",
+};
+
+export function deliverableStatusLabel(status: string | null | undefined): string {
+  if (status && status in DELIVERABLE_STATUS_LABELS) return DELIVERABLE_STATUS_LABELS[status];
+  return "Unknown";
+}
+
+export function deliverableStatusDotToken(status: string | null | undefined): string {
+  if (status && status in DELIVERABLE_STATUS_DOT_TOKENS) {
+    return DELIVERABLE_STATUS_DOT_TOKENS[status];
+  }
+  return "var(--color-text-muted)";
+}
+
 export const SHOOT_TYPE_LABELS: Record<string, string> = {
   lifestyle_beach: "Lifestyle · Beach",
   lifestyle_city: "Lifestyle · City",

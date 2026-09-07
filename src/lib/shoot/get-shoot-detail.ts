@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { runBrandIdBatches } from "@/lib/dashboard/command-center";
+import { isDatabaseUuid } from "@/lib/database-uuid";
 
 /**
  * IPI-1067 · SHOOT-001 — org-scoped shoot browse + detail data layer.
@@ -47,9 +48,21 @@ export function encodeShootListCursor(cursor: ShootListCursor): string {
   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
 }
 
+/** True only for the canonical UTC form produced by `cursorFromRow`
+ *  (`toISOString()` output). Anything else — date-only strings, missing
+ *  milliseconds, non-ISO text — is rejected so it can never be
+ *  interpolated into the PostgREST `.or()` filter. */
+function isCanonicalIsoTimestamp(value: string): boolean {
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && date.toISOString() === value;
+}
+
 /** Parses a `?after=` cursor. Fail-closed: anything malformed (bad base64,
- *  non-object, wrong shape) returns null so the route falls back to page 1
- *  instead of erroring or trusting a tampered cursor. */
+ *  non-object, wrong shape, non-canonical timestamp, non-UUID id) returns
+ *  null so the route falls back to page 1 instead of erroring or trusting
+ *  a tampered cursor. Both fields are later interpolated into raw
+ *  PostgREST `.or()` syntax, so they are strictly validated here — never
+ *  just shape-checked. */
 export function decodeShootListCursor(raw: string | null | undefined): ShootListCursor | null {
   if (!raw) return null;
   try {
@@ -58,7 +71,9 @@ export function decodeShootListCursor(raw: string | null | undefined): ShootList
       typeof parsed === "object" &&
       parsed !== null &&
       typeof (parsed as ShootListCursor).updatedAt === "string" &&
-      typeof (parsed as ShootListCursor).id === "string"
+      typeof (parsed as ShootListCursor).id === "string" &&
+      isCanonicalIsoTimestamp((parsed as ShootListCursor).updatedAt) &&
+      isDatabaseUuid((parsed as ShootListCursor).id)
     ) {
       return { updatedAt: (parsed as ShootListCursor).updatedAt, id: (parsed as ShootListCursor).id };
     }
@@ -356,6 +371,12 @@ export async function hydrateShootDetail(
  * Detail load for the trusted org: view preauth first (the final
  * authorization), then hydration. `not_found` covers both a foreign-org
  * shoot and a genuinely missing one — the route renders the same 404.
+ *
+ * The hydrated payload's `shoot.brand_id` is cross-checked against the
+ * trusted brand set before it is returned: `get_shoot_detail` is
+ * membership-union scoped, so this check is what keeps the rendered
+ * payload bound to the ACTIVE org even if the shoot was reassigned to a
+ * brand outside the trusted set between preauth and hydration.
  */
 export async function loadShootDetailForOrg(
   supabase: SupabaseClient,
@@ -368,5 +389,14 @@ export async function loadShootDetailForOrg(
       ? { ok: false, status: "not_found" }
       : { ok: false, status: "query_failed" };
   }
-  return hydrateShootDetail(supabase, shootId);
+  const hydrated = await hydrateShootDetail(supabase, shootId);
+  if (hydrated.status !== "found") return hydrated;
+  if (!brandIds.includes(hydrated.data.shoot.brand_id)) {
+    console.warn("shoot.loadShootDetailForOrg: hydrated brand outside trusted set", {
+      shootId,
+      brandId: hydrated.data.shoot.brand_id,
+    });
+    return { ok: false, status: "not_found" };
+  }
+  return hydrated;
 }

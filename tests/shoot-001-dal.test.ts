@@ -66,7 +66,7 @@ function parseCursorFilter(filter: string): { updatedAt: string; id: string } | 
  */
 function fakeShootBrowseSupabase(
   rowsByBrandId: Record<string, BrowseRowFixture[]>,
-  calls: { selects?: string[]; orders?: OrderCall[]; ors?: string[]; froms?: number } = {},
+  calls: { selects?: string[]; orders?: OrderCall[]; ors?: string[]; froms?: { count: number } } = {},
   failQueries = false,
 ) {
   const builder = (
@@ -122,7 +122,7 @@ function fakeShootBrowseSupabase(
   const fake = {
     from(table: string) {
       expect(table).toBe("shoot_portfolio_view");
-      if (calls.froms !== undefined) calls.froms += 1;
+      if (calls.froms !== undefined) calls.froms.count += 1;
       return {
         select(columns: string) {
           calls.selects?.push(columns);
@@ -144,6 +144,7 @@ function fakeDetailSupabase(options: {
   viewRowsByBrandId: Record<string, { id: string }[]>;
   rpcPayload?: unknown;
   rpcError?: unknown;
+  viewError?: unknown;
   rpcCalls?: { count: number };
 }) {
   const fake = {
@@ -159,6 +160,9 @@ function fakeDetailSupabase(options: {
                   expect(column).toBe("brand_id");
                   return {
                     limit(n: number) {
+                      if (options.viewError) {
+                        return Promise.resolve({ data: null, error: options.viewError });
+                      }
                       const rows = brandIds.flatMap((id) => options.viewRowsByBrandId[id] ?? []);
                       const found = rows.some((row) => row.id === value);
                       return Promise.resolve({
@@ -211,7 +215,7 @@ const validDetailPayload = {
     { id: "del-1", channel: "instagram_feed", format: "4:5", quantity: 6, status: "planned" },
   ],
   shots: [
-    { id: "shot-1", shot_number: 1, description: "Hero shot", style_notes: "Golden hour", status: "planned" },
+    { id: "shot-1", shot_number: 1, description: "Hero shot", style_notes: "Golden hour", status: "captured" },
   ],
   assets: [
     {
@@ -294,7 +298,7 @@ describe("IPI-1067 · SHOOT-001 — listShootsForOrg", () => {
 
   it("returns an honest empty page for an org with no brands, without querying", async () => {
     const froms = { count: 0 };
-    const supabase = fakeShootBrowseSupabase({}, { froms: 0 });
+    const supabase = fakeShootBrowseSupabase({}, { froms });
 
     const result = await listShootsForOrg(supabase, []);
 
@@ -400,6 +404,17 @@ describe("IPI-1067 · SHOOT-001 — preauthorizeShootForOrg", () => {
 
     expect(result).toEqual({ ok: false, reason: "not_found" });
   });
+
+  it("fails closed when the view query fails — never authorizes on a partial scan", async () => {
+    const supabase = fakeDetailSupabase({
+      viewRowsByBrandId: { [BRAND_A1]: [{ id: SHOOT_A1 }] },
+      viewError: new Error("view boom"),
+    });
+
+    const result = await preauthorizeShootForOrg(supabase, SHOOT_A1, [BRAND_A1]);
+
+    expect(result).toEqual({ ok: false, reason: "query_failed" });
+  });
 });
 
 describe("IPI-1067 · SHOOT-001 — hydrateShootDetail", () => {
@@ -495,17 +510,47 @@ describe("IPI-1067 · SHOOT-001 — loadShootDetailForOrg (public-contract-first
     expect(rpcCalls.count).toBe(0);
   });
 
-  it("fails closed when the preauth query fails", async () => {
+  it("404s when the org has no brands (empty trusted set)", async () => {
     const supabase = fakeDetailSupabase({
       viewRowsByBrandId: { [BRAND_A1]: [{ id: SHOOT_A1 }] },
       rpcPayload: validDetailPayload,
     });
-    // Force the view query to error by removing the brand from the map —
-    // not_found is the honest outcome for a missing row; query_failed is
-    // covered by the preauth unit tests above.
+
     const result = await loadShootDetailForOrg(supabase, SHOOT_A1, []);
 
     expect(result).toEqual({ ok: false, status: "not_found" });
+  });
+
+  it("fails closed when the preauth view query fails — the RPC is never called", async () => {
+    const rpcCalls = { count: 0 };
+    const supabase = fakeDetailSupabase({
+      viewRowsByBrandId: { [BRAND_A1]: [{ id: SHOOT_A1 }] },
+      rpcPayload: validDetailPayload,
+      viewError: new Error("view boom"),
+      rpcCalls,
+    });
+
+    const result = await loadShootDetailForOrg(supabase, SHOOT_A1, [BRAND_A1]);
+
+    expect(result).toEqual({ ok: false, status: "query_failed" });
+    expect(rpcCalls.count).toBe(0);
+  });
+
+  it("404s when the hydrated payload's brand left the trusted set (TOCTOU defense)", async () => {
+    const rpcCalls = { count: 0 };
+    const supabase = fakeDetailSupabase({
+      viewRowsByBrandId: { [BRAND_A1]: [{ id: SHOOT_A1 }] },
+      rpcPayload: {
+        ...validDetailPayload,
+        shoot: { ...validDetailPayload.shoot, brand_id: BRAND_B1 },
+      },
+      rpcCalls,
+    });
+
+    const result = await loadShootDetailForOrg(supabase, SHOOT_A1, [BRAND_A1]);
+
+    expect(result).toEqual({ ok: false, status: "not_found" });
+    expect(rpcCalls.count).toBe(1);
   });
 });
 
@@ -555,6 +600,18 @@ describe("IPI-1067 · SHOOT-001 — cursor serialization", () => {
       decodeShootListCursor(
         Buffer.from(JSON.stringify({ updatedAt: 42, id: SHOOT_A1 }), "utf8").toString("base64url"),
       ),
+    ).toBeNull();
+  });
+
+  it("rejects non-canonical timestamps and non-UUID ids before they reach the filter", () => {
+    const encode = (value: unknown) =>
+      Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
+    // Date-only and non-millisecond forms are not what cursorFromRow emits.
+    expect(decodeShootListCursor(encode({ updatedAt: "2026-09-01", id: SHOOT_A1 }))).toBeNull();
+    expect(decodeShootListCursor(encode({ updatedAt: "2026-09-01T10:00:00Z", id: SHOOT_A1 }))).toBeNull();
+    expect(decodeShootListCursor(encode({ updatedAt: "not-a-date", id: SHOOT_A1 }))).toBeNull();
+    expect(
+      decodeShootListCursor(encode({ updatedAt: "2026-09-01T10:00:00.000Z", id: "not-a-uuid" })),
     ).toBeNull();
   });
 });

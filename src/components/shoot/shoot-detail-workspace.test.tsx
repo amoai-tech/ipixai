@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 
 vi.mock("./shoot-detail.module.css", () => ({
   default: new Proxy({}, { get: (_, key) => String(key) }),
@@ -45,7 +45,7 @@ const DETAIL: ShootDetail = {
       channel: "instagram_feed",
       format: "9:16",
       quantity: 12,
-      status: "planning",
+      status: "planned",
     },
   ],
   shots: [
@@ -54,7 +54,7 @@ const DETAIL: ShootDetail = {
       shot_number: 1,
       description: "Hero shot at golden hour",
       style_notes: "Wide lens, natural light",
-      status: "planning",
+      status: "captured",
     },
   ],
   assets: [
@@ -124,14 +124,18 @@ describe("ShootDetailWorkspace", () => {
     expect(overview.getByText("Golden-hour lifestyle editorial for the summer capsule.")).toBeDefined();
     expect(overview.getByText("Malibu")).toBeDefined();
     expect(overview.getByText("$12,500")).toBeDefined();
+    expect(overview.getByText("IG · TikTok")).toBeDefined();
   });
 
-  it("renders the shots tab with shot rows", () => {
+  it("renders the shots tab with shot rows and child-status labels", () => {
     render(<ShootDetailWorkspace detail={DETAIL} />);
     const shotsTab = screen.getByRole("tab", { name: "Shots" });
-    shotsTab.click();
+    fireEvent.click(shotsTab);
+    expect(shotsTab.getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByTestId("shoot-tab-panel-shots").hasAttribute("hidden")).toBe(false);
     expect(screen.getByText("Shot 1")).toBeDefined();
     expect(screen.getByText("Hero shot at golden hour")).toBeDefined();
+    expect(screen.getByText("Captured")).toBeDefined();
   });
 
   it("renders the assets tab as count + placeholder note, never raw URLs", () => {
@@ -149,11 +153,12 @@ describe("ShootDetailWorkspace", () => {
     expect(screen.getByText("Confirmed")).toBeDefined();
   });
 
-  it("renders the deliverables tab with deliverable rows", () => {
+  it("renders the deliverables tab with deliverable rows and child-status labels", () => {
     render(<ShootDetailWorkspace detail={DETAIL} />);
     screen.getByRole("tab", { name: "Deliverables" }).click();
     expect(screen.getByText("IG")).toBeDefined();
     expect(screen.getByText(/9:16/)).toBeDefined();
+    expect(screen.getByText("Planned")).toBeDefined();
   });
 
   it("renders approvals and activity as placeholder shells", () => {

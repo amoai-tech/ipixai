@@ -3,7 +3,11 @@ import { PackageCheck } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusChip } from "@/components/ui/status-chip";
 import type { ShootDetail } from "@/lib/shoot/get-shoot-detail";
-import { channelLabel, shootStatusDotToken, shootStatusLabel } from "@/lib/shoot/shoot-list-filters";
+import {
+  channelLabel,
+  deliverableStatusDotToken,
+  deliverableStatusLabel,
+} from "@/lib/shoot/shoot-list-filters";
 
 import styles from "../shoot-detail.module.css";
 
@@ -29,8 +33,8 @@ export function DeliverablesTab({ detail }: { detail: ShootDetail }) {
               {deliverable.status ? (
                 <span style={{ marginLeft: 8 }}>
                   <StatusChip
-                    dot={shootStatusDotToken(deliverable.status)}
-                    label={shootStatusLabel(deliverable.status)}
+                    dot={deliverableStatusDotToken(deliverable.status)}
+                    label={deliverableStatusLabel(deliverable.status)}
                     bare
                   />
                 </span>

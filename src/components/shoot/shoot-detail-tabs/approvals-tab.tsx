@@ -21,7 +21,11 @@ export function ApprovalsTab({ detail }: { detail: ShootDetail }) {
       ) : null}
       <EmptyState
         heading="Approvals"
-        body="Approval records for this shoot will show up here."
+        body={
+          count > 0
+            ? "Approval records exist for this shoot. The detailed approval workflow arrives with a later task."
+            : "No approval records yet."
+        }
         icon={<BadgeCheck aria-hidden />}
       />
       <p className={styles.placeholderNote}>
