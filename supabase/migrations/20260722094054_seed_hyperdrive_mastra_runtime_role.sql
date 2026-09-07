@@ -14,6 +14,15 @@
 -- credential and does not need to match production's real connection
 -- role — that is provisioned and rotated outside migrations by design
 -- (per IPI-617), same as before this file existed.
+--
+-- Why a migration and not supabase/roles.sql: roles.sql IS loaded before
+-- migrations on the local start/db reset --local path (verified against the
+-- CLI source and empirically on 2.116.0 — see supabase/docs/audit/
+-- ipi-1162-pre-merge-audit.md Step 6), so that part works. But
+-- `supabase db push` only loads roles.sql with the explicit, non-default
+-- --include-roles flag — a disaster-recovery restore of this repo to a new
+-- remote project would silently miss the role otherwise. A migration
+-- behaves identically on start, db reset --local, and db push.
 
 do $$
 begin

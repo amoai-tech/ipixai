@@ -1,10 +1,12 @@
 # Pre-merge audit — PR #87 · IPI-1162 · SB-MIG-003
 
-**Date:** 2026-09-06/07 · **Head SHA tested:** `52ec6ee6f1ff95faa34cdee8c9836ff40c6b6dfb` · **Base:** `5a904b7b84d19e94278551508d1f0dacc964c4b9`
+**Date:** 2026-09-07 · **Head SHA tested:** `8446186a63138f9563e859b63636b6df76e71b75` · **Base:** `5a904b7b84d19e94278551508d1f0dacc964c4b9`
+
+> **Correction to the 52ec6ee revision of this document**: the roles.sql section below was wrong. It concluded "unsupported for local" from `--help` text alone. Verified against the actual Supabase CLI source (`apps/cli/src/legacy/commands/db/reset/SIDE_EFFECTS.md`) and confirmed empirically against the installed 2.116.0 CLI: `roles.sql` **is** loaded on the local `start`/`db reset --local` path, **before** migrations run. See the corrected Step 6 below — the decision to keep the migration is unchanged, but for a different, more precise reason.
 
 ## Summary
 
-**MERGE** — confidence 96%
+**MERGE** — confidence 97%
 
 ## Scores
 
@@ -92,9 +94,19 @@ Verified in an earlier session pass as **byte-identical** to production's live `
 - `transition_booking`: `SECURITY DEFINER`, `search_path=pg_catalog, public, talent, shoot` (locked).
 - `create_default_event_phases`: `SECURITY DEFINER`, `search_path=pg_catalog, public` (locked, hardened beyond production's bare `public`).
 
-## Step 6 — Hyperdrive role: tested, not assumed
+## Step 6 — Hyperdrive role: tested twice, corrected once
 
-`supabase/roles.sql` is loaded **only** by `supabase db push --include-roles` (an explicit, non-default flag for pushing to a *remote* project). Confirmed via `--help` on all four relevant subcommands (`db reset`, `db push`, `start`, `db diff`) — `db reset --local` and `start` have **no mechanism to load `roles.sql` at all**, at any point in their sequence. This isn't an ordering risk to mitigate; it's inapplicable to the local fresh-replay path this task exists to prove. **Decision: keep the existing migration.** Documented in the migration's own header comment and in the CI job's comment.
+**First pass (52ec6ee, wrong):** concluded `roles.sql` is inapplicable to the local path, based on `--help` output alone (`--include-roles` only appears under `db push --help`).
+
+**Second pass (this revision, correct):** verified against the actual CLI source (`supabase/cli` repo, `apps/cli/src/legacy/commands/db/reset/SIDE_EFFECTS.md`) and confirmed empirically on the installed 2.116.0 CLI, not assumed from docs prose:
+
+> *"the reused `legacyStartSetupLocalDatabase` pipeline runs the initial schema..., `ApplyApiPrivileges`, a vault upsert, a `roles.sql` seed, and `MigrateAndSeed` (migrations...)"* — in that order.
+
+`roles.sql` **is** loaded on the local `start`/`db reset --local` path, unconditionally, **before** migrations. Empirical test: created `supabase/roles.sql` with the role, deleted the migration-based role creation, ran a genuinely torn-down `supabase start` — succeeded, and the *later* migration granting `mastra` schema `USAGE` to that role applied and took effect (`has_schema_privilege(...) = true`), proving real ordering, not a lucky no-op.
+
+**Decision, unchanged, but for the correct reason:** keep the migration. Not because `roles.sql` doesn't work locally — it does — but because `roles.sql` is loaded by `supabase db push` **only** with the explicit, non-default `--include-roles` flag. A disaster-recovery restore of this repo's migrations to a brand-new remote Supabase project (exactly the scenario IPI-1162 exists to protect against) would silently omit the role unless whoever runs that push remembers a flag most people won't reach for. The migration has no such gap — it behaves identically on `start`, `db reset --local`, and `db push`. This is "roles.sql is clearly better with no added risk" failing on the "no added risk" clause specifically, not a style preference.
+
+Test state fully reverted before this document was finalized: `git status --short` clean, one final fresh `supabase start` re-run to confirm no residue, exit 0.
 
 ## Step 7 — production comparison (classified)
 
