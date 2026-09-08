@@ -2,25 +2,37 @@
 
 Use this order unless a task-specific reason requires otherwise.
 
-1. **Agent Start Here** — how to use the issue and update it.
-2. **Progress Tracker** — overall %, workflow tracker, file tracker.
+1. **Agent Contract** — goal, user outcome, do/do-not, source of truth, successful stop, invalid-assumption stop.
+2. **Progress + Handoff State** — overall %, current checkpoint, next action, blocker, do-not-redo evidence.
 3. **Summary** — current setup → exact outcome.
-4. **Definition of Done** — observable operator/business journey.
-5. **Architecture connections** — Mermaid + source of truth + ownership.
-6. **Dependencies** — blocked by / blocks / related using full Linear names.
-7. **Source → instruction → target matrix** — exact URLs and destinations.
-8. **Pre-implementation gate** — worktree, skills, Graphify, code, live contracts.
-9. **STOP conditions** — facts that invalidate the plan.
-10. **Implementation order** — one file or tightly coupled group at a time.
-11. **Performance/query contract** when data access is involved.
-12. **Test-data strategy** — deterministic fixtures vs runtime proof.
-13. **Production-ready acceptance checklist**.
-14. **PR evidence contract**.
-15. **Post-merge verification**.
-16. **Final implementation report**.
+4. **Known Context** — verified starting files/contracts/tests to re-check, not blindly trust.
+5. **Definition of Done** — observable operator/business journey.
+6. **Requirement vs Recommended Implementation** — preserve outcome/invariants while allowing a better verified path.
+7. **Architecture connections** — Mermaid + source of truth + ownership when useful.
+8. **Dependencies** — blocked by / blocks / related using full Linear names.
+9. **Source → instruction → target matrix** — exact URLs and destinations.
+10. **Pre-implementation gate** — worktree, skills, Graphify, code, live contracts.
+11. **Decision branches + STOP conditions** — explicit IF → THEN edge cases and facts that invalidate the plan.
+12. **Implementation order** — one file or tightly coupled group at a time.
+13. **Performance/query contract** when data access is involved.
+14. **Test-data strategy + checkpoint self-check**.
+15. **Pre-commit defect-prevention gate**.
+16. **PR creation + review-comment resolution + exact-head CI**.
+17. **Production-ready acceptance checklist**.
+18. **Post-merge verification + residual-risk routing**.
+19. **Final implementation report**.
 
 ## Per-file/group section
 
 Every implementation group must state: goal, current iPix pattern, external/Lumina source when used, explicit action, exact implementation, Mermaid when helpful, COPY/REWRITE/DROP decisions, success criteria, and verification checkpoint.
 
 **Rule:** do not continue to the next group until the current checkpoint passes, unless the task explicitly documents safe parallel work.
+
+
+## Agent prompting rules
+
+Use [agent-instructions.md](agent-instructions.md). Give clear sequential gates when order matters, but specify outcomes rather than micromanaging every shell command. Include examples for ambiguous actions and explicit IF → THEN behavior for likely edge cases.
+
+Use [ui-review.md](ui-review.md) for Mermaid/wireframe/state-matrix requirements when diagrams materially reduce implementation ambiguity.
+
+Before commit/PR use [pre-commit.md](pre-commit.md) and [github-pr.md](github-pr.md). Review comments follow [review-comments.md](review-comments.md), [domain-routing.md](domain-routing.md), and [research-evidence.md](research-evidence.md). After merge use [post-merge.md](post-merge.md).
