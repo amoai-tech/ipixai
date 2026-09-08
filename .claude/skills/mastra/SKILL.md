@@ -4,7 +4,7 @@ description: "Mastra framework for iPixai: docs lookup, agents, workflows, tools
 license: Apache-2.0
 metadata:
   author: Mastra
-  version: "2.2.2-ipix.3"
+  version: "2.2.2-ipix.4"
   basedOn: mastra-ai/skills 2.1.0 + iPix/Lumina/web audit 2026-09-08
   repository: https://github.com/mastra-ai/skills
   title: Mastra framework guide
@@ -19,6 +19,35 @@ metadata:
 
 # Mastra Framework Guide
 
+## How to use this skill
+
+Do not read every Mastra reference. Start here, classify the risk, then load the smallest owner set from [`references/README.md`](references/README.md).
+
+```text
+What am I changing?
+→ implementation owner reference
+→ testing-gates.md for required proof
+→ user-journeys.md when operator-visible business flow changes
+→ task-verifier for independent Done evidence
+```
+
+Ownership examples:
+
+```text
+tool implementation        → tools.md
+workflow/HITL              → workflows.md
+memory/persistence         → memory.md
+Stop/abort                 → streaming.md
+auth/RequestContext        → supabase-auth.md
+model evals                → evals-feedback.md
+pre/post-merge evidence    → testing-gates.md
+end-to-end iPix business flow → user-journeys.md
+observed failure diagnosis → common-errors.md
+package upgrade            → migration-guide.md
+```
+
+One reference should not impersonate another: workflow docs explain HOW; testing gates define WHAT must pass; journey docs prove the operator outcome across systems.
+
 ## Core rule — verify exact installed behavior
 
 Mastra evolves rapidly. APIs, constructor signatures, workflow semantics, memory behavior, processor contracts, and package-family compatibility change frequently.
@@ -29,7 +58,7 @@ For exact-version implementation questions use:
 current iPix code + live task owner
 → installed TypeScript types/source
 → embedded docs when that installed package actually ships them
-→ this iPix Mastra skill
+→ this iPix Mastra skill/index
 → official Mastra MCP / current docs
 → official GitHub source/tag/issues when still ambiguous
 ```
@@ -246,17 +275,19 @@ Prefer deterministic tests for safety/authorization/idempotency. Build datasets 
 
 ## Quick topic routing
 
-| Question | Reference |
+| Question | Primary reference |
 |---|---|
-| Reference index | [`references/README.md`](references/README.md) |
+| Full reference ownership/index | [`references/README.md`](references/README.md) |
 | Current docs/MCP lookup | [`references/mcp-docs-lookup.md`](references/mcp-docs-lookup.md) |
 | Tools | [`references/tools.md`](references/tools.md) |
 | Workflows/HITL/snapshots | [`references/workflows.md`](references/workflows.md) |
-| Memory | [`references/memory.md`](references/memory.md) |
+| Memory/persistence | [`references/memory.md`](references/memory.md) |
 | Streaming/abort | [`references/streaming.md`](references/streaming.md) |
 | Auth/RequestContext | [`references/supabase-auth.md`](references/supabase-auth.md) |
-| Evals/feedback | [`references/evals-feedback.md`](references/evals-feedback.md) |
-| Common errors | [`references/common-errors.md`](references/common-errors.md) |
+| Evals/feedback/model quality | [`references/evals-feedback.md`](references/evals-feedback.md) |
+| Pre-merge/post-merge tests + success criteria | [`references/testing-gates.md`](references/testing-gates.md) |
+| End-to-end iPix Mastra user journeys | [`references/user-journeys.md`](references/user-journeys.md) |
+| Failure diagnosis | [`references/common-errors.md`](references/common-errors.md) |
 | Mastra version migration | [`references/migration-guide.md`](references/migration-guide.md) |
 | Lumina migration | `../tasks/references/migration-lumina.md` |
 
