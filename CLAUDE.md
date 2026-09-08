@@ -104,7 +104,7 @@ static inspection → unit test → integration test → typecheck → build →
 
 ## Linear
 
-Reference tasks as: `IPI-XXX · TASK-ID — Full Task Name` (matches `AGENTS.md` — "SPEC", not "TASK-ID")
+Reference tasks as: `IPI-XXX · TASK-ID — Full Task Name`, where `TASK-ID` is the actual spec identifier (for example `BRAND-001`, `DASH-MAIN-002`, or `MIGRATE-TEMPLATE`).
 
 Before implementing a task:
 - re-read live Linear state
