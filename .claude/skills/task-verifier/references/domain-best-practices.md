@@ -45,6 +45,8 @@ Load [`../../mastra/SKILL.md`](../../mastra/SKILL.md) for implementation HOW. Th
 - Browser/page `org_id`, `brand_id`, `shoot_id`, thread/run IDs and other context claims are server-verified before the model/tool acts on them.
 - Wrong agent/tool cannot perform a consequential write merely because the model requests it.
 - Credentials/JWTs/service-role/provider secrets do not enter tool input, workflow input, working memory, suspend data, traces or model-visible context.
+- `RequestContext` is not treated as authorization by itself; server/domain checks remain authoritative.
+- RequestContext fields are minimal and safe for configured tracing/export behavior; no auth headers, session secrets, or unnecessary raw customer/brand payloads.
 - External/expensive tools propagate cancellation/`abortSignal` where the product contract requires Stop to end downstream work.
 
 ### Memory / persistence
@@ -54,6 +56,7 @@ Load [`../../mastra/SKILL.md`](../../mastra/SKILL.md) for implementation HOW. Th
 - Persistence claims use a real new process/instance when restart durability is required; same-process re-instantiation is insufficient.
 - Working-memory scope is explicit and tested separately from message-history continuity.
 - Hosted durability cannot be claimed from local/in-memory fallback behavior.
+- Advanced memory features are not added to the critical path without explicit quality/cost/privacy/concurrency proof.
 
 ### Workflow / HITL / resume
 
@@ -67,6 +70,8 @@ Load [`../../mastra/SKILL.md`](../../mastra/SKILL.md) for implementation HOW. Th
 - Durable state is not written before required approval.
 - Retries/resume/suspend do not duplicate side effects.
 - Consequential writes have a domain-level uniqueness/idempotency invariant; UI disablement is not enough.
+- Workflow snapshots/suspend payloads are bounded for realistic production inputs; large media/raw crawl/provider payloads are stored in their owning durable system and referenced by stable IDs where practical.
+- Snapshot-size optimization never weakens approval immutability: artifact/revision/hash still identifies the exact reviewed content.
 - Test duplicate resume, concurrent resume, wrong run/step/tenant, stale revision, approve-vs-reject race, restart before resume, failure after approval, write-success/response-loss retry where applicable.
 
 ### Streaming / Stop
@@ -74,12 +79,17 @@ Load [`../../mastra/SKILL.md`](../../mastra/SKILL.md) for implementation HOW. Th
 - Streaming/runtime errors produce a recoverable user-visible state where applicable.
 - Stop/cancel proof follows the chain from UI/request abort through agent/tool/provider cancellation and verifies no later protected side effect.
 - Ending SSE alone is not proof downstream work stopped.
+- If current runtime intentionally supports only visible-stream cancellation, the limitation is documented and the relevant follow-up owner remains explicit; do not overclaim downstream cancellation.
 
 ### Observability / evals
 
 - Trace/eval evidence is tied to the business outcome and exact agent/tool/workflow path rather than generic "success" spans.
 - Logs/traces expose enough correlation to diagnose org/user/thread/agent/model/tool/workflow failures without leaking protected content or credentials.
+- RequestContext/tracing/export configuration is checked for sensitive-data leakage when context fields change.
 - Evals are based on real failure modes such as wrong tool choice, invented inputs, stale references, approval bypass, duplicate side effects and tenant-context misuse.
+- Comparative eval evidence records exact git SHA, agent/model/config identity, dataset + dataset version, scorer/rubric version, and material runtime flags.
+- A score increase on a different dataset/model/agent version is not accepted as regression proof.
+- LLM scorer thresholds used as hard gates have a representative dataset and reviewed false-positive/false-negative behavior; deterministic safety tests remain separate.
 
 ## AI-native behavior
 
@@ -127,5 +137,5 @@ A best-practice violation is a blocker only when it creates a concrete correctne
 ## Agent prompt
 
 ```text
-For each changed domain, load the current owning skill and use this checklist to search specifically for correctness, security, tenant, reliability, data-integrity, operational, performance, and maintainability violations. Apply only relevant rules. For Mastra, identify the independent proof classes that apply and reject false substitutions: tool tests do not prove routing, persisted rows do not prove restart recall, stream closure does not prove abort, and approval booleans do not prove the exact reviewed artifact. Tie every finding to a concrete failure mode or evidence gap; do not produce generic best-practice noise.
+For each changed domain, load the current owning skill and use this checklist to search specifically for correctness, security, tenant, reliability, data-integrity, operational, performance, and maintainability violations. Apply only relevant rules. For Mastra, identify the independent proof classes that apply and reject false substitutions: tool tests do not prove routing, persisted rows do not prove restart recall, stream closure does not prove abort, and approval booleans do not prove the exact reviewed artifact. For workflow/HITL work also inspect realistic snapshot size and payload retention. For RequestContext/observability changes verify sensitive fields cannot leak through traces/exports. For eval claims require reproducible agent/model/dataset/scorer identity. Tie every finding to a concrete failure mode or evidence gap; do not produce generic best-practice noise.
 ```
