@@ -5,7 +5,7 @@ description: >
   failure-mode analysis, audits of completion claims, and before Linear Done. Consumes the canonical
   `tasks` standard, exact current code/PR head, tests/CI/runtime, and affected domain skills. It tries
   to disprove unsafe or incomplete claims rather than maintaining a parallel implementation lifecycle.
-version: "2.1.0"
+version: "2.2.0"
 ---
 
 # task-verifier — adversarial evidence gate
@@ -30,7 +30,7 @@ Before substantial verification, read [`../tasks/SKILL.md`](../tasks/SKILL.md). 
 |---|---|---|
 | **Quick** | small fix, docs/process, narrow PR/status check | 1–3 decisive probes; stop on blocker |
 | **Standard** | normal feature/task/PR review | task validity + AC map + failure modes + false-green + domain checks |
-| **Adversarial** | auth/RLS/tenant, HITL/consequential AI, migration/data integrity, production config/release, security-sensitive dependency, destructive/publishing/payment write | Standard + hostile/negative/recovery/rollback/supply-chain proof |
+| **Adversarial** | auth/RLS/tenant, HITL/consequential AI, migration/data integrity, production config/release, security-sensitive dependency, destructive/publishing/payment write, Mastra workflow resume/callback/storage/tenant-memory/cancellation/MCP-auth changes | Standard + hostile/negative/recovery/rollback/supply-chain proof |
 
 Default: **Standard** for `verify/review/audit task`; **Quick** only when the request is explicitly narrow; **Adversarial** automatically for the risk triggers above or when the user asks for production/security readiness.
 
@@ -66,7 +66,8 @@ Memory, reviewer prose, scores, and status labels are not proof.
 4. **Adversarial pre-mortem:** identify likely failure points and record a failure-mode matrix: trigger, impact, protection, proof, status.
 5. **False-green gate:** ask whether all listed tests could pass while the operator/business outcome is still broken; convert plausible false greens into missing proof.
 6. **Domain best practices:** load only affected domain skills and run the relevant checks from [domain-best-practices.md](references/domain-best-practices.md).
-   - For material Supabase/Postgres changes, determine which independent proof classes apply: **catalog, behavioral, authorization/tenant, migration replay, performance/exposure, live read-only**. Do not substitute one proof class for another when they validate different properties; use `ipix-supabase/references/verification-matrix.md` for the exact method.
+   - For material Supabase/Postgres changes, determine which independent proof classes apply: **catalog, behavioral, authorization/tenant, migration replay, performance/exposure, live read-only**. Do not substitute one proof class for another; use `ipix-supabase/references/verification-matrix.md` for HOW.
+   - For material Mastra changes, determine which independent proof classes apply: **registry/config, deterministic primitive, model behavior, authority/context, memory, persistence/restart, HITL artifact, resume/recovery, streaming/abort, side-effect idempotency, observability/evals, exact runtime**. Do not substitute one proof class for another; use the `mastra` skill for HOW.
 7. **Negative/recovery:** verify malformed/empty/stale/large input, provider/network failure, retry, idempotency, partial failure, refresh/back/navigation, and unauthorized/cross-tenant behavior when applicable.
 8. **AI behavior:** for AI-native work test positive and negative behavior: should-act/should-not-act, correct/wrong tool, valid/invalid arguments, approval granted/rejected/absent, prompt-injection/excessive-agency attempts, and no durable write before approval.
 9. **Supply chain:** when manifests, lockfiles, actions, containers, or external SDK versions change, review unexpected dependencies, compatibility, vulnerabilities, permissions, licensing, and pinning/upgrade risk.
@@ -75,6 +76,41 @@ Memory, reviewer prose, scores, and status labels are not proof.
 12. **Exact-head proof:** required CI/reviews/tests must apply to the current head; older green evidence is stale after a push.
 13. **Post-merge:** when claiming Done require applicable [`../tasks/references/post-merge.md`](../tasks/references/post-merge.md) evidence. Merge alone is insufficient.
 14. **Verdict:** blockers first, then high/medium findings, then improvements. Missing required evidence means not Done.
+
+## Mastra false-green gate
+
+When Mastra participates, explicitly ask whether all current tests could pass while any of these remain broken:
+
+```text
+forced toolChoice passes but natural language selects the wrong tool
+shared/stale thread makes persistence look correct
+message row persists but a new process never uses it
+browser-supplied org/brand/shoot context is trusted without server verification
+approved revision N differs from revision/hash actually resumed or saved
+approved:false/cancel/close falls back into another suspend path
+a proposal is materially recomputed after the operator approved it
+Stop closes the UI stream but external/provider/tool work keeps running
+duplicate callback/resume repeats a write/payment/publish/booking
+provider failure falls through to stale output that appears successful
+JWT/service/provider secret lands in workflow snapshot, memory, trace, or model context
+trace reports success while the operator/business outcome failed
+```
+
+If any scenario is plausible, require a decisive proof before PASS.
+
+## Mastra proof non-substitution rules
+
+```text
+tool unit test passes        ≠ model routing proof
+model routes correctly       ≠ caller authorization proof
+resource/thread ID known     ≠ ownership proof
+message persisted            ≠ restart recall proof
+approved=true                ≠ exact artifact approval
+resume succeeds              ≠ stale/duplicate/foreign resume safety
+stream ends                  ≠ downstream abort proof
+single write succeeds        ≠ retry/idempotency proof
+trace exists                 ≠ business success proof
+```
 
 ## Severity taxonomy
 
@@ -103,5 +139,5 @@ Only **Standard** or **Adversarial** may publish a score, and only when the evid
 ## Agent prompt
 
 ```text
-Independently review this task and try to disprove Done. Read the live Linear task and `.claude/skills/tasks/SKILL.md`. Verify the task itself is still valid before evaluating implementation. Record the exact current branch/PR SHA. Map every AC to current evidence. Build a failure-mode matrix and identify plausible false-green scenarios where tests could pass but the real user outcome would still fail. Load only affected domain skills and check their current best-practice/security contracts. Automatically use Adversarial mode for auth/RLS/tenant, HITL/consequential AI, migrations/data integrity, production config/release, security-sensitive dependency changes, publishing/payments, or destructive writes. Test positive and negative AI behavior when AI participates; test retry/idempotency/partial-failure/recovery where state can change; review supply-chain risk when manifests/lockfiles/actions change; require rollback/monitoring proof for deployment-affecting work. Classify findings by severity and category. Treat missing required evidence as not Done. Use numeric scores only when evidence is complete enough to justify them. End with the smallest fixes/proofs required to reach verified Done.
+Independently review this task and try to disprove Done. Read the live Linear task and `.claude/skills/tasks/SKILL.md`. Verify the task itself is still valid before evaluating implementation. Record the exact current branch/PR SHA. Map every AC to current evidence. Build a failure-mode matrix and identify plausible false-green scenarios where tests could pass but the real user outcome would still fail. Load only affected domain skills and check their current best-practice/security contracts. Automatically use Adversarial mode for auth/RLS/tenant, HITL/consequential AI, migrations/data integrity, production config/release, security-sensitive dependency changes, publishing/payments, destructive writes, and Mastra workflow resume/callback/storage/tenant-memory/cancellation/MCP-auth changes. For material Mastra work identify the independent applicable proof classes and do not substitute tool tests for routing, persistence for restart recall, stream closure for abort, or approval booleans for exact reviewed-artifact proof. Test retry/idempotency/partial-failure/recovery where state can change; review supply-chain risk when manifests/lockfiles/actions change; require rollback/monitoring proof for deployment-affecting work. Classify findings by severity and category. Treat missing required evidence as not Done. Use numeric scores only when evidence is complete enough to justify them. End with the smallest fixes/proofs required to reach verified Done.
 ```
