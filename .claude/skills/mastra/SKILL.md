@@ -1,18 +1,16 @@
 ---
 name: mastra
-description: "Mastra framework for iPixai: docs lookup (embedded node_modules, mastraDocs MCP, llms.txt, Mastra documentation URLs), agents, workflows, tools, memory, RAG, processors, streaming events, AgentBrowser/Stagehand, PostgresStore, mastra api CLI, Studio on :4111. Use whenever editing src/mastra/**, pinning @mastra/* versions, calling the local mastra CLI, starting Studio, or verifying APIs. Always verify installed docs — never trust training-data APIs. In this repo use npm run dev:agent and npm run dev:ui separately — never combined npm run dev. NOT for CopilotKit v2 UI (use copilotkit skill), product intent routing, or non-Mastra frameworks."
+description: "Mastra framework for iPixai: docs lookup, agents, workflows, tools, memory, streaming, PostgresStore, Studio/API, MCP, observability, evals, and Lumina→iPix adaptation. Use whenever editing src/mastra/**, pinning @mastra/* versions, changing agents/tools/workflows/memory/storage/HITL/abort behavior, or verifying Mastra APIs. Always verify installed source/types first; use the official Mastra MCP/docs for current concepts and migrations. In this repo use npm run dev:agent and npm run dev:ui separately — never combined npm run dev."
 license: Apache-2.0
 metadata:
   author: Mastra
-  version: "2.2.2-ipix.1"
-  basedOn: mastra-ai/skills 2.1.0 + current upstream/docs audit 2026-09-04
+  version: "2.2.2-ipix.2"
+  basedOn: mastra-ai/skills 2.1.0 + iPix/Lumina audit 2026-09-08
   repository: https://github.com/mastra-ai/skills
-  # Upstream authoring fields. Not in the Agent Skills spec's top-level set, so
-  # they live here — `metadata` is explicitly "arbitrary key-value mapping".
   title: Mastra framework guide
   impact: HIGH
-  impactDescription: Docs routing, agents/workflows, embedded vs remote APIs
-  tags: mastra, agents, workflows, tools, memory, rag, typescript
+  impactDescription: Agent/workflow/memory correctness, tenant safety, HITL, runtime reliability
+  tags: mastra, agents, workflows, tools, memory, hitl, streaming, mcp, evals
   paths:
     - "src/mastra/**"
     - "docs/mastra/**"
@@ -21,31 +19,275 @@ metadata:
 
 # Mastra Framework Guide
 
-## ⚠️ Never trust training-data knowledge
+## Core rule — verify exact installed behavior
 
-Mastra evolves rapidly — APIs, constructor signatures, and patterns change between versions. Always verify against installed docs before writing code.
+Mastra evolves rapidly. APIs, constructor signatures, workflow semantics, memory behavior, processor contracts, and package-family compatibility change frequently.
 
-**Priority order:**
-1. Embedded docs: `grep -r "Agent" node_modules/@mastra/core/dist/docs/references`
-2. Source: `cat node_modules/@mastra/core/dist/docs/assets/SOURCE_MAP.json`
-3. Remote: `https://mastra.ai/llms.txt`
+For exact-version implementation questions use:
+
+```text
+installed TypeScript types/source
+→ embedded docs when that installed package actually ships them
+→ this iPix Mastra skill
+→ official Mastra MCP / current docs
+→ official GitHub source/tag/issues when still ambiguous
+```
+
+Do not assume every installed `@mastra/*` package ships embedded docs. `listMastraPackages` / installed filesystem inspection decides that. Do not let latest web examples override pinned installed APIs.
+
+For dependency changes:
+
+```text
+record full installed Mastra/CopilotKit/AG-UI family
+→ identify proven incompatibility
+→ inspect migration/release guidance
+→ choose one compatible target family
+→ upgrade only required packages together
+→ targeted type/runtime/memory/workflow/streaming regressions
+```
+
+Never use `npm update @mastra/core` as a generic troubleshooting step.
 
 ---
 
-## iPixai-specific wiring
+## Current iPixai wiring — as built, not migration target
 
-**Location:** `src/mastra/` (this repo — **not** old iPix `app/src/mastra/`)
+**Location:** `src/mastra/` in current iPixai. Old Lumina/iPix `app/src/mastra/` is reference material only.
 
-Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Do **not** copy the old Mastra tree.
+Current verified architecture must be re-checked on the task SHA before implementation, but the present V2 shape is:
 
-- **Starter:** CopilotKit `examples/integrations/mastra` — `export const mastra` from `src/mastra/index.ts`
-- **CopilotKit:** `MastraAgent.getLocalAgents({ mastra, resourceId })` — `resourceId` = `org:{orgId}::user:{userId}`, never hardcoded `"default"` in Core
-- **Storage:** Production backend is PostgresStore (`schemaName: "mastra"`, `disableInit: true`). Missing `MASTRA_DATABASE_URL` must **abort startup** — do not let `createMastraStorage` / `createAgentMemoryStorage` build in-memory LibSQLStore. LibSQL is allowed only for an env a task marks as disposable preview. The current starter still warns-and-falls-back; do not copy that into production. No Worker/Hyperdrive storage switch
-- **Model:** starter pin until a provider ticket — do not port Cloudflare `resolveAgentModel`
-- **Agents:** current starter registry is `weather-agent` (`default` → that agent). Conversion-plan **target** is `production-planner` (+ `default` alias) — do not treat target IDs as already registered. More IDs only per convert plan
-- **Tools:** compute-only shoot tools first; domain writes via SECURITY DEFINER RPCs + user JWT
-- **Dev:** `npm run dev:agent` (`:4111`) and `npm run dev:ui` (`:3000`) separately — never combined `npm run dev`
-- **MCP `projectPath`:** pass only on tools whose schema requires it = this repo root, not `/home/sk/ipix/app`. Do **not** pass `projectPath` to `mastraDocs`
+```text
+CopilotKit / AG-UI
+→ server-derived org + user identity
+→ Mastra local agents
+→ default registry entry resolves to productionPlannerAgent
+→ typed compute/read tools
+→ Mastra Memory
+→ shared PostgresStore
+→ Supabase `mastra` schema
+```
+
+Rules:
+
+- **CopilotKit:** `MastraAgent.getLocalAgents({ mastra, resourceId })`; `resourceId` is server-derived from trusted org + user identity. Never hardcode `"default"` as the tenant/resource boundary.
+- **Agent registry:** current V2 already uses Production Planner behind the load-bearing `default` registry key. Do not reintroduce the weather demo or duplicate aliases without a current caller requirement.
+- **Storage:** hosted/runtime paths that require durable Mastra state must fail closed when approved Postgres configuration is unavailable. Do not silently fall back to in-memory/LibSQL and claim hosted durability.
+- **Postgres:** reuse the existing process-scoped/shared store/pool configuration; do not create a new pool/store per request unless installed runtime constraints prove that is required.
+- **Model/provider:** use the current V2 provider/model owner. Do not port Lumina Cloudflare `resolveAgentModel` or provider routing because it existed historically.
+- **Tools:** current Planner tools use typed input/output schemas. Consequential domain writes belong behind explicit server/domain authorization and approval boundaries, not prompt language alone.
+- **Dev:** `npm run dev:agent` (`:4111`) and `npm run dev:ui` (`:3000`) separately — never combined `npm run dev`.
+- **MCP `projectPath`:** pass only to tools whose schema requires it and use this repo root. Do not pass `projectPath` to `mastraDocs`.
+
+`docs/mastra/10-mastra-convert.md` is historical migration research, not current architecture SSOT. Current code + live Linear architecture/tasks + installed package behavior win.
+
+---
+
+## Lumina → iPix Mastra adaptation rule
+
+Lumina is valuable for **business invariants, deterministic logic, schemas, fixtures, and failure lessons**. It is not runtime authority.
+
+Never classify an entire mixed Lumina Mastra file as one `PORT`/`DROP` unit. Follow `../tasks/references/migration-lumina.md` and classify each symbol/behavior independently.
+
+Typical decisions:
+
+```text
+Planner business sequencing          → EXTRACT + REUSE
+least-privilege tool selection        → REIMPLEMENT on current registry
+pure compute logic + tests            → PORT / ADAPT after current-data verification
+browser page context trust model      → REIMPLEMENT using current RequestContext + server verification
+workflow stage ordering               → REUSE invariant
+suspend/resume transport              → REIMPLEMENT on installed current Mastra/AG-UI/CopilotKit
+Cloudflare model router               → DROP
+DurableAgent/old Worker glue           → DROP unless a current reproduced failure requires it
+JWT/service key in tool/workflow data  → DROP
+legacy direct DB write tools           → REIMPLEMENT at current domain/server boundary
+```
+
+### Known Lumina traps that must become tests, not copied behavior
+
+- `approved: false` must not fall through the same branch as "not resumed yet" and suspend again.
+- Human approval must bind to the exact validated artifact/revision/hash shown to the operator.
+- Resume must not silently recompute a materially different proposal after approval.
+- Browser-provided `brand_id`, `shoot_id`, `org_id`, or page context are claims until server-verified.
+- Credentials must never be persisted in workflow input, suspend data, working memory, traces, or model-visible context.
+- External callback/webhook resume must validate expected run + external job/crawl ID and reject replay/mismatch.
+- Provider/model failure must fail closed; stale prior output must never become a fresh successful draft.
+- A successful-looking UI state is not proof a workflow/tool completed correctly.
+
+---
+
+## Mastra risk classes
+
+At task start classify which Mastra concerns are affected:
+
+`agent registry/identity` · `model/provider` · `tool schema` · `tool authority` · `external side effect` · `RequestContext/tenant context` · `memory resource/thread scope` · `persistent storage` · `streaming/Stop/abort` · `workflow` · `suspend/resume` · `HITL approval` · `MCP` · `observability/evals` · `Mastra package-family change`.
+
+Any change involving tenant identity, memory ownership, consequential tools, approval, resume, callback/webhook continuation, persistent storage, cancellation, MCP auth, or package-family changes requires Adversarial `task-verifier` coverage.
+
+---
+
+## Independent proof classes for Mastra work
+
+Do not let one green test stand in for a different property. Determine which proof classes apply:
+
+| Proof class | What it proves |
+| -- | -- |
+| Registry/config | intended agent/model/tool/workflow is actually registered and selected |
+| Deterministic primitive | tool/step/schema logic is correct without model nondeterminism |
+| Model behavior | natural language chooses the right tool/workflow and valid arguments |
+| Authority/context | server-derived caller/org/context can perform the action; foreign/untrusted claims fail |
+| Memory | correct thread/resource scope; no cross-thread/org bleed |
+| Persistence/restart | required state survives a real new process/instance using durable storage |
+| HITL artifact | human reviewed and approved the exact immutable revision/hash that continues |
+| Resume/recovery | stale/duplicate/foreign/malformed resume cannot advance or duplicate effects |
+| Streaming/abort | Stop/AbortSignal reaches downstream model/tool/provider work, not just the visible SSE |
+| Side-effect idempotency | retry/double-resume/lost-response produces at most one business effect |
+| Observability/evals | failures/quality regressions can be diagnosed without leaking protected data |
+| Exact runtime | exact deployed/tested SHA performs the real operator journey |
+
+Examples of invalid substitutions:
+
+```text
+tool.execute() passes        ≠ model selects the tool correctly
+model selects the tool       ≠ caller is authorized
+row/message persisted        ≠ new process actually uses it
+Stop button responds         ≠ downstream work cancelled
+resume returns success       ≠ resume is idempotent
+approved=true                ≠ exact artifact was approved
+trace says success           ≠ operator/business outcome succeeded
+```
+
+---
+
+## Tools
+
+For tools, prefer current Mastra `createTool` patterns with both `inputSchema` and `outputSchema` where the installed version supports them.
+
+Every material tool should be reviewed across four independent dimensions:
+
+```text
+schema correctness
++ business correctness
++ authority/context correctness
++ agent-selection correctness
+```
+
+For tools that call external services or perform expensive work, propagate/use the execution `abortSignal` when supported. Test that Stop cancels downstream work where the user-visible contract requires cancellation.
+
+Natural-language behavior tests should include:
+
+```text
+should call
+should not call
+correct tool vs plausible wrong tool
+missing required input
+ambiguous intent
+invalid/malicious arguments
+```
+
+A forced `toolChoice` test may supplement deterministic coverage but cannot be the only proof of agent routing.
+
+---
+
+## Memory
+
+Keep these concepts separate:
+
+```text
+message history  = conversation turns for a thread
+working memory   = structured agent state at configured scope
+resource         = ownership/partition key that may own multiple threads
+authorization    = server/domain truth, never memory itself
+```
+
+Do not use resource/thread IDs, vector retrieval, possession of a run ID, or recalled memory as authorization.
+
+For persistence work prove separately:
+
+1. message history survives a real process restart;
+2. working memory survives/reloads at its configured scope if required;
+3. wrong resource/org cannot read or continue the thread;
+4. a new thread does not inherit thread-only facts accidentally.
+
+Do not enable semantic recall or Observational Memory merely because they are available; require a dedicated product/use-case task plus cost, concurrency, restart, privacy, and runtime proof.
+
+---
+
+## Workflows and HITL
+
+For consequential workflows, the default iPix pattern is:
+
+```text
+AI proposes
+→ validated artifact/revision created
+→ Mastra suspends / human review surface appears
+→ server verifies approver + org + artifact ownership
+→ human explicitly approves/rejects exact revision
+→ resume validates immutable revision/hash
+→ domain state revalidated
+→ idempotent server/domain commit
+→ result/audit recorded
+```
+
+Prompt text such as "wait for approval" is behavior guidance, not enforcement.
+
+Review-state schemas should be discriminated and explicit, e.g. `approved | rejected | revision_requested | cancelled | expired`; avoid truthy/falsy approval shortcuts.
+
+Mandatory adversarial cases when applicable:
+
+```text
+resume once
+resume twice
+resume concurrently
+resume wrong run
+resume wrong step
+resume wrong tenant
+resume malformed payload
+stale artifact/revision
+approve vs reject race
+refresh/reconnect while suspended
+provider failure after approval
+write succeeds but response is lost
+process restart before resume
+process restart after commit
+```
+
+Every consequential side effect needs domain-level uniqueness/idempotency. UI disabled states or a single resume call are not enough.
+
+---
+
+## Streaming / Stop
+
+Where Stop/cancellation is a product requirement, prove the whole chain:
+
+```text
+operator presses Stop
+→ request AbortSignal / runtime cancellation
+→ agent run aborts
+→ tool/provider receives cancellation where supported
+→ no later protected side effect
+→ stream closes cleanly
+```
+
+Do not claim Stop is correct because the UI closes the stream.
+
+---
+
+## Observability and evals
+
+For production AI journeys, traces/evals should answer only what is needed to diagnose and improve the system:
+
+```text
+org/user/thread correlation
+agent/model/tool/workflow selected
+latency / provider error / tool result status
+token or cost signals where available
+approval/revision status
+```
+
+Redact or avoid sensitive brand/customer content and credentials. Do not indiscriminately export full prompts/tool payloads.
+
+Build eval datasets from real iPix failures: wrong tool selection, missing input invention, stale reference provenance, approval bypass, duplicate side effect, tenant-context misuse, and unsupported claims.
 
 ---
 
@@ -56,72 +298,56 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Do **not** copy the old Mas
 | "Where is the doc for X?" | [`links.md`](links.md) → [`references/topic-routing.md`](references/topic-routing.md) |
 | Agent vs workflow vs memory | [`references/core-concepts.md`](references/core-concepts.md) |
 | Agent / Workflow / Tool API | [`references/embedded-docs.md`](references/embedded-docs.md) |
-| Memory (threads, OM, recall) | [`references/memory.md`](references/memory.md) |
-| Agent-level skills / `createSkill()` / dynamic skills | [`references/agent-skills.md`](references/agent-skills.md) |
-| Lazy skill discovery / `SkillSearchProcessor` | [`references/skill-search.md`](references/skill-search.md) |
-| Large tool catalog / `ToolSearchProcessor` | [`references/tool-search.md`](references/tool-search.md) |
-| Harness / `AgentController` / durable interactive agent experiences | [`references/agent-controller.md`](references/agent-controller.md) — optional/advanced for iPix |
-| Code Mode / Dynamic Workflows / Channels / Pub/Sub | [`references/advanced-runtime.md`](references/advanced-runtime.md) |
-| Evals / regression gates / multi-turn / human feedback | [`references/evals-feedback.md`](references/evals-feedback.md) |
-| Subagents / supervisor delegation | [`references/agents-supervisor.md`](references/agents-supervisor.md) + current [`docs/subagents`](https://mastra.ai/docs/subagents) |
-| Auth / identity / FGA | [`links.md#auth--identity`](links.md#auth--identity) + [`references/supabase-auth.md`](references/supabase-auth.md) |
-| Deployment / Vercel / Workers / web frameworks | [`links.md#deployment`](links.md#deployment) |
-| Observability / traces / evals | [`links.md#observability--evals`](links.md#observability--evals) |
-| Aggregate agent-health investigation / Trace Intelligence | [`references/trace-intelligence.md`](references/trace-intelligence.md) |
-| Workflows / HITL / suspend-resume | [`references/workflows.md`](references/workflows.md) |
+| Memory | [`references/memory.md`](references/memory.md) |
+| Agent-level skills | [`references/agent-skills.md`](references/agent-skills.md) |
+| Tool search | [`references/tool-search.md`](references/tool-search.md) |
+| Advanced runtime | [`references/advanced-runtime.md`](references/advanced-runtime.md) |
+| Evals / feedback | [`references/evals-feedback.md`](references/evals-feedback.md) |
+| Auth / identity | [`links.md#auth--identity`](links.md#auth--identity) + [`references/supabase-auth.md`](references/supabase-auth.md) |
+| Observability / traces | [`links.md#observability--evals`](links.md#observability--evals) |
+| Workflows / HITL | [`references/workflows.md`](references/workflows.md) |
 | Streaming / AG-UI bridge | [`references/streaming.md`](references/streaming.md) |
-| Model id / provider string | [`references/model-selection.md`](references/model-selection.md) then `scripts/provider-registry.mjs` |
-| Inspect running Studio/API (`mastra api`) | [`references/mastra-api.md`](references/mastra-api.md) |
+| Model selection | [`references/model-selection.md`](references/model-selection.md) then `scripts/provider-registry.mjs` |
+| Studio/API | [`references/mastra-api.md`](references/mastra-api.md) |
 | MCP client/server | [`references/mcp.md`](references/mcp.md) + [`links.md`](links.md) |
-| CopilotKit + Mastra (in-process) | iPixai wiring above + `getLocalAgents` — CopilotKit v2 UI → `copilotkit` skill |
+| CopilotKit + Mastra | current in-process wiring + `copilotkit` skill |
 | Common errors | [`references/common-errors.md`](references/common-errors.md) |
-| v0→v1 migration | [`references/migration-guide.md`](references/migration-guide.md) |
-| All reference files | [`references/README.md`](references/README.md) |
-
-**Full framework guide** (priority order, core concepts, TypeScript config, model format, dev workflow): [`references/full-guide.md`](references/full-guide.md)
+| Migration | `../tasks/references/migration-lumina.md` + [`references/migration-guide.md`](references/migration-guide.md) |
+| Full reference index | [`references/README.md`](references/README.md) |
 
 ---
-
-## Documentation/tool priority
-
-For normal iPix Mastra engineering:
-
-```text
-installed embedded docs
-→ installed source/types
-→ this Mastra skill + iPix overlay
-→ current remote docs / llms.txt
-→ Mastra docs MCP for targeted lookup when useful
-```
-
-Do not make the MCP docs server the default when installed version-accurate docs are available.
 
 ## Mastra docs MCP
 
+Use the configured official Mastra documentation MCP as targeted current research, not as an excuse to ignore installed APIs.
+
 | Tool | Use when |
 |------|----------|
-| `mastraDocs` | Know the doc path (`docs/…`, `guides/…`, `reference/…`) — **`paths` + optional `queryKeywords` only** (no `projectPath`) |
-| `readMastraDocs` | Browse embedded topics in installed `@mastra/*` packages — **requires `projectPath`** |
-| `searchMastraDocs` | Keyword grep — **requires `projectPath` = this repo root** |
-| `listMastraPackages` | See which packages ship embedded docs — **requires `projectPath`** |
+| `mastraDocs` | current conceptual/API docs by known path/keywords; no `projectPath` |
+| `listMastraPackages` | discover which installed packages expose embedded docs |
+| `readMastraDocs` | read embedded docs from installed packages when available |
+| `searchMastraDocs` | keyword search across installed embedded docs |
+| `getMastraExports` / `getMastraExportDetails` | inspect package exports/types where exposed |
+| `mastraMigration` | current migration/upgrade guidance |
+
+If embedded docs are absent for an installed package, inspect installed TypeScript source/types first, then use remote MCP/docs.
 
 ---
 
-## Mastra Studio and `mastra api`
+## Mastra Studio and CLI
 
-Official docs start Studio with `npx mastra dev` on `:4111` ([Develop](https://mastra.ai/docs/getting-started/develop.md), [Studio](https://mastra.ai/docs/studio/overview.md)). In iPixai that is **`npm run dev:agent`**. Do not run combined `npm run dev`.
+Official docs use `mastra dev`; in iPixai run the repository-owned scripts:
 
-This repo pins `mastra` in `package.json` (not the skill 2.1.0 CLI). Use the **local** binary only — never a bare `npx mastra` that can fetch a newer package from the registry:
+```bash
+npm run dev:agent
+npm run dev:ui
+```
+
+Use the pinned local CLI only:
 
 ```bash
 npx --no-install mastra --version
 npx --no-install mastra api --help
 ```
 
-If `api` exists, with the agent server up:
-
-```bash
-npx --no-install mastra api --url http://localhost:4111 agent list
-```
-
-If `api` is missing, use Studio `http://localhost:4111/swagger-ui` or curl `/api/system/api-schema` — see [`references/mastra-api.md`](references/mastra-api.md). Do not install upstream `npx skills add mastra-ai/skills` over this overlay.
+Never use a bare `npx mastra` that can fetch a newer package unexpectedly. Do not overwrite this iPix overlay with upstream skills wholesale.
