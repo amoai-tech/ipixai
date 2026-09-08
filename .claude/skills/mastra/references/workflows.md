@@ -1,105 +1,176 @@
 ---
-title: Mastra workflows — docs + reference
-description: Load when building Mastra workflows with steps, suspend/resume, or snapshots.
+title: Mastra workflows — iPix suspend/resume contract
+description: Load when building or verifying Mastra workflows, suspend/resume, durable snapshots, callbacks, or human approval.
 parent: mastra
 impact: HIGH
-impactDescription: Doc URLs and reference API for @mastra/core workflows
-tags: mastra, workflows, suspend, hitl, snapshots
+impactDescription: Prevents stale approval, replay, duplicate effects, and custom workflow infrastructure
+tags: mastra, workflows, suspend, resume, hitl, snapshots, idempotency
 ---
 
-# Mastra workflows — docs & reference index
+# Mastra workflows — iPix contract
 
-**mdeai Phase 1:** concierge uses **agents + tools** in-process; batch workflows (event discovery EVP-022) land W2+. **Roberto HITL** (W3–4) maps to **suspend/resume** + CopilotKit `renderAndWaitForResponse` — read both docs before wiring.
+## When to use a workflow
 
-**Lookup order:** [`mcp-docs-lookup.md`](mcp-docs-lookup.md) → **`mastraDocs`** paths below → [`links.md`](../links.md).
+Use a Mastra workflow when the execution order is known and explicit. Use agents for open-ended reasoning and tools/code for deterministic operations.
 
----
+Do not create a generic workflow framework before current iPix workflows prove repeated conventions worth extracting. `IPI-994 · MASTRA-WF-001 — Establish Reusable iPix Workflow Foundation` remains deferred until that gate is met.
 
-## Concepts (docs — Supatabs)
+## Native primitives first
 
-| Topic | URL | mdeai |
-| --- | --- | --- |
-| Agents (when to use workflows) | https://mastra.ai/docs/agents/overview | Open-ended → agent; predetermined → workflow |
-| Workflows overview | https://mastra.ai/docs/workflows/overview | EVP event ingest DAG |
-| Workflow state | https://mastra.ai/docs/workflows/workflow-state | Step I/O + shared state |
-| Control flow | https://mastra.ai/docs/workflows/control-flow | `.then`, `.branch`, `.parallel` |
-| Agents & tools in workflows | https://mastra.ai/docs/workflows/agents-and-tools | Agent steps |
-| Snapshots | https://mastra.ai/docs/workflows/snapshots | Persisted suspend state |
-| Suspend & resume | https://mastra.ai/docs/workflows/suspend-and-resume | **Roberto approval gate** |
-| Human-in-the-loop | https://mastra.ai/docs/workflows/human-in-the-loop | HITL patterns |
-| Time travel | https://mastra.ai/docs/workflows/time-travel | Debug / replay |
-| Error handling | https://mastra.ai/docs/workflows/error-handling | Retries, fallbacks |
-| Scheduled workflows | https://mastra.ai/docs/workflows/scheduled-workflows | Cron-style |
+Prefer current installed Mastra primitives directly:
+- `createWorkflow` / `createStep`;
+- `.then()`, `.branch()`, `.parallel()` and other native control flow;
+- step `suspend()`;
+- typed `suspendSchema` / `resumeSchema`;
+- persisted workflow snapshots through configured storage;
+- run `.resume()` / recovery APIs supported by the installed version.
 
-**Streaming:** [workflow streaming](https://mastra.ai/docs/streaming/workflow-streaming) · **Deploy:** [workflow runners](https://mastra.ai/docs/deployment/workflow-runners)
+Do not build a custom workflow runner, browser-owned workflow truth, generic status database, Temporal/DurableAgent layer, or second approval framework unless a current proven gap requires it.
 
----
+## iPix HITL state model
 
-## Reference API (`reference/workflows/`)
+Never represent mandatory review as a boolean truthiness shortcut.
 
-Index via MCP: `mastraDocs` path `reference/workflows/`
+Use an explicit discriminated state, for example:
 
-| API | URL | Maps to doc |
-| --- | --- | --- |
-| **`Workflow` class** | https://mastra.ai/reference/workflows/workflow | [overview](https://mastra.ai/docs/workflows/overview) |
-| **`Step`** | https://mastra.ai/reference/workflows/step | control flow |
-| **`Run`** | https://mastra.ai/reference/workflows/run | execution instance |
-| Workflow state reader | https://mastra.ai/reference/workflows/workflow-state-reader | [snapshots](https://mastra.ai/docs/workflows/snapshots) · [suspend & resume](https://mastra.ai/docs/workflows/suspend-and-resume) |
-
-### Workflow methods (`reference/workflows/workflow-methods/`)
-
-| Method | URL | Doc |
-| --- | --- | --- |
-| `.then()` | https://mastra.ai/reference/workflows/workflow-methods/then | [control flow](https://mastra.ai/docs/workflows/control-flow) |
-| `.branch()` | https://mastra.ai/reference/workflows/workflow-methods/branch | control flow |
-| `.parallel()` | https://mastra.ai/reference/workflows/workflow-methods/parallel | control flow |
-| `.foreach()` | https://mastra.ai/reference/workflows/workflow-methods/foreach | control flow |
-| `.dowhile()` / `.dountil()` | https://mastra.ai/reference/workflows/workflow-methods/dowhile | control flow |
-| `.map()` | https://mastra.ai/reference/workflows/workflow-methods/map | control flow |
-| `.commit()` | https://mastra.ai/reference/workflows/workflow-methods/commit | overview |
-| `.createRun()` | https://mastra.ai/reference/workflows/workflow-methods/create-run | overview |
-| `.sleep()` | https://mastra.ai/reference/workflows/workflow-methods/sleep | [suspend & resume § sleep](https://mastra.ai/docs/workflows/suspend-and-resume) |
-| `.sleepUntil()` | https://mastra.ai/reference/workflows/workflow-methods/sleepUntil | suspend & resume |
-
-### Run methods (`reference/workflows/run-methods/`)
-
-| Method | URL | Doc |
-| --- | --- | --- |
-| `.start()` | https://mastra.ai/reference/workflows/run-methods/start | overview |
-| `.startAsync()` | https://mastra.ai/reference/workflows/run-methods/startAsync | overview |
-| **`.resume()`** | https://mastra.ai/reference/workflows/run-methods/resume | [suspend & resume](https://mastra.ai/docs/workflows/suspend-and-resume) |
-| `.cancel()` | https://mastra.ai/reference/workflows/run-methods/cancel | error handling |
-| `.restart()` | https://mastra.ai/reference/workflows/run-methods/restart | error handling |
-| **`.timeTravel()`** | https://mastra.ai/reference/workflows/run-methods/timeTravel | [time travel](https://mastra.ai/docs/workflows/time-travel) |
-
-**Note:** There is **no** `reference/workflows/suspend-and-resume` page — suspend/resume is documented under `docs/workflows/suspend-and-resume` and implemented via step `suspend()` + run `.resume()`.
-
----
-
-## MCP fetch examples
-
-```json
-{
-  "paths": [
-    "docs/workflows/overview",
-    "docs/workflows/suspend-and-resume",
-    "docs/workflows/snapshots",
-    "reference/workflows/workflow",
-    "reference/workflows/workflow-state-reader",
-    "reference/workflows/run-methods/resume"
-  ]
-}
+```text
+awaiting_review
+approved
+rejected
+revision_requested
+cancelled
+expired
 ```
 
-Package: `@mastra/core` — use `readMastraDocs` with `projectPath` = this repo root (`$(git rev-parse --show-toplevel)`).
+`approved: false` must not be indistinguishable from "not resumed yet".
 
----
+## Approval must bind to the exact artifact
 
-## mdeai pointers
+For consequential continuation, record and validate the reviewed proposal identity:
 
-| Artifact | Path |
-| --- | --- |
-| Event discovery workflows (planned) | `tasks/events/EVP-022-mvp-event-discovery-workflow.md` |
-| Mastra PRD workflows | `tasks/prompts/mastra/` |
-| CopilotKit HITL (UI mirror of suspend) | `copilotkit-integrations` skill |
-| v1 workflow migration | https://mastra.ai/guides/migrations/upgrade-to-v1/workflows |
+```text
+artifact_id
+revision
+canonical_hash
+exact validated snapshot
+actor
+org/resource ownership
+workflow run
+suspended step / resume target
+approval timestamp
+```
+
+Invariant:
+
+```text
+artifact rendered for review
+=
+artifact explicitly approved
+=
+artifact allowed to continue to the domain commit
+```
+
+Any material edit, recomputation, changed trusted reference, changed budget, changed deliverable set, changed rate/config input, or regenerated proposal creates a new revision/hash and requires new approval.
+
+Do not silently recompute a materially different proposal after resume.
+
+## Authorization is outside the prompt
+
+Before resume or callback continuation:
+- derive the authenticated actor server-side;
+- derive the trusted organization/resource server-side;
+- verify ownership of the run/artifact/domain object;
+- verify the expected suspended step/resume target;
+- validate typed resume data.
+
+Browser-supplied run IDs, org IDs, brand IDs, shoot IDs, artifact IDs, and page context are claims until verified.
+
+## Callback/webhook resume
+
+External async continuation must bind both sides:
+
+```text
+expected workflow run
++
+expected external job/crawl/provider operation ID
+```
+
+Reject mismatched, stale, duplicate, forged, or already-consumed callbacks. Authenticate provider callbacks where supported. Never let a callback bypass human review to write approved domain truth.
+
+## Side-effect rule
+
+Workflow snapshot persistence does not provide exactly-once business effects by itself.
+
+Every consequential write must have a domain-level uniqueness/idempotency invariant. Test:
+- duplicate resume;
+- concurrent resume;
+- approve vs reject race;
+- failure before commit;
+- failure after commit but before response;
+- process restart before resume;
+- retry after response loss.
+
+The safe result after a post-commit response loss is: retry observes the already-committed state and does not repeat the write.
+
+## Fail-closed provider behavior
+
+Provider/model/network failure must not advance the workflow with stale or partial prior data unless the product contract explicitly allows a clearly marked degraded result.
+
+Bound/redact upstream error text before persisting it into workflow state or logs.
+
+## Secrets
+
+Do not persist JWTs, service-role keys, provider credentials, sensitive headers, or equivalent secrets in workflow input, suspend/resume data, snapshots, working memory, model-visible state, or tracing payloads. Derive privileged capability at the server boundary.
+
+## Required adversarial matrix for consequential workflows
+
+At minimum verify:
+- approve;
+- reject;
+- revision requested;
+- close/cancel/timeout/disconnect;
+- malformed resume;
+- stale artifact revision;
+- wrong run;
+- wrong step;
+- wrong tenant/resource;
+- duplicate resume;
+- concurrent resume;
+- process restart while suspended;
+- external callback replay/mismatch;
+- provider failure after approval;
+- commit succeeds but response is lost;
+- no secret in persisted workflow state;
+- exact approved artifact reaches the commit boundary.
+
+## Proof order
+
+```text
+static workflow/side-effect inventory
+→ pure schema/step tests
+→ suspend/resume contract test
+→ authorization/tenant negatives
+→ duplicate/concurrency/idempotency
+→ real storage close/reopen
+→ provider/callback failure paths
+→ typecheck/build
+→ real operator HITL/browser proof only when required
+→ exact deployed runtime proof
+```
+
+## Source priority
+
+```text
+current iPix workflow + task owner
+→ installed @mastra/core source/types
+→ embedded docs
+→ current Mastra docs/MCP
+→ migration notes/releases/issues for version-specific behavior
+```
+
+Current docs:
+- https://mastra.ai/docs/workflows/overview
+- https://mastra.ai/docs/workflows/control-flow
+- https://mastra.ai/docs/workflows/snapshots
+- https://mastra.ai/docs/workflows/suspend-and-resume
+- https://mastra.ai/docs/workflows/error-handling
