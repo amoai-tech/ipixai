@@ -25,4 +25,4 @@ The old `linear-implement` skill assumed Rails-specific sub-skills and workflows
 - Preserve security rules from `linear-claude-skill` but adapt them to this repo's Infisical/.env.local patterns.
 - Preserve Linear Method guidance from `linear-method` because it is reusable and high value.
 - Preserve PM iron laws from `linear-pm`: dedupe, filter, use state IDs, paginate, cache metadata.
-- Preserve iPix spec/Linear sync rules from `ipix-task-lifecycle` references.
+- Use `.claude/skills/tasks/SKILL.md` as the canonical iPix task execution/progress standard; legacy lifecycle references are compatibility-only.

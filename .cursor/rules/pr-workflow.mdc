@@ -1,11 +1,11 @@
 ---
-description: iPixai PR lifecycle — one concern, evidence before merge, mandatory post-merge (verify, Linear, risks, docs, changelog). Details in .claude/skills/pr-workflow/.
+description: iPixai PR lifecycle summary. Canonical PR/review/CI/post-merge details live in .claude/skills/tasks/references/.
 alwaysApply: true
 ---
 
 # PR workflow (Cursor)
 
-Canonical details: `.claude/skills/pr-workflow/SKILL.md`. **Post-merge:** `.claude/skills/pr-workflow/references/post-merge.md`. PR body: `pr-description.mdc`. Do not copy those files here.
+Canonical details: `.claude/skills/tasks/SKILL.md` plus `references/github-pr.md`, `review-comments.md`, `github-actions.md`, and `post-merge.md`. `pr-workflow` is a deprecated compatibility alias. PR body: `pr-description.mdc`.
 
 ## Before / during the PR
 
@@ -24,4 +24,4 @@ Do not stop when GitHub shows MERGED. Run post-merge in order:
 4. **Docs** — only if user workflow / API / config / env / auth / schema / deploy / ops changed; `docs/` only; follow-up PR after merge.
 5. **Changelog** — notable user-facing/API/security/DB/config/ops: one `Unreleased` line in `changelog.md`: `- <type>(<scope>): <outcome> (<IPI>, #<PR>)`. Skip tests/format/deps/generated/internal refactors.
 
-`/pr` does **not** run this. After merge, load `post-merge.md` and execute it.
+`/pr` does **not** prove Done. After merge, load `.claude/skills/tasks/references/post-merge.md` and execute the applicable proof.

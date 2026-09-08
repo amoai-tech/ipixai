@@ -8,17 +8,17 @@ Use this reference for all iPix / Lumina Studio Linear work.
 - Team: `IPI`
 - Issue format: `IPI-###`
 - Spec IDs: `PLT-###`, `AI-###`, `COM-###`, `UI-###`, `DNA-###`
-- Local specs: `docs/linear/issues/IPI-<n>-<SPEC-ID>.md`
-- Progress tracker: `todo.md`
+- Task/progress source of truth: live Linear issue
+- Canonical task standard: `.claude/skills/tasks/SKILL.md`
 - Supabase policy: remote-only for MVP; do not run local Supabase Docker.
 
 ## Read first for iPix tasks
 
-1. `ipix-task-lifecycle` skill if available.
-2. Local spec: `docs/linear/issues/IPI-*-*.md`.
-3. `docs/linear/issues/` for related specs.
-4. `todo.md` for current progress state.
-5. Relevant project docs, PRDs, or diagrams.
+1. `.claude/skills/tasks/SKILL.md`.
+2. Live Linear issue, dependencies, and current progress.
+3. Current repository/runtime evidence relevant to the task.
+4. Affected domain skills.
+5. Relevant project docs, PRDs, or diagrams only when they materially inform the task.
 
 ## Executable Linear description
 
@@ -31,7 +31,7 @@ Every executable iPix issue should include:
 
 **Blocked by:** … · **Unblocks:** …
 
-**Skills:** `ipix-task-lifecycle` · `linear` · …
+**Skills:** `tasks` · `task-verifier` · `linear` · <affected domain skills>
 
 ---
 
@@ -59,7 +59,7 @@ flowchart TD
 - [ ] **D1** Run relevant commands — proof
 
 #### E. Ship
-- [ ] **E1** Update todo.md and Linear state — proof
+- [ ] **E1** Record verified evidence/progress in Linear; Done only after applicable post-merge proof
 
 ---
 
@@ -84,7 +84,7 @@ gantt
 **Linear:** IPI-<n>
 **Track:** Platform | Commerce | UI | DNA | AI
 **Blocked by:** … · **Unblocks:** …
-**Skills:** ipix-task-lifecycle · linear · …
+**Skills:** tasks · task-verifier · linear · <affected domain skills>
 **MVP proof:** #N
 
 ## In plain terms
@@ -123,32 +123,18 @@ Personas:
 
 ## Scripts
 
-Use when syncing specs to Linear:
-
-```bash
-node scripts/linear-update-issue.mjs <id>
-node scripts/linear-update-issue.mjs --all
-```
-
-Requires `LINEAR_API_KEY` in the local environment or secret manager.
+Update the live Linear issue directly through the connected Linear tool/API. Do not require a nonexistent local spec sync layer. If Linear is unavailable, report the update as blocked.
 
 ## Verification gates
 
-| Touch area | Gate |
-|------------|------|
-| Frontend | `npm run lint`, `npm run build`, browser smoke |
-| Tests | `npm run test` or targeted test |
-| Supabase schema | `npm run supabase:verify` |
-| Auth/RLS | `npm run supabase:verify-rls` |
-| Edge functions | `npm run supabase:verify-edge` |
-| Env vars | `npm run check:env` |
+Use `.claude/skills/tasks/references/pre-merge-tests.md` plus the affected domain skill. Re-read current `package.json` / CI before naming commands; do not maintain a second command matrix here.
 
 ## Done definition
 
 An iPix issue is done only when:
 
-- Local spec acceptance criteria are checked.
-- Relevant verification commands passed.
-- `todo.md` row is updated.
-- Linear state is moved to `Done` when explicitly requested.
-- Code changes are committed only if the user explicitly asked.
+- Applicable acceptance criteria are proved with current evidence.
+- Risk-matched verification passed.
+- Applicable post-merge proof passed.
+- Linear progress/state matches reality.
+- `task-verifier` Full has no unresolved blocker before Done.

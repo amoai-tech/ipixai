@@ -6,24 +6,24 @@ description: >
   progress trackers, executable Linear prompts, pre-commit quality gates, GitHub PR creation,
   review-comment troubleshooting, and post-merge proof. Defines the task standard; it does not
   replace task-verifier Done checks.
-version: "1.6.0"
+version: "1.7.0"
 ---
 
 # tasks — iPix Linear task specification standard
 
-**Purpose:** define what a production-ready Linear task must contain and how its live progress is maintained.
+**Purpose:** define and execute substantial iPix Linear work end-to-end while keeping live Linear as the resumable progress/evidence contract.
 
 ## Ownership
 
 ```text
 tasks
-= what a good executable Linear task contains
+= define + execute substantial iPix task work end-to-end
 
-ipix-task-lifecycle
-= how that task is executed through plan → research → implement → test → ship
+domain skills
+= implementation-specific contracts for Supabase, Mastra, CopilotKit, Cloudinary, Next.js, etc.
 
 task-verifier
-= independent proof that the task is actually complete
+= independent evidence gate that proves claims and Done
 ```
 
 The Linear issue is the live task-specific execution runbook and progress source of truth.
@@ -54,7 +54,7 @@ Before commit, read [pre-commit.md](references/pre-commit.md), then choose the r
 For PR creation/troubleshooting, read [github-pr.md](references/github-pr.md), [review-comments.md](references/review-comments.md), [domain-routing.md](references/domain-routing.md), [research-evidence.md](references/research-evidence.md), and [github-actions.md](references/github-actions.md).
 For user-facing or AI-native workflows, read [user-journey-testing.md](references/user-journey-testing.md).
 For UI-heavy work, read [ui-review.md](references/ui-review.md).
-After merge, read [post-merge.md](references/post-merge.md).
+After merge, read [post-merge.md](references/post-merge.md). Legacy `ipix-task-lifecycle` and `pr-workflow` skills are compatibility aliases only; do not add them to new task skill lists.
 
 ## Explicit action vocabulary
 

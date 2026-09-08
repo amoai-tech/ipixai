@@ -127,6 +127,9 @@ High-level approach.
 
 ## PR template
 
+Canonical PR/review/CI/post-merge behavior lives in `.claude/skills/tasks/`; this is only a body skeleton.
+
+
 ```markdown
 ## Summary
 - …
@@ -155,7 +158,7 @@ Closes IPI-###
 
 **Blocked by:** … · **Unblocks:** …
 
-**Skills:** `ipix-task-lifecycle` · `linear` · …
+**Skills:** `tasks` · `task-verifier` · `linear` · <affected domain skills>
 
 ### Flow
 ```mermaid
@@ -177,7 +180,7 @@ flowchart TD
 - [ ] **D1** Run relevant verification commands — proof
 
 #### E. Ship
-- [ ] **E1** Update todo.md and Linear state — proof
+- [ ] **E1** Record verified evidence/progress in Linear; Done only after applicable post-merge proof
 
 ### Gantt — IPI-NNN
 ```mermaid

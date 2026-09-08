@@ -59,7 +59,7 @@ You are implementing **IPI-NNN · TASK-ID — Full title** in iPixai (`/home/sk/
 9. Smallest change that meets ACs. One concern per PR/commit.
 10. Targeted tests first; browser when UI changed (`dev:ui` + `dev:agent` split).
 11. Compare to every AC. Do not mark Linear **Done** because code exists.
-12. Before Done: **task-verifier Full**. After merge: `.claude/skills/pr-workflow/references/post-merge.md`.
+12. Before Done: **task-verifier Full**. After merge: `.claude/skills/tasks/references/post-merge.md`.
 ```
 
 ---
@@ -185,8 +185,8 @@ https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra
 | Schema / RLS / RPC / Auth | `ipix-supabase` |
 | App Router / `src/app` | `nextjs-developer` |
 | UI components | `shadcn` · `vercel-react-best-practices` |
-| PRs | `pr-workflow` |
-| Lifecycle / A–E | `ipix-task-lifecycle` |
+| Task execution / PRs / CI / post-merge | `tasks` |
+| Independent verification / Done gate | `task-verifier` |
 | UI journey diagram | `mermaid-diagrams` |
 
 **Required MCP servers (when that layer is in scope):** `user-mastra` · CopilotKit docs MCP · `plugin-supabase-supabase` (read-only) · `user-context7` · `plugin-linear-linear`. Discover tools each session.

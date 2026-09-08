@@ -4,7 +4,7 @@ Use this reference when a Linear issue is being implemented in code.
 
 ## iPix default
 
-For iPix work, implement through `ipix-task-lifecycle` unless the user explicitly asks for a different workflow. The local spec in `docs/linear/issues/IPI-*-*.md` is the execution contract.
+For iPix work, use `.claude/skills/tasks/SKILL.md` as the canonical execution contract. Live Linear is the task/progress source of truth; do not require a local issue mirror unless a separate task explicitly owns one.
 
 ## Generic workflow
 
@@ -12,8 +12,8 @@ For iPix work, implement through `ipix-task-lifecycle` unless the user explicitl
    - Get title, description, status, priority, labels, project, initiative, assignee, and suggested branch name.
 
 2. **Read local context**
-   - For iPix: `docs/linear/issues/IPI-*-*.md`.
-   - Search related docs, PRDs, diagrams, and existing code.
+   - For iPix: read the live Linear issue and `.claude/skills/tasks/SKILL.md`.
+   - Search only related docs, PRDs, diagrams, and existing code needed to verify the task.
 
 3. **Move to In Progress**
    - Update Linear state when the user asked you to work on it.
@@ -37,7 +37,7 @@ For iPix work, implement through `ipix-task-lifecycle` unless the user explicitl
    - Do not commit unless the user explicitly asks.
 
 7. **Verify**
-   - Run relevant lint/build/test commands.
+   - Run the risk-matched commands from `tasks/references/pre-merge-tests.md`; do not invent missing scripts.
    - Run Supabase verification only when Supabase is touched.
    - Smoke-test browser flows when UI/auth/RLS/edge is touched.
 

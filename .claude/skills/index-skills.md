@@ -18,10 +18,10 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Cursor rules: `.cursor/rule
 | `shadcn` | UI components |
 | `vercel-react-best-practices` | Perf |
 | `linear` | IPI issues |
-| `tasks` | Executable Linear task standard: agent prompts, implementation, pre-commit, testing, PR review, user journeys, CI, migration reuse, and post-merge proof |
-| `ipix-task-lifecycle` | Five-phase ship |
-| `task-verifier` | Done gate |
-| `pr-workflow` | PRs (lifecycle dependency; not in the original ask list) |
+| `tasks` | **Primary iPix task skill** — task setup/execution, agent prompts, pre-commit, testing, PR review, user journeys, CI, migration reuse, and post-merge proof |
+| `task-verifier` | **Independent evidence gate** — Quick merge-safety review and Full Done verification |
+| `ipix-task-lifecycle` | **Deprecated compatibility alias** → use `tasks` for new work |
+| `pr-workflow` | **Deprecated compatibility alias** → use `tasks` PR/Actions/post-merge references |
 | `lean` | Velocity audit |
 | `worktrees` | Isolated branches |
 | `refactor-plan` | Multi-file refactors |
@@ -52,4 +52,4 @@ Also not copied from the wider old catalog: `mercur`, `amazon-bedrock`, `ipix` r
 - Next: port 3000, `src/app/`
 - Supabase: preview-first, do not `cd /home/sk/ipix` from this repo
 - CopilotKit: `ipix-production.md` is old-app notes
-- Lifecycle: Linear is SSOT; Graphify CLI is uv `graphifyy` 0.9.48
+- Task execution: `tasks` is canonical; `ipix-task-lifecycle` and `pr-workflow` are compatibility aliases only
