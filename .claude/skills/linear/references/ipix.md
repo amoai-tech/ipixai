@@ -137,4 +137,4 @@ An iPix issue is done only when:
 - Risk-matched verification passed.
 - Applicable post-merge proof passed.
 - Linear progress/state matches reality.
-- `task-verifier` Full has no unresolved blocker before Done.
+- `task-verifier` Standard or Adversarial (risk-matched) has no unresolved BLOCKER before Done.

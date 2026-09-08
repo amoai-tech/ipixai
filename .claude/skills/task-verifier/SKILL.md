@@ -1,49 +1,47 @@
 ---
 name: task-verifier
 description: >
-  Independent evidence gate for iPix tasks and PRs. Use for "verify this task", merge-safety
-  checks, audits of completion claims, and before Linear Done. Consumes the canonical `tasks`
-  standard, current code/PR head, tests/CI/runtime, and affected domain skills. It does not
-  define a parallel task lifecycle or implementation process.
-version: "2.0.0"
+  Adversarial independent evidence gate for iPix tasks and PRs. Use for task review, merge-safety,
+  failure-mode analysis, audits of completion claims, and before Linear Done. Consumes the canonical
+  `tasks` standard, exact current code/PR head, tests/CI/runtime, and affected domain skills. It tries
+  to disprove unsafe or incomplete claims rather than maintaining a parallel implementation lifecycle.
+version: "2.1.0"
 ---
 
-# task-verifier — independent evidence gate
+# task-verifier — adversarial evidence gate
 
-**Purpose:** answer one question: **does current evidence prove the required iPix outcome?**
+**Core mindset:** **try to disprove Done.** Ask what could make the task wrong, incomplete, unsafe, misleadingly green, or fail in production, then require evidence that eliminates those failure modes.
 
-Do not trust status fields, prior-agent summaries, bot approvals, old task markdown, or checked boxes without re-verification.
+Do not trust status fields, prior-agent summaries, bot approvals, old task markdown, checked boxes, or earlier green runs without current evidence.
 
 ## Ownership
 
 ```text
-tasks
-= define + execute the work
-
-domain skills
-= verify domain-specific implementation contracts
-
-task-verifier
-= independently prove claims / acceptance criteria / Done
+tasks         = define + execute substantial iPix work
+domain skills = implementation-specific contracts
+task-verifier = independently challenge claims and prove merge safety / Done
 ```
 
-Before substantial verification, read [`../tasks/SKILL.md`](../tasks/SKILL.md). Do not recreate its task format, lifecycle, PR process, or testing matrix here.
+Before substantial verification, read [`../tasks/SKILL.md`](../tasks/SKILL.md). Do not recreate its implementation process.
+
+## Modes
+
+| Mode | Use when | Depth |
+|---|---|---|
+| **Quick** | small fix, docs/process, narrow PR/status check | 1–3 decisive probes; stop on blocker |
+| **Standard** | normal feature/task/PR review | task validity + AC map + failure modes + false-green + domain checks |
+| **Adversarial** | auth/RLS/tenant, HITL/consequential AI, migration/data integrity, production config/release, security-sensitive dependency, destructive/publishing/payment write | Standard + hostile/negative/recovery/rollback/supply-chain proof |
+
+Default: **Standard** for `verify/review/audit task`; **Quick** only when the request is explicitly narrow; **Adversarial** automatically for the risk triggers above or when the user asks for production/security readiness.
 
 Active references:
 - [Quick gate](references/quick-gate.md)
+- [Standard + adversarial protocol](references/adversarial-gate.md)
+- [Domain best-practice scan](references/domain-best-practices.md)
 - [Full scoring](references/task-spec-rubric.md)
 - [Anti-fake-Done](references/anti-fake-done-checklist.md)
 
-Everything under `references/legacy/` and `scripts/legacy/` is historical compatibility material, not current verification guidance.
-
-## Quick vs Full
-
-| Mode | Use when | Output |
-|---|---|---|
-| **Quick** | PR/merge safety, small fix, docs/process change, status check | minimum decisive probes + Safe / Not ready |
-| **Full** | before Done, security/tenant boundary, production release, consequential AI/runtime change | AC-by-AC proof + journey/domain/runtime evidence + scored report |
-
-Default: **Quick**, except a request asking whether work is Done/production-ready automatically uses **Full**.
+Everything under `references/legacy/` and `scripts/legacy/` is historical compatibility material, not current iPix guidance.
 
 ## Evidence priority
 
@@ -52,101 +50,57 @@ Use the cheapest authoritative proof that answers the claim:
 1. Current runtime/live state when applicable.
 2. Exact current branch/PR head and changed code.
 3. Targeted tests and exact-head CI.
-4. Live Linear acceptance criteria and current task progress.
+4. Live Linear acceptance criteria and current task state.
 5. `AGENTS.md` + `tasks/SKILL.md`.
 6. Affected domain skill and connected live/MCP evidence.
 7. Installed dependency source/types/lockfile.
 8. Official version-specific vendor docs/repositories when still needed.
 
-Memory, reviewer prose, and status labels are not proof.
+Memory, reviewer prose, scores, and status labels are not proof.
 
-## Verification flow
+## Required verification flow
 
-1. **Outcome:** identify the real user/business outcome and observable Definition of Done from live Linear.
-2. **Head:** record exact branch/PR SHA and changed paths.
-3. **AC map:** classify every applicable acceptance criterion as `VERIFIED`, `PARTIAL`, `UNVERIFIED`, or `FAILED`.
-4. **Domain:** load only domain skills touched by the changed paths; verify the skill/MCP actually exists before relying on it.
-5. **Proof:** run the smallest decisive probes first; escalate only where cheaper proof is insufficient.
-6. **Journey:** for user-facing work, verify the complete business journey using [`../tasks/references/user-journey-testing.md`](../tasks/references/user-journey-testing.md).
-7. **AI:** when AI participates, verify both system correctness and AI correctness with the current iPix test/runtime stack. Explorbot may supplement exploration but is not a mandatory gate.
-8. **Post-merge:** when claiming Done, require the applicable [`../tasks/references/post-merge.md`](../tasks/references/post-merge.md) evidence. Merge alone is insufficient.
-9. **Verdict:** blockers first, then warnings/improvements. Missing required evidence means not Done.
+1. **Task validity audit:** prove the gap still exists; detect stale assumptions, duplicate work, wrong architecture, obsolete APIs/files/routes, and ACs that do not prove the real user outcome.
+2. **Exact head:** record branch/PR SHA and changed paths before evaluating implementation evidence.
+3. **AC map:** classify every applicable AC as `VERIFIED`, `PARTIAL`, `UNVERIFIED`, or `FAILED` with concrete evidence.
+4. **Adversarial pre-mortem:** identify likely failure points and record a failure-mode matrix: trigger, impact, protection, proof, status.
+5. **False-green gate:** ask whether all listed tests could pass while the operator/business outcome is still broken; convert plausible false greens into missing proof.
+6. **Domain best practices:** load only affected domain skills and run the relevant checks from [domain-best-practices.md](references/domain-best-practices.md).
+7. **Negative/recovery:** verify malformed/empty/stale/large input, provider/network failure, retry, idempotency, partial failure, refresh/back/navigation, and unauthorized/cross-tenant behavior when applicable.
+8. **AI behavior:** for AI-native work test positive and negative behavior: should-act/should-not-act, correct/wrong tool, valid/invalid arguments, approval granted/rejected/absent, prompt-injection/excessive-agency attempts, and no durable write before approval.
+9. **Supply chain:** when manifests, lockfiles, actions, containers, or external SDK versions change, review unexpected dependencies, compatibility, vulnerabilities, permissions, licensing, and pinning/upgrade risk.
+10. **Operations:** for deployment-affecting work prove failure detection, retry safety, rollback/containment, rollback triggers, migration compatibility, and immediate monitoring signals.
+11. **Journey:** for user-facing work verify the complete business journey using [`../tasks/references/user-journey-testing.md`](../tasks/references/user-journey-testing.md).
+12. **Exact-head proof:** required CI/reviews/tests must apply to the current head; older green evidence is stale after a push.
+13. **Post-merge:** when claiming Done require applicable [`../tasks/references/post-merge.md`](../tasks/references/post-merge.md) evidence. Merge alone is insufficient.
+14. **Verdict:** blockers first, then high/medium findings, then improvements. Missing required evidence means not Done.
 
-## Domain evidence examples
+## Severity taxonomy
 
-| Domain | Minimum relevant proof |
-|---|---|
-| Supabase/Postgres | migration/RLS/RPC/constraint proof + tenant denial where applicable |
-| CopilotKit/AG-UI | route/runtime contract + thread/interrupt/HITL path when changed |
-| Mastra | deterministic tool/workflow behavior + persistence/suspend/resume only when changed |
-| Cloudinary | signing/config/webhook/idempotency + real media path only when AC requires it |
-| Next/UI | targeted Vitest/component proof + Playwright for observable route/auth/responsive behavior |
-| Security/tenant | Org A allowed + Org B denied, no privileged/client-secret bypass |
-
-Do not run unrelated domain gates merely to inflate coverage.
-
-## Quick gate
-
-Quick mode uses **1–3 decisive probes** whenever possible. Stop on the first confirmed blocker.
-
-Report:
-
-```markdown
-## Gate — IPI-XXX · TASK-ID — Full Task Name
-
-**Verdict:** ✅ Safe / 🛑 Not ready
-**Confidence:** High / Medium / Low
-
-| Claim | Evidence | Result |
+| Severity | Meaning | Effect |
 |---|---|---|
-| ... | ... | ✅ / 🟡 / 🔴 |
+| **BLOCKER** | tenant/secret/data-loss/destructive-write/HITL/unsafe-migration/required-AC/exact-head critical failure | Not ready regardless of score |
+| **HIGH** | likely production correctness/reliability/security failure with meaningful impact | fix before Done unless explicitly proven non-blocking |
+| **MEDIUM** | material weakness or unproved edge case that does not invalidate the main outcome | document/fix before Done when required by AC/risk |
+| **IMPROVEMENT** | maintainability/efficiency/readability with no current outcome risk | non-blocking |
+| **OUT-OF-SCOPE** | valid issue owned elsewhere | cite exact owner; do not hide a blocker here |
+| **NOISE** | incorrect, stale, or non-actionable finding | dismiss with evidence |
 
-### Blockers
-- ...
+Finding categories: `CORRECTNESS`, `SECURITY`, `DATA-INTEGRITY`, `RELIABILITY`, `ARCHITECTURE`, `USER-JOURNEY`, `AI-SAFETY`, `TEST-GAP`, `OPERATIONS`, `PERFORMANCE`, `MAINTAINABILITY`, `STALE-SPEC`.
 
-### Missing evidence / risks
-- ...
+## Scoring rule
 
-### Next action
-- <smallest action required>
-```
-
-Do not invent a numeric score in Quick mode.
-
-## Full gate
-
-Full verification must include:
-
-- exact task outcome and current head SHA
-- acceptance-criteria evidence table
-- user-journey proof when applicable
-- security/tenant/HITL proof when applicable
-- exact targeted tests/typecheck/build/E2E/CI/runtime evidence required by the change risk
-- blockers and residual risks
-- post-merge proof when claiming Done
-
-### Full scoring
-
-| Dimension | Weight |
-|---|---:|
-| Outcome / AC proof | 30 |
-| Implementation correctness | 20 |
-| Test / verification evidence | 20 |
-| Security / tenant / safety | 15 |
-| Architecture / source-of-truth alignment | 10 |
-| Process / skill compliance | 5 |
-
-Any unresolved critical blocker means **Not ready regardless of score**. Do not invent precision when evidence is incomplete; label scores provisional.
+Only **Standard** or **Adversarial** may publish a score, and only when the evidence is sufficiently complete. If material evidence is missing, label the score **provisional** or omit it. Never let a high score override a BLOCKER.
 
 ## Hard Done rule
 
 `code exists` ≠ Done
 `tests pass` ≠ automatically Done
 `PR merged` ≠ Done
-**required observable outcome + applicable post-merge evidence verified = Done**
+**required observable outcome + risk-matched adversarial evidence + applicable post-merge proof = Done**
 
 ## Agent prompt
 
 ```text
-Review this task independently. Read the live Linear task and `.claude/skills/tasks/SKILL.md`, identify the observable outcome, inspect the exact current branch/PR head, and map every acceptance criterion to evidence. Use the cheapest authoritative proof: runtime → current code/head → tests/CI → live data → domain skill/MCP → installed source/types → official docs. Load only affected domain skills. For user-facing work verify the full business journey; for AI-native work verify system correctness and AI correctness. Classify each AC VERIFIED, PARTIAL, UNVERIFIED, or FAILED. Report blockers before optional improvements. Do not mark Done while required evidence is missing. End with the smallest next action required to reach verified Done.
+Independently review this task and try to disprove Done. Read the live Linear task and `.claude/skills/tasks/SKILL.md`. Verify the task itself is still valid before evaluating implementation. Record the exact current branch/PR SHA. Map every AC to current evidence. Build a failure-mode matrix and identify plausible false-green scenarios where tests could pass but the real user outcome would still fail. Load only affected domain skills and check their current best-practice/security contracts. Automatically use Adversarial mode for auth/RLS/tenant, HITL/consequential AI, migrations/data integrity, production config/release, security-sensitive dependency changes, publishing/payments, or destructive writes. Test positive and negative AI behavior when AI participates; test retry/idempotency/partial-failure/recovery where state can change; review supply-chain risk when manifests/lockfiles/actions change; require rollback/monitoring proof for deployment-affecting work. Classify findings by severity and category. Treat missing required evidence as not Done. Use numeric scores only when evidence is complete enough to justify them. End with the smallest fixes/proofs required to reach verified Done.
 ```

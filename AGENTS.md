@@ -38,7 +38,7 @@ Root `package.json` currently provides `npm test` and `npm run typecheck`; there
 4. `npm run build` when ports 3000 and 4111 are free and the changed risk requires production-build proof
 5. Browser/runtime journey when UI or chat ACs require it
 6. Org A vs Org B when tenant isolation is in scope
-7. `.claude/skills/task-verifier/SKILL.md` — Quick before implement; Full before Done (and Full for auth/RLS/Mastra/CopilotKit runtime)
+7. `.claude/skills/task-verifier/SKILL.md` — Standard for substantial task review/Done; Quick only for narrow checks; Adversarial automatically for auth/RLS/tenant, HITL/consequential AI, migrations/data integrity, production/release, and security-sensitive changes
 
 Add or update tests for behavior you change. Fix type/build failures before claiming complete.
 
@@ -116,7 +116,7 @@ Do not edit after only reading a Linear task. Full prompt: [`docs/linear/linear-
 4. MCP-check **at most five** task-specific **official** URLs found via web search + MCP (Mastra, CopilotKit, Supabase, GitHub, Linear, Context7 as applicable)
 5. Compare docs to `node_modules` types
 6. Supabase read-only when DB state matters
-7. task-verifier **✅ Safe to execute** (Full composite ≥85; Grade A / 90+ for auth, RLS, tenant, production-adjacent). Else **BLOCKED** / **UNVERIFIED**
+7. task-verifier **Standard** before substantial implementation. Use **Adversarial** for its automatic risk triggers. Any BLOCKER/failed required evidence → **BLOCKED** / **UNVERIFIED**; do not use a numeric threshold to override a blocker
 
 ## Reuse before custom (every task)
 

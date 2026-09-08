@@ -20,13 +20,13 @@ flowchart TD
     docs --> gh[Official GitHub repo if listed]
     gh --> code[Graphify then live codebase]
     code --> supa[Supabase MCP read-only preview]
-    supa --> tv[task-verifier Quick]
+    supa --> tv[task-verifier Standard]
     tv --> gate{Verifier 🔴?}
     gate -->|yes| stop[Stop — rewrite task or report Blocked]
     gate -->|no| fastest[Faster path? Use it]
     fastest --> impl[Implement smallest change]
     impl --> tests[Targeted tests]
-    tests --> tvfull[task-verifier Full before Done]
+    tests --> tvfull[task-verifier Standard or Adversarial before Done]
     tvfull --> done{ACs proven?}
     done -->|no| stop
     done -->|yes| ship[PR then post-merge]
@@ -51,7 +51,7 @@ You are implementing **IPI-NNN · TASK-ID — Full title** in iPixai (`/home/sk/
 4. **Live codebase:** `PATH="$HOME/.local/bin:$PATH" graphify query "<this task>"` then Read/Grep. Confirm the gap still exists. Reuse what is already here (`ponytail`).
 5. **Supabase:** connect Supabase MCP **read-only** (preview / `list_tables` / `list_migrations` / advisors). Never `db push`, never production writes. Confirm schema/RLS claims in this ticket against live preview — not memory.
 6. **Skills:** load every skill in **Skills** below. Index: `.claude/skills/index-skills.md`.
-7. Run **task-verifier Quick** (`.claude/skills/task-verifier/SKILL.md` + `references/quick-gate.md`). Any 🔴 → **do not implement**. Report blockers.
+7. Run **task-verifier Standard** for substantial tasks. Use Quick only for an explicitly narrow check; Adversarial is automatic for security/tenant/HITL/data-integrity/production-risk triggers. Any BLOCKER → **do not implement**. Report blockers.
 8. At every later step ask: *is there a better, faster, more efficient way?* Use it (`.cursor/rules/fastest.mdc`). Prefer managed dashboard → official CLI/SDK → official example → small adapter → custom last.
 
 ### Only then implement
@@ -59,7 +59,7 @@ You are implementing **IPI-NNN · TASK-ID — Full title** in iPixai (`/home/sk/
 9. Smallest change that meets ACs. One concern per PR/commit.
 10. Targeted tests first; browser when UI changed (`dev:ui` + `dev:agent` split).
 11. Compare to every AC. Do not mark Linear **Done** because code exists.
-12. Before Done: **task-verifier Full**. After merge: `.claude/skills/tasks/references/post-merge.md`.
+12. Before Done: **task-verifier Standard**, or **Adversarial** when its risk triggers apply. After merge: `.claude/skills/tasks/references/post-merge.md`.
 ```
 
 ---
@@ -170,7 +170,7 @@ https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra
 
 | Skill / rule | Path | Why |
 |--------------|------|-----|
-| **task-verifier** | `.claude/skills/task-verifier/SKILL.md` | Quick before implement; Full before Done. Probes live code, official docs/MCP, Supabase when relevant |
+| **task-verifier** | `.claude/skills/task-verifier/SKILL.md` | Standard for substantial task review/Done; Quick only for narrow checks; Adversarial auto-escalates on high-risk work |
 | **graphify** | `.claude/skills/graphify/SKILL.md` | Query graph before spanning-file reads |
 | **ponytail** | `.cursor/rules/ponytail.mdc` | Reuse / smallest change |
 | **fastest** | `.cursor/rules/fastest.mdc` | Better/faster path each step — use it |
@@ -278,7 +278,7 @@ Keep only rows that apply. iPixai default:
 3. Implement
 4. Test
 5. Preview / browser
-6. task-verifier Full
+6. task-verifier Standard or Adversarial
 7. Document only if user workflow/API/config/auth/schema changed
 
 ## Acceptance criteria
@@ -295,7 +295,7 @@ ACs must be **measurable** and prove the **real user outcome** (not “code exis
 - [ ] Rollback documented
 - [ ] Each Official reference (full URL) was fetched/MCP-checked; review table + adapt prompt still match installed types
 - [ ] Custom gap section remains true (no scope creep into “must not rebuild”)
-- [ ] task-verifier Quick passed before implement; Full passed before Done
+- [ ] task-verifier Standard passed for substantial work; Adversarial passed when automatically required before Done
 
 ## Dependencies
 
@@ -315,6 +315,6 @@ ACs must be **measurable** and prove the **real user outcome** (not “code exis
 
 **Ready (Todo):** outcome, journey, current-state evidence, ≤5 official URLs **with review table + per-URL adapt prompts + layer map + custom gap + limitations**, GitHub repo if needed, skills including **task-verifier**, MCPs, reuse review, measurable ACs, security, verification plan.
 
-**Merged:** code on `origin/main`. **Verified:** real workflow probed. **Done:** task-verifier Full + post-merge evidence. Merge ≠ Done.
+**Merged:** code on `origin/main`. **Verified:** real workflow probed. **Done:** task-verifier Standard or Adversarial (risk-matched) + post-merge evidence. Merge ≠ Done.
 
 **Reuse before custom:** in-repo helper → installed dependency → vendor dashboard → official CLI → official SDK → official example → custom last. Maintained official GitHub only.

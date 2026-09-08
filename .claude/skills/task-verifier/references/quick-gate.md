@@ -1,10 +1,10 @@
 # Quick gate — minimum decisive evidence
 
-Use for PR/merge safety, docs/process changes, small fixes, and status checks. Parent: [`../SKILL.md`](../SKILL.md).
+Use only for explicitly narrow PR/merge safety, docs/process changes, small fixes, and status checks. Parent: [`../SKILL.md`](../SKILL.md).
 
 ## Rule
 
-Use **1–3 decisive probes** whenever possible. Stop at the first confirmed blocker; do not run a full audit merely to produce a score.
+Use **1–3 decisive probes** whenever possible. Stop at the first confirmed blocker. Quick does not replace Standard/Adversarial review for a substantial task.
 
 ```text
 current task/outcome
@@ -20,11 +20,11 @@ current task/outcome
 |---|---|
 | Docs/process | exact diff, internal consistency, relevant links/commands exist |
 | Code fix | exact diff, targeted regression test, typecheck when TS contract changed |
-| UI | targeted test + Playwright/browser proof when observable behavior changed |
-| Supabase/security | relevant SQL/RLS/RPC proof + tenant denial when boundary changed |
+| UI | targeted test + browser proof when observable behavior changed |
+| Supabase/security | **escalate to Adversarial** when boundary/write policy changed |
 | PR state | exact-head CI/review freshness + unresolved substantive threads |
 
-Escalate to Full when the user asks if the task is Done/production-ready, evidence conflicts, or the task affects production/security/tenant/HITL boundaries.
+Escalate to **Standard** when reviewing a normal substantial feature/task. Escalate to **Adversarial** for auth/RLS/tenant, HITL/consequential AI, migration/data-integrity, production/release, security-sensitive dependency, publishing/payment/destructive-write risk, or conflicting evidence.
 
 ## Report
 
@@ -49,3 +49,9 @@ Escalate to Full when the user asks if the task is Done/production-ready, eviden
 ```
 
 Do not publish a numeric score in Quick mode.
+
+## Agent prompt
+
+```text
+Run only the minimum decisive checks needed for this narrow request. Record exact-head evidence, stop on the first blocker, and escalate instead of pretending Quick proves a substantial/security/production task is complete.
+```

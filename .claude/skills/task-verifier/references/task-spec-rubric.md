@@ -1,25 +1,31 @@
-# Full verification scoring
+# Standard / Adversarial verification scoring
 
-Use only for **Full** verification. Scores summarize evidence; they never override a blocker.
+Use only when evidence is sufficiently complete. Scores summarize evidence; they never override a BLOCKER.
 
 | Dimension | Weight | What is proved |
 |---|---:|---|
-| Outcome / AC proof | 30 | each applicable acceptance criterion maps to current evidence |
-| Implementation correctness | 20 | current code/architecture matches the required behavior |
-| Test / verification evidence | 20 | risk-matched automated/runtime proof is current and reproducible |
-| Security / tenant / safety | 15 | authz, tenant, HITL, secrets, destructive-write boundaries when applicable |
-| Architecture / SSOT alignment | 10 | current runtime/code/Linear/task standards agree |
-| Process / skill compliance | 5 | applicable task/domain rules were followed without ritual overhead |
+| Outcome / AC proof | 30 | every applicable AC maps to current evidence and real user/business outcome |
+| Implementation correctness | 20 | current code/architecture implements the required behavior without contradictory paths |
+| Test / verification evidence | 20 | risk-matched positive, negative, recovery, exact-head and runtime proof is current/reproducible |
+| Security / tenant / safety | 15 | authz, tenant, HITL, secrets, destructive-write and abuse boundaries when applicable |
+| Architecture / SSOT alignment | 10 | current runtime/code/Linear/task/domain ownership agree; no duplicate truth |
+| Process / skill compliance | 5 | applicable task/domain rules followed without ritual overhead |
 
 ## Interpretation
 
 | Overall | Meaning |
 |---:|---|
-| 95–100 | Verified production-ready for the stated scope |
+| 95–100 | Verified production-ready for the stated scope and risk |
 | 90–94 | Ready; only minor non-blocking observations |
 | 80–89 | Needs fixes/evidence before Done |
 | <80 | Not ready |
 
-Any unresolved critical blocker = **Not ready regardless of score**.
+Any unresolved **BLOCKER** = **Not ready regardless of score**.
 
-Do not invent precision. If evidence is incomplete, mark the score **provisional** and lower verification confidence.
+Do not invent precision. If material evidence is incomplete, label the score **provisional** or omit it and lower verification confidence. A missing required AC/exact-head/security proof cannot be hidden by averaging unrelated green checks.
+
+## Agent prompt
+
+```text
+Score only what the evidence supports. A blocker overrides the numeric total. Penalize missing risk-matched proof and false-green exposure, not cosmetic style. If evidence is materially incomplete, mark the score provisional or omit it rather than inventing precision.
+```

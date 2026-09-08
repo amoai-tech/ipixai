@@ -19,7 +19,7 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Cursor rules: `.cursor/rule
 | `vercel-react-best-practices` | Perf |
 | `linear` | IPI issues |
 | `tasks` | **Primary iPix task skill** — task setup/execution, agent prompts, pre-commit, testing, PR review, user journeys, CI, migration reuse, and post-merge proof |
-| `task-verifier` | **Independent evidence gate** — Quick merge-safety review and Full Done verification |
+| `task-verifier` | **Adversarial independent evidence gate** — Quick narrow checks, Standard task/PR review, automatic Adversarial escalation for high-risk work |
 | `ipix-task-lifecycle` | **Deprecated compatibility alias** → use `tasks` for new work |
 | `pr-workflow` | **Deprecated compatibility alias** → use `tasks` PR/Actions/post-merge references |
 | `lean` | Velocity audit |
