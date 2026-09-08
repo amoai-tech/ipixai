@@ -1,189 +1,165 @@
 ---
 title: Mastra version migrations
-description: Load when upgrading Mastra major versions.
+description: Load when changing any Mastra package family, runtime API, or compatibility-sensitive integration.
 parent: mastra
-impact: MEDIUM
-impactDescription: Upgrade flow via official migration docs
-tags: mastra, migration, upgrade
+impact: HIGH
+impactDescription: Prevents partial package upgrades, latest-doc drift, and false-green runtime migrations
+tags: mastra, migration, upgrade, dependencies
 ---
 
-# Migration Guide
+# Mastra migration guide — iPix package-family rule
 
-Guide for upgrading Mastra versions using official documentation and current API verification.
+## Core rule
 
-## Migration strategy
+Do not upgrade Mastra by installing arbitrary `latest` packages or changing `@mastra/core` alone.
 
-For version upgrades, follow this process:
+A Mastra migration is a compatibility change across the affected package family and integration boundary.
 
-### 1. Check official migration docs
+## Required sequence
 
-**Always start with the official migration documentation:** `https://mastra.ai/llms.txt`
-
-Look for the **Migrations** or **Guides** section, which will have:
-
-- Breaking changes for each version
-- Automated migration tools
-- Step-by-step upgrade instructions
-
-**Example sections to look for:**
-
-- `/guides/migrations/upgrade-to-v1/`
-- `/guides/migrations/upgrade-to-v2/`
-- Breaking changes lists
-
-### 2. Use embedded docs for current APIs
-
-After identifying breaking changes, verify the new APIs:
-
-**Check your installed version:**
-
-```bash
-cat node_modules/@mastra/core/dist/docs/assets/SOURCE_MAP.json | grep '"ApiName"'
-cat node_modules/@mastra/core/dist/[path-from-source-map]
+```text
+record current exact package family
+→ identify the concrete reason to upgrade
+→ identify smallest compatible target family
+→ inspect mastraMigration / official migration notes
+→ inspect installed source/types before change
+→ update only the required compatible set
+→ resolve compile/API changes
+→ run risk-specific targeted proof
+→ typecheck/build
+→ exact runtime/journey proof when behavior changed
 ```
 
-See [`embedded-docs.md`](embedded-docs.md) for detailed lookup instructions.
+## 1. Record the current family
 
-### 3. Use remote docs for latest info
+Capture `package.json`, lockfile, and installed versions for all affected packages, including as applicable:
+- `@mastra/core`;
+- `@mastra/memory`;
+- `@mastra/pg` / storage packages;
+- `@mastra/client-js`;
+- `mastra` CLI;
+- `@ag-ui/mastra`;
+- CopilotKit packages that sit on the same runtime path.
 
-If packages aren't updated yet, check what APIs will look like: `https://mastra.ai/reference/[topic]`
+Do not assume all `@mastra/*` packages share the same numeric version. Compatibility is proven by the installed/recommended family, not identical version strings.
 
-See [`remote-docs.md`](remote-docs.md) for detailed lookup instructions.
+## 2. Define the reason and target
 
-## Quick migration workflow
+State the concrete capability/bug/API that requires the migration. Prefer the smallest version/family that solves it.
 
-```bash
-# 1. Check current version
-npm list @mastra/core
+Do not upgrade for "latest" alone when the current certified family already satisfies the product requirement.
 
-# 2. Fetch migration guide from official docs
-# Use WebFetch: https://mastra.ai/llms.txt
-# Find relevant migration section
+## 3. Use official migration tooling as evidence, not authority over installed code
 
-# 3. Update dependencies
-npm install @mastra/core@latest @mastra/memory@latest @mastra/rag@latest mastra@latest
+Use:
+- Mastra docs MCP `mastraMigration`;
+- official migration guides;
+- release/changelog notes;
+- official GitHub source/issues when behavior remains unclear.
 
-# 4. Run automated migration (if available)
-npx @mastra/codemod@latest v1  # or whatever version
+If a codemod is recommended, verify its current official package/name/version before running it. Do not execute an unverified `@latest` codemod copied from this file or old documentation.
 
-# 5. Check embedded docs for new APIs
-cat node_modules/@mastra/core/dist/docs/assets/SOURCE_MAP.json
+## 4. Verify exact APIs
 
-# 6. Fix breaking changes using embedded docs lookup
-# See embedded-docs.md for how to look up each API
+Before and after the dependency change, inspect installed source/types for every load-bearing changed API, especially:
+- Agent constructor/registry behavior;
+- tool `execute` context/signature;
+- Memory scope/storage APIs;
+- PostgresStore construction/init behavior;
+- RequestContext;
+- workflow suspend/resume/snapshot APIs;
+- streaming/abort behavior;
+- CopilotKit/AG-UI adapter behavior.
 
-# 7. Test
-npm run dev
-npm test
+Current remote docs explain current concepts. The installed target family defines what this repository can actually call.
+
+## 5. Update the compatible set only
+
+Use the repo package manager and preserve the lockfile. Review the lockfile delta for unexpected transitive changes.
+
+Never use:
+
+```text
+npm update @mastra/core
 ```
 
-## Common migration patterns
+as a generic fix.
 
-### Finding what changed
+Never install every Mastra package at `latest` without proving the family is intended and compatible.
 
-**Check official migration docs:** `https://mastra.ai/guides/migrations/upgrade-to-v1/overview.md`
+## 6. Run proof classes affected by the migration
 
-This will list:
+A clean typecheck is necessary but not sufficient.
 
-- Breaking changes
-- Deprecated APIs
-- New features
-- Migration tools
+Choose applicable proof classes:
+- registry/config;
+- deterministic tools;
+- natural-language tool routing;
+- tenant/context authority;
+- memory/resource/thread scope;
+- persistence/restart;
+- HITL exact-artifact approval;
+- workflow suspend/resume/recovery;
+- Stop/abort propagation;
+- side-effect idempotency;
+- observability/evals;
+- exact deployed runtime.
 
-### Updating API usage
+If the migration claims to fix a bug, reproduce the bug before upgrade when feasible and prove the exact scenario after upgrade.
 
-**For each breaking change:**
+## 7. Development/runtime commands
 
-1. **Find the old API** in your code
-2. **Look up the new API** using embedded docs:
-   ```bash
-   cat node_modules/@mastra/core/dist/docs/assets/SOURCE_MAP.json | grep '"NewApi"'
-   cat node_modules/@mastra/core/dist/[path]
-   ```
-3. **Update your code** based on the type signatures
-4. **Test** the change
+For iPix use the repository scripts. Run agent and UI development separately:
 
-### Example: Tool execute signature change
-
-**Official docs say:** "Tool execute signature changed"
-
-**Look up current signature:**
-
-```bash
-cat node_modules/@mastra/core/dist/docs/assets/SOURCE_MAP.json | grep '"createTool"'
-cat node_modules/@mastra/core/dist/tools/tool.d.ts
+```text
+npm run dev:agent
+npm run dev:ui
 ```
 
-**Update based on type definition:**
+Do not use combined `npm run dev` as the default migration proof.
 
-```typescript
-// Old (from docs)
-execute: async (input) => { ... }
+Use the local pinned Mastra binary (`npx --no-install mastra ...`) rather than allowing `npx` to download a newer CLI implicitly.
 
-// New (from embedded docs)
-execute: async (inputData, context) => { ... }
+## Supply-chain gate
+
+For dependency-family changes verify:
+- intended direct dependencies only;
+- explainable lockfile scope;
+- no unexpected package source/provenance;
+- current security advisories where relevant;
+- Node/runtime compatibility;
+- build/deploy compatibility;
+- rollback path to the previous lockfile/family.
+
+## Storage migration gate
+
+When storage behavior/schema changes:
+- inspect official migration requirements;
+- confirm current iPix `mastra` schema ownership;
+- do not let runtime auto-init mutate hosted production unexpectedly;
+- test on disposable/local/preview state first;
+- prove existing messages/threads/workflow snapshots survive or document a deliberate incompatible migration.
+
+## Completion evidence
+
+Record:
+- old family;
+- new family;
+- migration guide/release evidence used;
+- exact changed APIs;
+- exact targeted tests;
+- typecheck/build result;
+- runtime/browser/restart/HITL/abort evidence as applicable;
+- known retained workaround and why it is still needed, or proof it was removed;
+- rollback command/commit.
+
+## Source priority
+
+```text
+current repo + installed family
+→ installed source/types
+→ embedded docs when present
+→ Mastra MCP/current official docs
+→ migration guides/releases
+→ official GitHub issues/source for unresolved behavior
 ```
-
-## Pre-migration checklist
-
-- [ ] Backup code (git commit)
-- [ ] Check official migration docs: `https://mastra.ai/llms.txt`
-- [ ] Note current version: `npm list @mastra/core`
-- [ ] Read breaking changes list
-- [ ] Tests are passing
-
-## Post-migration checklist
-
-- [ ] All dependencies updated together
-- [ ] TypeScript compiles: `npx tsc --noEmit`
-- [ ] Tests pass: `npm test`
-- [ ] Studio works: `npm run dev`
-- [ ] No console warnings
-- [ ] APIs verified against embedded docs
-
-## Migration resources
-
-| Resource                               | Use For                                       |
-| -------------------------------------- | --------------------------------------------- |
-| `https://mastra.ai/llms.txt`           | Finding migration guides and breaking changes |
-| [`embedded-docs.md`](embedded-docs.md) | Looking up new API signatures after updating  |
-| [`remote-docs.md`](remote-docs.md)     | Checking latest docs before updating          |
-| [`common-errors.md`](common-errors.md) | Fixing migration errors                       |
-
-## Version-specific notes
-
-### General principles
-
-1. **Always update all @mastra packages together**
-
-   ```bash
-   npm install @mastra/core@latest @mastra/memory@latest @mastra/rag@latest mastra@latest
-   ```
-
-2. **Check for automated migration tools**
-
-   ```bash
-   npx @mastra/codemod@latest [version]
-   ```
-
-3. **Verify Node.js version requirements**
-   - Check official migration docs for minimum Node version
-
-4. **Run database migrations if using storage**
-   - Follow storage migration guide in official docs
-
-## Getting help
-
-1. **Check official migration docs**: `https://mastra.ai/llms.txt` → Migrations section
-2. **Look up new APIs**: See [`embedded-docs.md`](embedded-docs.md)
-3. **Check for errors**: See [`common-errors.md`](common-errors.md)
-4. **Ask in Discord**: https://discord.gg/BTYqqHKUrf
-5. **File issues**: https://github.com/mastra-ai/mastra/issues
-
-## Key principles
-
-1. **Official docs are source of truth** - Start with `https://mastra.ai/llms.txt`
-2. **Verify with embedded docs** - Check installed version APIs
-3. **Update incrementally** - Don't skip major versions
-4. **Test thoroughly** - Run tests after each change
-5. **Use automation** - Use codemods when available
