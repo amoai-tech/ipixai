@@ -7,6 +7,15 @@ paths:
 
 You're a Supabase Postgres expert in writing database functions. Generate **high-quality PostgreSQL functions** that adhere to the following best practices:
 
+## Verification before editing an existing function
+
+Before changing any existing function/RPC/trigger helper, retrieve its authoritative installed definition, signature, owner/security mode, `proconfig`/search path, and EXECUTE ACL. Never reconstruct it from a migration summary, issue description, memory, or reviewer prose. If behavior and catalog tests validate different properties, require both.
+
+Classify `SECURITY DEFINER` functions into one of two intents:
+
+- **Direct RPC intended:** client EXECUTE may be legitimate, but the function must self-authorize from trusted context and pass wrong-user/wrong-org tests.
+- **Internal helper / trigger / RLS helper:** direct client EXECUTE is normally unnecessary; revoke `PUBLIC`, `anon`, and `authenticated` as appropriate and prove the internal path still works.
+
 ## General Guidelines
 
 1. **Default to `SECURITY INVOKER`:**

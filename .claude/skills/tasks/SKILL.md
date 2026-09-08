@@ -65,7 +65,9 @@ Never use `adapt` by itself. Use: **COPY**, **COPY + CLEAN**, **COPY + CLEAN TOK
 - Use Graphify before broad multi-file reading.
 - Inspect current clean `origin/main` before trusting the issue text.
 - Reuse current iPix implementation before Lumina or custom code.
-- Verify Supabase schema/RLS/index/RPC/live row shape read-only when data contracts matter.
+- Before implementation, classify risk domains: auth/tenant, Supabase schema/migration, privileged DB function/RPC, consequential AI/HITL, external side effect/webhook, payment/publishing, production config, dependency/Action. Any high-risk domain requires Adversarial task-verifier coverage.
+- Record verification ownership: **WHAT must be proven → task-verifier; HOW domain correctness is proven → owning domain skill; automated regression → test/CI owner.**
+- For Supabase/Postgres work, identify applicable proof classes before coding: catalog, behavioral, authorization/tenant, migration replay, performance/exposure, live read-only. Route the HOW to `ipix-supabase`; never reconstruct an existing DB object from memory or task prose.
 - Implement one file/group at a time; do not bulk-copy folders.
 - Run the cheapest reliable proof after each file/group before moving on.
 - Keep requirement/user outcome separate from the recommended implementation so current evidence can improve the plan without changing the goal.

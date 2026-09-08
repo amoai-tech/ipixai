@@ -15,7 +15,7 @@ The output should use the following instructions:
 - Always use double apostrophe in SQL strings (eg. 'Night''s watch')
 - You can add short explanations to your messages.
 - The result should be a valid markdown. The SQL code should be wrapped in ``` (including sql language tag).
-- Always use "auth.uid()" instead of "current_user".
+- Use `(select auth.uid())` instead of `current_user` for row-independent caller identity checks; direct `auth.uid()` is semantically valid but the wrapped form enables initPlan caching. Explicitly reason about unauthenticated `NULL` when policy intent depends on login state.
 - SELECT policies should always have USING but not WITH CHECK
 - INSERT policies should always have WITH CHECK but not USING
 - UPDATE policies should always have WITH CHECK and most often have USING
@@ -25,7 +25,7 @@ The output should use the following instructions:
 - Always put explanations as separate text. Never use inline SQL comments.
 - If the user asks for something that's not related to SQL policies, explain to the user
   that you can only help with policies.
-- Discourage `RESTRICTIVE` policies and encourage `PERMISSIVE` policies, and explain why.
+- Do not categorically reject `RESTRICTIVE` policies. Default to simple `PERMISSIVE` policies, but use `RESTRICTIVE` deliberately for cross-cutting deny requirements (for example MFA or suspension) only after proving how it composes with existing permissive policies.
 
 The output should look like this:
 
@@ -36,6 +36,16 @@ WITH CHECK ((select auth.uid()) = author_id);
 ```
 
 Since you are running in a Supabase environment, take note of these Supabase-specific additions below.
+
+## iPix verification contract
+
+- Retrieve the current table schema, existing policies, grants, and helper-function definitions before editing policy logic.
+- RLS does not replace object grants. Verify both.
+- UPDATE requires a usable SELECT policy and must protect both the existing row (`USING`) and resulting row (`WITH CHECK`) when ownership/org fields can change.
+- Prove intended allow + deny cases across signed-out, same-org, wrong-org, and insufficient-role callers as applicable.
+- If a policy calls a `SECURITY DEFINER` helper, classify whether that helper should be client-callable; verify `search_path`, qualification, and EXECUTE ACL separately.
+- For API-facing views over RLS tables, verify `security_invoker=true` or prove the view is not exposed/callable by client roles.
+- Follow [`../verification-matrix.md`](../verification-matrix.md) for catalog + behavioral evidence.
 
 ## Authenticated and unauthenticated roles
 

@@ -6,7 +6,7 @@ description: >
   Supabase SQL/RLS/migrations, the Supabase CLI, and Postgres performance best-practices
   into one skill with on-demand references. Use for ANY Supabase work
   in this repo. NOT for Mercur commerce tables or legacy Medellín/FashionOS edge functions.
-version: "1.4.0"
+version: "1.5.0"
 paths:
   - "supabase/**"
   - "**/*.sql"
@@ -18,7 +18,7 @@ paths:
 
 Single entry point for Supabase work on **iPixai** (same live project as Lumina: `nvdlhrodvevgwdsneplk`). Combines topic files + [`references/project-rules/`](references/project-rules/).
 
-**Hard gates:** do **not** mutate production during Mastra Core. Preview / `mastra_preview` until the golden persistence test is green (`docs/mastra/10-mastra-convert.md`). This repo may not yet contain `supabase/` — load references for RLS/RPC/CLI patterns; do not run old `cd /home/sk/ipix` command blocks blindly.
+**Hard gates:** normal Supabase work is migration-file-first and verified locally. Do not mutate production manually; reviewed merge/deploy/recovery workflows own production writes. Mastra-specific persistence changes still require their own preview/golden-test gates. This repo now contains `supabase/`; the old `/home/sk/ipix` repo is read-only reference only.
 
 **Load child `SKILL.md` on demand** — do not paste their bodies here.
 
@@ -37,6 +37,7 @@ Single entry point for Supabase work on **iPixai** (same live project as Lumina:
 | Generic migrations, RLS SQL, DB functions, schema, SQL style | [`references/supabase-core/supabase-core.md`](references/supabase-core/supabase-core.md) (+ `MIGRATIONS/RLS-POLICIES/FUNCTIONS/SCHEMA/SQL-STYLE.md`) + `references/project-rules/` |
 | Supabase **CLI** workflows (`supabase` CLI, local/remote) | [`references/cli/cli.md`](references/cli/cli.md) |
 | Query perf, indexes, connection pooling, EXPLAIN | [`references/postgres-best-practices.md`](references/postgres-best-practices.md) → detail in [`references/postgres/`](references/postgres/) (already mirrored) |
+| **Verification / adversarial proof** — catalog, RLS, grants, functions, triggers, migrations, advisors, live read-only state | [`references/verification-matrix.md`](references/verification-matrix.md) |
 
 ### Edge Functions reference index (`references/edge-functions/`)
 
@@ -61,7 +62,8 @@ Supabase task in iPix
   ├─ Edge function (Deno, CORS, Gemini)?          → references/edge-functions/edge-functions.md
   ├─ Migration, RLS policy, Postgres function?    → references/supabase-core/supabase-core.md + references/project-rules/
   ├─ Supabase CLI workflow?                       → references/cli/cli.md
-  └─ Slow query, index, EXPLAIN, pool limits?     → references/postgres-best-practices.md + references/postgres/
+  ├─ Slow query, index, EXPLAIN, pool limits?     → references/postgres-best-practices.md + references/postgres/
+  └─ Prove DB change safe / production-ready?      → references/verification-matrix.md
 ```
 
 ---
@@ -92,10 +94,11 @@ Old operator repo (read-only reference): `/home/sk/ipix/supabase/`
 
 ### MCP / CLI trust
 
-1. Prefer **Supabase CLI `--linked`** for SQL and migration state.
-2. **`npm run supabase:verify-rls`** after every RLS change (19 checks).
-3. Cursor **`user-supabase` MCP** may show legacy Medellín/FashionOS objects — **ignore** unless MCP is confirmed on `nvdlhrodvevgwdsneplk`.
-4. Use CLI when plugin MCP returns permission errors.
+1. Prefer the **Supabase plugin/MCP for read-only live inspection** when it is confirmed on `nvdlhrodvevgwdsneplk`; record the project ref in evidence.
+2. Use **local CLI + Docker** for migration replay and destructive testing. Use `--linked` only for explicit read-only state checks such as migration listing/lint/dry-run.
+3. **`npm run supabase:verify-rls`** after every RLS change when the script exists; also run the affected targeted SQL tests. Do not hard-code a check count because the suite evolves.
+4. Cursor **`user-supabase` MCP** may show legacy Medellín/FashionOS objects — **ignore** unless MCP is confirmed on `nvdlhrodvevgwdsneplk`.
+5. Never treat plugin/CLI permission errors as permission to change production manually; change verification method or escalate.
 
 ---
 
@@ -111,7 +114,7 @@ Old operator repo (read-only reference): `/home/sk/ipix/supabase/`
 | `profiles` | PLT-002 sync with `auth.users` |
 | `shoots` | Shoot metadata (legacy, still used) |
 
-Legacy FashionOS tables coexist on the shared project — do not extend them for iPix MVP without audit ([SEC-001 / IPI-52](https://linear.app/amo100/issue/IPI-52) · [issues README](../../../docs/linear/issues/README.md)).
+Legacy FashionOS tables coexist on the shared project — do not extend them for iPix MVP without audit ([SEC-001 / IPI-52](https://linear.app/amo100/issue/IPI-52)).
 
 Full orientation: [references/tables-overview.md](references/tables-overview.md)
 
@@ -123,18 +126,22 @@ Wire clients under `src/` when they exist. Until then, treat the table below as 
 
 | What | Where |
 |------|-------|
-| Supabase client | `src/lib/supabase/` (create when auth lands) |
+| Supabase client | `app/src/lib/supabase/` for the operator app; verify exact current path before editing |
 | Mastra storage | PostgresStore → `mastra` schema — preview first |
 | Types | Do **not** regenerate via MCP `generate_typescript_types` blindly — it can emit `public` only and drop other schemas. Prefer CLI `--linked` + `git diff --stat` |
-| Edge functions / migrations | Old repo `/home/sk/ipix/supabase/` until this repo vendors them |
+| Edge functions / migrations | `supabase/` in this repository; old `/home/sk/ipix/supabase/` is read-only historical reference |
 | Client env | `NEXT_PUBLIC_SUPABASE_*` |
 | Server secrets | never `NEXT_PUBLIC_` for service role |
 
-## Daily commands
+## Daily verification path
 
-Do **not** `cd /home/sk/ipix` from this repo. Prefer Cursor `plugin-supabase-supabase` MCP reads. **No production writes** during Core Mastra.
+Do **not** `cd /home/sk/ipix` from this repo. This repository now owns `supabase/` and the fresh-replay CI path.
 
-Verify-rls / linked CLI habits live in the old operator repo. Copy the habit, not the paths, until this repo has supabase scripts.
+1. Inspect current repo migrations/schema first.
+2. For an existing live DB object being changed, retrieve its authoritative installed definition before editing — never reconstruct functions, triggers, policies, views, or privileged RPCs from memory, issue prose, or reviewer comments.
+3. Prove migrations locally with `supabase start` + `supabase db reset --local` (or the exact CI equivalent).
+4. Use the plugin/linked project only for read-only comparison, Advisors, and post-deploy verification unless an explicitly approved migration/recovery workflow owns the write.
+5. Never use Dashboard SQL editor, manual `db push --linked`, `migration repair`, or `db reset --linked` as the normal development path.
 
 ### New migrations
 
@@ -145,13 +152,9 @@ supabase migration new <name>
 # edit supabase/migrations/<timestamp>_<name>.sql
 ```
 
-Do not `supabase db push` to production from iPixai Core work.
+Do not `supabase db push` to production as a normal development step. Historical IPI-126 / PLT-era remote-apply notes are no longer workflow authority; current migration ownership is defined by the reviewed merge/deploy path and the project rules below.
 
-**IPI-126 / BI-OPS-002 gate:** push `20260625000000_brand_scores_unique_update_rls.sql` → `verify-rls` (includes `brand_scores` UPDATE probe) → onboarding smoke on `/app/onboarding` → marks [IPI-46](https://linear.app/amo100/issue/IPI-46) Done. Run after IPI-46 code is on `main`; this is the **remote apply** slice of IPI-46 B3–B4. Tracker: [IPI-126](https://linear.app/amo100/issue/IPI-126) · [issues README](../../../docs/linear/issues/README.md).
-
-**IPI-26 / IPI-BI-003 ([spec](../../../docs/linear/issues/IPI-26-IPI-BI-003.md)):** After IPI-46 + IPI-126 Done — Postgres enum `brand_intake_status` (7 states on `brands`; HITL on `brand_intake_drafts.status`); 4 new tables + indexes; `score_version`/`source` on `brand_scores`; **alter** `brand_intake_drafts` RLS; extend `verify-rls.mjs` for all 5 tables; explicit Realtime publication + `pg_publication_tables` verify. Do not duplicate IPI-126 migration.
-
-Do **not** rewrite applied remote history. **PLT-010** (squash / local Docker) is **deferred**.
+Do **not** rewrite applied remote history. Local Docker/fresh replay is now an active required verification path; historical notes that call it deferred are stale.
 
 ---
 
@@ -175,7 +178,12 @@ Do **not** rewrite applied remote history. **PLT-010** (squash / local Docker) i
 2. **Verify, don't assume.** Run advisors + `verify-rls` before declaring done.
 3. **Service-role key never reaches the browser.** Edge functions / CLI only. No `VITE_*`.
 4. **Every new iPix table has RLS.** No exceptions in `public`.
-5. **`(SELECT auth.uid())` not `auth.uid()`** in RLS — cached per query.
+5. **Use `(select auth.uid())` / `(select auth.jwt())` when row-independent** so Postgres can initPlan/cache them per statement; do not wrap row-dependent functions blindly.
+6. **Grants + RLS are separate gates.** A correct policy cannot compensate for an unintended table/function grant, and a missing grant is not an RLS denial.
+7. **UPDATE ownership must protect both old and new rows.** Review `USING` and `WITH CHECK`, and remember UPDATE also needs a SELECT policy.
+8. **Views are an exposure boundary.** Public/API-facing views should normally use `security_invoker = true` or be kept out of exposed schemas / have access revoked.
+9. **SECURITY DEFINER is exceptional.** Default to invoker; if definer is required, set a safe `search_path`, schema-qualify references, classify whether direct RPC execution is intended, and verify ACL + tenant behavior.
+10. **Advisor finding ≠ automatic fix.** Classify intent and prove impact before moving extensions, dropping indexes, changing grants, or modifying legacy objects.
 
 ---
 
@@ -281,18 +289,26 @@ Legacy FashionOS `storage` buckets and shoot-scoped RLS remain — extend with b
 
 ## Pre-ship checklist
 
-- [ ] Migration applied on remote (repair if orphan blocks push)
-- [ ] `npm run supabase:types` if schema changed
-- [ ] `npm run supabase:verify-rls` passes
-- [ ] No service role or Gemini key in client bundle
-- [ ] Edge function CORS + JWT documented in Linear spec
+- [ ] Applicable proof classes from [`references/verification-matrix.md`](references/verification-matrix.md) are identified and satisfied.
+- [ ] Migration-bearing change fresh-replays locally from scratch; no synthetic application state was added merely to make history replay.
+- [ ] Existing functions/triggers/policies/views changed in this task were compared with their authoritative installed definitions first.
+- [ ] RLS/grants changes include allowed + denied role/tenant cases; UPDATE checks old and resulting row where ownership can change.
+- [ ] SECURITY DEFINER / public RPC / view exposure is explicitly classified and ACL/search-path/security-invoker state proved where applicable.
+- [ ] `npm run supabase:types` if exposed schema changed.
+- [ ] `npm run supabase:verify-rls` and affected targeted SQL tests pass when applicable.
+- [ ] Security + performance Advisors reviewed; findings are triaged, not blindly fixed.
+- [ ] No service role or Gemini key in client bundle.
+- [ ] Edge function CORS + JWT/custom-auth contract documented and tested.
+- [ ] Exact-head CI is green; after deploy, applicable live state is verified read-only.
 
 ---
 
 ## Companion skills
 
-- [`ipix-task-lifecycle`](../ipix-task-lifecycle/SKILL.md) — Linear issue steps + verifier probes
-- [`gemini`](../gemini/SKILL.md) — Gemini in edge functions
+- [`tasks`](../tasks/SKILL.md) — canonical Linear task definition/execution standard
+- [`task-verifier`](../task-verifier/SKILL.md) — independent evidence gate; use Adversarial for Supabase security/data-integrity work
+
+Legacy `ipix-task-lifecycle` / `pr-workflow` are compatibility-only; do not route new Supabase work through them.
 
 ## Source of truth
 

@@ -29,6 +29,8 @@ Escalate without asking when any changed path or AC affects:
 - dependency manifests/lockfiles/Actions with security or runtime impact
 - incidents, releases, or claims of production-ready/Done where failure cost is high
 
+For Supabase specifically, also escalate when the diff touches `supabase/migrations/**`, `supabase/functions/**`, or SQL changes involving `CREATE/ALTER POLICY`, `ENABLE/DISABLE ROW LEVEL SECURITY`, `GRANT/REVOKE`, `SECURITY DEFINER`, `CREATE FUNCTION`, `CREATE TRIGGER`, `CREATE/ALTER/DROP TABLE`, `CREATE INDEX`, `CREATE VIEW`, `CREATE MATERIALIZED VIEW`, `service_role`, or webhook/callback durability.
+
 ## Task-validity audit
 
 Try to invalidate the task before implementation evidence is trusted:

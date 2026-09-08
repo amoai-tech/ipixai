@@ -6,13 +6,18 @@ Only apply rows relevant to changed paths/ACs.
 
 ## Supabase / Postgres / Auth
 
-- RLS/authorization enforced server-side for every tenant-owned durable object.
-- Org/user identity is derived from trusted auth/server context, not browser-supplied ownership IDs.
-- Cross-tenant read/write/delete denial is proved when a tenant boundary changes.
-- RPC grants/roles are least-privilege; `auth.uid()` assumptions match caller context.
-- New write paths have constraints for uniqueness/idempotency where duplicate execution is possible.
-- Migrations account for existing rows, nullability, backfill order, locks, rollback/forward compatibility, and index/query impact.
+Load [`../../ipix-supabase/SKILL.md`](../../ipix-supabase/SKILL.md) and its [`references/verification-matrix.md`](../../ipix-supabase/references/verification-matrix.md). This verifier checks **WHAT evidence exists**; `ipix-supabase` owns the SQL/catalog/testing HOW.
+
+- RLS/authorization is server-side for every tenant-owned durable object, with intended allow **and deny** role/tenant cases.
+- Grants and RLS are checked independently; function/RPC exposure is intentional and least-privilege.
+- UPDATE ownership/reparenting considers both the existing row (`USING`) and resulting row (`WITH CHECK`), plus required SELECT visibility.
+- Existing functions/triggers/policies/views are compared with their authoritative installed definitions before modification; no reconstruction from memory/task/reviewer prose.
+- `SECURITY DEFINER` use is justified and proves safe search path, qualified object references, ACL intent, and tenant/self-authorization behavior.
+- API-facing views either prove `security_invoker` behavior or are unexposed/revoked.
+- Migrations fresh-replay from version-controlled history and account for existing rows, nullability, backfill order, locks, forward compatibility, and index/query impact.
+- New/repeated write paths prove uniqueness/idempotency/concurrency safety where duplicate execution is possible.
 - Service-role/admin credentials never enter client code or untrusted logs.
+- Advisors are triaged as evidence; INFO/WARN findings are not blindly fixed or ignored.
 
 ## Next.js / UI
 
