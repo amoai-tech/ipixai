@@ -1,106 +1,107 @@
 ---
-title: Mastra streaming — docs + reference
-description: Load when debugging SSE, tool-call streaming, or AG-UI event bridges from Mastra agents.
+title: Mastra streaming — iPix Stop and abort contract
+description: Load when debugging AG-UI/CopilotKit streaming, Stop/cancel behavior, tool streaming, or downstream cancellation.
 parent: mastra
 impact: HIGH
-impactDescription: Doc URLs and reference API for agent/workflow/tool streaming
-tags: mastra, streaming, sse, events, tool-streaming
+impactDescription: Prevents false-green Stop behavior where UI closes but work or writes continue
+tags: mastra, streaming, abort, stop, sse, ag-ui
 ---
 
-# Mastra streaming — docs & reference index
+# Mastra streaming — iPix Stop and abort contract
 
-**iPixai Core:** CopilotKit + AG-UI streams via in-process `getLocalAgents` in `src/app/api/copilotkit/[[...slug]]/route.ts`. Mastra `Agent.stream()` events (`text-delta`, `tool-call`, `tool-result`) bridge through that runtime — read [events](https://mastra.ai/docs/streaming/events) + [tool streaming](https://mastra.ai/docs/streaming/tool-streaming) when debugging. **Background task streaming** waits for a convert-plan ticket unless a task enables `backgroundTaskManager`.
+## Current iPix path
 
-**Lookup order:** [`mcp-docs-lookup.md`](mcp-docs-lookup.md) → **`mastraDocs`** paths below → [`links.md`](../links.md).
+CopilotKit + AG-UI bridge Mastra in-process through the current `/api/copilotkit` route and registered local agents. Verify the exact current route and installed `@ag-ui/mastra` / CopilotKit family before relying on examples.
 
----
+## Stop is an end-to-end contract
 
-## Concepts (docs — Supatabs)
+A closed SSE stream or responsive Stop button is not enough.
 
-| Topic | URL | mdeai |
-| --- | --- | --- |
-| Overview | https://mastra.ai/docs/streaming/overview | `.stream()` vs `.streamLegacy()`; agent vs workflow streams |
-| Events | https://mastra.ai/docs/streaming/events | `start`, `text-delta`, `tool-call`, `tool-result`, workflow lifecycle |
-| Tool streaming | https://mastra.ai/docs/streaming/tool-streaming | `context.writer`, transient chunks, tool lifecycle hooks |
-| Workflow streaming | https://mastra.ai/docs/streaming/workflow-streaming | Step `writer`, `resumeStream`, pipe agent → step |
-| Background task streaming | https://mastra.ai/docs/streaming/background-task-streaming | `backgroundTaskManager.stream()` — needs config flag |
+Required chain:
 
-**Related:** [CopilotKit + Mastra guide](https://mastra.ai/guides/build-your-ui/copilotkit) · [background tasks](https://mastra.ai/docs/agents/background-tasks) · [workflows index](workflows.md)
-
----
-
-## Reference API (`reference/streaming/`)
-
-Index via MCP: `mastraDocs` path `reference/streaming/`
-
-| API | URL | Maps to doc |
-| --- | --- | --- |
-| **Chunk types** | https://mastra.ai/reference/streaming/ChunkType | [events](https://mastra.ai/docs/streaming/events) · [background tasks](https://mastra.ai/docs/streaming/background-task-streaming) |
-
-### Agents (`reference/streaming/agents/`)
-
-| Method | URL | Doc |
-| --- | --- | --- |
-| **`Agent.stream()`** | https://mastra.ai/reference/streaming/agents/stream | [overview](https://mastra.ai/docs/streaming/overview) |
-| **`MastraModelOutput`** | https://mastra.ai/reference/streaming/agents/MastraModelOutput | output shape · `textStream`, `usage`, `finishReason` |
-| **`streamLegacy()`** | https://mastra.ai/reference/streaming/agents/streamLegacy | AI SDK v4 / V1 models |
-| **`streamUntilIdle()`** | https://mastra.ai/reference/streaming/agents/streamUntilIdle | [background task streaming](https://mastra.ai/docs/streaming/background-task-streaming) |
-
-Also on agent class index: [`.stream()` in agents API](https://mastra.ai/reference/agents/agent) · [generate vs stream](https://mastra.ai/reference/agents/generate)
-
-### Workflows (`reference/streaming/workflows/`)
-
-| Method | URL | Doc |
-| --- | --- | --- |
-| **`Run.stream()`** | https://mastra.ai/reference/streaming/workflows/stream | [overview](https://mastra.ai/docs/streaming/overview) · [workflow streaming](https://mastra.ai/docs/streaming/workflow-streaming) |
-| **`Run.resumeStream()`** | https://mastra.ai/reference/streaming/workflows/resumeStream | suspended workflow + [snapshots](https://mastra.ai/docs/workflows/snapshots) |
-| **`Run.observeStream()`** | https://mastra.ai/reference/streaming/workflows/observeStream | attach to in-flight run |
-| **`Run.timeTravelStream()`** | https://mastra.ai/reference/streaming/workflows/timeTravelStream | [time travel](https://mastra.ai/docs/workflows/time-travel) |
-
----
-
-## Event cheat sheet (agents)
-
-From [streaming/events](https://mastra.ai/docs/streaming/events):
-
-| Event | When |
-| --- | --- |
-| `start` | Run begins |
-| `text-delta` | LLM token chunk |
-| `tool-call` | Tool name + args chosen |
-| `tool-result` | Tool return value |
-| `step-start` / `step-finish` | Step boundaries |
-| `finish` | Run complete + usage |
-
-**Network / supervisor** (Phase 2 defer): `routing-agent-*`, `agent-execution-*`, `workflow-execution-*` — see events doc.
-
----
-
-## MCP fetch examples
-
-```json
-{
-  "paths": [
-    "docs/streaming/overview",
-    "docs/streaming/events",
-    "docs/streaming/tool-streaming",
-    "reference/streaming/agents/stream",
-    "reference/streaming/agents/MastraModelOutput",
-    "reference/streaming/workflows/stream",
-    "reference/streaming/ChunkType"
-  ]
-}
+```text
+operator presses Stop
+→ request AbortSignal is triggered
+→ agent/workflow execution observes cancellation
+→ tool execution receives/observes abortSignal
+→ downstream fetch/SDK/provider operation is cancelled where supported
+→ no later tool result or domain side effect lands
+→ stream closes
+→ UI reaches a recoverable state
 ```
 
-Package: `@mastra/core` — use `readMastraDocs` with `projectPath` = this repo root (`$(git rev-parse --show-toplevel)`).
+If any link is missing, Stop is only cosmetic.
 
----
+## Tool rule
 
-## mdeai pointers
+For tools that call external services:
+- use the execution-context abort signal when the installed API provides it;
+- pass it into `fetch`/SDK calls where supported;
+- define an explicit timeout separately from user cancellation;
+- ensure cancellation does not fall through into success handling;
+- never commit a consequential write after cancellation unless the commit already happened atomically and retry logic can prove the final state.
 
-| Artifact | Path |
-| --- | --- |
-| CopilotKit runtime (AG-UI bridge) | `src/app/api/copilotkit/[[...slug]]/route.ts` |
-| CopilotKit integration skill | [`copilotkit`](../../copilotkit/SKILL.md) → [`references/integrations/mastra.md`](../../copilotkit/references/integrations/references/integrations/mastra.md) |
-| Tool definitions | `src/mastra/tools/**` |
-| AI SDK v5 bridge | `toAISdkV5Stream()` from `@mastra/ai-sdk` — see [overview](https://mastra.ai/docs/streaming/overview) |
+## Nested execution
+
+Do not assume AbortSignal propagation through subagents, nested workflows, networks, or adapters. Mastra has had upstream bugs/features in this area. Inspect the exact installed path and prove cancellation behavior when nested execution is used.
+
+If nested cancellation cannot be proven, do not place consequential work behind a UI Stop affordance that implies cancellation.
+
+## Required tests
+
+For any Stop-sensitive path verify:
+- Stop before model output;
+- Stop during model generation;
+- Stop before tool call;
+- Stop while external tool call is in flight;
+- Stop after tool result but before next model step;
+- Stop while a workflow/subworkflow is active when applicable;
+- provider ignores/does not support cancellation;
+- network disconnect without explicit Stop;
+- retry/reconnect after cancellation;
+- zero later protected write after successful cancellation.
+
+Use a side-effect sentinel or durable row count when cancellation protects writes. UI timing alone is insufficient.
+
+## Stream recovery
+
+Cancellation/interruption must leave a known state:
+- completed;
+- cancelled;
+- failed/retryable;
+- suspended/awaiting review;
+- already committed.
+
+Do not automatically replay a partially completed consequential operation with a fresh idempotency identity.
+
+## HITL interaction
+
+A suspended approval workflow is not the same as an actively streaming model call. Stop/close/disconnect while awaiting approval must fail closed and must never synthesize approval. Recovery must reload the correct suspended run/artifact when supported.
+
+## Verification order
+
+```text
+static abort propagation path
+→ pure abort/cancel unit test
+→ external-call cancellation integration test
+→ no-late-side-effect proof
+→ nested execution proof when applicable
+→ UI Stop/browser proof
+→ exact deployed runtime proof
+```
+
+## Source priority
+
+```text
+current iPix route/tool/workflow
+→ installed @mastra/core + @ag-ui/mastra source/types
+→ current Mastra streaming docs/MCP
+→ current upstream issues/releases when propagation is uncertain
+```
+
+Useful current docs:
+- https://mastra.ai/docs/streaming/overview
+- https://mastra.ai/docs/streaming/events
+- https://mastra.ai/docs/streaming/tool-streaming
+- https://mastra.ai/docs/streaming/workflow-streaming
+- https://mastra.ai/reference/streaming/agents/stream
