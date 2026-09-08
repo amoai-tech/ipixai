@@ -6,7 +6,7 @@ description: >
   progress trackers, executable Linear prompts, pre-commit quality gates, GitHub PR creation,
   review-comment troubleshooting, and post-merge proof. Defines the task standard; it does not
   replace task-verifier Done checks.
-version: "1.5.0"
+version: "1.6.0"
 ---
 
 # tasks — iPix Linear task specification standard
@@ -74,6 +74,7 @@ Never use `adapt` by itself. Use: **COPY**, **COPY + CLEAN**, **COPY + CLEAN TOK
 - Before commit, run the pre-commit defect-prevention gate, local automated review when available, and the risk-matched pre-merge test matrix; verify load-bearing external contracts.
 - Treat PR comments as hypotheses: classify, route to the owning domain skill/MCP, verify, then fix/reply/resolve with evidence.
 - Define affected business-critical user journeys and certify both system correctness and AI correctness when AI participates.
+- Named third-party testing/review tools are not iPix defaults unless this repository contains a pinned, reproducible setup or an explicit approved task owns the adoption decision. Explorbot is the currently selected exploratory-testing pilot; it is not a mandatory merge gate until a repository-owned path is approved.
 - Use Mermaid/wireframes when they materially clarify architecture, ownership, authorization, HITL, or UI states.
 - Update Linear progress after every verified checkpoint.
 - If a completed checkpoint regresses, uncheck it and reduce the percentage.

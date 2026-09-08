@@ -16,17 +16,24 @@ For each journey define:
 - tenant/security boundaries
 - completion evidence
 
-## iPix testing layers
+## Current iPix testing layers
 
 ```text
 Vitest → pure logic/components
-Supabase SQL → RLS/RPC/migrations/tenant contracts
+Supabase SQL / existing fixtures → RLS/RPC/migrations/tenant contracts
 Playwright → deterministic user journeys
-Explorbot → autonomous exploratory browser testing
-DeepEval → relevance/faithfulness/tool/trajectory evaluation
-Promptfoo or DeepTeam → injection/PII/excessive-agency/guardrails
+Mastra/CopilotKit deterministic tests → agent/tool/workflow/runtime contracts
+Explorbot → selected autonomous exploratory-browser pilot
 GitHub Actions → exact-head merge enforcement
 ```
+
+Explorbot supplements deterministic coverage; it is not yet a mandatory merge gate. A clean checkout must still be certifiable with repository-owned deterministic tests. Convert verified Explorbot discoveries into permanent regression tests when practical.
+
+No other AI-evaluation or guardrail platform is adopted by this standard. Choosing one requires a separate explicit research/adoption decision with version, setup, secrets, commands, evidence format, ownership, and local/CI execution defined before it becomes a required gate.
+
+## AI-native evaluation requirement
+
+For AI-native workflows, verify the relevant behavior using the current iPix test/runtime stack: relevance/completeness, faithfulness/hallucination risk, tool selection/arguments, excessive agency, prompt-injection handling, sensitive-data/system-prompt leakage, HITL bypass attempts, rejection paths, and no durable write before approval. Prefer deterministic assertions and recorded tool/workflow outputs where they can prove the contract.
 
 ## Required journey scenarios
 
@@ -93,8 +100,8 @@ For each journey:
 2. Build realistic standard, empty, and large-data scenarios when applicable.
 3. Define happy, negative, recovery, tenant/security, and edge paths.
 4. Use deterministic tests first: Vitest / SQL / Playwright.
-5. For AI-native journeys also evaluate relevance, faithfulness, tool correctness, guardrails, and HITL behavior using DeepEval/Ragas and Promptfoo/DeepTeam when applicable.
-6. Use exploratory browser testing such as Explorbot only after deterministic coverage exists, and convert real discoveries into permanent regression tests.
+5. For AI-native journeys, evaluate relevance, faithfulness, tool correctness, guardrails, and HITL behavior with the current iPix test/runtime stack; do not introduce a new evaluation platform unless a separately approved task owns that decision.
+6. Use Explorbot only after deterministic coverage exists, treat it as exploratory developer QA rather than a mandatory merge gate, and convert verified discoveries into permanent regression tests.
 7. Do not certify the journey because one page renders or one Playwright script passes.
 8. Record exact evidence for both system correctness and AI correctness.
 9. Stop and update the task if the journey exposes an incorrect architecture, missing ownership boundary, unsafe write, tenant leak, or unowned failure path.

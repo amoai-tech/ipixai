@@ -2,7 +2,7 @@
 
 Coordinator for question → source → decision before non-trivial edits.
 
-**Primary skill:** [`ai-research`](../ai-research/SKILL.md) · **Playbook:** [`docs/process/03-ai-research-playbook.md`](../../../docs/process/03-ai-research-playbook.md) · **Command:** `/research`  
+**Primary skill:** [`ai-research`](../ai-research/SKILL.md) · **Playbook:** [`docs/process/03-ai-research-playbook.md`](../../../docs/process/03-ai-research-playbook.md) · **Command:** `/research`
 **Detailed checks:** [references/audit-checklist.md](references/audit-checklist.md) · **Rank approaches:** `/efficient`
 
 For IPI work, run **`ai-research`** (or `/research IPI-NNN`) and paste the report into the issue `## Research notes` (or `docs/audits/`) before Phase 3.
@@ -14,7 +14,7 @@ For IPI work, run **`ai-research`** (or `/research IPI-NNN`) and paste the repor
 | | Criterion |
 |---|---|
 | **Entry** | Spec or issue exists AND ≥1 of: unfamiliar module, external API unknown, RLS/migration impact, dependency drift, security unclear. |
-| **Exit** | Audit note saved (spec md `## Research notes` or `docs/audits/<date>-<topic>.md`). Risks ranked. Decision: **green-light** / **blocked** / **replan**. |
+| **Exit** | Research evidence recorded in the live Linear task or an intentionally owned audit doc. Risks ranked. Decision: **green-light** / **blocked** / **replan**. |
 
 Skip when **all** of: ≤3 file edits **and** known pattern **and** no Supabase/RLS/edge/Mastra/new vendor **and** concrete wiring plan exists.
 
@@ -68,7 +68,7 @@ Do not duplicate prose — migrate once, then implement from the folded note.
 ## Source prioritization
 
 1. **Official docs** — Supabase, Vite, React, Tailwind, Gemini API, Stripe (COM track).
-2. **Project** — [CLAUDE.md](../../../CLAUDE.md), [prd.md](../../../prd.md), [mvp.md](../../../mvp.md), `.cursor/rules/`, issue spec md.
+2. **Project** — [CLAUDE.md](../../../CLAUDE.md), [prd.md](../../../prd.md), [mvp.md](../../../mvp.md), `.cursor/rules/`, live Linear issue.
 3. **Repo code** — read files; do not infer.
 4. **Recent git** — `git log -p -- <path>`.
 5. **Web** — only when 1–4 silent; cite URL + date.
@@ -103,7 +103,7 @@ Never trust memory for: RLS defaults, API versions, env var names, deprecation t
 
 | Location | When |
 |----------|------|
-| Under `## Research notes` in issue spec md | Default |
+| Under `## Research notes` in live Linear issue | Default |
 | `docs/audits/YYYY-MM-DD-<topic>.md` | Cross-cutting / multi-issue |
 
 ---
@@ -127,6 +127,6 @@ Never trust memory for: RLS defaults, API versions, env var names, deprecation t
 | Forensic checklist | [references/audit-checklist.md](references/audit-checklist.md) |
 | Migration review | [references/migration-safety.md](references/migration-safety.md) |
 | Supabase MCP audit | [references/mcp-cadence-ipix.md](references/mcp-cadence-ipix.md) |
-| PRD update from findings | [prd-template](references/prd-template.md) → update `docs/linear/issues/IPI-*.md` |
+| Task/PRD correction from findings | update the live Linear issue/owning source after verifying current repo/runtime evidence |
 
 Hand off to [implementation.md](implementation.md) when decision = green-light.

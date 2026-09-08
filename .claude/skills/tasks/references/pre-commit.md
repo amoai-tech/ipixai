@@ -53,12 +53,13 @@ A review bot or model suggestion is a hypothesis, never authority.
 
 ## Local automated review loop
 
-When CodeRabbit/Qodo/local review tooling is available and safe for the diff, use it before push. This repo currently has the CodeRabbit CLI installed at `/home/sk/.local/bin/coderabbit`; verify the command still exists before relying on it:
+When CodeRabbit/Qodo/local review tooling is available and safe for the diff, it may be used before push as an accelerator. It is not a required gate unless the repository provides a reproducible configured path. Detect the CLI portably rather than relying on a developer-specific path:
 
 ```bash
-coderabbit review --agent -t uncommitted
-# or review the branch against its base when appropriate
-coderabbit review --agent --base main
+if command -v coderabbit >/dev/null 2>&1; then
+  coderabbit review --agent -t uncommitted
+  # or: coderabbit review --agent --base main
+fi
 ```
 
 Then use this loop:

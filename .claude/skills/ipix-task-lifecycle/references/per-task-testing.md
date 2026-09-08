@@ -38,7 +38,7 @@ command and expected output — never leave blank.
 
 **Test:**
 - Type: vitest | smoke | verify-rls | verify-edge
-- Command: `cd app && npx vitest run src/path/name.test.ts -t "behaviour"`
+- Command: `npx vitest run src/path/name.test.ts -t "behaviour"`
 - Pass when: [one-line expected outcome]
 
 **Steps:**
@@ -46,7 +46,7 @@ command and expected output — never leave blank.
 2. Run test — confirm FAIL
 3. Minimal implementation
 4. Run test — confirm PASS
-5. `cd app && npm run typecheck` (changed TS only)
+5. `npm run typecheck` (changed TS only)
 ````
 
 ---
@@ -55,13 +55,13 @@ command and expected output — never leave blank.
 
 ```bash
 # Single test file (default after each task)
-cd app && npx vitest run src/path/to/file.test.ts
+npx vitest run src/path/to/file.test.ts
 
 # Single test name
-cd app && npx vitest run src/path/to/file.test.ts -t "describes behaviour"
+npx vitest run src/path/to/file.test.ts -t "describes behaviour"
 
 # Watch while iterating
-cd app && npx vitest run src/path/to/file.test.ts --watch
+npx vitest run src/path/to/file.test.ts --watch
 
 # After migration task
 infisical run -- npm run supabase:verify-rls
@@ -70,7 +70,7 @@ infisical run -- npm run supabase:verify-rls
 npm run supabase:verify-edge
 
 # UI smoke (no new unit test)
-cd app && npm run dev   # :3002 — note route + action in task proof
+npm run dev:ui   # :3000 — note route + action in task proof
 ```
 
 ---
@@ -94,7 +94,7 @@ After **all** tasks: hand off to [testing.md](../testing.md) for full matrix + a
 When drafting Linear A–E steps, each step needs a **proof** line:
 
 ```markdown
-**Step B proof:** `cd app && npx vitest run src/.../foo.test.ts` — 3 passed
+**Step B proof:** `npx vitest run src/.../foo.test.ts` — 3 passed
 ```
 
 Map AC rows → test types using [testing-matrix.md](testing-matrix.md).

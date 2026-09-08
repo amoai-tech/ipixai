@@ -1,5 +1,7 @@
 # PR review-comment investigation and resolution
 
+Before classification, record the comment commit/head context when available: comment SHA, current PR SHA, and GitHub `isOutdated` state. An outdated comment is not automatically incorrect; re-evaluate its claim against the current head.
+
 Classify before editing.
 
 | Class | Meaning | Action |

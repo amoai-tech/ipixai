@@ -16,7 +16,7 @@ Every user-facing reply should make sense on the **first read**. Default audienc
 5. **Show the shape.** A tiny table, 3-line before/after, or arrow diagram beats a wall of prose.
 6. **Say why it matters** in the reader's terms — what breaks, what it unlocks, what they can do next.
 7. **Be honest.** Name the caveat, risk, or unproven claim. Simple-but-wrong is worse than none.
-8. **Full task names** on first mention (`IPI-NNN · SPEC — Title`), never a bare ticket ID.
+8. **Full task names** on first mention (`IPI-NNN · TASK-ID — Title`), never a bare ticket ID.
 
 ## Do not
 

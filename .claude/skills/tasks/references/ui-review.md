@@ -31,6 +31,8 @@ At minimum define applicable states:
 
 For Lumina migrations, use the wireframe to distinguish presentation worth preserving from stale data/auth/workflow behavior that must be rewritten or dropped.
 
+Use automated accessibility checks only when an existing repository tool/path is already available. Otherwise verify keyboard, focus, semantic roles/names, and screen-reader-relevant behavior with the existing browser stack; do not add a new dependency merely because this standard mentions accessibility.
+
 ## Agent prompt
 
 ```text

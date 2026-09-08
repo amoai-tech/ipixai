@@ -1,10 +1,10 @@
 # Linear issue spec template (iPix)
 
-**Canonical reusable body (Linear + spec md):** [`docs/process/templates/linear-issue-body.md`](../../../../docs/process/templates/linear-issue-body.md) — **SSOT paste body; edit there first.**  
-**Guide + install:** [`docs/process/templates/README.md`](../../../../docs/process/templates/README.md) · Playbook [02](../../../../docs/process/02-task-template.md)  
+**Reusable body:** [`docs/process/templates/linear-issue-body.md`](../../../../docs/process/templates/linear-issue-body.md). The live Linear issue is the execution/progress SSOT; this template is only a starting structure.
+**Guide + install:** [`docs/process/templates/README.md`](../../../../docs/process/templates/README.md) · Playbook [02](../../../../docs/process/02-task-template.md)
 **Prompt rules:** [linear-prompt-engineering.md](linear-prompt-engineering.md) · **A–E detail:** [linear-issue-steps.md](linear-issue-steps.md) · **Skills:** [domain-skill-routing.md](domain-skill-routing.md)
 
-This file is a **thin skill entrypoint / mirror** for Phase 1. Do not duplicate section text here — link to `linear-issue-body.md`.
+This file is a **thin template entrypoint** for Phase 1. Do not treat it as a task-specific source of truth.
 
 ---
 
@@ -14,7 +14,7 @@ This file is a **thin skill entrypoint / mirror** for Phase 1. Do not duplicate 
 IPI-<n> · <TASK-ID> — <Real-world plain English title>
 ```
 
-Filename: `docs/linear/issues/IPI-<n>-<task-id-slug>.md`
+No local issue filename is required. Save the verified task body directly in Linear.
 
 ---
 
@@ -63,7 +63,7 @@ Dashboard → CLI → Existing iPix code → Official docs → SDK/module
 
 ## Quality scores (1–5)
 
-Priority · Complexity · Risk · User value · Launch value — fill in header.  
+Priority · Complexity · Risk · User value · Launch value — fill in header.
 Defer Advanced + launch value ≤2, or when Dashboard/CLI already solves it.
 
 ---
@@ -81,7 +81,7 @@ Defer Advanced + launch value ≤2, or when Dashboard/CLI already solves it.
 | Field | Value |
 |-------|--------|
 | **MVP stage** | Core · Launch Blocker · Post-MVP · Advanced |
-| **Parallel** | OK / Must wait on **IPI-NNN · SPEC — Plain English title** (never bare `IPI-NNN`) |
+| **Parallel** | OK / Must wait on **IPI-NNN · TASK-ID — Plain English title** (never bare `IPI-NNN`) |
 | **Blocked by** | … · **Unblocks:** … |
 | **Track** | Platform · UI · DNA · AI · Commerce · Media |
 | **Skills** | ipix-task-lifecycle · <domain> · worktrees · pr-workflow |
@@ -121,12 +121,12 @@ Slugs = `.claude/skills/<slug>/`. **Read** each `SKILL.md` before writing AC.
 - [ ] **C1** … — proof: …
 
 #### D. Automated tests
-- [ ] **D1** `cd app && npx vitest run …` — proof: N passed
-- [ ] **D2** typecheck + lint — proof: green
+- [ ] **D1** `npx vitest run …` — proof: N passed
+- [ ] **D2** `npm run typecheck` + applicable targeted tests — proof: green
 
 #### E. Real-world + ship
 - [ ] **E1** Playwright / MCP Chrome journey — proof: …
-- [ ] **E2** localhost:3002 with qa@ipix.test — proof: …
+- [ ] **E2** localhost test journey using the current repo Playwright/dev configuration — proof: …
 - [ ] **E3** Preview / production-safe smoke as applicable — proof: …
 - [ ] **E4** Agent validation if AI touched — proof: …
 - [ ] **E5** PR evidence · CI · Linear Done — proof: …

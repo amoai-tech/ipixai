@@ -2,7 +2,7 @@
 
 ---
 
-## tasks/plan/todo.md row update
+## Live Linear progress update
 
 Change dot in master table:
 
@@ -16,7 +16,7 @@ Update **Updated:** date in todo header. Refresh executive summary counts if mil
 
 ## Issue spec close-out
 
-In `docs/linear/issues/IPI-*-<SPEC-ID>.md`:
+In the live Linear issue:
 
 ```markdown
 ## Acceptance criteria
@@ -38,7 +38,7 @@ Tick each step in completion block:
 - [x] **B1** Operator sees … — proof: screenshot / build log
 ```
 
-Set issue state **Done** when all verify gates pass and `tasks/plan/todo.md` is 🟢.
+Set issue state **Done** only after all applicable verify + post-merge gates pass and evidence is recorded.
 
 ---
 
@@ -61,4 +61,4 @@ node scripts/linear-update-issue.mjs IPI-16
 node scripts/linear-update-issue.mjs --all
 ```
 
-Push descriptions from local `docs/linear/issues/` to Linear API.
+Update verified task descriptions/progress directly in Linear through the available connector/API.

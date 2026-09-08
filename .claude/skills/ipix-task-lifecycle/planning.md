@@ -1,6 +1,6 @@
 # Phase 1 — Planning
 
-Coordinator for **Linear-first** planning. Routes scoping to child skills; owns SPEC-ID traceability and issue description quality.
+Coordinator for **Linear-first** planning. Routes scoping to child skills; [tasks](../tasks/SKILL.md) owns the executable task format and progress contract.
 
 **Load:** [references/linear-issue-steps.md](references/linear-issue-steps.md) · [references/linear-spec-template.md](references/linear-spec-template.md) · [references/linear-prompt-engineering.md](references/linear-prompt-engineering.md) · [references/domain-skill-routing.md](references/domain-skill-routing.md)
 
@@ -11,15 +11,15 @@ Coordinator for **Linear-first** planning. Routes scoping to child skills; owns 
 | | Criterion |
 |---|---|
 | **Entry** | New capability in [prd.md](../../../prd.md) / [mvp.md](../../../mvp.md) with no Linear spec, OR user asks to scope IPI-/PLT-/UI-/DNA-/COM- work, OR issue exists but lacks A–E steps + Gantt. |
-| **Exit** | `docs/linear/issues/IPI-*-<SPEC-ID>.md` updated (or created) with acceptance criteria, wiring plan, verify block. Linear description has completion steps + Gantt. [`tasks/plan/todo.md`](../../../tasks/plan/todo.md) row exists or updated. |
+| **Exit** | Live Linear issue satisfies the `tasks` format gate with acceptance criteria, implementation/proof checkpoints, dependencies, and progress/handoff state. |
 
 ---
 
 ## Workflow checklist
 
 ```
-[ ] 1.  Read SPEC row in tasks/plan/todo.md — confirm seq, blocked-by, MVP proof link.
-[ ] 2.  Read matching docs/linear/issues/IPI-*.md (source of truth for wiring).
+[ ] 1.  Read the live Linear issue/project — confirm full task reference, blocked-by relations, priority/MVP context, and current progress.
+[ ] 2.  Read `.claude/skills/tasks/SKILL.md` and only the applicable references; verify repo/live facts before trusting issue assumptions.
 [ ] 3.  Read prd.md / mvp.md section for the SPEC-ID.
 [ ] 3b. **Domain skills (mandatory):** classify task → [domain-skill-routing.md](references/domain-skill-routing.md) + skill-map row → Read each `.claude/skills/<slug>/SKILL.md` → draft **Skills:** line.
 [ ] 4.  Route to process child skill if scope ambiguous (routing table below).
@@ -32,8 +32,8 @@ Coordinator for **Linear-first** planning. Routes scoping to child skills; owns 
 [ ] 10. Add TECHNICAL NOTES — exact files to touch + explicit "Do NOT" antipatterns.
 [ ] 11. Add OUT OF SCOPE — at least 2 explicit exclusions.
 [ ] 12. Add Verify block — per-step proof commands ([per-task-testing](references/per-task-testing.md)).
-[ ] 13. **Skills:** line in spec md + Linear — slugs from domain-skill-routing; each skill has ≥1 proof command.
-[ ] 14. Push description to Linear via mcp__linear-ipix__save_issue.
+[ ] 13. **Skills:** line in Linear — slugs from domain-skill-routing; each skill has ≥1 proof command.
+[ ] 14. Save the verified description/progress directly to Linear through the available Linear connector/API.
 [ ] 15. Run validation checklist below.
 [ ] 16. Hand off to research.md (Phase 2) or implementation.md if trivial + green-lit.
 ```
@@ -69,7 +69,7 @@ Large multi-file / architecture fork
 MVP cut / launch scope
   └─ mvp
 
-Linear issue already has A–E + Gantt + spec md
+Linear issue already satisfies the tasks-format gate
   └─ Skip Phase 1 → Phase 2 or 3
 
 New PRD section needed first
@@ -78,17 +78,15 @@ New PRD section needed first
 
 ---
 
-## Linear spec naming
+## Linear task naming
 
-```
-docs/linear/issues/IPI-<n>-<SPEC-ID>.md
+Canonical full reference:
+
+```text
+IPI-<n> · <TASK-ID> — <Real-world plain English title>
 ```
 
-| Segment | Rule | Example |
-|---------|------|---------|
-| `IPI-<n>` | Linear issue number | `IPI-16` |
-| `SPEC-ID` | Title prefix from issue | `PLT-003`, `UI-001`, `DNA-004` |
-| Body sections | See [linear-spec-template.md](references/linear-spec-template.md) | AC, wiring plan, verify |
+`TASK-ID` is the actual spec identifier (for example `BRAND-001`, `DASH-MAIN-002`, or `MIGRATE-TEMPLATE`). The live Linear issue is authoritative; no local issue filename is required.
 
 ---
 
@@ -116,8 +114,8 @@ docs/linear/issues/IPI-<n>-<SPEC-ID>.md
 
 | Rule | Detail |
 |------|--------|
-| `Blocked by` / `Unblocks` | Required in Linear description + spec md |
-| Platform order | Follow [`tasks/plan/todo.md`](../../../tasks/plan/todo.md) seq — e.g. PLT-003 before AI-001 |
+| `Blocked by` / `Unblocks` | Required in the live Linear issue when dependencies exist |
+| Platform order | Follow live Linear dependency/priority state; never infer order from a nonexistent local tracker |
 | Migrations before UI | Schema + RLS before hooks/components that query |
 | Edge fn before client | Deploy + verify edge before Next.js client calls it |
 | No cycles | If A blocks B and B blocks A, replan |
@@ -129,19 +127,19 @@ docs/linear/issues/IPI-<n>-<SPEC-ID>.md
 | Concept | Granularity | Lives in |
 |---------|-------------|----------|
 | MVP proof | End-user outcome | [mvp.md](../../../mvp.md) |
-| SPEC-ID | One shippable platform unit | Linear issue + `docs/linear/issues/` |
+| TASK-ID | One shippable task identifier | Live Linear issue |
 | Sub-step | Checkbox inside A–E block | Linear description |
 | Commerce track | COM-* on Mercur | Separate from Supabase platform |
 
-Never merge or split mid-implementation — update Linear + spec md first.
+Never merge or split scope mid-implementation without first updating the live Linear issue and its relations/acceptance criteria.
 
 ---
 
 ## Validation checklist
 
 ```
-[ ] SPEC-ID in issue title matches tasks/plan/todo.md row
-[ ] docs/linear/issues/IPI-*.md exists and links to Linear URL
+[ ] Full `IPI-NNN · TASK-ID — Title` reference is correct in Linear
+[ ] Linear issue URL/identifier is recorded and authoritative
 [ ] PROBLEM STATEMENT present — concrete examples of what breaks today
 [ ] USER STORY present — As / when / I see / so I can (single sentence)
 [ ] ASCII wireframe present (UI tasks) — shows actual screen layout
@@ -155,11 +153,11 @@ Never merge or split mid-implementation — update Linear + spec md first.
 [ ] Completion steps A–E with proof per step
 [ ] **Skills:** line lists all required slugs (ipix-task-lifecycle + domain); each Read from `.claude/skills/<slug>/SKILL.md`
 [ ] Each declared skill has ≥1 AC/step with matching proof command
-[ ] Blocked by / Unblocks accurate vs tasks/plan/todo.md
+[ ] Blocked by / Unblocks matches live Linear relations
 [ ] No TBD anywhere in the issue
 [ ] Prompt lint passed — see linear-prompt-engineering.md validation checklist
 [ ] blockedBy in Linear matches any AC that depends on another issue
-[ ] tasks/plan/todo.md dot/status reflects planning state (🟡 or ⚪)
+[ ] Linear status/progress reflects the verified planning state
 ```
 
 ---
@@ -170,10 +168,10 @@ Never merge or split mid-implementation — update Linear + spec md first.
 |-----------|----------|
 | No PRD section for initiative | [prd-template](references/prd-template.md) → Linear spec |
 | Architecture diagram for stakeholders | [mermaid-diagrams](../mermaid-diagrams/SKILL.md) |
-| Roadmap / milestone reshuffle | [`tasks/plan/todo.md`](../../../tasks/plan/todo.md) + [docs/linear/linear-plan.md](../../../docs/linear/linear-plan.md) |
+| Roadmap / milestone reshuffle | Live Linear project/milestone/dependency state |
 | Forensic verify before marking planned | [task-verifier](../task-verifier/SKILL.md) |
 
-Hand off to [research.md](research.md) once spec + Linear steps exist.
+Hand off to [research.md](research.md) once the live Linear task satisfies the tasks-format gate.
 
 ---
 

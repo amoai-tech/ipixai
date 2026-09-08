@@ -22,8 +22,8 @@ Five-phase orchestrator for **iPix / FashionOS** Linear team **IPI**: plan → r
 
 | Resource | Path |
 |----------|------|
-| Canonical tracker | [`tasks/plan/todo.md`](../../../tasks/plan/todo.md) |
-| Issue specs | [`docs/linear/issues/`](../../../docs/linear/issues/) |
+| Canonical tracker | Live Linear issue/project + `tasks` progress standard |
+| Executable task spec | Live Linear issue + `.claude/skills/tasks/SKILL.md` |
 | Skill map | [`tasks/intelligence/ai/skill-map.md`](../../../tasks/intelligence/ai/skill-map.md) |
 | Forensic gate | [task-verifier](../task-verifier/SKILL.md) |
 

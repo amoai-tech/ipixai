@@ -1,6 +1,6 @@
 # Phase 5 — Shipping
 
-Coordinator for **closing the loop** — PR, Linear, [`tasks/plan/todo.md`](../../../tasks/plan/todo.md), git commit. **Mandatory** for every shipped issue.
+Coordinator for **closing the loop** — PR, live Linear, git commit, and post-merge evidence. **Mandatory** for every shipped issue.
 
 **PR + threads:** [pr-workflow](../pr-workflow/SKILL.md) · **Done gate:** [task-verifier](../task-verifier/SKILL.md)
 
@@ -11,39 +11,34 @@ Coordinator for **closing the loop** — PR, Linear, [`tasks/plan/todo.md`](../.
 | | Criterion |
 |---|---|
 | **Entry** | Phase 4 verify matrix green. Proofs captured. |
-| **Exit** | **Never mark Done unless** Done gate in [SKILL.md](SKILL.md) is satisfied. PR merged (or waived) · threads resolved · `tasks/plan/todo.md` 🟢 · commit · user informed. |
+| **Exit** | **Never mark Done unless** Done gate in [SKILL.md](SKILL.md) is satisfied. PR merged (or waived) · threads resolved · post-merge proof recorded in Linear · user informed. |
 
 ---
 
 ## Shipping checklist
 
 ```
-[ ]  1. Re-run verify matrix ([pr-workflow verify-matrix](../pr-workflow/references/verify-matrix.md)) — paste output.
-[ ]  2. task-verifier report (mandatory for auth/RLS/edge/Mastra/UI; document waiver if trivial).
-[ ]  3. Update docs/linear/issues/IPI-*-<SPEC-ID>.md — AC [x], verify evidence.
-[ ]  4. Tick Linear completion steps A–E (UI or node scripts/linear-update-issue.mjs).
-[ ]  5. pr-workflow: PR open · Bugbot clean or waived · all threads resolved.
-[ ]  6. Set Linear **In Review** while waiting on human merge. **Done only after** [post-merge](../pr-workflow/references/post-merge.md) proves ACs + required deploy/migration. Merge ≠ Done.
-[ ]  7. Update tasks/plan/todo.md row → 🟢 + date.
-[ ]  8. Self-review git diff — one concern, no secrets, no console.log.
-[ ]  9. Stage explicit paths (never git add -A).
-[ ] 10. Commit with conventional message (template below).
-[ ] 11. Report: issue link, PR link, files changed, verify summary.
-[ ] 12. Push / merge only if user explicitly asks.
-[ ] 13. **Worktree teardown (if used):** [documentation preservation gate](../worktrees/SKILL.md#documentation-preservation-gate-mandatory--p0) → commit/split docs → `npm run worktree:pre-delete` → `git worktree remove <path>` → `npm run worktree:audit`.
+[ ]  1. Run the risk-matched verification from tasks/pre-merge-tests and capture evidence.
+[ ]  2. Run task-verifier when required; document a justified trivial-work waiver only when allowed.
+[ ]  3. Update the live Linear issue: acceptance criteria/progress, exact verification evidence, blockers, and next state.
+[ ]  4. PR: all substantive review threads classified/resolved; current-head CI/review freshness recorded.
+[ ]  5. Set Linear In Review while waiting on merge. Done only after tasks/post-merge proves the observable outcome.
+[ ]  6. Self-review exact git diff — one concern, no secrets, no debug residue.
+[ ]  7. Stage explicit task paths and commit with the repository task reference.
+[ ]  8. Push / merge only if user explicitly asks.
+[ ]  9. After merge: verify origin/main, main CI/deployment as applicable, task smoke/domain proof, then update Linear to 100% / Done.
+[ ] 10. Worktree teardown only after documentation/evidence preservation and post-merge requirements are satisfied.
 ```
 
----
+## Canonical records
 
-## Three-record bookkeeping (iPix)
+| Record | Authority | Required update |
+| -- | -- | -- |
+| Task execution/progress | Live Linear issue | AC/progress, evidence, blocker/next state |
+| Code/review | Git commit + PR | exact diff, review threads, tested/reviewed head SHA |
+| Runtime proof | CI/deployment/domain evidence | post-merge result when applicable |
 
-| Record | Path | Update |
-|--------|------|--------|
-| Backlog status | [`tasks/plan/todo.md`](../../../tasks/plan/todo.md) | Dot 🟢, date, seq intact |
-| Spec + AC | `docs/linear/issues/IPI-*.md` | AC checked, verify block filled |
-| System of record | Linear issue | Steps `[x]`, state, optional comment |
-
-All three must agree before calling the issue shipped.
+A local issue/todo mirror is not mandatory. If a future task deliberately introduces one, that task must define synchronization direction and ownership; do not recreate old `docs/linear/issues/` or `tasks/plan/todo.md` conventions by default.
 
 ---
 
@@ -79,19 +74,9 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ---
 
-## Linear sync
+## Linear update
 
-**Script:** [scripts/linear-update-issue.mjs](../../../scripts/linear-update-issue.mjs)
-
-```bash
-# Single issue
-node scripts/linear-update-issue.mjs IPI-16
-
-# Bulk push local spec descriptions → Linear
-node scripts/linear-update-issue.mjs --all
-```
-
-Requires `LINEAR_API_KEY` in `.env.local`. See [references/linear-issue-steps.md](references/linear-issue-steps.md).
+Prefer the connected Linear MCP/API and write the verified task state directly to the live issue. Never require a nonexistent local markdown mirror as an intermediate source of truth. If Linear is unavailable, report the update as blocked rather than fabricating a local authoritative state.
 
 ---
 
@@ -125,7 +110,7 @@ Requires `LINEAR_API_KEY` in `.env.local`. See [references/linear-issue-steps.md
 | Commit templates | [references/shipping-templates.md](references/shipping-templates.md) |
 | Forensic Done gate | [task-verifier](../task-verifier/SKILL.md) |
 | PR create, verify, threads, merge | [pr-workflow](../pr-workflow/SKILL.md) |
-| After merge (verify main, Linear, risks, docs, changelog) | [pr-workflow post-merge](../pr-workflow/references/post-merge.md) — merge ≠ Done |
+| After merge (verify main, Linear, risks, runtime) | [tasks post-merge](../tasks/references/post-merge.md) — merge ≠ Done |
 | Worktree cleanup | [worktrees](../worktrees/SKILL.md) |
 
-After Phase 5: offer next row from [`tasks/plan/todo.md`](../../../tasks/plan/todo.md) active queue.
+After Phase 5: use the live Linear project/dependency state to identify the next eligible task.

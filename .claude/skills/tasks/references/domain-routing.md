@@ -29,6 +29,7 @@ exact reviewer claim
 ```
 
 Do not search the web first when installed source/types or a connected MCP can answer the question more directly.
+Before relying on a named skill/MCP, verify it exists and is available in the current environment. If unavailable, fall back to current code plus installed source/types and official vendor documentation; do not pretend a missing connector ran.
 
 ## Test signal by domain
 

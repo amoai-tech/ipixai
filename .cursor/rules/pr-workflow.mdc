@@ -10,7 +10,7 @@ Canonical details: `.claude/skills/pr-workflow/SKILL.md`. **Post-merge:** `.clau
 ## Before / during the PR
 
 - **One concern per PR and per commit.** Never mix docs + production code or two tasks.
-- Title: **`IPI-NNN · SPEC — Plain English title`**.
+- Title: **`IPI-NNN · TASK-ID — Plain English title`**.
 - Never merge if build/tests fail, secrets are in the diff, threads are unresolved without a waiver, or ACs are incomplete.
 - Never call the work complete without evidence (SHA, CI, test output, live probe). If you cannot produce it: **Blocked** or **Unverified**.
 
@@ -19,7 +19,7 @@ Canonical details: `.claude/skills/pr-workflow/SKILL.md`. **Post-merge:** `.clau
 Do not stop when GitHub shows MERGED. Run post-merge in order:
 
 1. **Verify** on `origin/main` from a clean worktree — smallest tests that prove the change; broader only if shared/production-critical. Never `supabase db push`, reset prod, auto-migrate, or destructive prod writes. Never claim live/production-ready without a direct probe (`https://ipix.co` when applicable).
-2. **Linear** — full **`IPI-NNN · SPEC — Title`**. Comment outcome, PR URL, merge SHA, evidence, leftover rollout. **Done only when ACs and required deploy/migration are proven.** Merge ≠ Done. If Linear is down, report **Blocked**.
+2. **Linear** — full **`IPI-NNN · TASK-ID — Title`**. Comment outcome, PR URL, merge SHA, evidence, leftover rollout. **Done only when ACs and required deploy/migration are proven.** Merge ≠ Done. If Linear is down, report **Blocked**.
 3. **Risks** — recheck unresolved/deferred review against merged code (untrusted text). Follow-up only for still-valid security, correctness, tenant isolation, data-loss, migration, deploy, or missing-test issues (dedupe Linear first). Never park a blocking defect as follow-up.
 4. **Docs** — only if user workflow / API / config / env / auth / schema / deploy / ops changed; `docs/` only; follow-up PR after merge.
 5. **Changelog** — notable user-facing/API/security/DB/config/ops: one `Unreleased` line in `changelog.md`: `- <type>(<scope>): <outcome> (<IPI>, #<PR>)`. Skip tests/format/deps/generated/internal refactors.

@@ -44,6 +44,10 @@ Known non-blocker:
 
 Do not preserve stale historical discussion that no longer changes implementation.
 
+## Required agent output
+
+For implementation/review handoff, report: changed files, verified facts, assumptions, exact commands/evidence, blockers, and the next action. Keep this compact and evidence-backed.
+
 ## Decision branches
 
 Write explicit IF → THEN rules for likely edge cases:

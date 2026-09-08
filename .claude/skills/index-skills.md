@@ -1,8 +1,6 @@
 # iPixai skills
 
-Copied **2026-08-24** from `/home/sk/ipix/.claude/skills` — **not** a full dump.
-
-Live tree: `.claude/skills/` · Cursor also loads `.cursor/skills` → symlink to the same tree.
+Canonical repository skill tree: `.claude/skills/`. Cursor also loads `.cursor/skills` → symlink to the same tree.
 
 Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Cursor rules: `.cursor/rules/`.
 
@@ -20,7 +18,7 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Cursor rules: `.cursor/rule
 | `shadcn` | UI components |
 | `vercel-react-best-practices` | Perf |
 | `linear` | IPI issues |
-| `tasks` | Executable Linear task structure, progress tracker, file/workflow checkpoints, Lumina migration standard |
+| `tasks` | Executable Linear task standard: agent prompts, implementation, pre-commit, testing, PR review, user journeys, CI, migration reuse, and post-merge proof |
 | `ipix-task-lifecycle` | Five-phase ship |
 | `task-verifier` | Done gate |
 | `pr-workflow` | PRs (lifecycle dependency; not in the original ask list) |

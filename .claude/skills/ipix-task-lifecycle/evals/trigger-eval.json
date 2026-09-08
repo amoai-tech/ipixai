@@ -1,8 +1,8 @@
 [
-  {"query": "implement IPI-46 — onboarding orchestration, branch ipi/ipi-46-onboarding, wiring plan in docs/linear/issues", "should_trigger": true},
+  {"query": "implement IPI-46 — onboarding orchestration, branch ipi/ipi-46-onboarding, live Linear task with executable wiring/proof plan", "should_trigger": true},
   {"query": "ship the PR for IPI-127 copilotkit license token — verify matrix, resolve bugbot threads, update todo.md", "should_trigger": true},
   {"query": "forensic verify IPI-268 campaigns schema before marking Done — task-verifier probes", "should_trigger": true},
-  {"query": "what's the next P0 task in tasks/plan/todo.md MVP queue?", "should_trigger": true},
+  {"query": "what's the next unblocked P0 task in the live Linear project?", "should_trigger": true},
   {"query": "write execution plan for UI-002 brand hub intake — worktree, files, tests, rollback", "should_trigger": true},
   {"query": "close out Linear IPI-89 PLT-015 — merge PR, set Done, update acceptance criteria checkboxes", "should_trigger": true},
   {"query": "/task IPI-23 start work — mark In Progress and run phase 2 research", "should_trigger": true},

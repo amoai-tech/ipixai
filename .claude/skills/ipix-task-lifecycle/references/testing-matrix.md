@@ -9,7 +9,7 @@ Used in Phase 4 ([testing.md](../testing.md)) for aggregate gates. Per-task test
 
 | Task delivers | Per-task Test block |
 |---------------|---------------------|
-| Hook, service, util | `cd app && npx vitest run <file> -t "<behaviour>"` |
+| Hook, service, util | `npx vitest run <file> -t "<behaviour>"` |
 | React component | Vitest + RTL — behaviour assertions |
 | API route / server action | Vitest on handler or integration test |
 | Page / panel | Vitest if logic + smoke note for four states |
@@ -46,11 +46,12 @@ Legend: **yes** = required · **optional** = if AC names it · **—** = N/A · 
 
 Phase 3 (per task): task `Test` command from plan.
 
-Phase 4 (aggregate) from `/home/sk/ipix`:
+Phase 4 aggregate verification runs from the current iPixai repository root:
 
 ```bash
-cd app && npm run lint && npm run typecheck && npm test
-cd app && npm run build              # routes/config/schema
+npm test                             # when broader Vitest coverage is justified
+npm run typecheck
+npm run build                        # when route/config/runtime risk requires it
 infisical run -- npm run supabase:verify
 infisical run -- npm run supabase:verify-rls
 npm run supabase:verify-edge

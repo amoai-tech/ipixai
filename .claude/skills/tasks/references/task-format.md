@@ -16,11 +16,12 @@ Use this order unless a task-specific reason requires otherwise.
 12. **Implementation order** — one file or tightly coupled group at a time.
 13. **Performance/query contract** when data access is involved.
 14. **Test-data strategy + checkpoint self-check**.
-15. **Pre-commit defect-prevention gate**.
-16. **PR creation + review-comment resolution + exact-head CI**.
-17. **Production-ready acceptance checklist**.
-18. **Post-merge verification + residual-risk routing**.
-19. **Final implementation report**.
+15. **User Journey / AI Journey Certification** when applicable — actor, starting state, business outcome, systems crossed, negative paths, system correctness, and AI correctness.
+16. **Pre-commit defect-prevention gate**.
+17. **PR creation + review-comment resolution + exact-head CI**.
+18. **Production-ready acceptance checklist**.
+19. **Post-merge verification + residual-risk routing**.
+20. **Final implementation report**.
 
 ## Per-file/group section
 
@@ -36,3 +37,10 @@ Use [agent-instructions.md](agent-instructions.md). Give clear sequential gates 
 Use [ui-review.md](ui-review.md) for Mermaid/wireframe/state-matrix requirements when diagrams materially reduce implementation ambiguity.
 
 Before commit/PR use [pre-commit.md](pre-commit.md) and [github-pr.md](github-pr.md). Review comments follow [review-comments.md](review-comments.md), [domain-routing.md](domain-routing.md), and [research-evidence.md](research-evidence.md). After merge use [post-merge.md](post-merge.md).
+
+
+## Agent prompt
+
+```text
+Structure the substantial Linear task in this file's execution order. Keep the Agent Contract and progress/handoff state near the top, define the observable business outcome and Definition of Done before implementation detail, and include architecture/dependencies, source-action-target mapping, STOP conditions, ordered file/workflow groups, risk-matched tests, user/AI journey certification when applicable, PR/exact-head CI, and post-merge proof. Omit only sections that are genuinely N/A and record why. Do not duplicate stale repository facts; link to the owning task reference or live source of truth.
+```

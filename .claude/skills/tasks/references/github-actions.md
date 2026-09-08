@@ -13,6 +13,8 @@ Use GitHub Actions as the shared, reproducible proof layer after local checks an
 | reusable `workflow_call` | centralize repeated setup/test logic without copy/paste |
 | matrix jobs | versions, OS/browser/runtime combinations only when compatibility risk justifies them |
 
+Use `merge_group` only if iPix adopts GitHub Merge Queue; do not add the trigger before that workflow is actually enabled.
+
 ## Development loop
 
 ```text
@@ -29,7 +31,9 @@ local targeted proof
 → push/main CI + post-merge proof
 ```
 
-Do not use a full Actions rerun as the first debugging step when one failed test can be reproduced directly.## Failure triage
+Do not use a full Actions rerun as the first debugging step when one failed test can be reproduced directly.
+
+## Failure triage
 
 When a workflow fails:
 
@@ -83,6 +87,10 @@ Do not replace GitHub-hosted exact-head PR CI with a developer machine pass.
 - Add `timeout-minutes` to long jobs so hung browsers, service containers, or external APIs cannot consume runners indefinitely.
 - Prefer immutable lockfile installs (`npm ci`) and pinned tool versions for reproducible gates.
 - Treat external-provider/network failures separately from product regressions; retry only where the failure mode is genuinely transient and bounded.
+- Avoid executing untrusted PR code via `pull_request_target` when secrets or write-capable tokens are available; prefer safer event/workflow designs.
+- Prefer OIDC/short-lived cloud credentials over stored long-lived cloud keys where supported.
+- Use GitHub Environments and required approvals for production deployments when deployment policy requires them.
+- Never cache secrets, generated auth state, or credential-bearing files.
 
 ## Job design
 

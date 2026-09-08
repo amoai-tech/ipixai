@@ -5,7 +5,7 @@ Cursor rule: `.cursor/rules/linear-task-format.mdc` (summary only — do not dup
 
 **This repo:** CopilotKit + Mastra at git root (`src/`). Split `dev:ui` / `dev:agent`. Never combined `npm run dev`. Never production Supabase writes. Hosting is **Vercel / Next.js**, not Cloudflare Workers.
 
-Title: **`IPI-NNN · SPEC — Plain-English outcome`**. Never a tech-only title.
+Title: **`IPI-NNN · TASK-ID — Plain-English outcome`**. Never a tech-only title.
 
 ---
 
@@ -39,7 +39,7 @@ flowchart TD
 ```markdown
 ## Implementation prompt
 
-You are implementing **IPI-NNN · SPEC — Full title** in iPixai (`/home/sk/ipixai`).
+You are implementing **IPI-NNN · TASK-ID — Full title** in iPixai (`/home/sk/ipixai`).
 
 **After you read this description, do not write product code yet.** Run **Verify-before-implement** first. Only implement if that gate is ✅.
 

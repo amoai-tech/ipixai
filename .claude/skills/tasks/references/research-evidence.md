@@ -9,7 +9,7 @@ Research must answer a concrete load-bearing question. Do not collect links with
 3. Current clean `origin/main`.
 4. Installed package source/types and lockfile.
 5. Live iPix schema/RLS/config read safely.
-6. Official vendor MCP.
+6. Connected vendor-maintained MCP or live service interface.
 7. Version-specific official documentation.
 8. Official vendor GitHub repository/release/example.
 9. Reviewer/bot/model suggestion.

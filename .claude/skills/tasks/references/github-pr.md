@@ -41,6 +41,19 @@ After any pushed fix, treat earlier green checks as stale evidence. Record the n
 
 Do not treat a skipped workflow as proof that the covered behavior was tested; verify that every task-required check actually ran.
 
+## Automated-review freshness
+
+Before merge, record whether each required reviewer/check evaluated the current head:
+
+| Reviewer/check | Required? | Reviewed/tested SHA | Current? | Blocking findings |
+| -- | -- | -- | -- | -- |
+| CodeRabbit | yes/no | `<SHA>` | yes/no | `<N>` |
+| Qodo | yes/no | `<SHA>` | yes/no | `<N>` |
+| CI | yes | `<SHA>` | yes/no | `<N>` |
+| Preview | when applicable | `<SHA>` | yes/no | `<N>` |
+
+A bot summary or approval on an older SHA is stale evidence after a push.
+
 ## PR troubleshooting rule
 
 A review comment is a hypothesis, not authority.

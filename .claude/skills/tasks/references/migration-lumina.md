@@ -18,6 +18,7 @@ Rules:
 - Move unrelated workflow ownership to the exact Linear task instead of vague `defer` language.
 - Drop fake/demo/sample data, obsolete routes, stale contexts, fabricated evidence, and dead CTAs.
 - Reuse current iPix DAL/auth/tenant/UI primitives before introducing custom wrappers.
+- When reuse comes from outside `amoai-tech`, record source provenance/license compatibility before copying code or assets.
 
 ## Preferred implementation order
 

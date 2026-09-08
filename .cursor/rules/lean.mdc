@@ -12,7 +12,7 @@ alwaysApply: true
 | `ponytail.mdc` | Smallest safe change ladder |
 | `verified-fast-path.mdc` | Canonical solution ladder (native vendor before old iPix/Lumina or custom) |
 | `fastest.mdc` | Once per phase: if a faster path exists **without weakening evidence**, **use it** |
-| `task-naming.mdc` | **IPI-NNN · SPEC — Title** |
+| `task-naming.mdc` | **IPI-NNN · TASK-ID — Title** |
 | `task-accuracy.mdc` | Evidence / verification levels |
 | `ipixai-dev.mdc` | Split-dev, no prod Supabase writes |
 | `mastra-mcp.mdc` | Mastra docs MCP (`alwaysApply: false`) |

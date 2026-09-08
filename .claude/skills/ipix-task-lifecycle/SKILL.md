@@ -9,16 +9,16 @@ description: >
   "forensic verify", "wiring plan", "open PR with verify". Always use for multi-step iPix
   delivery. Do NOT use for one-line typo fixes, explain-only questions, isolated copilotkit/
   supabase/migration/lean/release-notes tasks without full lifecycle, or non-iPix repos.
-version: "1.9.0"
+version: "1.9.1"
 ---
 
 # ipix-task-lifecycle
 
-**BLUF:** One hub, five phases, one bookkeeping contract for **iPixai** (team **IPI**). Live Linear is the execution contract. This repo has **no** `docs/linear/issues/` or `tasks/plan/todo.md` yet — do not recreate them unless asked.
+**BLUF:** Five-phase execution orchestrator for **iPixai** (team **IPI**). Live Linear is the execution/progress contract; [tasks](../tasks/SKILL.md) owns the task specification standard. Do not create a local issue/todo mirror unless a separate task explicitly adopts one.
 
-**iPixai gates:** `docs/mastra/10-mastra-convert.md` · split `dev:ui` / `dev:agent` · no prod Supabase writes · no wholesale old-Mastra copy. Graphify is **optional** (no graph in this repo).
+**iPixai gates:** `docs/mastra/10-mastra-convert.md` · split `dev:ui` / `dev:agent` · no prod Supabase writes · no wholesale old-Mastra copy. Graphify is available at `graphify-out/graph.json`; use it before broad multi-file discovery.
 
-**Hub index:** [README.md](README.md) · v1.9.0 — tasks skill gate, domain-skill routing, worktree gates, verify-matrix link
+**Hub index:** [README.md](README.md) · v1.9.1 — Linear SSOT alignment, tasks-skill gate, current repo paths, phase orchestration
 
 ---
 
@@ -29,14 +29,14 @@ Read Linear issue + current task source
   → Read .claude/skills/tasks/SKILL.md and validate task structure/progress tracker
   → **Skills:** line → Read each .claude/skills/<slug>/SKILL.md
   → worktree:audit → worktree:add OR worktree:health (existing wt)
-  → Phase 1 skip? only if A–E + Skills + prompt lint + spec md synced (below)
+  → Phase 1 skip? only if the live Linear task already satisfies the tasks-format gate + required skills/context
   → Phase 2 skip? ≤3 files, no Supabase/RLS/edge/Mastra
   → Multi-file / unfamiliar? graphify query|path before reading source
   → Phase 3: Step 1b pre-edit gate → implement one A–E step at a time
   → Phase 4 verify matrix ([pr-workflow](../pr-workflow/references/verify-matrix.md))
   → pr-workflow: PR open · Bugbot · resolve threads
   → task-verifier (mandatory before Done on ship gates)
-  → Phase 5: tasks/plan/todo.md 🟢 · Linear Done
+  → Phase 5: post-merge proof → Linear evidence/progress → Done
 ```
 
 ---
@@ -47,8 +47,8 @@ Read Linear issue + current task source
 |---------|--------|
 | "Work on IPI-###" / `/task IPI-NNN` | Flow above · mark In Progress → phases 2–5 |
 | "Add Linear steps to IPI-###" | Phase 1 + [domain-skill-routing.md](references/domain-skill-routing.md) + [linear-issue-steps.md](references/linear-issue-steps.md) + [linear-prompt-engineering.md](references/linear-prompt-engineering.md) |
-| "Enrich Linear prompt" / tighten AC | [linear-prompt-engineering.md](references/linear-prompt-engineering.md) → sync spec md → Linear |
-| "Process platform backlog" / "Next task" | [`tasks/plan/todo.md`](../../../tasks/plan/todo.md) |
+| "Enrich Linear prompt" / tighten AC | [linear-prompt-engineering.md](references/linear-prompt-engineering.md) → verify facts → update live Linear |
+| "Process platform backlog" / "Next task" | Use the live Linear project/backlog and dependency state |
 | "Ship IPI-###" / "Sync Linear" | Phase 5 · [pr-workflow](../pr-workflow/SKILL.md) · mark Done via Linear MCP |
 | "Build feature" / greenfield / wiring plan | Phase 1 → child skills → Phase 3 |
 | "Forensic verify" before Done | [task-verifier](../task-verifier/SKILL.md) |
@@ -65,11 +65,11 @@ Read Linear issue + current task source
 | Topic | Rule |
 |-------|------|
 | **Linear** | [linear.app/amo100](https://linear.app/amo100) · team **IPI** · `LINEAR_API_KEY` in `.env.local` |
-| **Linear read** | Linear MCP `get_issue` when connected; else `node scripts/linear-update-issue.mjs` / spec md |
-| **Linear status** | Linear MCP `save_issue` (`In Progress` / `Done`) — verify tool name in session; fallback scripts in [shipping.md](shipping.md) |
+| **Linear read** | Linear MCP/API when connected; do not substitute a nonexistent local issue mirror |
+| **Linear status** | Use the available Linear connector/API for `In Progress` / `Done`; verify the current tool contract before writes |
 | **Supabase** | Remote linked · project `nvdlhrodvevgwdsneplk` · service role via API routes only |
-| **App** | Next.js `:3002` · `app/` · `(operator)` route group |
-| **Tracker** | [`tasks/plan/todo.md`](../../../tasks/plan/todo.md) — not root `todo.md` |
+| **App** | Next.js UI `:3000` · current App Router under `src/app/` |
+| **Tracker** | Live Linear progress tracker defined by [tasks](../tasks/SKILL.md); no mandatory local todo mirror |
 | **Issue IDs** | `IPI-NNN` (Linear) — old `PLT-`/`AI-`/`DNA-`/`COM-`/`UI-` spec IDs are retired |
 
 ---
@@ -142,7 +142,7 @@ Full path-heuristic table → [domain-skill-routing.md](references/domain-skill-
 
 ```
 New / ambiguous → brainstorming → writing-plans → Phase 3
-Linear issue w/ A–E + spec md + Skills → phases 2–5
+Linear issue already satisfying tasks-format gate + Skills → phases 2–5
 Large / architecture → feature-dev → graphify → writing-plans → Phase 3
 MVP cut → mvp
 New PRD → prd-template → Linear spec + writing-plans
@@ -171,11 +171,11 @@ Contract: [references/per-task-testing.md](references/per-task-testing.md) · au
 
 | # | Phase | Output |
 |---|-------|--------|
-| 1 | [planning.md](planning.md) | Linear A–E + spec md + **Skills** + diagrams/wireframes |
+| 1 | [planning.md](planning.md) | Live Linear task contract + **Skills** + diagrams/wireframes when useful |
 | 2 | [research.md](research.md) | Audit note + green-light + **API route inventory** |
 | 3 | [implementation.md](implementation.md) | Code + **Step 1b gate** + per-step proofs green |
 | 4 | [testing.md](testing.md) | [verify-matrix](../pr-workflow/references/verify-matrix.md) green |
-| 5 | [shipping.md](shipping.md) · [pr-workflow](../pr-workflow/SKILL.md) | PR merged · threads resolved · `tasks/plan/todo.md` 🟢 · Linear Done |
+| 5 | [shipping.md](shipping.md) · [tasks post-merge](../tasks/references/post-merge.md) | PR merged · threads resolved · post-merge proof recorded · Linear Done |
 
 ---
 
@@ -189,7 +189,7 @@ Before Phase 1 planning or any task enrichment, read [tasks](../tasks/SKILL.md).
 
 ## Linear issues as agent prompts
 
-Treat every executable issue as a **prompt** to Cursor/Claude: role, context, constraints, examples, chain (A–E steps), and eval (proof commands).
+Treat every executable issue as a **prompt** to Cursor/Claude: role, context, constraints, examples, ordered A–E execution steps, and eval (proof commands).
 
 **Full guide:** [references/linear-prompt-engineering.md](references/linear-prompt-engineering.md) · wireframes/wiring detail: [planning.md](planning.md)
 
@@ -203,7 +203,7 @@ Treat every executable issue as a **prompt** to Cursor/Claude: role, context, co
 | No **OR** in security AC | Clarity — agents pick the easier (wrong) path |
 | `blockedBy` matches cross-issue AC | Relations mirror dependencies |
 
-SSOT: edit `docs/linear/issues/IPI-*.md` first → `node scripts/linear-update-issue.mjs IPI-NNN`.
+SSOT: edit the live Linear issue directly. A local mirror is optional only when a separate task explicitly creates and owns one; if such a mirror exists, define its synchronization direction before use.
 
 ---
 
@@ -217,43 +217,31 @@ SSOT: edit `docs/linear/issues/IPI-*.md` first → `node scripts/linear-update-i
 | `/supa [scope]` | Supabase schema, RLS, migration, type-drift |
 | `/pr [new\|open\|fix\|ship\|ready\|status\|resolve] [PR#]` | One PR command (`.claude/commands/pr.md`) — auto-detect; fix/ship/ready/resolve |
 
-## Scripts (fallback)
+## Linear tooling fallback
 
-| Script | When |
-|--------|------|
-| `node scripts/linear-update-issue.mjs <id>` | Push spec md → Linear description |
-| `node scripts/linear-update-issue.mjs --all` | Bulk sync all IPI-*.md → Linear |
-
-Requires `LINEAR_API_KEY` in `.env.local`. Details: [shipping.md](shipping.md)
+Prefer the connected Linear MCP/API. If the required Linear write tool is unavailable, stop and report the update as blocked rather than creating a local authoritative mirror. Verify current connector action names before writing.
 
 ---
 
 ## Verification gates
 
-**Route by changed paths** — full matrix: [pr-workflow verify-matrix](../pr-workflow/references/verify-matrix.md). Never run operator verify at repo root.
+Route verification through [tasks pre-merge tests](../tasks/references/pre-merge-tests.md) and the owning domain skill. Re-read root `package.json` and `.github/workflows/ci.yml` before naming commands. The lifecycle orchestrates phases; it does not maintain a second test-command matrix.
 
-| Changed | Minimum |
-|---------|---------|
-| **`app/**`** | `cd app && npm run lint && npm run typecheck && npm test` · `npm run build` if routes/config/env/middleware |
-| **`supabase/**`** | `infisical run -- npm run supabase:verify` · `infisical run -- npm run supabase:verify-rls` (+ edge/BI per matrix) |
-| **Legacy `src/**`** | `infisical run -- npm run build && npm run test` |
-
-After DB changes: `/supa` or matrix scripts above.
+Current root baseline includes `npm test`, `npm run typecheck`, `npm run build`, and the Playwright `e2e*` scripts; use the smallest risk-matched subset and escalate only when the task requires it.
 
 ---
 
 ## Done gate
 
-**Never mark Done unless** all of the following are true:
+**Never mark Done unless** all applicable conditions are proved:
 
 ```
-[ ] AC checked [x] in docs/linear/issues/IPI-*.md
-[ ] Verify matrix green ([pr-workflow verify-matrix](../pr-workflow/references/verify-matrix.md))
-[ ] task-verifier report exists or is explicitly waived (trivial typo only)
-[ ] PR merged (or user waived PR) **and** [post-merge](../pr-workflow/references/post-merge.md) proved ACs + required deploy/migration — merge ≠ Done
-[ ] tasks/plan/todo.md row updated 🟢 (skip if that tracker does not exist in this repo)
-[ ] Linear marked Done only after post-merge proof (MCP or agreed fallback)
-[ ] GitHub review threads resolved (if PR was opened)
+[ ] Live Linear acceptance criteria/progress reflect verified current state
+[ ] Risk-matched verification is green ([tasks pre-merge](../tasks/references/pre-merge-tests.md))
+[ ] task-verifier report exists or is explicitly waived for truly trivial work
+[ ] PR merged (or user waived PR) and [tasks post-merge](../tasks/references/post-merge.md) proved the observable outcome
+[ ] GitHub review threads are classified/resolved when a PR exists
+[ ] Linear is marked Done only after post-merge proof
 ```
 
 ---
@@ -262,12 +250,12 @@ After DB changes: `/supa` or matrix scripts above.
 
 | Skip | When |
 |------|------|
-| Phase 1 | Issue has A–E + **Skills:** line + prompt lint passed + spec md synced to Linear — not merely "steps exist" |
+| Phase 1 | Live Linear task already satisfies the `tasks` structure/Agent Contract, required skills/context, and measurable proof gates |
 | Phase 2 | ≤3 files, no Supabase/RLS/edge/Mastra |
 | Phase 4 | Never on auth/RLS/edge/Mastra/AI |
 | Phase 5 | Never |
 
-Check [`tasks/plan/todo.md`](../../../tasks/plan/todo.md) for P0 dependencies before starting any IPI task.
+Check the live Linear issue/project for blocked-by dependencies before starting an IPI task.
 
 ---
 
@@ -282,8 +270,8 @@ Check [`tasks/plan/todo.md`](../../../tasks/plan/todo.md) for P0 dependencies be
 | Verify matrix | [pr-workflow/references/verify-matrix.md](../pr-workflow/references/verify-matrix.md) |
 | Spec template | [references/linear-spec-template.md](references/linear-spec-template.md) |
 | Migration safety | [references/migration-safety.md](references/migration-safety.md) |
-| Issue specs | `docs/linear/issues/IPI-*.md` |
-| Backlog tracker | [`tasks/plan/todo.md`](../../../tasks/plan/todo.md) |
+| Live task/progress SSOT | Linear issue + [tasks](../tasks/SKILL.md) |
+| Post-merge standard | [tasks post-merge](../tasks/references/post-merge.md) |
 | Supabase hub | [ipix-supabase/SKILL.md](../ipix-supabase/SKILL.md) |
 | MCP cadence | [references/mcp-cadence-ipix.md](references/mcp-cadence-ipix.md) |
 
@@ -293,5 +281,5 @@ Check [`tasks/plan/todo.md`](../../../tasks/plan/todo.md) for P0 dependencies be
 
 - **One concern per PR and per commit** — never mix docs+code or two IPI issues ([pr-workflow](../pr-workflow/SKILL.md))
 - Remote Supabase only · no client secrets
-- Traceability: IPI ↔ SPEC ↔ `tasks/plan/todo.md` ↔ code
+- Traceability: full Linear task reference ↔ code/PR ↔ verification evidence
 - No push without user ask · never push to `main`

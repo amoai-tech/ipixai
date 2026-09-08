@@ -78,8 +78,8 @@ See [SKILL.md § default flow](../SKILL.md). Phase 3: [Step 1b pre-edit gate](..
 
 ## Trackers
 
-- [`tasks/plan/todo.md`](../../../../tasks/plan/todo.md) — canonical backlog (not root `todo.md`)
-- [`docs/linear/issues/`](../../../../docs/linear/issues/) — spec SSOT
+- Live Linear project/issues — backlog, dependencies, execution/progress SSOT
+- [`tasks`](../../tasks/SKILL.md) — executable task specification/progress standard
 - [`supabase/README.md`](../../../../supabase/README.md) — remote DB ops
 
 ## Worktree commands (hub summary)

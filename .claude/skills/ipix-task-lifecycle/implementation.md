@@ -1,6 +1,6 @@
 # Phase 3 — Implementation
 
-Coordinator for coding in `/home/sk/ipix`. Routes trivial edits directly; non-trivial work through
+Coordinator for coding in `/home/sk/ipixai`. Routes trivial edits directly; non-trivial work through
 [feature-dev](../archive/feature-dev/SKILL.md). **Per-task testing:** [references/per-task-testing.md](references/per-task-testing.md).
 
 ---
@@ -9,8 +9,8 @@ Coordinator for coding in `/home/sk/ipix`. Routes trivial edits directly; non-tr
 
 | | Criterion |
 |---|---|
-| **Entry** | `docs/linear/issues/IPI-*.md` wiring plan exists · **Skills:** line present · Linear **In Progress**. Phase 2 = green-light or trivial-skip. [Step 1b](#step-1b--mandatory-pre-edit-gate) complete before first edit. |
-| **Exit** | All plan tasks implemented. **Each task's test command passed.** `cd app && npm run lint && npm run typecheck` pass. Ready for [testing.md](testing.md) aggregate gates. |
+| **Entry** | Live Linear issue satisfies the `tasks` format gate · required skills/context identified · Linear **In Progress**. Phase 2 = green-light or trivial-skip. [Step 1b](#step-1b--mandatory-pre-edit-gate) complete before first edit. |
+| **Exit** | All planned leaf checkpoints implemented and verified. Relevant targeted tests and `npm run typecheck` pass; build/browser proof runs only when the risk requires it. Ready for [testing.md](testing.md). |
 
 ---
 
@@ -19,7 +19,7 @@ Coordinator for coding in `/home/sk/ipix`. Routes trivial edits directly; non-tr
 ```
 [ ] 1.  Complete [Step 1b](#step-1b--mandatory-pre-edit-gate) — mandatory before any edit.
 [ ] 2.  Set Linear In Progress (Linear MCP or agreed fallback).
-[ ] 3.  Read docs/linear/issues/IPI-*-<SPEC-ID>.md + docs/plan/tasks/*.md if present.
+[ ] 3.  Read the live Linear task, `tasks` skill references for this phase, and only current repo plans/docs that actually exist.
 [ ] 4.  Read-before-edit: every file in plan + 1–2 siblings for pattern.
 [ ] 5.  Trivial vs non-trivial (table below).
 [ ] 6.  For EACH A–E step in plan (in order):
@@ -27,10 +27,10 @@ Coordinator for coding in `/home/sk/ipix`. Routes trivial edits directly; non-tr
         b. Run step proof command — confirm FAIL (or smoke baseline)
         c. Implement minimal change for this step only
         d. Run step proof command — confirm PASS
-        e. cd app && npm run typecheck on touched files
+        e. run the smallest relevant type/test proof; use `npm run typecheck` when TypeScript surface risk warrants it
         f. Do NOT start next step until (d) passes
 [ ] 7.  Implement order: migration → edge fn → lib/hooks → UI (when cross-layer).
-[ ] 8.  cd app && npm run lint && npm run typecheck before handoff.
+[ ] 8.  Run the risk-matched pre-merge subset; root has `npm run typecheck` and no root lint script.
 [ ] 9.  Self-review git diff — each hunk maps to an AC + test file.
 [ ] 10. Hand off to testing.md for aggregate matrix.
 ```
@@ -43,7 +43,7 @@ Before editing code, the agent must complete this gate. **Fail closed** — stop
 
 ### 1. Skill gate
 
-- Re-read every skill listed in the Linear issue / spec md `**Skills:**` line.
+- Re-read every skill listed in the live Linear issue `**Skills:**` line.
 - `Read` each `.claude/skills/<slug>/SKILL.md` — copy only relevant MUST / Do NOT rules into implementation notes.
 - If the `**Skills:**` line is missing, **stop** and return to [planning.md](planning.md) Phase 1.
 
@@ -112,7 +112,7 @@ Load [gen-test](../gen-test/SKILL.md) when authoring Vitest. Full contract:
 | Trivial — edit directly | Non-trivial — [feature-dev](../archive/feature-dev/SKILL.md) + [writing-plans](../writing-plans/SKILL.md) |
 |-------------------------|--------------------------------------------------------|
 | ≤5 file edits | >5 files or cross-layer |
-| Single area (`app/` only) | UI + edge + migration |
+| Single area (`src/app/` only) | UI + service + migration |
 | No migration / RLS | Any schema or RLS change |
 | No new abstractions | Pattern others will copy |
 | Clear AC + wiring + test | Ambiguous integration |
@@ -123,8 +123,8 @@ Even trivial edits need at least one test run or documented smoke in the task pr
 
 ## Code quality (reminders)
 
-- Canonical surface: `app/` (Next.js) — not legacy root `src/`.
-- `@/` imports in `app/src/`.
+- Canonical Next.js App Router surface: `src/app/`.
+- `@/` imports resolve from the current root source tree; verify `tsconfig` before assuming aliases.
 - `cn()` for conditional Tailwind.
 - Four states on data UI components.
 - RLS: `(select auth.uid())` subquery pattern.
@@ -146,14 +146,14 @@ Full rules: [CLAUDE.md](../../../CLAUDE.md) · `.cursor/rules/`.
 | After each task | Pass |
 |-----------------|------|
 | Task `Test` command (Vitest/smoke/verify) | Exit 0 / expected output |
-| `cd app && npm run typecheck` | 0 errors on changed area |
+| targeted test/proof + `npm run typecheck` when applicable | Exit 0 / expected result |
 
 ## Validation before Phase 4
 
 | Command | Pass |
 |---------|------|
-| `cd app && npm run lint` | No new errors |
-| `cd app && npm run typecheck` | Exit 0 |
+| `npm run typecheck` | Exit 0 when TypeScript surface changed |
+| `npm test` / targeted Vitest | Required risk-matched tests pass |
 | All task Test commands | Passed (logged in plan or Linear proof) |
 | `git diff` review | Each hunk → AC + test |
 

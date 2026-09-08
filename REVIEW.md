@@ -19,6 +19,7 @@ Keep this file a calibration sheet: severity and what to check. Do not copy full
 - Tenant isolation when auth or tenant data is in scope: queries, CopilotKit threads, and Mastra memory keys stay org-scoped. Org B must never read Org A. The starter `resourceId: "default"` is allowed until auth exists — do not flag that as a Critical leak.
 - Treat auth, JWT/RPC writes, deletion, and anything that talks to production Supabase as high-risk.
 - Smallest explicit fix. PR/commit rules and “do not copy old iPix Mastra wholesale” live in `CONTRIBUTING.md` / `AGENTS.md`.
+- Canonical full Linear task references use `IPI-NNN · TASK-ID — Full Task Name`, where `TASK-ID` is the actual identifier such as `BRAND-001` or `MIGRATE-TEMPLATE`; do not require the literal word `SPEC`.
 
 ## Severity calibration
 

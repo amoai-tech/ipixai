@@ -1,6 +1,6 @@
 # iPix task-verifier probes (adapted from `.claude/skills/task-verifier`)
 
-**Sources of truth:** `CLAUDE.md` · `prd.md` · `mvp.md` · `tasks/plan/todo.md` · `supabase/README.md` · **`docs/index-docs.md`**
+**Sources of truth:** `AGENTS.md` · `CLAUDE.md` · current repo/runtime · live Linear · relevant domain SSOT
 
 **Canonical edge/model traps:** `.claude/skills/task-verifier/references/verifier-probes-ipix.md` (post PR #3)
 

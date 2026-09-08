@@ -1,7 +1,6 @@
 # PRD Template (iPix)
 
-Use when a new initiative needs a full PRD before Linear issue breakdown. **SSOT after draft:**
-`prd.md` · `docs/prd/` · `docs/linear/issues/IPI-*.md`.
+Use when a new initiative needs a full PRD before Linear issue breakdown. Keep the PRD in its owning product doc; once issues exist, live Linear owns task execution/progress.
 
 For epic → feature PRDs, use [`breakdown-feature-prd`](../../archive/brainstorming/breakdown-feature-prd/SKILL.md).
 
@@ -39,14 +38,14 @@ For epic → feature PRDs, use [`breakdown-feature-prd`](../../archive/brainstor
 - At least 2 explicit exclusions
 
 ### 7. Timeline
-- Phases, milestones, dependencies vs `tasks/plan/todo.md`
+- Phases, milestones, dependencies vs live Linear project/dependency state
 
 ## Save location
 
 | Artifact | Path |
 |----------|------|
 | Initiative PRD section | `docs/prd/<topic>.md` or extend `prd.md` |
-| Linear issue spec | `docs/linear/issues/IPI-<n>-<SPEC-ID>.md` |
+| Linear task | live Linear issue using `IPI-NNN · TASK-ID — Title` |
 | Design spec (pre-plan) | `docs/plan/tasks/YYYY-MM-DD-<topic>-design.md` |
 
 ## Handoff

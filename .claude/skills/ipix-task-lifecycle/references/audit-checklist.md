@@ -148,8 +148,8 @@ Grep targets:
 
 ```
 [ ] CLAUDE.md / prd.md statements about layout match reality (spot-check routes in src/App.tsx).
-[ ] docs/linear/issues/IPI-*.md paths in wiring plan exist on disk.
-[ ] `tasks/plan/todo.md` 🟢 rows match Linear Done + spec AC [x].
+[ ] all referenced implementation/source paths exist; live Linear links/relations resolve.
+[ ] Linear Done/progress matches verified acceptance criteria and post-merge evidence.
 [ ] index-skills.md hub paths resolve (no broken symlinks under .claude/skills/).
 [ ] Linked URLs in docs/ resolve (grep for broken relative links).
 ```

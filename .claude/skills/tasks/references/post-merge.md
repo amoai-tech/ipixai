@@ -57,6 +57,10 @@ Never leave `future work`, `out of scope`, or `follow up later` without an owner
 
 Only after all required post-merge checks pass may the task tracker reach `100%` and Linear move to Done.
 
+## Rollback / containment when deployment behavior changed
+
+For deployment-, migration-, runtime-, or integration-affecting tasks, record the safe disable/revert path, the signal that would trigger rollback, and the immediate post-deploy signals to monitor. Do not require a rollback section for docs-only or otherwise non-deploying work.
+
 ## Local → preview → production escalation
 
 Do not repeat every test at every environment. Use the cheapest environment that can prove the risk:

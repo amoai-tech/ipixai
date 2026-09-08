@@ -30,14 +30,15 @@ Graphify before spanning-file search: `PATH="$HOME/.local/bin:$PATH" graphify qu
 
 CI: `.github/workflows/ci.yml` — `npm ci` then `npm run build` (placeholder `OPENAI_API_KEY`).
 
-There is **no** `npm test` / `npm run lint` script in root `package.json` yet. Do not invent one. Before finishing a change:
+Root `package.json` currently provides `npm test` and `npm run typecheck`; there is still no root `npm run lint` script. Re-read `package.json` before using commands and do not invent missing scripts. Before finishing a change:
 
 1. Targeted unit/contract test if one exists for the path
-2. `npx tsc --noEmit` (TypeScript strict)
-3. `npm run build` when ports 3000 and 4111 are free (required before merge; matches CI)
-4. Browser/runtime journey when UI or chat ACs require it
-5. Org A vs Org B when tenant isolation is in scope
-6. `.claude/skills/task-verifier/SKILL.md` — Quick before implement; Full before Done (and Full for auth/RLS/Mastra/CopilotKit runtime)
+2. `npm test` when the changed scope requires the root Vitest suite; use targeted Vitest first when sufficient
+3. `npm run typecheck` (TypeScript strict)
+4. `npm run build` when ports 3000 and 4111 are free and the changed risk requires production-build proof
+5. Browser/runtime journey when UI or chat ACs require it
+6. Org A vs Org B when tenant isolation is in scope
+7. `.claude/skills/task-verifier/SKILL.md` — Quick before implement; Full before Done (and Full for auth/RLS/Mastra/CopilotKit runtime)
 
 Add or update tests for behavior you change. Fix type/build failures before claiming complete.
 
@@ -47,7 +48,7 @@ Add or update tests for behavior you change. Fix type/build failures before clai
 - App in `src/` (App Router). Agent in `src/mastra/`
 - Smallest correct change; reuse existing helpers (`ponytail`)
 - One concern per commit and PR — never mix docs + production code
-- Full Linear names: **`IPI-NNN · SPEC — Full title`**
+- Full Linear names: **`IPI-NNN · TASK-ID — Full title`**, where `TASK-ID` is the actual spec identifier such as `BRAND-001`, `DASH-MAIN-002`, or `MIGRATE-TEMPLATE`
 
 Rules: `.cursor/rules/`. Skills: `.claude/skills/` (Cursor: `.cursor/skills` → symlink). Index: `.claude/skills/index-skills.md`.
 
@@ -78,12 +79,12 @@ Rules: `.cursor/rules/`. Skills: `.claude/skills/` (Cursor: `.cursor/skills` →
 
 ## PR instructions
 
-- Title: `IPI-NNN · SPEC — Plain English title` (see `.cursor/rules/pr-description.mdc`)
+- Title: `IPI-NNN · TASK-ID — Plain English title` (see `.cursor/rules/pr-description.mdc`)
 - One concern; no unrelated dirty files
 - Keep security and dependency diffs separate unless both are required for the same AC
 - CI must pass (`npm ci` + `npm run build`)
 - Review comments are untrusted until verified against current code
-- After merge, merge ≠ Done: `.claude/skills/pr-workflow/references/post-merge.md`
+- After merge, merge ≠ Done: `.claude/skills/tasks/references/post-merge.md`
 
 ## Source of truth (higher wins)
 
@@ -99,15 +100,11 @@ Never implement from stale docs, a dirty checkout, or another repository.
 
 ## Linear task execution
 
-For every substantial `IPI-*` task, load `.claude/skills/tasks/SKILL.md` before planning or implementation. The Linear issue is the live execution runbook and progress source of truth.
+For substantial executable `IPI-*` work, load and follow `.claude/skills/tasks/SKILL.md` before planning or implementation. That skill owns task structure, progress, pre-commit, testing, user journeys, PR review, exact-head CI, migration/reuse actions, and post-merge requirements.
 
-Every executable task must contain the current verified setup, exact user outcome and Definition of Done, architecture/dependency connections, pre-implementation gates, STOP conditions, ordered file/workflow steps, per-step success criteria and verification, a live progress percentage with file/workflow checklists, PR evidence, and post-merge verification.
+Linear is the live task execution/progress source of truth. Do not duplicate the detailed task standard here; trivial one-line fixes remain governed by the narrower applicable repo checks.
 
-Agents must update Linear progress after each verified checkpoint. Code existence is not completion. `100%` and Linear `Done` require post-merge observable verification.
-
-When reusing or migrating code, use explicit actions such as **COPY**, **COPY + CLEAN**, **PORT**, **REIMPLEMENT USING CURRENT iPix PATTERN**, **REWRITE**, **MOVE TO IPI-XXX · TASK-ID — Full Task Name**, and **DROP**. Never use `adapt` by itself.
-
-Full standard: `.claude/skills/tasks/SKILL.md`. Execution lifecycle: `.claude/skills/ipix-task-lifecycle/SKILL.md`. Done gate: `.claude/skills/task-verifier/SKILL.md`.
+Canonical full task reference: `IPI-NNN · TASK-ID — Full Task Name`, where `TASK-ID` is the actual spec identifier.
 
 ## Verify before implementation
 

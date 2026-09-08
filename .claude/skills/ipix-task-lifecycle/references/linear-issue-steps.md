@@ -24,7 +24,7 @@ Each Linear description is a prompt to Cursor/Claude. Map sections to prompt eng
 | Examples / wireframe + states | Multishot |
 | Acceptance criteria | Task (outcomes only) |
 | Do NOT + out of scope | Constraints |
-| Completion steps A–E | Chain of thought |
+| Completion steps A–E | Ordered execution sequence |
 | `proof:` on each step | Eval / output format |
 
 Full rules: [linear-prompt-engineering.md](linear-prompt-engineering.md)
@@ -176,7 +176,7 @@ sequenceDiagram
 - [ ] **E1** `npm run build` passes
 - [ ] **E2** Browser smoke — <what to click/see>
 - [ ] **E3** `npm run supabase:verify-rls` (only if RLS touched)
-- [ ] **E4** `tasks/plan/todo.md` row → 🟢 · Linear → Done
+- [ ] **E4** post-merge observable proof recorded → Linear progress/Done updated
 
 ```
 
@@ -237,7 +237,7 @@ Example states table (copy and fill in):
 - [ ] **E2** `npm run supabase:verify` (if Supabase touched)
 - [ ] **E3** `npm run supabase:verify-rls` (if auth/RLS touched)
 - [ ] **E4** Browser smoke or script evidence documented in issue comment
-- [ ] **E5** `tasks/plan/todo.md` row updated · Linear state set
+- [ ] **E5** Linear evidence/progress/state updated from verified current result
 ```
 
 ---
@@ -260,10 +260,9 @@ Example states table (copy and fill in):
 | Artifact | Path | Update when |
 |---|---|---|
 | Linear issue | IPI-### checkboxes | Step completes |
-| Repo tracker | `tasks/plan/todo.md` + mirror `tasks/todo.md` | Status column |
+| Execution/progress tracker | Live Linear issue per `tasks` skill | Verified leaf rows + evidence |
 | Supabase ops | `supabase/README.md` | New workflow or migration |
 
-**Dot legend (`tasks/plan/todo.md`):** 🟢 Done · 🟡 In progress · 🔴 Blocked · ⚫ Not started
 
 ---
 
@@ -275,7 +274,7 @@ Example states table (copy and fill in):
 | Research | A. Spike / audit steps |
 | Implement | B–C. Scaffold + code |
 | Test | D–E. Scripts + browser |
-| Ship | E. Done milestone · `tasks/plan/todo.md` |
+| Ship | E. post-merge proof · live Linear update |
 
 ---
 
@@ -288,4 +287,4 @@ See [linear-prompt-engineering.md](linear-prompt-engineering.md). Minimum:
 - [ ] No ambiguous OR in security AC
 - [ ] Every A–E step has `proof:`
 - [ ] `blockedBy` matches any cross-issue AC
-- [ ] SSOT: `docs/linear/issues/IPI-*.md` synced to Linear
+- [ ] SSOT: live Linear task reflects verified current requirements/progress/evidence
