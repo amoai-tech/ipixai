@@ -3,7 +3,7 @@ title: Mastra workflows — iPix suspend/resume contract
 description: Load when building or verifying Mastra workflows, suspend/resume, durable snapshots, callbacks, or human approval.
 parent: mastra
 impact: HIGH
-impactDescription: Prevents stale approval, replay, duplicate effects, and custom workflow infrastructure
+impactDescription: Prevents stale approval, replay, duplicate effects, oversized snapshots, and custom workflow infrastructure
 tags: mastra, workflows, suspend, resume, hitl, snapshots, idempotency
 ---
 
@@ -19,13 +19,40 @@ Do not create a generic workflow framework before current iPix workflows prove r
 
 Prefer current installed Mastra primitives directly:
 - `createWorkflow` / `createStep`;
-- `.then()`, `.branch()`, `.parallel()` and other native control flow;
+- native control flow such as `.then()`, `.branch()`, `.parallel()`;
 - step `suspend()`;
-- typed `suspendSchema` / `resumeSchema`;
+- typed suspend/resume schemas supported by the installed version;
 - persisted workflow snapshots through configured storage;
-- run `.resume()` / recovery APIs supported by the installed version.
+- run resume/recovery APIs supported by the installed version.
 
 Do not build a custom workflow runner, browser-owned workflow truth, generic status database, Temporal/DurableAgent layer, or second approval framework unless a current proven gap requires it.
+
+## Snapshot discipline
+
+A workflow snapshot is durable execution state, not a convenient blob store.
+
+Store the minimum resumable state:
+
+```text
+stable artifact/reference IDs
+small typed state
+revision/hash/status
+external job/run identity
+bounded error metadata
+```
+
+Avoid copying large Brand profiles, image/video payloads, raw crawl pages, model transcripts, binary/media data, entire provider responses, or duplicated domain records into workflow state/suspend payloads. Store durable domain/media data in its owning system and keep stable references in the snapshot.
+
+Why this matters: snapshots are persisted and loaded during suspend/resume, and large approval payloads can increase database, serialization, memory, and recovery cost. Upstream reports have also shown memory pressure around repeated approval state with large payloads, so large-payload approval must be explicitly tested before production use.
+
+For a large reviewed artifact, prefer:
+
+```text
+artifact_id + revision + canonical_hash + minimal display metadata
+→ server reloads exact immutable artifact from trusted durable storage when needed
+```
+
+Do not trade immutability for snapshot size: the approved hash/revision must still bind to the exact content reviewed.
 
 ## iPix HITL state model
 
@@ -52,13 +79,14 @@ For consequential continuation, record and validate the reviewed proposal identi
 artifact_id
 revision
 canonical_hash
-exact validated snapshot
 actor
 org/resource ownership
 workflow run
 suspended step / resume target
 approval timestamp
 ```
+
+The exact validated snapshot may live in the owning durable domain store rather than being duplicated wholesale into the workflow snapshot.
 
 Invariant:
 
@@ -118,9 +146,11 @@ Provider/model/network failure must not advance the workflow with stale or parti
 
 Bound/redact upstream error text before persisting it into workflow state or logs.
 
-## Secrets
+## Secrets and sensitive data
 
-Do not persist JWTs, service-role keys, provider credentials, sensitive headers, or equivalent secrets in workflow input, suspend/resume data, snapshots, working memory, model-visible state, or tracing payloads. Derive privileged capability at the server boundary.
+Do not persist JWTs, service-role keys, provider credentials, sensitive headers, session cookies, or equivalent secrets in workflow input, suspend/resume data, snapshots, working memory, model-visible state, or tracing payloads. Derive privileged capability at the server boundary.
+
+RequestContext and tracing may persist request-scoped metadata depending on configuration. Keep workflow/request metadata minimal and avoid raw customer/brand payloads unless the task explicitly proves the retention/export policy is safe.
 
 ## Required adversarial matrix for consequential workflows
 
@@ -141,6 +171,7 @@ At minimum verify:
 - provider failure after approval;
 - commit succeeds but response is lost;
 - no secret in persisted workflow state;
+- snapshot remains bounded for realistic production payloads;
 - exact approved artifact reaches the commit boundary.
 
 ## Proof order
@@ -151,6 +182,7 @@ static workflow/side-effect inventory
 → suspend/resume contract test
 → authorization/tenant negatives
 → duplicate/concurrency/idempotency
+→ realistic snapshot-size/payload check
 → real storage close/reopen
 → provider/callback failure paths
 → typecheck/build
