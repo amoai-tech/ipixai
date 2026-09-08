@@ -296,6 +296,7 @@ Legacy FashionOS `storage` buckets and shoot-scoped RLS remain — extend with b
 - [ ] SECURITY DEFINER / public RPC / view exposure is explicitly classified and ACL/search-path/security-invoker state proved where applicable.
 - [ ] `npm run supabase:types` if exposed schema changed.
 - [ ] `npm run supabase:verify-rls` and affected targeted SQL tests pass when applicable.
+- [ ] Fresh replay also passes `supabase/tests/security/catalog-security-regression.sql`; any exception is exact and reviewed, not a weakened global rule.
 - [ ] Security + performance Advisors reviewed; findings are triaged, not blindly fixed.
 - [ ] No service role or Gemini key in client bundle.
 - [ ] Edge function CORS + JWT/custom-auth contract documented and tested.

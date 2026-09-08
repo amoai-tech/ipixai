@@ -87,6 +87,16 @@ Run security and performance Advisors after material DDL and periodically agains
 
 Existing unrelated Advisor findings are baseline debt, not automatic blockers for every PR. A new or changed finding on the affected surface must be explained before Done.
 
+## Automated regression gates
+
+Use automation for deterministic invariants, not for context-dependent Advisor recommendations.
+
+- `supabase-fresh-replay` remains the global migration reproducibility gate.
+- `supabase/tests/security/catalog-security-regression.sql` runs after fresh replay and blocks new client-readable tables without RLS, RLS deny-all tables that still retain client grants, PUBLIC-scoped RLS policies, client-callable `SECURITY DEFINER` functions without a pinned `search_path`, and new client-readable definer views.
+- The catalog gate intentionally does **not** auto-fail on unindexed/unused/duplicate indexes, function EXECUTE intent, or RLS-enabled/no-policy alone; those require workload/ownership intent and Advisor triage.
+- Known exceptions must be exact, reviewed, and named in the test. Never weaken a global assertion to silence unrelated legacy debt.
+- Hosted Supabase Advisors remain a read-only pre/post-deploy evidence source. Local CI may reproduce only deterministic catalog rules that do not require hosted telemetry.
+
 ## Migration safety
 
 1. File first; never make an untracked Dashboard SQL change in the normal workflow.
