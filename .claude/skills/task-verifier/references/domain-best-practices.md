@@ -30,13 +30,56 @@ Load [`../../ipix-supabase/SKILL.md`](../../ipix-supabase/SKILL.md) and its [`re
 
 ## Mastra / CopilotKit / AG-UI
 
-- Agent/tool authority is the minimum required; tools validate arguments and tenant context.
+Load [`../../mastra/SKILL.md`](../../mastra/SKILL.md) for implementation HOW. This verifier checks whether the independent applicable proof classes actually exist.
+
+### Registry / model / tool selection
+
+- The intended agent registry key, agent ID, model/provider, tools, workflows and memory are proven from current code/runtime, not stale task prose.
+- A direct tool unit test is not accepted as proof that natural-language agent routing selects that tool.
+- Positive and negative routing cover `should call`, `should not call`, plausible wrong tool, missing input, ambiguity and invalid/malicious arguments when material.
+- Forced `toolChoice` may supplement but cannot replace natural-language routing proof.
+
+### Tool authority / context
+
+- Tool authority is minimum required; tools validate typed input/output and current tenant/domain context.
+- Browser/page `org_id`, `brand_id`, `shoot_id`, thread/run IDs and other context claims are server-verified before the model/tool acts on them.
 - Wrong agent/tool cannot perform a consequential write merely because the model requests it.
-- HITL/interrupt/approval cannot be bypassed by retry, refresh, alternate tool path, or malformed arguments.
+- Credentials/JWTs/service-role/provider secrets do not enter tool input, workflow input, working memory, suspend data, traces or model-visible context.
+- External/expensive tools propagate cancellation/`abortSignal` where the product contract requires Stop to end downstream work.
+
+### Memory / persistence
+
+- Message history, working memory, resource ownership and authorization are treated as separate concepts.
+- Thread/memory/persistence ownership cannot cross tenants; knowing a thread/run/resource ID is never authorization.
+- Persistence claims use a real new process/instance when restart durability is required; same-process re-instantiation is insufficient.
+- Working-memory scope is explicit and tested separately from message-history continuity.
+- Hosted durability cannot be claimed from local/in-memory fallback behavior.
+
+### Workflow / HITL / resume
+
+- Prompt language like "wait for approval" is not treated as enforcement; mandatory approval is code/runtime/server enforced.
+- Human approval binds to the exact validated artifact/revision/hash shown to the operator; any mutation invalidates stale approval.
+- Review schemas distinguish explicit states such as approved/rejected/revision-requested/cancelled/expired rather than relying on truthy/falsy approval shortcuts.
+- Reject/cancel/close/disconnect/timeout/malformed/stale inputs fail closed and cannot accidentally fall back into another suspend/approve path.
+- Resume does not materially recompute a different proposal from the one approved unless the workflow creates a new revision and requires renewed approval.
+- Resume authorization is server-derived and scoped to the correct actor/org/run/step/artifact.
+- External callback/webhook resume validates the expected run and external job/crawl identity and is replay-safe.
 - Durable state is not written before required approval.
 - Retries/resume/suspend do not duplicate side effects.
-- Thread/memory/persistence ownership cannot cross tenants.
+- Consequential writes have a domain-level uniqueness/idempotency invariant; UI disablement is not enough.
+- Test duplicate resume, concurrent resume, wrong run/step/tenant, stale revision, approve-vs-reject race, restart before resume, failure after approval, write-success/response-loss retry where applicable.
+
+### Streaming / Stop
+
 - Streaming/runtime errors produce a recoverable user-visible state where applicable.
+- Stop/cancel proof follows the chain from UI/request abort through agent/tool/provider cancellation and verifies no later protected side effect.
+- Ending SSE alone is not proof downstream work stopped.
+
+### Observability / evals
+
+- Trace/eval evidence is tied to the business outcome and exact agent/tool/workflow path rather than generic "success" spans.
+- Logs/traces expose enough correlation to diagnose org/user/thread/agent/model/tool/workflow failures without leaking protected content or credentials.
+- Evals are based on real failure modes such as wrong tool choice, invented inputs, stale references, approval bypass, duplicate side effects and tenant-context misuse.
 
 ## AI-native behavior
 
@@ -84,5 +127,5 @@ A best-practice violation is a blocker only when it creates a concrete correctne
 ## Agent prompt
 
 ```text
-For each changed domain, load the current owning skill and use this checklist to search specifically for correctness, security, tenant, reliability, data-integrity, operational, performance, and maintainability violations. Apply only relevant rules. Tie every finding to a concrete failure mode or evidence gap; do not produce generic best-practice noise.
+For each changed domain, load the current owning skill and use this checklist to search specifically for correctness, security, tenant, reliability, data-integrity, operational, performance, and maintainability violations. Apply only relevant rules. For Mastra, identify the independent proof classes that apply and reject false substitutions: tool tests do not prove routing, persisted rows do not prove restart recall, stream closure does not prove abort, and approval booleans do not prove the exact reviewed artifact. Tie every finding to a concrete failure mode or evidence gap; do not produce generic best-practice noise.
 ```
