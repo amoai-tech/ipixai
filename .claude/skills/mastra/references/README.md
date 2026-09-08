@@ -25,6 +25,7 @@ Read the **smallest relevant reference set**. One reference is often enough; loa
 | [`streaming.md`](streaming.md) | AG-UI/SSE, Stop, AbortSignal propagation |
 | [`supabase-auth.md`](supabase-auth.md) | Current iPix auth/tenant/RequestContext boundary or future standalone Mastra auth |
 | [`evals-feedback.md`](evals-feedback.md) | Datasets, experiments, scorers, multi-turn regression, feedback |
+| [`testing-gates.md`](testing-gates.md) | **Pre-merge/post-merge Mastra tests, failure matrix, STOP conditions, and success criteria** |
 | [`common-errors.md`](common-errors.md) | Real iPix Mastra failure patterns / debugging |
 | [`migration-guide.md`](migration-guide.md) | Mastra package-family/version upgrades |
 | [`mastra-api.md`](mastra-api.md) | Local Studio/API inspection; use local installed CLI only |
@@ -76,4 +77,5 @@ current iPix code + live Linear owner
 - consequential approval binds to exact artifact/revision/hash;
 - Stop UI success is not proof downstream work stopped;
 - one green proof class cannot substitute for another;
-- latest upstream capability is not automatically an iPix requirement.
+- latest upstream capability is not automatically an iPix requirement;
+- before merge or Done, use [`testing-gates.md`](testing-gates.md) to map the affected Mastra risk classes to executable evidence.
