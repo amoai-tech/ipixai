@@ -8,7 +8,7 @@ description: >
   or explicitly record `Diagram: N/A — no meaningful relationship/state/sequence to model`. Prefer the
   smallest diagram that can reveal wrong assumptions, missing boundaries, red flags, failure points, or
   verification gaps. Verify syntax against the installed/target Mermaid version and current official docs.
-version: "2.0.0-ipix.1"
+version: "2.0.0-ipix.2"
 ---
 
 # Mermaid — iPix engineering reasoning standard
@@ -252,6 +252,18 @@ This makes the response-loss/idempotency hole visible before implementation.
 13. **Do not use a diagram as proof.** It defines expected structure; tests/runtime evidence prove actual behavior.
 14. **Validate syntax.** Unknown words/misspellings can break Mermaid; parameters may fail silently. Use the target renderer or Mermaid Live Editor when needed.
 15. **Version-sensitive syntax:** newer/beta diagram types must not be assumed supported by every Markdown renderer.
+16. **No secrets or protected payloads in diagram source.** Use stable IDs/placeholders, not JWTs, cookies, service keys, provider credentials, passwords, raw customer records, or unnecessary PII. Diagram text is source content that may be rendered, stored, copied, indexed, or exported.
+17. **Do not weaken renderer security for convenience.** Mermaid's default `securityLevel` is `strict`; interactive links/HTML require looser settings. Any change to renderer trust/security is a separate implementation/security decision, not a diagram-authoring shortcut.
+18. **Accessibility:** for important architecture, state, sequence, and user-journey diagrams, provide concise accessible title/description metadata when the target renderer supports it, and keep surrounding prose sufficient to understand the key conclusion without relying only on the visual.
+
+## Syntax pitfalls to remember
+
+- Diagram definitions start with a diagram type declaration; comments use `%%`.
+- Unknown words/misspellings can break parsing, while some parameters can fail silently.
+- In flowcharts, lowercase `end` can break parsing; prefer `End`/`END` when used as node text.
+- Certain leading `o`/`x` characters immediately after an edge can be interpreted as special edge syntax; use spacing/capitalization when needed.
+- Quote labels containing troublesome characters rather than relying on parser tolerance.
+- Validate against the same renderer/version that will display the task/PR/docs when possible.
 
 ## Agent checklist
 
@@ -278,6 +290,8 @@ Before Done:
 - [ ] PR diagrams match merged architecture.
 - [ ] No diagram claims a boundary/test/owner contradicted by code/runtime.
 - [ ] Post-merge evidence reaches the same terminal state shown in the diagram.
+- [ ] Important diagrams remain understandable with surrounding prose/accessibility metadata.
+- [ ] No diagram source contains secrets or unnecessary protected data.
 
 ## Sources and syntax
 
@@ -287,5 +301,7 @@ Authoritative current Mermaid sources:
 - Official syntax index: https://mermaid.js.org/
 - Official repository: https://github.com/mermaid-js/mermaid
 - Live editor: https://mermaid.live
+- Accessibility: https://mermaid.js.org/config/accessibility
+- Security: https://mermaid.js.org/community/security
 
 For exact syntax, load only the relevant local `references/*.md`, then verify newer/beta syntax against the current official docs/target renderer. The local references are convenience material, not authority over a newer or older renderer.
