@@ -1,178 +1,99 @@
 ---
-title: Mastra + Supabase auth
-description: Load when wiring Supabase auth to Mastra HTTP server.
+title: Mastra + iPix auth / request context
+description: Load when Mastra work touches authentication, tenant context, RequestContext, resource/thread ownership, or a future standalone Mastra server.
 parent: mastra
-impact: MEDIUM
-impactDescription: @mastra/auth-supabase server integration
-tags: mastra, supabase, auth
+impact: HIGH
+impactDescription: Prevents duplicate auth architecture, browser-token authority, cross-tenant context injection, and sensitive trace leakage
+tags: mastra, auth, supabase, request-context, tenant
 ---
 
-# Supabase
+# Mastra auth and request context — iPix contract
 
-The `@mastra/auth-supabase` package provides authentication for Mastra using Supabase Auth. It verifies incoming requests using Supabase's authentication system and integrates with the Mastra server using the `auth` option.
+## Current iPix architecture
 
-## Prerequisites
+Current iPix does **not** use `@mastra/auth-supabase` as the primary product auth boundary. The production Planner is reached through the existing authenticated Next.js `/api/copilotkit` route, which derives the operator and organization server-side before creating/scoping local Mastra agents.
 
-This example uses Supabase Auth. Make sure to add your Supabase credentials to your `.env` file and ensure your Supabase project is properly configured.
+Do not introduce a second standalone Mastra auth server, browser-owned bearer-token flow, or `@mastra/auth-supabase@latest` installation just because official Mastra examples show that pattern.
 
-```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
+Current source of truth:
+
+```text
+browser request
+→ Next.js/CopilotKit server route
+→ current iPix session/auth hooks
+→ trusted membership/org resolution
+→ server-derived resourceId
+→ Mastra local agent/runtime
 ```
 
-> **Note:** Review your Supabase Row Level Security (RLS) settings to ensure proper data access controls.
+Browser `orgId`, `brandId`, `shootId`, `resourceId`, `threadId`, run IDs, or page context are claims until validated by the owning server/domain boundary.
 
-## Installation
+## Authentication != authorization != runtime context
 
-Before you can use the `MastraAuthSupabase` class you have to install the `@mastra/auth-supabase` package.
+Keep these separate:
 
-**npm**:
-
-```bash
-npm install @mastra/auth-supabase@latest
+```text
+authentication = who is the signed-in actor?
+authorization  = what org/domain objects may that actor access/change?
+RequestContext = request-scoped data available to runtime components
+memory         = conversation/agent state; never authority
 ```
 
-**pnpm**:
+A valid JWT does not prove organization membership, resource ownership, run ownership, or permission to resume/write.
 
-```bash
-pnpm add @mastra/auth-supabase@latest
+## RequestContext
+
+Mastra RequestContext is useful for request-scoped metadata and can be validated with `requestContextSchema` on supported installed APIs. It may propagate through agents, tools, workflows, tracing, datasets/experiments, and MCP hooks.
+
+Therefore:
+
+- prefer opaque IDs / bounded operational metadata over raw customer payloads;
+- never place JWTs, service-role keys, provider secrets, authorization headers, passwords, or session cookies in RequestContext;
+- do not copy full Brand DNA, customer records, image binaries, prompt attachments, or other large/sensitive payloads into RequestContext merely for convenience;
+- verify tracing/export behavior before adding any sensitive field, because current Mastra can persist RequestContext snapshots with traces;
+- if a field is needed only for server authorization, keep it at the server/domain boundary rather than making it model-visible.
+
+## Resource/thread ownership
+
+For current iPix, use the existing trusted resource/thread ownership path. Do not rely on possession of a thread ID or resource ID.
+
+Required negative proof when identity/context changes:
+
+```text
+Org A valid thread + Org B authenticated actor
+→ denied before protected thread/run/domain data is returned or resumed
 ```
 
-**Yarn**:
+Also test browser attempts to override org/resource/brand/shoot context; trusted server values must win or the request must fail closed.
 
-```bash
-yarn add @mastra/auth-supabase@latest
+## Future standalone Mastra server
+
+If a future explicitly-scoped task introduces a standalone Mastra HTTP server, then evaluate current official Mastra auth primitives (including Supabase auth) against that task. Do not preinstall or prewire them now.
+
+For such a task:
+
+1. verify installed/current auth package compatibility;
+2. verify token authentication;
+3. add iPix membership/domain authorization separately;
+4. define/validate requestContextSchema;
+5. prove custom-route auth enforcement;
+6. prove cross-org negatives;
+7. verify secrets/context are not persisted to traces or model-visible data;
+8. use `task-verifier` Adversarial mode.
+
+## Source priority
+
+```text
+current iPix auth + planner-session code
+→ current Linear owner
+→ installed Mastra/CopilotKit source/types
+→ official Mastra RequestContext/auth docs
+→ official Supabase auth/RLS docs when database authorization is affected
 ```
 
-**Bun**:
-
-```bash
-bun add @mastra/auth-supabase@latest
-```
-
-## Usage example
-
-```typescript
-import { Mastra } from '@mastra/core'
-import { MastraAuthSupabase } from '@mastra/auth-supabase'
-
-export const mastra = new Mastra({
-  server: {
-    auth: new MastraAuthSupabase({
-      url: process.env.SUPABASE_URL,
-      anonKey: process.env.SUPABASE_ANON_KEY,
-    }),
-  },
-})
-```
-
-> **Info:** The default `authorizeUser` method checks the `isAdmin` column in the `users` table in the `public` schema. To customize user authorization, provide a custom `authorizeUser` function when constructing the provider.
->
-> Visit [MastraAuthSupabase](https://mastra.ai/reference/auth/supabase) for all available configuration options.
-
-## Client-side setup
-
-When using Supabase auth, you'll need to retrieve the access token from Supabase on the client side and pass it to your Mastra requests.
-
-### Retrieving the access token
-
-Use the Supabase client to authenticate users and retrieve their access token:
-
-```typescript
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient('<supabase-url>', '<supabase-key>')
-
-const authTokenResponse = await supabase.auth.signInWithPassword({
-  email: "<user's email>",
-  password: "<user's password>",
-})
-
-const accessToken = authTokenResponse.data?.session?.access_token
-```
-
-> **Note:** Refer to the [Supabase documentation](https://supabase.com/docs/guides/auth) for other authentication methods like OAuth, magic links, and more.
-
-## Configuring `MastraClient`
-
-When `auth` is enabled, all requests made with `MastraClient` must include a valid Supabase access token in the `Authorization` header:
-
-```typescript
-import { MastraClient } from '@mastra/client-js'
-
-export const mastraClient = new MastraClient({
-  baseUrl: 'https://<mastra-api-url>',
-  headers: {
-    Authorization: `Bearer ${accessToken}`,
-  },
-})
-```
-
-> **Info:** The access token must be prefixed with `Bearer` in the Authorization header.
->
-> Visit [Mastra Client SDK](https://mastra.ai/docs/server/mastra-client) for more configuration options.
-
-### Making authenticated requests
-
-Once `MastraClient` is configured with the Supabase access token, you can send authenticated requests:
-
-**React**:
-
-```tsx
-import { mastraClient } from '../../lib/mastra-client'
-
-export const TestAgent = () => {
-  async function handleClick() {
-    const agent = mastraClient.getAgent('weatherAgent')
-
-    const response = await agent.generate("What's the weather like in New York")
-
-    console.log(response)
-  }
-
-  return <button onClick={handleClick}>Test Agent</button>
-}
-```
-
-**cURL**:
-
-```bash
-curl -X POST http://localhost:4111/api/agents/weatherAgent/generate \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <your-supabase-access-token>" \
-  -d '{
-    "messages": "Weather in London"
-  }'
-```# MastraAuthSupabase class
-
-The `MastraAuthSupabase` class provides authentication for Mastra using Supabase Auth. It verifies incoming requests using Supabase's authentication system and integrates with the Mastra server using the `auth` option.
-
-## Usage example
-
-```typescript
-import { Mastra } from '@mastra/core'
-import { MastraAuthSupabase } from '@mastra/auth-supabase'
-
-export const mastra = new Mastra({
-  server: {
-    auth: new MastraAuthSupabase({
-      url: process.env.SUPABASE_URL,
-      anonKey: process.env.SUPABASE_ANON_KEY,
-    }),
-  },
-})
-```
-
-## Constructor parameters
-
-**url** (`string`): The URL of your Supabase project. Can be found in your Supabase project settings. (Default: `process.env.SUPABASE_URL`)
-
-**anonKey** (`string`): The anonymous/public key for your Supabase project. Used for client-side authentication. (Default: `process.env.SUPABASE_ANON_KEY`)
-
-**name** (`string`): Custom name for the auth provider instance.
-
-**authorizeUser** (`(user: User, request: HoneRequest) => Promise<boolean> | boolean`): Custom authorization function to determine if a user should be granted access. Called after token verification. By default, checks the 'isAdmin' column in the 'users' table.
-
-## Related
-
-[MastraAuthSupabase](https://mastra.ai/docs/server/auth/supabase)
+Current references:
+- https://mastra.ai/docs/server/request-context
+- https://mastra.ai/docs/server/auth
+- https://mastra.ai/reference/auth/supabase
+- https://supabase.com/docs/guides/auth
+- https://supabase.com/docs/guides/database/postgres/row-level-security
