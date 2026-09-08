@@ -26,6 +26,7 @@ Read the **smallest relevant reference set**. One reference is often enough; loa
 | [`supabase-auth.md`](supabase-auth.md) | Current iPix auth/tenant/RequestContext boundary or future standalone Mastra auth |
 | [`evals-feedback.md`](evals-feedback.md) | Datasets, experiments, scorers, multi-turn regression, feedback |
 | [`testing-gates.md`](testing-gates.md) | **Pre-merge/post-merge Mastra tests, failure matrix, STOP conditions, and success criteria** |
+| [`user-journeys.md`](user-journeys.md) | **End-to-end iPix journeys across frontend, CopilotKit/AG-UI, Mastra, HITL, backend and durable state** |
 | [`common-errors.md`](common-errors.md) | Real iPix Mastra failure patterns / debugging |
 | [`migration-guide.md`](migration-guide.md) | Mastra package-family/version upgrades |
 | [`mastra-api.md`](mastra-api.md) | Local Studio/API inspection; use local installed CLI only |
@@ -77,5 +78,6 @@ current iPix code + live Linear owner
 - consequential approval binds to exact artifact/revision/hash;
 - Stop UI success is not proof downstream work stopped;
 - one green proof class cannot substitute for another;
+- a browser journey alone is not enough for AI-native certification; reconcile frontend result, Mastra/runtime evidence and durable backend state;
 - latest upstream capability is not automatically an iPix requirement;
-- before merge or Done, use [`testing-gates.md`](testing-gates.md) to map the affected Mastra risk classes to executable evidence.
+- before merge or Done, use [`testing-gates.md`](testing-gates.md) and [`user-journeys.md`](user-journeys.md) to map the affected Mastra risks and business journey to executable evidence.
