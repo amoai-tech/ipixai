@@ -7,7 +7,7 @@ description: >
   review-comment troubleshooting, and post-merge proof. Defines the task standard; it does not
   replace task-verifier Done checks.
 metadata:
-  version: "1.9.0"
+  version: "1.10.0"
 ---
 
 # tasks — iPix Linear task specification standard
@@ -33,26 +33,31 @@ The Linear issue is the live task-specific execution runbook and progress source
 
 Every substantial executable `IPI-*` task must be organized as an **executable dependency-ordered runbook**, not a detached research pack. Use this order when applicable:
 
-1. Agent Contract.
-2. Progress Tracker + Current Handoff.
-3. Summary + Faster/better approach.
-4. Known Context / verified current state.
-5. Definition of Done / measurable acceptance criteria.
-6. Requirement vs Recommended Implementation.
-7. Architecture connections + ownership.
-8. Dependencies / blockers / related tasks.
-9. Reference Appendix / research summary — compact only, never the execution source.
-10. Pre-gate / readiness / skills / MCP / CLI / dashboard checks.
-11. STOP conditions / decision branches.
-12. Ordered Implementation Runbook — authoritative execution section, in dependency order.
-13. Security / data / query / performance contract when relevant.
-14. Test strategy — cheapest reliable proof first.
-15. User/AI journey certification when applicable.
-16. Pre-commit / PR / exact-head CI.
-17. Production-ready checklist.
-18. Post-merge observable verification.
-19. Final report / residual risks / next task.
-20. Mermaid reasoning pass where it exposes current→target state, ownership, dependencies, or failure/recovery paths; otherwise record an explicit N/A reason.
+1. Plain-English title + top summary — `IPI-NNN · SPEC — Real-world outcome`, followed by a short description a product/operator can understand.
+2. Agent Contract.
+3. Progress Tracker + Current Handoff.
+4. Summary + Faster/better approach — explicitly ask: “Is there a better, faster, simpler, or more efficient way to complete this task?” and use it when equally or more reliable.
+5. Real-world user journey / workflow — actor → action → system steps → observable outcome.
+6. Tech stack + affected systems — only the stack actually touched by this task.
+7. Skills / MCP / CLI / dashboards — exact tools to use and why.
+8. Known Context / verified current state — audit current code/runtime/live contracts before assuming a gap.
+9. Audit findings — errors, red flags, failure points, blockers, missing pieces, fixes/improvements, and evidence-backed scores when useful.
+10. Definition of Done / measurable acceptance criteria.
+11. Requirement vs Recommended Implementation.
+12. Architecture connections + ownership, including Mermaid user-journey/architecture diagrams when they reduce ambiguity.
+13. Dependencies / blockers / related tasks.
+14. Reference Appendix / research summary — compact only, never the execution source.
+15. Pre-gate / readiness checks.
+16. STOP conditions / decision branches.
+17. Ordered Implementation Runbook — authoritative execution section, in dependency order.
+18. Security / data / query / performance contract when relevant.
+19. Test strategy — cheapest reliable proof first.
+20. User/AI journey certification when applicable.
+21. Pre-commit / pre-merge checklist + PR / exact-head CI.
+22. Production-ready checklist + success criteria.
+23. Post-merge actions / tests / observable verification.
+24. Final report / residual risks / next task.
+25. Mermaid reasoning pass where it exposes current→target state, ownership, dependencies, or failure/recovery paths; otherwise record an explicit N/A reason.
 
 For agent-prompt structure, read [agent-instructions.md](references/agent-instructions.md).
 For detailed layout, read [task-format.md](references/task-format.md).
@@ -81,6 +86,13 @@ Never use `adapt` by itself. Use: **COPY**, **COPY + CLEAN**, **COPY + CLEAN TOK
 - For Mastra work, identify applicable proof classes before coding: registry/config, deterministic primitive, model behavior, authority/context, memory, persistence/restart, HITL artifact, resume/recovery, streaming/abort, side-effect idempotency, observability/evals, exact runtime. Route the HOW to `mastra`; do not let one proof class substitute for another.
 - Implement one file/group at a time; do not bulk-copy folders.
 - For Lumina migrations, classify mixed-responsibility files at the **symbol/behavior/invariant** level, not one blanket action per file. Pin immutable source SHAs and record current owner/source of truth, legacy risk, target, and proof for every reused behavior.
+
+- Every implementation group must contain an explicit **Checkpoint:** block with the exact success criterion, proof command/test/runtime evidence, and STOP rule. “Checkpoint implied by tests” is not enough.
+- Every task must include a concise **Current-state audit** before implementation: what exists, what is missing, errors/red flags/failure points/blockers, recommended fixes, and what must not be rebuilt.
+- Every substantial task must name the **affected tech stack** and the **skills/MCPs/CLIs/dashboards** actually required. Do not dump the whole platform stack.
+- Put a plain-English **real-world user journey** near the top. For cross-system or AI-native work, add Mermaid for the journey and any material ownership/trust/failure path.
+- Include evidence-based **scores/grades /100** only when useful; mark them provisional when evidence is incomplete and explain deductions.
+- Before merge, include an explicit production-readiness checklist and the risk-matched tests from `pre-merge-tests.md`; after merge, include the exact actions/tests from `post-merge.md`.
 - For every important external/Lumina URL, place the **full URL inside the exact implementation step that uses it**. Each URL-bearing step must state: Inspect → explicit action → current owner/source of truth → exact iPix target → reuse/adapt → defer/drop → avoided custom work → constraints → checkpoint. A detached reference table is summary only.
 - If the same source informs multiple steps, repeat the full URL in each step with a narrower instruction for the exact invariant used there; never write only `same URL` in the execution runbook.
 - For mutable GitHub sources, keep the human-readable branch URL for navigation but resolve and record an immutable commit SHA/pinned URL in implementation/PR evidence.

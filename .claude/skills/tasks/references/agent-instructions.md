@@ -16,6 +16,32 @@ Stop successfully when: <observable Done condition>
 Stop and update Linear if: <facts that invalidate the plan>
 ```
 
+
+## Plain-English task header
+
+Every substantial task starts with an understandable title and short real-world description:
+
+```text
+IPI-NNN · SPEC — <what the operator can now do>
+
+Why this matters: <2–4 plain-English lines>.
+Real-world example: <actor → action → visible/durable result>.
+```
+
+Avoid titles that describe internal refactors instead of the user/system outcome unless the task is purely platform/internal.
+
+## Current-state audit and findings
+
+Before implementation, record: current setup, affected stack, existing code to reuse, errors, red flags, failure points, blockers, missing pieces, fixes/improvements, and what must not be rebuilt. If scoring helps, use evidence-backed /100 scores and mark incomplete-evidence scores provisional.
+
+## Skills / MCP / stack
+
+Name only the tools actually required. Example: `tasks` + `task-verifier` + `graphify`; add `ipix-supabase`, `mastra`, `copilotkit`, GitHub/Linear/Supabase MCP, Playwright, Cloudinary, etc. only when the task crosses those boundaries. Also list the affected tech stack so the implementer knows which runtime/contracts must be verified.
+
+## Real-world workflow + Mermaid
+
+For user-facing, cross-system, or AI-native work, include the real journey near the top and a small Mermaid diagram. Add architecture/trust/failure diagrams only when they expose ownership, authorization, HITL, callback, persistence, or recovery risks.
+
 ## Separate outcome from implementation
 
 State the requirement independently from the current implementation recommendation:
@@ -78,6 +104,10 @@ Use the cheapest authoritative source that answers the question reliably:
 - Official docs/GitHub only when current API/version guidance is needed.
 - Browser/runtime only when the observable journey must be proven.
 - Parallel agents only for genuinely independent workstreams that do not edit the same files or depend on unresolved shared state.
+
+## Named checkpoint requirement
+
+Every implementation group must end with a literal `Checkpoint:` block naming Success, Verify, Evidence, and STOP-if conditions. Do not advance until it passes, unless the task explicitly records safe parallel work.
 
 ## Checkpoint self-check
 
