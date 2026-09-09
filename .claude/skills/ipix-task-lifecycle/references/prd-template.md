@@ -24,7 +24,7 @@ For epic → feature PRDs, use [`breakdown-feature-prd`](../../archive/brainstor
 - Integration points (Mercur, Cloudinary, Firecrawl)
 
 ### 4. AI Feature Specs (if applicable)
-- Model selection rationale (Gemini via Mastra or edge fn — server-only)
+- Model selection rationale
 - Prompt design / structured output schemas
 - Fallback behavior
 - Latency and cost budgets
@@ -50,5 +50,4 @@ For epic → feature PRDs, use [`breakdown-feature-prd`](../../archive/brainstor
 
 ## Handoff
 
-After PRD approval → [`writing-plans`](../../writing-plans/SKILL.md) or Phase 1 of
-[`ipix-task-lifecycle`](../SKILL.md) for Linear A–E + wiring.
+After PRD approval, create/enrich the live Linear issue using the canonical [`tasks`](../../tasks/SKILL.md) contract. Use `writing-plans` only when a detailed implementation plan is needed; do not route new work through `ipix-task-lifecycle`.
