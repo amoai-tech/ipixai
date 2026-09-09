@@ -115,3 +115,4 @@ jobs:
 
             - The triggering user task (from the comment that started this run):
               ${{ github.event.comment.body }}
+        run: opencode github run
