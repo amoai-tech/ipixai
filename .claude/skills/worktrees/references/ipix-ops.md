@@ -139,7 +139,7 @@ git worktree add ../wt-ipi-116-edge   -b ipi/116-edge   origin/main
 ```
 
 - **Stack** dependent PRs: branch the later slice off the earlier branch (not `origin/main`) and note "Blocked by #N" in the PR body.
-- Each slice runs the full [verify matrix](../../pr-workflow/references/verify-matrix.md) in its worktree.
+- Each slice runs the full [tasks pre-merge-tests](../../tasks/references/pre-merge-tests.md) matrix in its worktree.
 - Prefer several small green PRs over one big PR that mixes concerns.
 
 ## Weekly tidy ritual
