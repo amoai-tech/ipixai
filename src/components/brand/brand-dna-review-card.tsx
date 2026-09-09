@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { StartAnalysisButton } from "@/components/brand/start-analysis-button";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,6 +23,13 @@ import type { BrandClaim, BrandDraftScore, BrandProfile } from "@/lib/brand/bran
  * draft (`draftHash` from `get_brand_draft_hash`, never recomputed here)
  * and requires an explicit operator click before any decision is sent —
  * no automatic approval, no client-side hash computation.
+ *
+ * No "Regenerate" action here (task-verifier finding): the workflow's own
+ * claim guard (`validateBrand` in brand-intelligence.ts) rejects starting a
+ * new run while `intake_status = 'draft_ready'` — exactly the status this
+ * card is shown for — so a one-click regenerate button here would always
+ * fail. Reject clears the draft (`intake_status` -> `brand_created`, which
+ * the guard allows), which is the one route back to starting a fresh run.
  */
 
 function ClaimBlock({ label, claim }: { label: string; claim?: BrandClaim }) {
@@ -181,7 +187,6 @@ export function BrandDNAReviewCard({
         <Button variant="destructive" onClick={() => decide(false)} disabled={isPending}>
           Reject
         </Button>
-        <StartAnalysisButton brandId={brandId} label="Regenerate" variant="outline" />
       </CardFooter>
     </Card>
   );

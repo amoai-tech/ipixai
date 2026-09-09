@@ -33,12 +33,6 @@ vi.mock("@/components/ui/status-chip.module.css", () => ({
   default: new Proxy({}, { get: (_, key) => String(key) }),
 }));
 
-// StartAnalysisButton pulls in the same actions module + useRouter; stub it
-// out so this test stays scoped to the review card's own Approve/Reject wiring.
-vi.mock("@/components/brand/start-analysis-button", () => ({
-  StartAnalysisButton: () => null,
-}));
-
 import { BrandDNAReviewCard } from "./brand-dna-review-card";
 import type { BrandProfile } from "@/lib/brand/brand-profile-contract";
 
@@ -64,6 +58,13 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe("BrandDNAReviewCard", () => {
+  it("CRITICAL: renders no Regenerate/start-analysis action — the workflow's claim guard rejects a new run while intake_status='draft_ready' (the status this card is shown for), so a one-click regenerate here would always silently fail", () => {
+    render(
+      <BrandDNAReviewCard brandId={BRAND_ID} draft={DRAFT} draftHash={DRAFT_HASH} draftScores={[]} />,
+    );
+    expect(screen.queryByRole("button", { name: /regenerate/i })).toBeNull();
+  });
+
   it("Approve calls decideBrandDraft with approved:true and the exact unmodified draftHash prop", async () => {
     render(
       <BrandDNAReviewCard brandId={BRAND_ID} draft={DRAFT} draftHash={DRAFT_HASH} draftScores={[]} />,
