@@ -264,11 +264,27 @@ const waitForCrawl = createStep({
     if (!resumeData) {
       return suspend({ crawlId: inputData.crawlId }, { resumeLabel: "crawl-complete" });
     }
+    // Every throw below must route through failAnalysis: intake_status is
+    // still "crawl_running" here (set by validateBrand) and stays that way
+    // on a bare throw, which the validateBrand claim guard treats as
+    // already-in-progress — permanently blocking retry for the single most
+    // common failure case in this workflow (the crawl provider failing).
     if (resumeData.failed) {
-      throw new Error(`Crawl failed: ${boundDetail(resumeData.error)}`);
+      throw await failAnalysis(inputData.brandId, "Crawl failed", resumeData.error);
+    }
+    if (!resumeData.crawlId) {
+      throw await failAnalysis(
+        inputData.brandId,
+        "Crawl resume missing crawlId",
+        `expected ${inputData.crawlId}, resume payload had no crawlId and failed was not set`,
+      );
     }
     if (resumeData.crawlId !== inputData.crawlId) {
-      throw new Error(`Crawl ID mismatch: expected ${inputData.crawlId}, got ${resumeData.crawlId}`);
+      throw await failAnalysis(
+        inputData.brandId,
+        "Crawl ID mismatch",
+        `expected ${inputData.crawlId}, got ${resumeData.crawlId}`,
+      );
     }
     return { crawlId: resumeData.crawlId, brandId: inputData.brandId };
   },
