@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { StartAnalysisButton } from "@/components/brand/start-analysis-button";
 import { BrandDNAReviewCard } from "@/components/brand/brand-dna-review-card";
+import { InvalidDraftErrorState } from "@/components/brand/invalid-draft-error-state";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/error-state";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -147,7 +148,9 @@ export default async function BrandDetailPage({
       );
       break;
     case "parse_error":
-      body = <ErrorState message="This draft couldn't be displayed. Please re-run the analysis." />;
+      // Non-null asserted for TS: selectBrandDetailView's "parse_error" case
+      // is exactly `detail.draftHash !== null && detail.draft === null`.
+      body = <InvalidDraftErrorState brandId={detail.id} draftHash={detail.draftHash!} />;
       break;
     case "approved":
       body = <ApprovedState detail={detail} />;
