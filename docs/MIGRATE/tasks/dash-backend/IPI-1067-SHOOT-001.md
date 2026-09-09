@@ -3,8 +3,8 @@
 **File:** `dash-backend/IPI-1067-SHOOT-001.md`  
 **Linear action:** UPDATE  
 **MIGRATEv2:** Yes (already)  
-**READY TO PATCH LINEAR:** YES  
-**Audit:** Batch 1 · local 90→**~99/100** (correct live “require RPC” → **direct-read-first**)
+**READY TO PATCH LINEAR:** NO — implementation merged and verified  
+**Status:** **IMPLEMENTED / POST-MERGE VERIFIED** · PR #85 merged (`304fe46`), with follow-up cursor hotfix PR #89 merged. Current `main` retains dedicated shoot routes and targeted/E2E coverage.
 
 ---
 
@@ -30,23 +30,20 @@ trusted org → brands WHERE org_id = trustedOrgId → brand IDs
 
 Canonical SSOT: `shoot.shoots`. View exposes `brand_id`, not `org_id`. Membership-union ≠ active-org.
 
-### Detail — direct-query FIRST; RPC only if justified
+### Detail — public-contract-first; no direct `shoot` Data API read
 
 ```text
-FIRST try:
-  trusted org → allowed brand IDs
-  → shoot.shoots WHERE id = shootId AND brand_id IN (...)
-  → related display data with same scope
-
-Only add get_shoot_detail_for_org(shoot_id, trusted_org_id) (or equivalent) if:
-  - detail needs several tables returned atomically, OR
-  - existing RLS/API makes direct schema access awkward, OR
-  - current detail JSON contract is substantially reusable, OR
-  - query count/consistency justifies it
-
-Browser never establishes trusted_org_id.
-Do not ship membership-union-only get_shoot_detail as active-org authority.
+AUTH-002 trusted org
+→ trusted brand IDs
+→ public.shoot_portfolio_view WHERE id = shootId AND brand_id IN (...)
+→ no match = 404
+→ public.get_shoot_detail(shootId) for hydrated read-only payload only
+→ validate/project the JSON payload at the DAL boundary
 ```
+
+`shoot.shoots` remains the canonical SSOT, but the `shoot` schema is intentionally SQL/RPC-only in the current runtime. Do not call `.schema("shoot")` and do not broaden Data API exposure for SHOOT-001.
+
+`public.get_shoot_detail` is membership-union `SECURITY DEFINER`, so it is never the active-org authority. A new org-bound RPC is a last resort only if the verified public-view preauthorization + hydration composition cannot meet observable acceptance criteria.
 
 ---
 
@@ -79,32 +76,35 @@ Agent Context; Generate Shot List; ActiveBrand mutations; Wizard; HITL; Save; Bo
 
 ## 7. Exact additions / corrections for Linear addendum
 
-- **Replace** “require atomic org-bound function” as default with **direct trusted-org server reads first; RPC only if justified**
+- **Replace** all direct `shoot.shoots` Data API wording with **public-contract-first active-org preauthorization → existing detail RPC hydration**
 - Keep list via brand IDs + `shoot_portfolio_view`
 - Data-contract-first §0; lean skills wording
 
 ## 8. Acceptance criteria
 
-- [ ] List scoped through active-org brand IDs
-- [ ] Detail: direct-query-first; RPC only if justified; never membership-union-only
-- [ ] Org A cannot open Org B shoot; foreign ID → 404
-- [ ] Unsupported tabs empty/disabled
-- [ ] No wizard/HITL/Save/booking/media
-- [ ] Loading / empty / error / unauthorized matrix
+- [x] List scoped through active-org brand IDs
+- [x] Detail: trusted-org brand IDs → `shoot_portfolio_view` preauthorization → 404 on mismatch → `get_shoot_detail` hydration only; never membership-union-only as authority
+- [x] Org A cannot open Org B shoot; foreign ID → 404
+- [x] Browse avoids dashboard `SHOOT_LIMIT=6` truncation and uses deterministic cursor/keyset pagination
+- [x] Hydrated `get_shoot_detail` JSON is runtime-validated at the DAL boundary; malformed payloads fail closed
+- [x] Controlled two-org runtime proof completed in `e2e/shoots-journey.spec.ts`
+- [x] Unsupported tabs remain honest/disabled where not implemented
+- [x] No wizard/HITL/Save/booking/media scope creep in SHOOT-001
+- [x] Loading / empty / error / unauthorized behavior covered by implementation tests
 
 ## 9. Dependencies
 
 Hard: APP-001 + AUTH-002 (live). Soft before Rail. Unblocks PLAN with BRAND.
 
-## 10. READY TO PATCH LINEAR
+## 10. Post-merge verification
 
-**YES** — prepend addendum correcting detail strategy (critical delta vs live body).
+**DONE.** PR #85 merged as `304fe46` and the timestamp/cursor correctness hotfix merged in PR #89. Current `main` contains `/app/shoots`, `/app/shoots/[shootId]`, DAL tests, and `e2e/shoots-journey.spec.ts`. Historical pre-merge evidence is preserved in the local archive snapshot, not treated as current state.
 
 ---
 
 # AUTHORITATIVE FULL-URL + PRODUCTION AUDIT REFRESH — 2026-09-03
 
-**Code authority:** audit and implement from a clean/current `amoai-tech/ipixai@main` / `origin/main`, not the current dirty docs worktree. At audit time local HEAD was `dbc6f0b...` while `origin/main` was `b034423...`. Re-check SHA at task start.
+**Code authority:** audit and implement from a clean/current `amoai-tech/ipixai@main` / `origin/main`. At the 2026-09-06 refresh, local HEAD and `origin/main` both resolved to `5a904b7`; re-check SHA at task start.
 
 **Global execution rule:** inspect `package.json` + installed source/types first; current package/runtime contracts beat stale issue pins. The current skill tree has no `ponytail` skill, so use explicit cheapest-proof-first verification instead.
 
@@ -129,14 +129,14 @@ Use the official repository only to resolve current framework/library behavior; 
 Canonical V2 shoot truth is `shoot.shoots`; legacy `public.shoots` also exists and must not be revived. Existing `public.get_shoot_detail(p_shoot_id)` is SECURITY DEFINER, so it is **not automatically active-org authority**.
 
 ## Faster/better approach
-Trusted org → allowed brand IDs → direct `shoot.shoots` list/detail first. Add/reuse an RPC only if a direct server query cannot satisfy an observable requirement cleanly.
+Trusted org → allowed brand IDs → `shoot_portfolio_view` for list and detail preauthorization → existing `get_shoot_detail` for hydrated read-only detail. Add a new org-bound RPC only if this verified composition cannot satisfy an observable requirement cleanly.
 
 ## Red flags / fixes
-- SECURITY DEFINER detail RPC without active-org binding → direct scoped read or explicit org-bound contract.
+- SECURITY DEFINER detail RPC without active-org binding → `shoot_portfolio_view` trusted-brand preauthorization first; new org-bound RPC only if the verified composition fails an observable requirement.
 - Membership-union visibility → explicit active-org brand filter.
 - Legacy view becomes canonical → prohibit.
 - Wizard/HITL/media scope creep → separate tasks.
 
 ## Score / production gate
-Correctness 99 · Security 99 · Reuse 99 · Overall **99/100 provisional**. Success = Org A list/detail cannot expose Org B, foreign IDs 404, unsupported tabs honest, no `public.shoots`, targeted tests/typecheck/build/browser pass.
+Correctness **98** · Security **98** · Reuse **96** · Overall **98/100 VERIFIED IMPLEMENTATION**. Current-main evidence includes dedicated routes, targeted DAL tests, cross-org E2E coverage, review fixes, and the timestamp/cursor hotfix. Future media/HITL/booking work remains intentionally outside SHOOT-001.
 
