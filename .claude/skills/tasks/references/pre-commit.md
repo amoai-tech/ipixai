@@ -5,9 +5,8 @@ Run this before every substantial task commit. The goal is to catch review findi
 ## Fast path
 
 ```text
-exact diff
-→ scope check
-→ Graphify affected paths
+exact Git diff / scope check
+→ Graphify before any Read/Grep/Glob/exploratory Bash
 → load domain skills
 → verify external contracts
 → static defect scan
@@ -16,6 +15,8 @@ exact diff
 → UI/runtime proof only when required
 → commit
 ```
+
+`git diff`, `git status`, and other Git-only scope checks may run before Graphify because they inspect the current change set rather than explore the codebase. Any subsequent file/code exploration must start with Graphify when `graphify-out/graph.json` exists.
 
 ## Required checks
 
@@ -83,5 +84,5 @@ After this gate passes, use [pre-merge-tests.md](pre-merge-tests.md) to select t
 ## Agent prompt
 
 ```text
-Review the exact uncommitted/staged diff before commit. Confirm scope, secrets safety, affected callers/dependencies, current domain contracts, and installed API versions. Use Graphify for cross-file impact and the relevant domain skill/MCP for uncertain external behavior. Run local automated review when available, classify findings by severity, fix verified blocker/warning issues, and rerun review. Then run the cheapest targeted tests, typecheck/build/browser proof only when risk requires them. Do not commit with unexplained critical findings, fake data, dead routes, duplicate sources of truth, tenant/auth regressions, or known flaky P0 tests.
+Review the exact Git diff/scope first. Before any Read, Grep, Glob, or exploratory Bash codebase inspection, run Graphify when graphify-out/graph.json exists and use the scoped result to choose affected callers/dependencies. Confirm scope, secrets safety, current domain contracts, and installed API versions. Run local automated review when available, classify findings by severity, fix verified blocker/warning issues, and rerun review. Then run the cheapest targeted tests, typecheck/build/browser proof only when risk requires them. Do not commit with unexplained critical findings, fake data, dead routes, duplicate sources of truth, tenant/auth regressions, or known flaky P0 tests.
 ```
