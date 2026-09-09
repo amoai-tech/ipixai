@@ -18,7 +18,7 @@ Replaces old iPix `/pr`, `/pr-process`, `/pr-fix`, `/pr-fix-ship`, and `/pr-read
 | `/pr fix` · `/pr-fix` | Edit only. Stop before commit. |
 | `/pr resolve` | GraphQL reply + `resolveReviewThread` only. No code, no commit. |
 | `/pr ready` · `/pr-ready` | Undraft / CI / bots. No commit. |
-| `/pr post-merge` | After MERGED — execute `.claude/skills/pr-workflow/references/post-merge.md` |
+| `/pr post-merge` | After MERGED — execute `.claude/skills/tasks/references/post-merge.md` |
 
 ## Dispatch (`$ARGUMENTS`)
 
@@ -34,9 +34,9 @@ Parse the first token (strip a leading `/pr` or `/pr-`).
 | `ready` · `pr-ready` | `/pr ready` |
 | `resolve` | `/pr resolve` |
 | `status` | `/pr status` (read-only) |
-| `post-merge` · `merged` | After MERGED — load `.claude/skills/pr-workflow/references/post-merge.md` and execute (no code unless a follow-up PR is required) |
+| `post-merge` · `merged` | After MERGED — load `.claude/skills/tasks/references/post-merge.md` and execute (no code unless a follow-up PR is required) |
 
-**Load first:** `.claude/skills/pr-workflow/SKILL.md` (taxonomy, GraphQL resolve, templates).
+**Load first:** `.claude/skills/tasks/SKILL.md` (canonical task/PR standard — GraphQL resolve, taxonomy, and templates live under its `references/`). Legacy `pr-workflow` is a deprecated compatibility alias only; do not load it as primary.
 
 **This repo (not old `/home/sk/ipix`):** git root is this checkout. App lives in `src/`. Never `cd app`. Never combined `npm run dev` (**DEV-STAB-001**). Never mutate production Supabase. Secrets: `infisical run --env=dev -- <command>` per `AGENTS.md` § Secrets / Infisical.
 
@@ -97,7 +97,7 @@ Never undraft or merge from `/pr` / `/pr ship`. Offer `/pr ready` after ship. Do
 
 **Repo for GraphQL:** `gh repo view --json nameWithOwner --jq .nameWithOwner` (do not hardcode `lumina-studio`).
 
-Thread count + reply/resolve: `.claude/skills/pr-workflow/references/pr-review-resolve.md`.
+Thread count + reply/resolve: `.claude/skills/tasks/references/review-comments.md`.
 
 ---
 
@@ -281,4 +281,4 @@ UI: `npm run dev:ui` and `npm run dev:agent` in **separate** terminals. Combined
 
 **Never merge if:** build/tsc red · secrets in diff · mixed docs+code · unresolved inline threads · Bugbot High/Critical without waiver.
 
-Detail SSOT: `pr-workflow` skill — `references/pr-review-resolve.md`, `pr-fix-triage.md`, `pr-template.md` (sign-off/waiver only; **PR body is pr-description.mdc**).
+Detail SSOT: `tasks` skill — `references/review-comments.md`, `references/github-pr.md`, `references/pre-commit.md` (sign-off/waiver only; **PR body is pr-description.mdc**). Legacy `pr-workflow` is a deprecated compatibility alias only — do not treat it as SSOT.
