@@ -5,7 +5,7 @@ description: >
   failure-mode analysis, audits of completion claims, and before Linear Done. Consumes the canonical
   `tasks` standard, exact current code/PR head, tests/CI/runtime, and affected domain skills. It tries
   to disprove unsafe or incomplete claims rather than maintaining a parallel implementation lifecycle.
-version: "2.2.2"
+version: "2.2.3"
 ---
 
 # task-verifier — adversarial evidence gate
@@ -72,6 +72,16 @@ Use the cheapest authoritative proof that answers the claim:
 8. Official version-specific vendor docs/repositories when still needed.
 
 Memory, reviewer prose, scores, and status labels are not proof.
+
+### Web search evidence (tier 8 — last resort, not first move)
+
+Web search is the cheapest-proof-first list's *fallback*, used only when runtime/code/tests/CI/Linear/domain-skill/installed-source evidence (tiers 1–7) cannot answer the question. When it is used:
+
+1. **Version-pin every query.** Search `"next.js 16 server actions revalidation"`, not `"next.js server actions"` — a generic query returns majority-version docs that can contradict what is actually installed.
+2. **Cross-check installed source first.** If `node_modules/<pkg>` source/types already answer the question, searching is redundant and risks introducing a wrong-version answer.
+3. **Prefer primary sources.** Official docs > official GitHub repo/changelog/release notes > third-party blogs/forums. A low-trust source is worse than no source — it manufactures false confidence, which is exactly what this skill exists to reject.
+4. **Search to falsify, not confirm.** The implementation already believes its approach works; search for known failure modes, breaking changes, or security advisories against that approach rather than evidence that it "works."
+5. **Record the query and what the source said, not just the conclusion.** "Verified against docs" with no citation is itself an unproven claim — cite the query and the specific fact it established in the research packet (see `tasks/references/research-evidence.md`).
 
 ## Required verification flow
 
@@ -159,5 +169,5 @@ Only **Standard** or **Adversarial** may publish a score, and only when the evid
 ## Agent prompt
 
 ```text
-Independently review this task and try to disprove Done. Read the live Linear task and `.claude/skills/tasks/SKILL.md`. Verify the task itself is still valid before evaluating implementation. Record the exact current branch/PR SHA. Map every AC to current evidence. Build a failure-mode matrix and identify plausible false-green scenarios where tests could pass but the real user outcome would still fail. Load only affected domain skills and check their current best-practice/security contracts. Automatically use Adversarial mode for auth/RLS/tenant, HITL/consequential AI, migrations/data integrity, production config/release, security-sensitive dependency changes, publishing/payments, destructive writes, and Mastra workflow resume/callback/storage/tenant-memory/cancellation/MCP-auth/sensitive-RequestContext changes. For material Mastra work identify the independent applicable proof classes and use the Mastra testing-gates/user-journeys references for domain proof patterns rather than recreating them. Do not substitute tool tests for routing, persistence for restart recall, stream closure for abort, or approval booleans for exact reviewed-artifact proof. If RequestContext/tracing/snapshots/evals changed, verify privacy/retention, realistic payload size, and reproducible versioned eval inputs. Test retry/idempotency/partial-failure/recovery where state can change; review supply-chain risk when manifests/lockfiles/actions change; require rollback/monitoring proof for deployment-affecting work. Classify findings by severity and category. Treat missing required evidence as not Done. Use numeric scores only when evidence is complete enough to justify them. End with the smallest fixes/proofs required to reach verified Done.
+Independently review this task and try to disprove Done. Read the live Linear task and `.claude/skills/tasks/SKILL.md`. Verify the task itself is still valid before evaluating implementation. Record the exact current branch/PR SHA. Map every AC to current evidence. Build a failure-mode matrix and identify plausible false-green scenarios where tests could pass but the real user outcome would still fail. Load only affected domain skills and check their current best-practice/security contracts. Automatically use Adversarial mode for auth/RLS/tenant, HITL/consequential AI, migrations/data integrity, production config/release, security-sensitive dependency changes, publishing/payments, destructive writes, and Mastra workflow resume/callback/storage/tenant-memory/cancellation/MCP-auth/sensitive-RequestContext changes. For material Mastra work identify the independent applicable proof classes and use the Mastra testing-gates/user-journeys references for domain proof patterns rather than recreating them. Do not substitute tool tests for routing, persistence for restart recall, stream closure for abort, or approval booleans for exact reviewed-artifact proof. If RequestContext/tracing/snapshots/evals changed, verify privacy/retention, realistic payload size, and reproducible versioned eval inputs. Test retry/idempotency/partial-failure/recovery where state can change; review supply-chain risk when manifests/lockfiles/actions change; require rollback/monitoring proof for deployment-affecting work. When tiers 1-7 cannot answer a load-bearing question, use web search only to falsify the current approach (known failure modes, breaking changes, advisories) with version-pinned queries against primary sources, and record the query and what it established. Classify findings by severity and category. Treat missing required evidence as not Done. Use numeric scores only when evidence is complete enough to justify them. End with the smallest fixes/proofs required to reach verified Done.
 ```
