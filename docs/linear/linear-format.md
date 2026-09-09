@@ -73,7 +73,7 @@ You are implementing **IPI-NNN · TASK-ID — Full title** in the current iPixai
 9. Smallest change that meets ACs. One concern per PR/commit.
 10. Targeted tests first; browser when UI changed (`dev:ui` + `dev:agent` split).
 11. Compare to every AC. Do not mark Linear **Done** because code exists.
-12. Before Done: **task-verifier Standard**, or **Adversarial** when its risk triggers apply. After merge: `.claude/skills/tasks/references/post-merge.md`.
+12. Before Done: run the **risk-matched task-verifier** required by step 7 — Standard for substantial implementation, Adversarial when its triggers apply, or the documented Quick/N/A path for an explicitly narrow docs/config task. After merge: `.claude/skills/tasks/references/post-merge.md`.
 ```
 
 ---

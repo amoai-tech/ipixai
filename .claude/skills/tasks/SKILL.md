@@ -92,7 +92,7 @@ Never use `adapt` by itself. Use: **COPY**, **COPY + CLEAN**, **COPY + CLEAN TOK
 
 ## Required execution behavior
 
-- Before any `Read`, `Grep`, `Glob`, or exploratory `Bash` codebase exploration, run `PATH="$HOME/.local/bin:$PATH" graphify query "<question>"` when `graphify-out/graph.json` exists. Use `graphify path` / `graphify explain` for focused relationships and the wiki index for broad navigation.
+- For substantial code work or cross-file dependency/blast-radius discovery, use Graphify first when `graphify-out/graph.json` exists: run `PATH="$HOME/.local/bin:$PATH" graphify query "<question>"`, then use `graphify path` / `graphify explain` for focused relationships and the wiki index for broad navigation. For a narrow docs/config-only task with an already-known target where Graphify adds no useful proof, use direct inspection and record `Graphify: N/A — <reason>`.
 - Inspect current clean `origin/main` before trusting the issue text.
 - Reuse current iPix implementation before Lumina or custom code.
 - Before implementation, classify risk domains: auth/tenant, Supabase schema/migration, privileged DB function/RPC, consequential AI/HITL, external side effect/webhook, payment/publishing, production config, dependency/Action. Any high-risk domain requires Adversarial task-verifier coverage.

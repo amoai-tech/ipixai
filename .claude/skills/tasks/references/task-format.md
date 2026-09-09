@@ -58,7 +58,7 @@ Replace labels with the real task systems. Add failure/recovery/state diagrams o
 12. **Architecture connections + ownership** — Mermaid user journey plus architecture/trust/failure diagrams when useful.
 13. **Dependencies** — blocked by / blocks / related using full Linear names; identify safe parallel work.
 14. **Reference Appendix / research summary** — compact source/action matrix only; never the execution source.
-15. **Pre-implementation gate** — clean worktree, Graphify, code/live-contract recheck, skills/MCPs ready.
+15. **Pre-implementation gate** — clean worktree, code/live-contract recheck, task-relevant dependency discovery (Graphify when needed, otherwise explicit N/A), and required skills/MCPs ready.
 16. **Decision branches + STOP conditions** — explicit IF → THEN edge cases and facts that invalidate the plan.
 17. **Ordered Implementation Runbook** — authoritative dependency-ordered execution. Each group ends with a named `Checkpoint:` block. Put each important full URL in the exact step that uses it.
 18. **Security / data / query / performance contract** when applicable.
