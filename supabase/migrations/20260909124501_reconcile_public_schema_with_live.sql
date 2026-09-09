@@ -1,9 +1,6 @@
 -- IPI-1161 post-merge reconciliation: make fresh replay match the intended
 -- live public Data API schema without changing private shoot ownership.
 --
--- Deployment and recovery:
---   docs/supabase/ipi-1161-reconciliation-deployment.md
---
 -- The preflight runs before any DDL and fails closed when an environment has
 -- nullable image-spec identifiers or data in the retired singular schedule
 -- table. The explicit transaction also restores the dropped foreign key and
