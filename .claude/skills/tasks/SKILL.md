@@ -6,7 +6,8 @@ description: >
   progress trackers, executable Linear prompts, pre-commit quality gates, GitHub PR creation,
   review-comment troubleshooting, and post-merge proof. Defines the task standard; it does not
   replace task-verifier Done checks.
-version: "1.8.1"
+metadata:
+  version: "1.8.1"
 ---
 
 # tasks — iPix Linear task specification standard
