@@ -380,7 +380,12 @@ const saveDraftAndWait = createStep({
       // then covers it and the approve RPC hashes the current draft, so they
       // match. The draft schema is passthrough, so the extra key is valid.
       const draftWithRunId = {
-        ...brand.ai_profile_draft,
+        // ai_profile_draft is typed Json (string | number | boolean | null |
+        // object | Json[]) from the generated Supabase types, not guaranteed
+        // to be an object — but the not-null check above plus the schema
+        // (jsonb default '{}') mean it always is one in practice; assertBrandProfile
+        // below still validates the real shape before this is used further.
+        ...(brand.ai_profile_draft as Record<string, unknown>),
         _workflow_run_id: runId,
       };
       const { error: runIdError } = await sb

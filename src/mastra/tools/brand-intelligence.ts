@@ -214,14 +214,30 @@ export const approveDraft = createTool({
     // DB state, so even a redundant resume has no side effect. Always
     // attempting resume both avoids double-resume (framework dedup) and
     // recovers an orphaned suspend (retry actually tries again).
+    const notFinished = (detail: string) => ({
+      ok: true,
+      approved,
+      message:
+        (approved ? "Draft approved" : "Draft rejected") +
+        ", but the workflow did not finish updating — try again in a moment " +
+        `(${detail}).`,
+    });
+
     try {
       const { mastra } = await import("@/mastra");
       const workflow = mastra.getWorkflow("brand-intelligence");
       const run = await workflow.createRun({ runId });
-      await run.resume({
+      const resumeResult = await run.resume({
         resumeData: { approved },
         step: "saveDraftAndWait",
       });
+      // resume() can report failure via a non-throwing result (status !==
+      // "success") as well as by throwing — WorkflowResult['status'] includes
+      // 'failed' | 'suspended' | 'tripwire' | etc. alongside 'success'.
+      // Checking only try/catch would miss that case.
+      if (resumeResult.status !== "success") {
+        return notFinished(resumeResult.status);
+      }
     } catch (resumeError) {
       // The RPC already committed the decision durably (ai_profile/audit row
       // on approve, cleared draft on reject) — only the workflow resume
@@ -229,14 +245,7 @@ export const approveDraft = createTool({
       // which Mastra may also surface as an error here). Report success with
       // a retry hint rather than throwing: a retry re-hits the RPC (now
       // ALREADY_APPROVED/ALREADY_REJECTED) and attempts resume again.
-      return {
-        ok: true,
-        approved,
-        message:
-          (approved ? "Draft approved" : "Draft rejected") +
-          ", but the workflow did not finish updating — try again in a moment " +
-          `(${resumeError instanceof Error ? resumeError.message : "resume failed"}).`,
-      };
+      return notFinished(resumeError instanceof Error ? resumeError.message : "resume failed");
     }
 
     return {
