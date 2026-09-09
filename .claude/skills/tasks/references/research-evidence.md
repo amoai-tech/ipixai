@@ -9,7 +9,7 @@ Research must answer a concrete load-bearing question. Do not collect links with
 3. Current clean `origin/main`.
 4. Installed package source/types and lockfile.
 5. Live iPix schema/RLS/config read safely.
-6. Connected vendor-maintained MCP or live service interface.
+6. Connected MCP for the domain: GitHub MCP for repo/commit/code search and source provenance (e.g. checking a pinned Lumina commit, finding how a pattern is used elsewhere); Mastra knowledge MCP for Mastra-specific agent/tool/workflow behavior; Supabase MCP for live schema/RLS/config truth. Name the MCP actually used — "connected MCP" alone is not a citable source.
 7. Version-specific official documentation.
 8. Official vendor GitHub repository/release/example.
 9. Reviewer/bot/model suggestion.
@@ -35,5 +35,5 @@ Cap normal task-specific external references at five. Exceed this only when the 
 ## Agent prompt
 
 ```text
-Research only the load-bearing questions the task or PR cannot answer from current code/live state. For each question, start with installed version/source/types or connected MCP when available, then use version-specific official docs and official GitHub examples/releases. Keep the reference set bounded and record what each source proves. Distinguish verified fact, inference, and unresolved uncertainty. Return: question, current version/state, authoritative evidence, decision, implementation impact, and remaining risk. Do not replace direct repo/runtime evidence with generic web advice.
+Research only the load-bearing questions the task or PR cannot answer from current code/live state. For each question, start with installed version/source/types, then the named MCP for the domain (GitHub MCP for repo/commit/code search and provenance, Mastra knowledge MCP for Mastra behavior, Supabase MCP for schema/RLS/live state) when available, then version-specific official docs and official GitHub examples/releases. Keep the reference set bounded and record what each source proves, including which MCP tool answered it. Distinguish verified fact, inference, and unresolved uncertainty. Return: question, current version/state, authoritative evidence, decision, implementation impact, and remaining risk. Do not replace direct repo/runtime evidence with generic web advice.
 ```
