@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
   brandSingle: vi.fn(),
   crawlLinkMaybeSingle: vi.fn(),
+  priorDecisionMaybeSingle: vi.fn(),
   createClient: vi.fn(),
   startAsync: vi.fn(),
   resume: vi.fn(),
@@ -62,6 +63,21 @@ function mockUserScopedClient() {
           }),
         };
       }
+      if (table === "brand_profile_approvals") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                order: () => ({
+                  limit: () => ({
+                    maybeSingle: mocks.priorDecisionMaybeSingle,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        };
+      }
       return {
         select: () => ({
           eq: () => ({
@@ -105,6 +121,7 @@ beforeEach(() => {
   mocks.getStore.mockReturnValue("tok");
   mocks.getUser.mockResolvedValue({ data: { user: { id: "op-1" } }, error: null });
   mocks.crawlLinkMaybeSingle.mockResolvedValue({ data: { id: "crawl-1" }, error: null });
+  mocks.priorDecisionMaybeSingle.mockResolvedValue({ data: null, error: null });
   mocks.getWorkflowRunById.mockResolvedValue({ status: "suspended" });
   mockUserScopedClient();
   mockWorkflow();
@@ -256,21 +273,67 @@ describe("approveDraft", () => {
     expect(result).toMatchObject({ ok: true });
   });
 
-  it("still attempts resume on replay of an already-rejected decision (ALREADY_REJECTED) while the run remains suspended", async () => {
+  it("CRITICAL: recovers rejection after the RPC commits and clears the draft, then the resume call fails — retry must not return NO_DRAFT", async () => {
+    // Real SQL behavior: reject_brand_intelligence_draft sets
+    // brands.ai_profile_draft = NULL on commit. A naive "no draft => NO_DRAFT"
+    // check (the actual bug this regression catches) would stop here on
+    // retry and never recover — orphaning the suspended run forever, despite
+    // the rejection already being durably recorded in brand_profile_approvals.
     mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: DRAFT }, error: null });
-    mocks.rpc.mockResolvedValue({ data: { ok: true, code: "ALREADY_REJECTED" }, error: null });
-    mocks.resume.mockResolvedValue({ status: "success" });
+    mocks.rpc.mockResolvedValueOnce({ data: { ok: true, code: "REJECTED" }, error: null });
+    mocks.resume.mockRejectedValueOnce(new Error("transient failure"));
+
+    const first = await approveDraft.execute!(
+      { brandId: BRAND_ID, draftHash: "H1-reviewed", approved: false },
+      ctx,
+    );
+    expect(first).toMatchObject({ ok: true, approved: false });
+    expect(mocks.resume).toHaveBeenCalledTimes(1);
+
+    // Retry: brands.ai_profile_draft is now NULL (the RPC's own commit
+    // cleared it) and the run is still suspended (the first resume never
+    // landed). Durable recovery must come from brand_profile_approvals.
+    mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: null }, error: null });
+    mocks.priorDecisionMaybeSingle.mockResolvedValue({
+      data: { decision: "rejected", workflow_run_id: RUN_ID },
+      error: null,
+    });
+    mocks.getWorkflowRunById.mockResolvedValue({ status: "suspended" });
+    mocks.resume.mockResolvedValueOnce({ status: "success" });
+
+    const second = await approveDraft.execute!(
+      { brandId: BRAND_ID, draftHash: "H1-reviewed", approved: false },
+      ctx,
+    );
+
+    // The RPC must NOT be called again — the decision is already committed;
+    // recovery reconciles the workflow directly from the durable audit row.
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.resume).toHaveBeenCalledTimes(2);
+    expect(mocks.resume).toHaveBeenLastCalledWith({
+      resumeData: { approved: false },
+      step: "saveDraftAndWait",
+    });
+    expect(second).toMatchObject({ ok: true, approved: false });
+    expect((second as { message: string }).message).not.toMatch(/try again/);
+  });
+
+  it("rejection already fully completed: draft NULL, durable rejection audit exists, run already advanced past suspend — no resume attempted", async () => {
+    mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: null }, error: null });
+    mocks.priorDecisionMaybeSingle.mockResolvedValue({
+      data: { decision: "rejected", workflow_run_id: RUN_ID },
+      error: null,
+    });
+    mocks.getWorkflowRunById.mockResolvedValue({ status: "success" });
 
     const result = await approveDraft.execute!(
       { brandId: BRAND_ID, draftHash: "H1-reviewed", approved: false },
       ctx,
     );
 
-    expect(mocks.resume).toHaveBeenCalledWith({
-      resumeData: { approved: false },
-      step: "saveDraftAndWait",
-    });
-    expect(result).toMatchObject({ ok: true });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.resume).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: true, approved: false });
   });
 
   it("reports success with a retry hint when the RPC commits but the post-commit resume fails", async () => {
@@ -346,8 +409,9 @@ describe("approveDraft", () => {
     expect(result).toMatchObject({ ok: false });
   });
 
-  it("returns NO_DRAFT without calling the RPC when the brand has no draft", async () => {
+  it("returns NO_DRAFT without calling the RPC when the brand has no draft and no durable decision exists for this hash", async () => {
     mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: null }, error: null });
+    mocks.priorDecisionMaybeSingle.mockResolvedValue({ data: null, error: null });
 
     const result = await approveDraft.execute!(
       { brandId: BRAND_ID, draftHash: "H1-reviewed", approved: true },

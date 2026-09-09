@@ -34,9 +34,30 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, error: { code: "payload_too_large" } }, { status: 413 });
   }
 
-  const rawBody = await request.text();
-  if (Buffer.byteLength(rawBody, "utf8") > MAX_BODY_BYTES) {
-    return Response.json({ ok: false, error: { code: "payload_too_large" } }, { status: 413 });
+  // Content-Length is absent/untrustworthy on some callers (chunked
+  // transfer), so the check above alone doesn't bound the read. Read the
+  // stream incrementally instead of request.text(), which buffers the full
+  // body before any size check can run — an unbounded body would be fully
+  // buffered in memory first regardless of MAX_BODY_BYTES.
+  let rawBody: string;
+  {
+    const reader = request.body?.getReader();
+    if (!reader) {
+      return Response.json({ ok: false, error: { code: "invalid_input", message: "missing body" } }, { status: 400 });
+    }
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_BODY_BYTES) {
+        await reader.cancel();
+        return Response.json({ ok: false, error: { code: "payload_too_large" } }, { status: 413 });
+      }
+      chunks.push(value);
+    }
+    rawBody = Buffer.concat(chunks.map((c) => Buffer.from(c))).toString("utf8");
   }
 
   let body: { runId?: string; crawlId?: string; failed?: boolean; error?: string };

@@ -152,48 +152,78 @@ export const approveDraft = createTool({
       .eq("id", brandId)
       .single();
     if (brandError) throw brandError;
+
+    let runId: string;
+    // The durable decision this call ends up reconciling against. Normally
+    // this is just the caller's `approved` input; the recovery path below
+    // can override it with what was actually committed, in case a retry
+    // ever raced a differently-flagged call for the same hash.
+    let decidedApproved = approved;
+
     if (!brand?.ai_profile_draft) {
-      return { ok: false, approved, message: APPROVAL_MESSAGES.NO_DRAFT };
-    }
+      // reject_brand_intelligence_draft clears ai_profile_draft to NULL on
+      // commit — so a normal "no draft ever existed" case and "the reject
+      // this exact call is retrying already committed, then resume failed"
+      // case look identical from brands alone. Recover from the durable
+      // audit row instead of giving up: it's keyed by brand_id + the exact
+      // reviewed draft_hash (both already tenant/artifact-scoped — RLS
+      // additionally requires org membership), so it can't be spoofed into
+      // resuming an unrelated run.
+      const { data: priorDecision, error: priorError } = await sb
+        .from("brand_profile_approvals")
+        .select("decision, workflow_run_id")
+        .eq("brand_id", brandId)
+        .eq("draft_hash", draftHash)
+        .order("decided_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (priorError) throw priorError;
+      if (!priorDecision?.workflow_run_id) {
+        return { ok: false, approved, message: APPROVAL_MESSAGES.NO_DRAFT };
+      }
+      runId = priorDecision.workflow_run_id;
+      decidedApproved = priorDecision.decision === "approved";
+    } else {
+      const draftRunId = (brand.ai_profile_draft as Record<string, unknown>)?._workflow_run_id;
+      if (typeof draftRunId !== "string" || !draftRunId) {
+        throw new Error("Draft is missing its workflow run id");
+      }
+      runId = draftRunId;
 
-    const runId = (brand.ai_profile_draft as Record<string, unknown>)?._workflow_run_id;
-    if (typeof runId !== "string" || !runId) {
-      throw new Error("Draft is missing its workflow run id");
-    }
+      // Cross-tenant/cross-run guard: _workflow_run_id lives in ai_profile_draft,
+      // a column any org member can write via ordinary brands RLS. brand_crawls
+      // is service-role-write-only (no authenticated INSERT/UPDATE policy), so
+      // a row proving brand_id+workflow_id together is a trustworthy binding —
+      // it cannot be forged by writing JSON into the draft column.
+      const { data: crawlLink, error: crawlLinkError } = await sb
+        .from("brand_crawls")
+        .select("id")
+        .eq("brand_id", brandId)
+        .eq("workflow_id", runId)
+        .limit(1)
+        .maybeSingle();
+      if (crawlLinkError) throw crawlLinkError;
+      if (!crawlLink) {
+        throw new Error("Draft's workflow run does not belong to this brand");
+      }
 
-    // Cross-tenant/cross-run guard: _workflow_run_id lives in ai_profile_draft,
-    // a column any org member can write via ordinary brands RLS. brand_crawls
-    // is service-role-write-only (no authenticated INSERT/UPDATE policy), so
-    // a row proving brand_id+workflow_id together is a trustworthy binding —
-    // it cannot be forged by writing JSON into the draft column.
-    const { data: crawlLink, error: crawlLinkError } = await sb
-      .from("brand_crawls")
-      .select("id")
-      .eq("brand_id", brandId)
-      .eq("workflow_id", runId)
-      .limit(1)
-      .maybeSingle();
-    if (crawlLinkError) throw crawlLinkError;
-    if (!crawlLink) {
-      throw new Error("Draft's workflow run does not belong to this brand");
-    }
+      const rpcName = approved
+        ? "approve_brand_intelligence_draft"
+        : "reject_brand_intelligence_draft";
+      const { data: result, error: rpcError } = await sb.rpc(rpcName, {
+        p_brand_id: brandId,
+        p_expected_draft_hash: draftHash,
+      });
+      if (rpcError) throw rpcError;
 
-    const rpcName = approved
-      ? "approve_brand_intelligence_draft"
-      : "reject_brand_intelligence_draft";
-    const { data: result, error: rpcError } = await sb.rpc(rpcName, {
-      p_brand_id: brandId,
-      p_expected_draft_hash: draftHash,
-    });
-    if (rpcError) throw rpcError;
-
-    const outcome = (result ?? {}) as { ok?: boolean; code?: string };
-    if (!outcome.ok) {
-      return {
-        ok: false,
-        approved,
-        message: APPROVAL_MESSAGES[outcome.code ?? ""] ?? "Decision could not be recorded.",
-      };
+      const outcome = (result ?? {}) as { ok?: boolean; code?: string };
+      if (!outcome.ok) {
+        return {
+          ok: false,
+          approved,
+          message: APPROVAL_MESSAGES[outcome.code ?? ""] ?? "Decision could not be recorded.",
+        };
+      }
     }
 
     // State-aware reconciliation, not a blind resume-and-catch. An earlier
@@ -217,9 +247,9 @@ export const approveDraft = createTool({
     //     way.
     const notFinished = (detail: string) => ({
       ok: true,
-      approved,
+      approved: decidedApproved,
       message:
-        (approved ? "Draft approved" : "Draft rejected") +
+        (decidedApproved ? "Draft approved" : "Draft rejected") +
         ", but the workflow did not finish updating — try again in a moment " +
         `(${detail}).`,
     });
@@ -240,7 +270,7 @@ export const approveDraft = createTool({
       try {
         const run = await workflow.createRun({ runId });
         const resumeResult = await run.resume({
-          resumeData: { approved },
+          resumeData: { approved: decidedApproved },
           step: "saveDraftAndWait",
         });
         if (resumeResult.status !== "success") {
@@ -253,8 +283,8 @@ export const approveDraft = createTool({
 
     return {
       ok: true,
-      approved,
-      message: approved
+      approved: decidedApproved,
+      message: decidedApproved
         ? "Draft approved. Brand profile will update shortly."
         : "Draft rejected. You can trigger a new analysis when ready.",
     };

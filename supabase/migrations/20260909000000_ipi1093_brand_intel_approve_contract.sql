@@ -38,6 +38,13 @@ create table if not exists public.brand_profile_approvals (
   decided_at timestamptz not null default now(),
   draft_profile jsonb not null default '{}'::jsonb,
   draft_scores jsonb not null default '[]'::jsonb,
+  -- Durable reconciliation identity: reject clears brands.ai_profile_draft
+  -- (and the draft it came from) on commit, so a resume failure after a
+  -- committed decision has nowhere left to recover the workflow run id from
+  -- except this audit row. Nullable: extracted best-effort from the draft's
+  -- _workflow_run_id at decision time, absent for any row written before
+  -- this column existed.
+  workflow_run_id text,
   created_at timestamptz not null default now()
 );
 
@@ -171,11 +178,13 @@ begin
     );
   end loop;
 
-  -- audit row
+  -- audit row (workflow_run_id recovered from the draft's own bookkeeping
+  -- field, so a later resume-recovery lookup can find it after the draft
+  -- that carried it is gone)
   insert into public.brand_profile_approvals
-    (brand_id, org_id, draft_hash, profile_version, decision, decided_by, draft_profile, draft_scores)
+    (brand_id, org_id, draft_hash, profile_version, decision, decided_by, draft_profile, draft_scores, workflow_run_id)
   values
-    (p_brand_id, v_org_id, p_expected_draft_hash, v_version, 'approved', auth.uid(), v_draft, coalesce(v_draft->'_draft_scores', '[]'::jsonb));
+    (p_brand_id, v_org_id, p_expected_draft_hash, v_version, 'approved', auth.uid(), v_draft, coalesce(v_draft->'_draft_scores', '[]'::jsonb), v_draft->>'_workflow_run_id');
 
   return jsonb_build_object('ok', true, 'code', 'APPROVED', 'profile_version', v_version, 'draft_hash', p_expected_draft_hash);
 end;
@@ -259,9 +268,9 @@ begin
   where id = p_brand_id;
 
   insert into public.brand_profile_approvals
-    (brand_id, org_id, draft_hash, profile_version, decision, decided_by, draft_profile, draft_scores)
+    (brand_id, org_id, draft_hash, profile_version, decision, decided_by, draft_profile, draft_scores, workflow_run_id)
   values
-    (p_brand_id, v_org_id, p_expected_draft_hash, v_version, 'rejected', auth.uid(), v_draft, coalesce(v_draft->'_draft_scores', '[]'::jsonb));
+    (p_brand_id, v_org_id, p_expected_draft_hash, v_version, 'rejected', auth.uid(), v_draft, coalesce(v_draft->'_draft_scores', '[]'::jsonb), v_draft->>'_workflow_run_id');
 
   return jsonb_build_object('ok', true, 'code', 'REJECTED', 'profile_version', v_version, 'draft_hash', p_expected_draft_hash);
 end;
