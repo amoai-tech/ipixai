@@ -97,7 +97,7 @@ AI proposes
 → durable result is recorded/read back
 ```
 
-Do not autonomously publish, pay, delete, or commit sensitive business state when approval is appropriate.
+Do not autonomously publish, pay, delete, or commit sensitive business state.
 
 ## Linear
 
