@@ -8,6 +8,7 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { appWorkspaceDependencies, requireResolvedAppWorkspace } from "@/lib/auth/app-shell";
 import { isDatabaseUuid } from "@/lib/database-uuid";
 import { loadBrandDetail, type BrandDetail } from "@/lib/brand/get-brand-detail";
+import { selectBrandDetailView } from "./select-view";
 
 /**
  * IPI-1093 · BRAND-INTEL-001 — `/app/brands/[brandId]` Brand DNA review.
@@ -20,10 +21,9 @@ import { loadBrandDetail, type BrandDetail } from "@/lib/brand/get-brand-detail"
  * `useInterrupt` bridges a background workflow it was never proven to
  * reach.
  *
- * IN_PROGRESS_STATUSES / RUNNING intentionally covers every intake_status
- * that isn't a terminal or reviewable state — see brand_intake_status.
+ * State selection lives in `./select-view` as a pure function — see its
+ * doc comment for the parse-failure-vs-no-draft bug it exists to prevent.
  */
-const RUNNING_STATUSES = new Set(["crawl_running", "crawl_complete", "analysis_running", "scores_complete"]);
 
 function RunningState() {
   return (
@@ -132,29 +132,35 @@ export default async function BrandDetailPage({
 
   const { detail } = result;
 
-  // Priority: an actionable draft always takes precedence — including when
-  // a re-run produced a new draft for an already-approved brand.
   let body: React.ReactNode;
-  if (detail.draft && detail.draftHash) {
-    body = (
-      <BrandDNAReviewCard
-        brandId={detail.id}
-        draft={detail.draft}
-        draftHash={detail.draftHash}
-        draftScores={detail.draftScores}
-      />
-    );
-  } else if (detail.draftHash === null && detail.intakeStatus === "draft_ready") {
-    // Draft exists in DB but failed to parse into the current schema shape.
-    body = <ErrorState message="This draft couldn't be displayed. Please re-run the analysis." />;
-  } else if (detail.approvedProfileAt) {
-    body = <ApprovedState detail={detail} />;
-  } else if (RUNNING_STATUSES.has(detail.intakeStatus)) {
-    body = <RunningState />;
-  } else if (detail.intakeStatus === "failed") {
-    body = <FailedState brandId={detail.id} />;
-  } else {
-    body = <NoAnalysisState detail={detail} />;
+  switch (selectBrandDetailView(detail)) {
+    case "review":
+      // Non-null asserted for TS: selectBrandDetailView's "review" case is
+      // exactly `detail.draft && detail.draftHash` both truthy.
+      body = (
+        <BrandDNAReviewCard
+          brandId={detail.id}
+          draft={detail.draft!}
+          draftHash={detail.draftHash!}
+          draftScores={detail.draftScores}
+        />
+      );
+      break;
+    case "parse_error":
+      body = <ErrorState message="This draft couldn't be displayed. Please re-run the analysis." />;
+      break;
+    case "approved":
+      body = <ApprovedState detail={detail} />;
+      break;
+    case "running":
+      body = <RunningState />;
+      break;
+    case "failed":
+      body = <FailedState brandId={detail.id} />;
+      break;
+    case "no_analysis":
+      body = <NoAnalysisState detail={detail} />;
+      break;
   }
 
   return (

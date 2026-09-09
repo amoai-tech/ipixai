@@ -82,7 +82,10 @@ describe("loadBrandDetail", () => {
     ]);
   });
 
-  it("degrades a malformed draft to null instead of throwing (page must not crash)", async () => {
+  it("degrades a malformed draft to null instead of throwing (page must not crash) — and still hashes it, since get_brand_draft_hash hashes raw JSON regardless of schema validity", async () => {
+    // This combination (draft: null, draftHash: non-null) is exactly the
+    // state that previously broke the page's branching — see
+    // select-view.test.ts for the regression on that logic.
     const result = await loadBrandDetail(
       fakeSupabase({
         brandRow: {
@@ -95,6 +98,7 @@ describe("loadBrandDetail", () => {
           ai_profile_draft: { totally: "not a brand profile" },
           approved_profile_at: null,
         },
+        hash: "H1-still-computed",
       }),
       BRAND_ID,
     );
@@ -102,6 +106,7 @@ describe("loadBrandDetail", () => {
     expect(result.status).toBe("found");
     if (result.status !== "found") return;
     expect(result.detail.draft).toBeNull();
+    expect(result.detail.draftHash).toBe("H1-still-computed");
     expect(result.detail.draftScores).toEqual([]);
   });
 
