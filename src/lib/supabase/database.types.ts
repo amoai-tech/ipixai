@@ -1103,6 +1103,7 @@ export type Database = {
           ai_profile_draft: Json | null
           analysis_lock_token: string | null
           analysis_locked_at: string | null
+          approved_profile_at: string | null
           brand_url: string | null
           created_at: string
           creative_temperature_default: number
@@ -1120,6 +1121,7 @@ export type Database = {
           ai_profile_draft?: Json | null
           analysis_lock_token?: string | null
           analysis_locked_at?: string | null
+          approved_profile_at?: string | null
           brand_url?: string | null
           created_at?: string
           creative_temperature_default?: number
@@ -1137,6 +1139,7 @@ export type Database = {
           ai_profile_draft?: Json | null
           analysis_lock_token?: string | null
           analysis_locked_at?: string | null
+          approved_profile_at?: string | null
           brand_url?: string | null
           created_at?: string
           creative_temperature_default?: number
@@ -1229,13 +1232,6 @@ export type Database = {
             columns: ["model_profile_id"]
             isOneToOne: false
             referencedRelation: "model_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "call_times_schedule_item_id_fkey"
-            columns: ["schedule_item_id"]
-            isOneToOne: false
-            referencedRelation: "event_schedule"
             referencedColumns: ["id"]
           },
           {
@@ -2200,95 +2196,6 @@ export type Database = {
           },
         ]
       }
-      event_schedule: {
-        Row: {
-          assigned_models: string[] | null
-          assigned_stakeholders: string[] | null
-          created_at: string | null
-          date: string | null
-          description: string | null
-          designer_id: string | null
-          end_time: string | null
-          end_time_only: string | null
-          event_id: string
-          id: string
-          location: string | null
-          model_id: string | null
-          schedule_type: Database["public"]["Enums"]["schedule_type"] | null
-          stakeholder_id: string | null
-          start_time: string
-          start_time_only: string | null
-          title: string
-        }
-        Insert: {
-          assigned_models?: string[] | null
-          assigned_stakeholders?: string[] | null
-          created_at?: string | null
-          date?: string | null
-          description?: string | null
-          designer_id?: string | null
-          end_time?: string | null
-          end_time_only?: string | null
-          event_id: string
-          id?: string
-          location?: string | null
-          model_id?: string | null
-          schedule_type?: Database["public"]["Enums"]["schedule_type"] | null
-          stakeholder_id?: string | null
-          start_time: string
-          start_time_only?: string | null
-          title: string
-        }
-        Update: {
-          assigned_models?: string[] | null
-          assigned_stakeholders?: string[] | null
-          created_at?: string | null
-          date?: string | null
-          description?: string | null
-          designer_id?: string | null
-          end_time?: string | null
-          end_time_only?: string | null
-          event_id?: string
-          id?: string
-          location?: string | null
-          model_id?: string | null
-          schedule_type?: Database["public"]["Enums"]["schedule_type"] | null
-          stakeholder_id?: string | null
-          start_time?: string
-          start_time_only?: string | null
-          title?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "event_schedule_designer_id_fkey"
-            columns: ["designer_id"]
-            isOneToOne: false
-            referencedRelation: "fashion_show_designer_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_schedule_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_schedule_model_id_fkey"
-            columns: ["model_id"]
-            isOneToOne: false
-            referencedRelation: "model_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_schedule_stakeholder_id_fkey"
-            columns: ["stakeholder_id"]
-            isOneToOne: false
-            referencedRelation: "stakeholders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       event_schedules: {
         Row: {
           created_at: string | null
@@ -2720,7 +2627,7 @@ export type Database = {
           desktop_notes: string | null
           height_px: number
           id: string
-          image_type_id: string | null
+          image_type_id: string
           last_verified_at: string | null
           max_file_size_mb: number | null
           max_height_px: number | null
@@ -2730,7 +2637,7 @@ export type Database = {
           mobile_notes: string | null
           organic: boolean
           paid: boolean
-          platform_id: string | null
+          platform_id: string
           product_fill_min_pct: number | null
           recommended_color_mode: string | null
           safe_zone_bottom_px: number | null
@@ -2754,7 +2661,7 @@ export type Database = {
           desktop_notes?: string | null
           height_px: number
           id?: string
-          image_type_id?: string | null
+          image_type_id: string
           last_verified_at?: string | null
           max_file_size_mb?: number | null
           max_height_px?: number | null
@@ -2764,7 +2671,7 @@ export type Database = {
           mobile_notes?: string | null
           organic?: boolean
           paid?: boolean
-          platform_id?: string | null
+          platform_id: string
           product_fill_min_pct?: number | null
           recommended_color_mode?: string | null
           safe_zone_bottom_px?: number | null
@@ -2788,7 +2695,7 @@ export type Database = {
           desktop_notes?: string | null
           height_px?: number
           id?: string
-          image_type_id?: string | null
+          image_type_id?: string
           last_verified_at?: string | null
           max_file_size_mb?: number | null
           max_height_px?: number | null
@@ -2798,7 +2705,7 @@ export type Database = {
           mobile_notes?: string | null
           organic?: boolean
           paid?: boolean
-          platform_id?: string | null
+          platform_id?: string
           product_fill_min_pct?: number | null
           recommended_color_mode?: string | null
           safe_zone_bottom_px?: number | null
@@ -4262,6 +4169,30 @@ export type Database = {
           role?: Database["public"]["Enums"]["stakeholder_role"]
           specializations?: string[] | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      supabase_migrations: {
+        Row: {
+          checksum: string
+          executed_at: string
+          name: string
+          statements: string
+          version: string
+        }
+        Insert: {
+          checksum: string
+          executed_at: string
+          name: string
+          statements: string
+          version: string
+        }
+        Update: {
+          checksum?: string
+          executed_at?: string
+          name?: string
+          statements?: string
+          version?: string
         }
         Relationships: []
       }
