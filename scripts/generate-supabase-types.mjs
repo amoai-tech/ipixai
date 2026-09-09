@@ -14,7 +14,7 @@ function run(command, args) {
 
   if (result.error) throw result.error;
   if (result.status !== 0) {
-    throw new Error(result.stderr.trim() || `${command} ${args.join(" ")} failed`);
+    throw new Error(result.stderr.trim() || `${command} failed`);
   }
 
   return result.stdout;
