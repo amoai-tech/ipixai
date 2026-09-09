@@ -7,7 +7,7 @@ description: >
   review-comment troubleshooting, and post-merge proof. Defines the task standard; it does not
   replace task-verifier Done checks.
 metadata:
-  version: "1.10.0"
+  version: "1.11.0"
 ---
 
 # tasks — iPix Linear task specification standard
@@ -28,6 +28,22 @@ task-verifier
 ```
 
 The Linear issue is the live task-specific execution runbook and progress source of truth.
+
+## Top Task Snapshot — mandatory
+
+Put this immediately after the title so a product/operator can understand the task before reading implementation detail:
+
+```text
+What changes: <2–4 plain-English lines>
+Real-world example: <actor → action → visible/durable result>
+Faster/better approach: <smallest safe proven path>
+Current status: <Todo / In Progress / Blocked + verified progress %>
+Tech stack touched: <only affected systems>
+Skills/MCPs: <only tools actually required and why>
+Production-ready when: <one observable success sentence>
+```
+
+If any line is unknown, say `Needs verification` instead of guessing.
 
 ## Mandatory task structure
 

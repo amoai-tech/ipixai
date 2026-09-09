@@ -30,6 +30,8 @@ Real-world example: <actor → action → visible/durable result>.
 
 Avoid titles that describe internal refactors instead of the user/system outcome unless the task is purely platform/internal.
 
+Immediately below the title add the **Top Task Snapshot** from `task-format.md`: what changes, real-world example, faster/better approach, current status/progress, affected stack, required skills/MCPs, and the one-sentence production-ready condition.
+
 ## Current-state audit and findings
 
 Before implementation, record: current setup, affected stack, existing code to reuse, errors, red flags, failure points, blockers, missing pieces, fixes/improvements, and what must not be rebuilt. If scoring helps, use evidence-backed /100 scores and mark incomplete-evidence scores provisional.

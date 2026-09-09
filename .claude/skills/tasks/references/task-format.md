@@ -2,6 +2,48 @@
 
 Use this order unless a task-specific reason requires otherwise.
 
+## Top Task Snapshot — put this first
+
+```markdown
+**What changes:** <2–4 plain-English lines>
+**Real-world example:** <actor → action → visible/durable result>
+**Faster/better approach:** <smallest safe proven path>
+**Current status:** <state + verified progress %>
+**Tech stack touched:** <only affected systems>
+**Skills / MCPs / CLI / dashboards:** <only what is actually needed + why>
+**Production-ready when:** <one observable success sentence>
+```
+
+Unknown values are `Needs verification`, never assumptions.
+
+## Mermaid templates — use only when they expose real flow/risk
+
+**User journey**
+
+```mermaid
+flowchart LR
+  U[Operator] --> UI[iPix screen/chat]
+  UI --> S[Server-verified context]
+  S --> A[Agent/service/tool]
+  A --> H{Human approval?}
+  H -->|when required| W[Authorized write/action]
+  H -->|not required| O[Visible outcome]
+  W --> O
+```
+
+**Ownership / trust boundary**
+
+```mermaid
+flowchart LR
+  B[Browser claims] --> SV[Server verification]
+  SV --> D[Domain owner]
+  D --> DB[(Durable source of truth)]
+  AI[AI proposal] --> R[Human review]
+  R --> D
+```
+
+Replace labels with the real task systems. Add failure/recovery/state diagrams only when they reveal a material risk; otherwise record `Diagram: N/A — <reason>`.
+
 1. **Plain-English title + top description** — `IPI-NNN · SPEC — Real-world outcome`; explain in 2–4 lines what changes for the operator/business and why it matters.
 2. **Agent Contract** — goal, user outcome, do/do-not, source of truth, successful stop, invalid-assumption stop.
 3. **Progress + Handoff State** — overall %, current checkpoint, next action, blocker, do-not-redo evidence.
@@ -44,6 +86,7 @@ If a section reads as generic enough to paste into any other task unchanged, it 
 Use applicable rows and mark genuine exclusions `N/A — <reason>`:
 
 - [ ] Observable user/business success criteria pass.
+- [ ] Every implementation-group `Checkpoint:` passed on current code/runtime evidence.
 - [ ] Required negative/failure paths fail safely.
 - [ ] Auth/tenant/RLS/privileged boundaries are proven when applicable.
 - [ ] No second source of truth, duplicate runtime, or unnecessary custom rebuild was introduced.
@@ -54,6 +97,7 @@ Use applicable rows and mark genuine exclusions `N/A — <reason>`:
 - [ ] Deployment/config/env changes have an explicit rollback or containment path when applicable.
 - [ ] User/AI journey certification passes where applicable.
 - [ ] Post-merge actions/tests are named before merge, with the evidence required for 100% / Done.
+- [ ] Every residual risk has an exact Linear owner or is closed with evidence.
 
 ## Per-file/group section
 
@@ -83,6 +127,23 @@ When an external/Lumina source is used, put the **full URL in that exact group**
 If the same source is used in multiple groups, repeat the full URL with a narrower instruction for the different invariant. Never use `same URL` in the execution runbook. Mutable GitHub sources require an immutable SHA/pinned URL in PR evidence.
 
 **Rule:** do not continue to the next group until the current checkpoint passes, unless the task explicitly documents safe parallel work.
+
+
+## Audit score block — when useful
+
+Use evidence-backed scores only. A blocker overrides the number.
+
+| Area | Score /100 | Evidence / deduction |
+| -- | --: | -- |
+| Correctness |  |  |
+| Security / tenant safety |  |  |
+| Reuse / efficiency |  |  |
+| Maintainability |  |  |
+| Verification confidence |  |  |
+| Production readiness |  |  |
+| Overall |  |  |
+
+Mark incomplete-evidence scores **provisional**.
 
 
 ## Agent prompting rules

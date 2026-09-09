@@ -7,11 +7,25 @@ Cursor rule: `.cursor/rules/linear-task-format.mdc` (summary only — do not dup
 
 Title: **`IPI-NNN · TASK-ID — Plain-English outcome`**. Never a tech-only title.
 
+Immediately below the title:
+
+```markdown
+**What changes:** <2–4 plain-English lines>
+**Real-world example:** <actor → action → visible/durable result>
+**Faster/better approach:** <smallest safe proven path>
+**Current status:** <state + verified progress %>
+**Tech stack touched:** <only affected systems>
+**Skills / MCPs / CLI / dashboards:** <only what is actually required + why>
+**Production-ready when:** <one observable success sentence>
+```
+
+Unknown values are `Needs verification`, not guesses.
+
 ---
 
 ## Agent order (hard)
 
-Paste the **Implementation prompt** at the **top** of every Linear description. After the agent reads the task, the **first work** is verification. **No code until verification passes.**
+Start every Linear description with a **plain-English title + Top Task Snapshot** so a product/operator can understand the outcome immediately. Put the **Agent Contract / implementation instructions after that snapshot**. After the agent reads the task, the first work is verification. **No code until verification passes.**
 
 ```mermaid
 flowchart TD
@@ -34,7 +48,7 @@ flowchart TD
 
 ---
 
-## Implementation prompt (paste at top of every issue)
+## Agent Contract / implementation instructions (after the Top Task Snapshot)
 
 ```markdown
 ## Implementation prompt
@@ -152,9 +166,9 @@ Premium or optional capabilities must **not** block Core MVP unless essential to
 
 ## Skills (every IPI task)
 
-**Always include:** `tasks`, `task-verifier`, `graphify`, `ponytail`, `fastest`, `explain`, plus the matching domain skill(s) from `.claude/skills/index-skills.md`.
+**Always use the canonical `tasks` rules, then name only the additional skills/tools actually required by this task.** Typical choices include `task-verifier`, `graphify`, `ipix-supabase`, `mastra`, `copilotkit`, `cloudinary`, `nextjs-developer`, Playwright, GitHub, Linear, Supabase, or other connected MCPs/CLIs.
 
-Do not add deprecated `ipix-task-lifecycle` or `pr-workflow` to new task skill lists.
+For every named skill/MCP/CLI/dashboard, state **why it is needed**. Verify it is available before relying on it. Do not add deprecated `ipix-task-lifecycle` or `pr-workflow` to new task skill lists.
 
 ---
 
