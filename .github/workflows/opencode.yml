@@ -21,8 +21,6 @@ name: opencode
 on:
   issue_comment:
     types: [created]
-  pull_request_review_comment:
-    types: [created]
 
 permissions:
   id-token: write
@@ -59,6 +57,10 @@ jobs:
       - name: Run OpenCode
         uses: anomalyco/opencode/github@830d5eb5354874105cc31599635a80c1662609e8 # v1.18.30
         env:
+          # Pin the opencode binary the action installs. Without this the action
+          # resolves releases/latest, so the SHA pin alone would not make the
+          # executed agent code immutable.
+          VERSION: v1.18.30
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         with:
           model: openai/gpt-5
@@ -85,3 +87,6 @@ jobs:
               in plain English with file:line references where useful.
             - When asked to fix or implement, work in a new branch and open a
               PR with the changes; do not merge it yourself.
+
+            - The triggering user task (from the comment that started this run):
+              ${{ github.event.comment.body }}
