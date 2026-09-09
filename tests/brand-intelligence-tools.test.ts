@@ -472,6 +472,38 @@ describe("approveDraft", () => {
     expect(result).toMatchObject({ ok: false });
   });
 
+  it("BYTE-IDENTICAL REGENERATION: rejecting H1 permanently finalizes it — a later analysis run reproducing the exact same draft content still can't approve it (DECISION_FINALIZED)", async () => {
+    // One exact draft_hash has exactly one final decision, permanently, not
+    // just "not within the same immediate retry". The RPC itself now looks
+    // up ANY prior decision for (brand_id, draft_hash) before this call even
+    // reaches score validation or mutation.
+    mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: DRAFT }, error: null });
+    mocks.rpc.mockResolvedValue({ data: { ok: false, code: "DECISION_FINALIZED" }, error: null });
+
+    const result = await approveDraft.execute!(
+      { brandId: BRAND_ID, draftHash: "H1-reviewed", approved: true },
+      ctx,
+    );
+
+    expect(mocks.resume).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: false, approved: true });
+    expect((result as { message: string }).message).toMatch(/cannot be reversed/);
+  });
+
+  it("BYTE-IDENTICAL REGENERATION mirror: approving H1 permanently finalizes it — a later analysis run reproducing the exact same draft content still can't reject it (DECISION_FINALIZED)", async () => {
+    mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: DRAFT }, error: null });
+    mocks.rpc.mockResolvedValue({ data: { ok: false, code: "DECISION_FINALIZED" }, error: null });
+
+    const result = await approveDraft.execute!(
+      { brandId: BRAND_ID, draftHash: "H1-reviewed", approved: false },
+      ctx,
+    );
+
+    expect(mocks.resume).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: false, approved: false });
+    expect((result as { message: string }).message).toMatch(/cannot be reversed/);
+  });
+
   it("returns NO_DRAFT without calling the RPC when the brand has no draft and no durable decision exists for this hash", async () => {
     mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: null }, error: null });
     mocks.priorDecisionMaybeSingle.mockResolvedValue({ data: null, error: null });

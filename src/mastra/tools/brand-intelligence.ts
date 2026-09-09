@@ -43,6 +43,7 @@ const APPROVAL_MESSAGES: Record<string, string> = {
   ALREADY_REJECTED: "This draft was already rejected.",
   INVALID_DRAFT: "Draft is invalid — please re-run the analysis.",
   NOT_FOUND: "Brand not found.",
+  DECISION_FINALIZED: "This exact draft already has a final decision that cannot be reversed — run a new analysis for a fresh draft.",
 };
 
 function requireAccessToken(): string {

@@ -45,7 +45,17 @@ create table if not exists public.brand_profile_approvals (
   -- _workflow_run_id at decision time, absent for any row written before
   -- this column existed.
   workflow_run_id text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Hard backstop for "one exact draft_hash has exactly one final human
+  -- decision": Postgres itself refuses a second row for the same
+  -- (brand_id, draft_hash) regardless of decision, so even a bug in the
+  -- PL/pgSQL existing-decision check below (or a future caller that
+  -- forgets it) cannot silently create a contradictory audit trail. In
+  -- practice each new workflow run's fresh _workflow_run_id is baked into
+  -- the hashed draft, so a byte-identical hash across two different
+  -- analysis runs is already exceptionally unlikely -- this constraint
+  -- makes that guarantee load-bearing rather than incidental.
+  constraint brand_profile_approvals_brand_hash_uidx unique (brand_id, draft_hash)
 );
 
 alter table public.brand_profile_approvals enable row level security;
@@ -81,9 +91,9 @@ declare
   v_hash text;
   v_score jsonb;
   v_version integer;
-  v_approved bool;
   v_decision_code text;
   v_workflow_run_id text;
+  v_existing_decision text;
 begin
   -- authorize caller
   if auth.uid() is null then
@@ -103,8 +113,7 @@ begin
   end if;
 
   -- lock the brand row and read the CURRENT stored artifact
-  select ai_profile_draft, (approved_profile_at is not null)
-    into v_draft, v_approved
+  select ai_profile_draft into v_draft
   from public.brands
   where id = p_brand_id
   for update;
@@ -119,12 +128,26 @@ begin
     return jsonb_build_object('ok', false, 'code', 'STALE_DRAFT');
   end if;
 
-  -- idempotent replay: already approved for the same reviewed artifact hash
-  if v_approved and exists (
-    select 1 from public.brand_profile_approvals a
-    where a.brand_id = p_brand_id and a.draft_hash = p_expected_draft_hash and a.decision = 'approved'
-  ) then
+  -- One exact draft_hash has exactly one final decision, permanently -- not
+  -- just "not simultaneously". Look up ANY prior decision for this exact
+  -- (brand_id, draft_hash), independent of the brand's current
+  -- approved_profile_at state: same decision replayed is a safe idempotent
+  -- no-op, the OPPOSITE decision for the identical hash is refused rather
+  -- than silently flipping an already-final human decision. This also
+  -- covers the case a later analysis run somehow reproduces a
+  -- byte-identical hash (already exceptionally unlikely -- see the unique
+  -- constraint on the table) rather than depending solely on the draft
+  -- being cleared to prevent an immediate same-session reversal.
+  select decision into v_existing_decision
+  from public.brand_profile_approvals a
+  where a.brand_id = p_brand_id and a.draft_hash = p_expected_draft_hash
+  order by a.decided_at desc
+  limit 1;
+
+  if v_existing_decision = 'approved' then
     return jsonb_build_object('ok', true, 'code', 'ALREADY_APPROVED');
+  elsif v_existing_decision = 'rejected' then
+    return jsonb_build_object('ok', false, 'code', 'DECISION_FINALIZED');
   end if;
 
   -- Trusted workflow-run binding, enforced HERE rather than trusting the
@@ -238,6 +261,7 @@ declare
   v_version integer;
   v_new_status public.brand_intake_status;
   v_workflow_run_id text;
+  v_existing_decision text;
 begin
   if auth.uid() is null then
     return jsonb_build_object('ok', false, 'code', 'UNAUTHENTICATED');
@@ -270,15 +294,21 @@ begin
     return jsonb_build_object('ok', false, 'code', 'STALE_DRAFT');
   end if;
 
-  -- idempotent replay: already rejected for this exact reviewed artifact.
-  -- NOTE: after a successful reject the draft is cleared, so a plain replay
-  -- returns NO_DRAFT (non-destructive). ALREADY_REJECTED is only reachable if
-  -- a new draft with byte-identical content is created afterwards.
-  if exists (
-    select 1 from public.brand_profile_approvals a
-    where a.brand_id = p_brand_id and a.draft_hash = p_expected_draft_hash and a.decision = 'rejected'
-  ) then
+  -- One exact draft_hash has exactly one final decision, permanently -- see
+  -- approve_brand_intelligence_draft for the full rationale. NOTE: after a
+  -- successful reject/approve the draft is cleared, so a plain replay
+  -- normally returns NO_DRAFT first (non-destructive); this check is what
+  -- catches the case a later analysis run reproduces a byte-identical hash.
+  select decision into v_existing_decision
+  from public.brand_profile_approvals a
+  where a.brand_id = p_brand_id and a.draft_hash = p_expected_draft_hash
+  order by a.decided_at desc
+  limit 1;
+
+  if v_existing_decision = 'rejected' then
     return jsonb_build_object('ok', true, 'code', 'ALREADY_REJECTED');
+  elsif v_existing_decision = 'approved' then
+    return jsonb_build_object('ok', false, 'code', 'DECISION_FINALIZED');
   end if;
 
   -- Trusted workflow-run binding, enforced HERE — see approve_brand_intelligence_draft
