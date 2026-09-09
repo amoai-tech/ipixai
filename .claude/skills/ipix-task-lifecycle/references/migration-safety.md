@@ -6,14 +6,17 @@ Use during Phase 2 research and Phase 3 implementation before any schema change.
 
 ---
 
-## Workflow (declarative schema)
+## Workflow — verified production path (IPI-1171)
 
-1. Edit `.sql` in `supabase/schemas/` (not hand-edit `migrations/` unless caveats).
-2. `supabase stop` if local stack running (MVP uses **remote linked** only).
-3. `supabase db diff -f <descriptive_name>` — review generated migration.
-4. Apply via linked project per README (`db push --linked` or documented repair flow).
-5. `npm run supabase:verify` + `npm run supabase:verify-rls`.
-6. Regenerate types: `npm run supabase:types` if `src/types/supabase.ts` consumers changed.
+1. Create/review the version-controlled migration under `supabase/migrations/`.
+2. Run targeted SQL/security tests, then prove a fresh local replay with `supabase db reset --local`.
+3. Open a PR and require both `Supabase Preview` and `supabase-fresh-replay` to pass.
+4. Obtain explicit human approval for the migration-bearing PR.
+5. Merge to protected `main`; the enabled Supabase GitHub Integration owns production migration application.
+6. Do **not** run a second manual `supabase db push --linked` after merge. Verify the live migration ledger and changed objects read-only instead.
+7. Regenerate types when exposed schemas changed.
+
+Use `supabase migration repair` or other linked mutation only in an explicit reviewed recovery/incident procedure.
 
 ---
 
