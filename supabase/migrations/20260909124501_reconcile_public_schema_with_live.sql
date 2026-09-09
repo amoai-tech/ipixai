@@ -37,6 +37,15 @@ begin
         'IPI-1161 blocked: public.event_schedule contains rows; preserve and reconcile them before retrying';
     end if;
   end if;
+
+  if exists (
+    select 1
+    from public.call_times
+    where schedule_item_id is not null
+  ) then
+    raise exception
+      'IPI-1161 blocked: public.call_times still contains schedule_item_id pointers; reconcile them before retrying';
+  end if;
 end
 $$;
 
