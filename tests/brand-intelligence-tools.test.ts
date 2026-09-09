@@ -213,33 +213,43 @@ describe("approveDraft", () => {
     expect(result).toMatchObject({ ok: false });
   });
 
-  it("does not double-resume on replay of an already-approved decision (ALREADY_APPROVED)", async () => {
+  it("still attempts resume on replay of an already-approved decision (ALREADY_APPROVED) — Mastra's own resume-claim dedup makes a redundant resume safe", async () => {
     mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: DRAFT }, error: null });
     mocks.rpc.mockResolvedValue({ data: { ok: true, code: "ALREADY_APPROVED" }, error: null });
+    mocks.resume.mockResolvedValue({ status: "success" });
 
     const result = await approveDraft.execute!(
       { brandId: BRAND_ID, draftHash: "H1-reviewed", approved: true },
       ctx,
     );
 
-    // ok:true per the RPC contract (idempotent replay, not an error) — but
-    // an earlier call already resumed the workflow for this decision. A
-    // second resume attempt here would double-resume a step that already
-    // moved past saveDraftAndWait.
-    expect(mocks.resume).not.toHaveBeenCalled();
+    // Gating resume on outcome.code === "APPROVED" (skipping it on replay)
+    // was the bug: if the first call's RPC committed but its own resume then
+    // failed, the next call gets ALREADY_APPROVED and — gated — would never
+    // retry resume, orphaning the suspended run forever despite the DB
+    // decision being correct. Always attempting resume relies on Mastra's
+    // own resume-claim dedup to make a truly-redundant resume harmless.
+    expect(mocks.resume).toHaveBeenCalledWith({
+      resumeData: { approved: true },
+      step: "saveDraftAndWait",
+    });
     expect(result).toMatchObject({ ok: true });
   });
 
-  it("does not double-resume on replay of an already-rejected decision (ALREADY_REJECTED)", async () => {
+  it("still attempts resume on replay of an already-rejected decision (ALREADY_REJECTED)", async () => {
     mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: DRAFT }, error: null });
     mocks.rpc.mockResolvedValue({ data: { ok: true, code: "ALREADY_REJECTED" }, error: null });
+    mocks.resume.mockResolvedValue({ status: "success" });
 
     const result = await approveDraft.execute!(
       { brandId: BRAND_ID, draftHash: "H1-reviewed", approved: false },
       ctx,
     );
 
-    expect(mocks.resume).not.toHaveBeenCalled();
+    expect(mocks.resume).toHaveBeenCalledWith({
+      resumeData: { approved: false },
+      step: "saveDraftAndWait",
+    });
     expect(result).toMatchObject({ ok: true });
   });
 
@@ -257,6 +267,33 @@ describe("approveDraft", () => {
     // workflow resume failed. This must not throw and lose that fact.
     expect(result).toMatchObject({ ok: true, approved: true });
     expect((result as { message: string }).message).toMatch(/try again/);
+  });
+
+  it("recovers an orphaned suspend on retry: first call's resume fails (leaving the run suspended), a later ALREADY_APPROVED replay attempts resume again and succeeds", async () => {
+    mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: DRAFT }, error: null });
+
+    // First call: RPC commits APPROVED, but resume() fails (e.g. cold start).
+    mocks.rpc.mockResolvedValueOnce({ data: { ok: true, code: "APPROVED" }, error: null });
+    mocks.resume.mockRejectedValueOnce(new Error("transient failure"));
+    const first = await approveDraft.execute!(
+      { brandId: BRAND_ID, draftHash: "H1-reviewed", approved: true },
+      ctx,
+    );
+    expect(first).toMatchObject({ ok: true });
+    expect(mocks.resume).toHaveBeenCalledTimes(1);
+
+    // Retry: RPC now reports ALREADY_APPROVED (decision already durable).
+    // The run is still actually suspended (the first resume never landed) —
+    // this call must try resume again, not skip it.
+    mocks.rpc.mockResolvedValueOnce({ data: { ok: true, code: "ALREADY_APPROVED" }, error: null });
+    mocks.resume.mockResolvedValueOnce({ status: "success" });
+    const second = await approveDraft.execute!(
+      { brandId: BRAND_ID, draftHash: "H1-reviewed", approved: true },
+      ctx,
+    );
+    expect(mocks.resume).toHaveBeenCalledTimes(2);
+    expect(second).toMatchObject({ ok: true, approved: true });
+    expect((second as { message: string }).message).not.toMatch(/try again/);
   });
 
   it("does not resume on malformed scores (INVALID_DRAFT)", async () => {

@@ -196,36 +196,47 @@ export const approveDraft = createTool({
       };
     }
 
-    // ALREADY_APPROVED/ALREADY_REJECTED are ok:true idempotent-replay codes —
-    // the decision was already recorded on an earlier call and that earlier
-    // call already resumed (or is resuming) the workflow. Resuming again here
-    // would double-resume a step that already moved past saveDraftAndWait.
-    const freshDecision = outcome.code === "APPROVED" || outcome.code === "REJECTED";
-    if (freshDecision) {
-      try {
-        const { mastra } = await import("@/mastra");
-        const workflow = mastra.getWorkflow("brand-intelligence");
-        const run = await workflow.createRun({ runId });
-        await run.resume({
-          resumeData: { approved },
-          step: "saveDraftAndWait",
-        });
-      } catch (resumeError) {
-        // The RPC already committed the decision durably (ai_profile/audit
-        // row on approve, cleared draft on reject) — only the in-memory
-        // workflow resume failed. Report success with a retry hint rather
-        // than throwing: a retry re-hits the RPC, gets ALREADY_APPROVED/
-        // ALREADY_REJECTED (this same ok:true branch, freshDecision=false),
-        // and skips straight past this resume attempt.
-        return {
-          ok: true,
-          approved,
-          message:
-            (approved ? "Draft approved" : "Draft rejected") +
-            ", but the workflow did not finish updating — try again in a moment " +
-            `(${resumeError instanceof Error ? resumeError.message : "resume failed"}).`,
-        };
-      }
+    // Always attempt resume on any ok:true outcome — including ALREADY_APPROVED/
+    // ALREADY_REJECTED replays, not just a fresh APPROVED/REJECTED decision.
+    //
+    // An earlier version of this gated resume on outcome.code === "APPROVED" |
+    // "REJECTED" to avoid double-resuming. That overcorrected: if the RPC
+    // commits but this same resume call then fails (network blip, cold start),
+    // the *next* call gets ALREADY_APPROVED and — gated — would never attempt
+    // resume again, permanently orphaning the suspended run despite the DB
+    // decision being durably correct.
+    //
+    // Mastra's own resume() de-duplicates via a persisted "resume claim" (see
+    // WorkflowOptions.allowUnclaimedResumes, @mastra/core/dist/workflows/
+    // types.d.ts) — calling it again on a run already past saveDraftAndWait is
+    // the framework's problem to make safe, not this tool's. commitOrReject
+    // (the step resume advances into) is read-only re-verification of current
+    // DB state, so even a redundant resume has no side effect. Always
+    // attempting resume both avoids double-resume (framework dedup) and
+    // recovers an orphaned suspend (retry actually tries again).
+    try {
+      const { mastra } = await import("@/mastra");
+      const workflow = mastra.getWorkflow("brand-intelligence");
+      const run = await workflow.createRun({ runId });
+      await run.resume({
+        resumeData: { approved },
+        step: "saveDraftAndWait",
+      });
+    } catch (resumeError) {
+      // The RPC already committed the decision durably (ai_profile/audit row
+      // on approve, cleared draft on reject) — only the workflow resume
+      // failed (or, on a true replay, the run was already past this step,
+      // which Mastra may also surface as an error here). Report success with
+      // a retry hint rather than throwing: a retry re-hits the RPC (now
+      // ALREADY_APPROVED/ALREADY_REJECTED) and attempts resume again.
+      return {
+        ok: true,
+        approved,
+        message:
+          (approved ? "Draft approved" : "Draft rejected") +
+          ", but the workflow did not finish updating — try again in a moment " +
+          `(${resumeError instanceof Error ? resumeError.message : "resume failed"}).`,
+      };
     }
 
     return {
