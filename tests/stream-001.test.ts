@@ -34,6 +34,13 @@ vi.mock("../src/lib/supabase/server", () => ({
         data: { claims: { sub: claims.sub, email: claims.email } },
         error: claims.sub ? null : { message: "invalid JWT" },
       }),
+      // AUTH-002 (IPI-1093): route.ts derives the requestToken-scoped access
+      // token via getSession() after the getClaims()-based operator check
+      // above already gates the request, so this is only reached once
+      // authenticated — a fixed token is enough for these stream tests.
+      getSession: async () => ({
+        data: { session: { access_token: "test-access-token" } },
+      }),
     },
     from: (table: string) => ({
       select: () => ({

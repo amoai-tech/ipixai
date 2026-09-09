@@ -30,13 +30,15 @@ describe("Mastra registry contract", () => {
 });
 
 describe("Production Planner registered tool contract", () => {
-  it("exposes exactly the four production planning tools and every one has input/output schemas", async () => {
+  it("exposes the four planning tools plus the two brand-intelligence tools, every one with input/output schemas", async () => {
     const tools = await productionPlannerAgent.listTools();
     const expected = [
+      "approveDraft",
       "estimateShootBudget",
       "generateShotListDraft",
       "planDeliverables",
       "recommendShootType",
+      "startBrandAnalysis",
     ].sort();
 
     expect(Object.keys(tools).sort()).toEqual(expected);

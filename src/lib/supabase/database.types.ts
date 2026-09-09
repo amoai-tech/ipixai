@@ -1003,6 +1003,66 @@ export type Database = {
           },
         ]
       }
+      brand_profile_approvals: {
+        Row: {
+          brand_id: string
+          created_at: string
+          decided_at: string
+          decided_by: string | null
+          decision: string
+          draft_hash: string
+          draft_profile: Json
+          draft_scores: Json
+          id: string
+          org_id: string
+          profile_version: number
+          workflow_run_id: string | null
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          decided_at?: string
+          decided_by?: string | null
+          decision: string
+          draft_hash: string
+          draft_profile?: Json
+          draft_scores?: Json
+          id?: string
+          org_id: string
+          profile_version: number
+          workflow_run_id?: string | null
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          decided_at?: string
+          decided_by?: string | null
+          decision?: string
+          draft_hash?: string
+          draft_profile?: Json
+          draft_scores?: Json
+          id?: string
+          org_id?: string
+          profile_version?: number
+          workflow_run_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_profile_approvals_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_profile_approvals_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_scores: {
         Row: {
           brand_id: string
@@ -1103,7 +1163,10 @@ export type Database = {
           ai_profile_draft: Json | null
           analysis_lock_token: string | null
           analysis_locked_at: string | null
+          approved_by: string | null
+          approved_draft_hash: string | null
           approved_profile_at: string | null
+          approved_profile_version: number | null
           brand_url: string | null
           created_at: string
           creative_temperature_default: number
@@ -1121,7 +1184,10 @@ export type Database = {
           ai_profile_draft?: Json | null
           analysis_lock_token?: string | null
           analysis_locked_at?: string | null
+          approved_by?: string | null
+          approved_draft_hash?: string | null
           approved_profile_at?: string | null
+          approved_profile_version?: number | null
           brand_url?: string | null
           created_at?: string
           creative_temperature_default?: number
@@ -1139,7 +1205,10 @@ export type Database = {
           ai_profile_draft?: Json | null
           analysis_lock_token?: string | null
           analysis_locked_at?: string | null
+          approved_by?: string | null
+          approved_draft_hash?: string | null
           approved_profile_at?: string | null
+          approved_profile_version?: number | null
           brand_url?: string | null
           created_at?: string
           creative_temperature_default?: number
@@ -4545,6 +4614,10 @@ export type Database = {
     Functions: {
       apply_cloudinary_asset_event: { Args: { p_event: Json }; Returns: Json }
       apply_cloudinary_asset_events: { Args: { p_events: Json }; Returns: Json }
+      approve_brand_intelligence_draft: {
+        Args: { p_brand_id: string; p_expected_draft_hash: string }
+        Returns: Json
+      }
       calculate_shoot_price: {
         Args: {
           p_fulfillment_type?: string
@@ -4656,6 +4729,7 @@ export type Database = {
         Args: { p_brand_id: string; p_shoot_id?: string }
         Returns: Json
       }
+      get_brand_draft_hash: { Args: { p_brand_id: string }; Returns: string }
       get_event_registration_count: {
         Args: { p_event_id: string }
         Returns: number
@@ -4866,6 +4940,10 @@ export type Database = {
           p_patch: Json
           p_task_id: string
         }
+        Returns: Json
+      }
+      reject_brand_intelligence_draft: {
+        Args: { p_brand_id: string; p_expected_draft_hash: string }
         Returns: Json
       }
       search_brands: {

@@ -681,10 +681,17 @@ describe("no forbidden imports in the four planning tools", () => {
 });
 
 describe("Planner integration", () => {
-  it("the canonical Production Planner exposes exactly the four planning tools", async () => {
+  it("the canonical Production Planner exposes the four planning tools plus the two brand-intelligence tools (IPI-1093)", async () => {
     const tools = await productionPlannerAgent.listTools();
     expect(Object.keys(tools).sort()).toEqual(
-      ["estimateShootBudget", "generateShotListDraft", "planDeliverables", "recommendShootType"].sort(),
+      [
+        "approveDraft",
+        "estimateShootBudget",
+        "generateShotListDraft",
+        "planDeliverables",
+        "recommendShootType",
+        "startBrandAnalysis",
+      ].sort(),
     );
   });
 });

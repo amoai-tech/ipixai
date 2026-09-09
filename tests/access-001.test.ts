@@ -37,6 +37,9 @@ vi.mock("../src/lib/supabase/server", () => ({
         data: { claims: { sub: claims.sub, email: claims.email } },
         error: claims.sub ? null : { message: "invalid JWT" },
       }),
+      getSession: async () => ({
+        data: { session: { access_token: "test-access-token" } },
+      }),
     },
     from: (table: string) => ({
       select: () => ({
