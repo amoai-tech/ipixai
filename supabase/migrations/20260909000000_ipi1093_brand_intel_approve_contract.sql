@@ -83,6 +83,7 @@ declare
   v_version integer;
   v_approved bool;
   v_decision_code text;
+  v_workflow_run_id text;
 begin
   -- authorize caller
   if auth.uid() is null then
@@ -126,6 +127,23 @@ begin
     return jsonb_build_object('ok', true, 'code', 'ALREADY_APPROVED');
   end if;
 
+  -- Trusted workflow-run binding, enforced HERE rather than trusting the
+  -- caller: _workflow_run_id lives inside ai_profile_draft, a column any
+  -- authenticated org member can write via ordinary brands RLS. This RPC is
+  -- itself directly callable by any authenticated editor/owner via
+  -- PostgREST, not only through the Mastra tool's own brand_crawls check —
+  -- so a forged/missing run id must fail closed inside the privileged
+  -- boundary, not rely solely on an application-layer precheck.
+  -- brand_crawls has no authenticated write policy (service-role only), so
+  -- a matching row is a trustworthy brand<->run binding.
+  v_workflow_run_id := nullif(v_draft->>'_workflow_run_id', '');
+  if v_workflow_run_id is null or not exists (
+    select 1 from public.brand_crawls c
+    where c.brand_id = p_brand_id and c.workflow_id = v_workflow_run_id
+  ) then
+    return jsonb_build_object('ok', false, 'code', 'INVALID_DRAFT');
+  end if;
+
   v_version := coalesce(
     (select max(a.profile_version) from public.brand_profile_approvals a where a.brand_id = p_brand_id),
     0
@@ -152,8 +170,17 @@ begin
   -- strips internal staging metadata (_draft_scores/_lifecycle/_workflow_run_id)
   -- so approved truth is a clean business object. _draft_scores is promoted
   -- separately into brand_scores below.
+  --
+  -- ai_profile_draft is cleared here too (mirroring reject below): one exact
+  -- draft_hash must have exactly one final human decision. Leaving the draft
+  -- in place after approval would let the SAME hash later be rejected,
+  -- producing a brand_profile_approvals audit trail with contradictory
+  -- approved+rejected rows for one artifact. Clearing it makes a later
+  -- reject of this hash fail closed with NO_DRAFT, the same protection
+  -- reject already relies on for blocking a subsequent approve.
   update public.brands
     set ai_profile = v_draft - '_draft_scores' - '_lifecycle' - '_workflow_run_id',
+        ai_profile_draft = null,
         approved_profile_at = now(),
         intake_status = 'ready',
         approved_profile_version = v_version,
@@ -178,13 +205,13 @@ begin
     );
   end loop;
 
-  -- audit row (workflow_run_id recovered from the draft's own bookkeeping
-  -- field, so a later resume-recovery lookup can find it after the draft
-  -- that carried it is gone)
+  -- audit row: persist the VERIFIED v_workflow_run_id (proven against
+  -- brand_crawls above), never the raw unvalidated draft field, so a later
+  -- resume-recovery lookup can trust what it reads back.
   insert into public.brand_profile_approvals
     (brand_id, org_id, draft_hash, profile_version, decision, decided_by, draft_profile, draft_scores, workflow_run_id)
   values
-    (p_brand_id, v_org_id, p_expected_draft_hash, v_version, 'approved', auth.uid(), v_draft, coalesce(v_draft->'_draft_scores', '[]'::jsonb), v_draft->>'_workflow_run_id');
+    (p_brand_id, v_org_id, p_expected_draft_hash, v_version, 'approved', auth.uid(), v_draft, coalesce(v_draft->'_draft_scores', '[]'::jsonb), v_workflow_run_id);
 
   return jsonb_build_object('ok', true, 'code', 'APPROVED', 'profile_version', v_version, 'draft_hash', p_expected_draft_hash);
 end;
@@ -210,6 +237,7 @@ declare
   v_approved bool;
   v_version integer;
   v_new_status public.brand_intake_status;
+  v_workflow_run_id text;
 begin
   if auth.uid() is null then
     return jsonb_build_object('ok', false, 'code', 'UNAUTHENTICATED');
@@ -253,6 +281,16 @@ begin
     return jsonb_build_object('ok', true, 'code', 'ALREADY_REJECTED');
   end if;
 
+  -- Trusted workflow-run binding, enforced HERE — see approve_brand_intelligence_draft
+  -- for why this cannot rely solely on the Mastra tool's own brand_crawls check.
+  v_workflow_run_id := nullif(v_draft->>'_workflow_run_id', '');
+  if v_workflow_run_id is null or not exists (
+    select 1 from public.brand_crawls c
+    where c.brand_id = p_brand_id and c.workflow_id = v_workflow_run_id
+  ) then
+    return jsonb_build_object('ok', false, 'code', 'INVALID_DRAFT');
+  end if;
+
   v_version := coalesce(
     (select max(a.profile_version) from public.brand_profile_approvals a where a.brand_id = p_brand_id),
     0
@@ -270,7 +308,7 @@ begin
   insert into public.brand_profile_approvals
     (brand_id, org_id, draft_hash, profile_version, decision, decided_by, draft_profile, draft_scores, workflow_run_id)
   values
-    (p_brand_id, v_org_id, p_expected_draft_hash, v_version, 'rejected', auth.uid(), v_draft, coalesce(v_draft->'_draft_scores', '[]'::jsonb), v_draft->>'_workflow_run_id');
+    (p_brand_id, v_org_id, p_expected_draft_hash, v_version, 'rejected', auth.uid(), v_draft, coalesce(v_draft->'_draft_scores', '[]'::jsonb), v_workflow_run_id);
 
   return jsonb_build_object('ok', true, 'code', 'REJECTED', 'profile_version', v_version, 'draft_hash', p_expected_draft_hash);
 end;
