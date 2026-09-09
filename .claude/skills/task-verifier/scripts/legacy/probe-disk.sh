@@ -2,10 +2,16 @@
 # task-verifier — disk probe for mdeapp claims
 # Usage:
 #   bash .claude/skills/task-verifier/scripts/probe-disk.sh           # all probes
-#   bash .claude/skills/task-verifier/scripts/probe-disk.sh F09       # filter to F09 probes
+#   bash .claude/skills/task-verifier/scripts/probe-disk.sh tasks     # filter to one section
+#
+# Valid filters (match a section name, not an individual task ID):
+#   struct scripts deps pins files tasks git env beta
+# To check one legacy task ID (e.g. F09), filter to the "tasks" section and
+# read its own row — the filter does not match task IDs directly.
 #
 # All probes are READ-ONLY. Names of env vars are logged; values never are.
-# Exit code = number of 🔴 blockers (0 = green).
+# Exit code = number of 🔴 blockers (0 = green); a filter that matches no
+# section is a script-usage error, not a clean pass, and exits nonzero.
 
 set -uo pipefail
 
@@ -250,4 +256,8 @@ fi
 # ---------- Summary ----------
 echo "=== summary ==="
 echo "🟢 ok=$green  🟡 warn=$yellow  🔴 fail=$red"
+if [ -n "$FILTER" ] && [ $((green + yellow + red)) -eq 0 ]; then
+  echo "🔴 filter '$FILTER' matched no probe section (valid: struct scripts deps pins files tasks git env beta) — 0 probes ran, this is NOT a clean pass" >&2
+  exit 2
+fi
 exit $red
