@@ -49,6 +49,7 @@ create index brand_profile_approvals_brand_id_idx
 create policy brand_profile_approvals_select_org
   on public.brand_profile_approvals
   for select
+  to authenticated
   using (public.is_org_member(org_id));
 
 -- ---------------------------------------------------------------------------
