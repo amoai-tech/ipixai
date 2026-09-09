@@ -1,0 +1,87 @@
+name: opencode
+
+# OpenCode GitHub App integration — trigger an AI coding agent from issues and
+# PRs by commenting `/opencode` or `/oc`. See https://opencode.ai/docs/github/.
+#
+# Setup:
+#   1. Install the app on this repo: https://github.com/apps/opencode-agent
+#   2. Add the model API key as a repo secret (OPENAI_API_KEY already exists
+#      for CI; this workflow reuses it).
+#   3. The action exchanges an OIDC token for an app installation token, so no
+#      GITHUB_TOKEN secret is needed. If you prefer a caller-provided token,
+#      set `use_github_token: true` and pass GITHUB_TOKEN via env instead.
+#
+# Security notes:
+#   - This repo is public, so only OWNER/COLLABORATOR comments can trigger a
+#     run (see the job `if:`). Anyone else who comments `/opencode` is ignored.
+#   - The agent can create branches and open PRs. All PRs still go through the
+#     normal review + CI gates (ci.yml) before merge.
+#   - `share: false` keeps session logs private even though the repo is public.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: read
+  issues: read
+
+concurrency:
+  group: opencode-${{ github.workflow }}-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  opencode:
+    if: |
+      (
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'COLLABORATOR'
+      ) &&
+      (
+        startsWith(github.event.comment.body, '/oc') ||
+        startsWith(github.event.comment.body, '/opencode') ||
+        contains(github.event.comment.body, ' /oc') ||
+        contains(github.event.comment.body, ' /opencode')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Run OpenCode
+        uses: anomalyco/opencode/github@830d5eb5354874105cc31599635a80c1662609e8 # v1.18.30
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        with:
+          model: openai/gpt-5
+          share: false
+          prompt: |
+            You are working in the amoai-tech/ipixai repository. Follow these
+            repo rules for every task:
+
+            - Read AGENTS.md and .cursor/rules/ before making any changes.
+            - Smallest correct change; reuse existing helpers. One concern per
+              commit and PR — never mix docs and production code.
+            - Use the cheapest reliable proof before opening a PR: static
+              inspection, then targeted tests, then `npx tsc --noEmit`, then
+              `npm run build` only when the change touches buildable code.
+              CI must pass (npm ci + npm run build).
+            - PR titles must follow the format "IPI-NNN · SPEC — Plain English
+              title" when a Linear issue is referenced.
+            - Security: never print secrets, service-role keys, database URLs,
+              or API keys. Never push to production or run hosted writes.
+            - If the task references a Linear IPI-* issue, load
+              .claude/skills/tasks/SKILL.md and treat the issue as the source
+              of truth for scope and Definition of Done.
+            - When asked to explain an issue, read the full thread and reply
+              in plain English with file:line references where useful.
+            - When asked to fix or implement, work in a new branch and open a
+              PR with the changes; do not merge it yourself.
