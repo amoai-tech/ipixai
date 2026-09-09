@@ -17,6 +17,10 @@ PR merged
 → 100% / Done
 ```
 
+## Completion window
+
+Post-merge verification starts immediately after merge, not "eventually." For a substantial task, complete the required checks below within **1 business day** of merge unless the task explicitly documents a longer window (e.g. waiting on a scheduled deploy). A merged PR with no post-merge evidence after that window is a stale task, not a done one — surface it, don't let it sit silently at "merged."
+
 ## Required checks when applicable
 
 - [ ] PR merged into intended base and merge SHA recorded.
@@ -76,7 +80,7 @@ A local pass does not prove preview environment bindings; a preview pass does no
 ## Agent prompt
 
 ```text
-Verify the merged outcome rather than assuming merge means Done. Fetch current origin/main, record the merge/head SHA, confirm main CI and deployment health, then run the smallest production/runtime smoke journey that proves the task outcome. Add domain-specific proof for Supabase, CopilotKit, Mastra, Cloudinary, auth/tenant, or UI when those areas changed. Route every residual risk to FIXED, NOT A PROBLEM with evidence, EXISTING LINEAR OWNER, or NEW LINEAR TASK REQUIRED. Update Linear with PR URL, merge SHA, CI/deploy/runtime evidence, and only set 100%/Done when all applicable post-merge checks pass.
+Verify the merged outcome rather than assuming merge means Done. Fetch current origin/main, record the merge/head SHA, confirm main CI and deployment health, then run the smallest production/runtime smoke journey that proves the task outcome. Complete required post-merge checks within 1 business day of merge unless the task explicitly documents a longer window; do not let a merged task sit un-verified indefinitely. Add domain-specific proof for Supabase, CopilotKit, Mastra, Cloudinary, auth/tenant, or UI when those areas changed. Route every residual risk to FIXED, NOT A PROBLEM with evidence, EXISTING LINEAR OWNER, or NEW LINEAR TASK REQUIRED. Update Linear with PR URL, merge SHA, CI/deploy/runtime evidence, and only set 100%/Done when all applicable post-merge checks pass.
 ```
 
 ## Post-merge journey certification
