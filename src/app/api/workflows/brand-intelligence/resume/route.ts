@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 import { mastra } from "@/mastra";
 
@@ -8,9 +8,14 @@ const MAX_BODY_BYTES = 1_048_576;
 
 function verifyInternalSecret(header: string | null, expected: string | undefined): boolean {
   if (!header || !expected) return false;
-  const a = Buffer.from(header);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
+  // Hash both sides to a fixed-length digest before comparing, rather than
+  // branching on Buffer.length first. Comparing raw lengths before calling
+  // timingSafeEqual leaks the secret's length through response-time
+  // variance; hashing first means every comparison is on equal-length
+  // (32-byte) buffers regardless of the header's length, so there's no
+  // length-dependent branch at all.
+  const a = createHash("sha256").update(header).digest();
+  const b = createHash("sha256").update(expected).digest();
   return timingSafeEqual(a, b);
 }
 
