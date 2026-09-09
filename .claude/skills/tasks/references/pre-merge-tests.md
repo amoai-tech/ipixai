@@ -5,7 +5,9 @@ Use the cheapest reliable proof first, but do not stop before the task's observa
 ## Canonical order
 
 ```text
-static/diff review
+exact Git diff / scope check
+→ Graphify before any Read/Grep/Glob/exploratory Bash code review
+→ static/diff review
 → targeted Vitest/component/contract tests
 → typecheck
 → build when route/config/runtime behavior can change
@@ -80,7 +82,6 @@ failure
 
 Stop and update the task if the failure exposes a changed source of truth, new migration/RPC/service requirement, cross-tenant leak, nondeterministic shared test state, or a dependency/version mismatch.
 
-
 ## Flaky-test gate
 
 Retries are diagnostic evidence, not permission to merge instability. For critical journeys, a test that fails and only passes on retry is a failure until the root cause is understood. Prefer Playwright `failOnFlakyTests: true` or `--fail-on-flaky-tests` for critical CI lanes. Record flaky/race findings separately from deterministic product failures.
@@ -113,7 +114,7 @@ Do not put optional improvements on the critical path unless the task's risk req
 ## Agent prompt
 
 ```text
-Choose the smallest pre-merge test set that proves the risks introduced by this change. Map changed behavior to the test matrix, run targeted unit/component/SQL/integration tests first, then typecheck/build, then localhost browser proof, production-build smoke, preview E2E, or live-provider tests only when the risk requires them. For auth/tenant changes include negative and Org A/Org B proof; for critical Playwright journeys treat retry-pass as flaky until understood. Record each command, result, environment, tested SHA, and any skipped/N/A gate with reason. Stop merge readiness on unexplained P0/P1 failures or flakes.
+Choose the smallest pre-merge test set that proves the risks introduced by this change. Start with exact Git diff/scope. Before any Read, Grep, Glob, or exploratory Bash codebase inspection, run Graphify when graphify-out/graph.json exists and use the scoped result to choose the static review surface. Map changed behavior to the test matrix, run targeted unit/component/SQL/integration tests first, then typecheck/build, then localhost browser proof, production-build smoke, preview E2E, or live-provider tests only when the risk requires them. For auth/tenant changes include negative and Org A/Org B proof; for critical Playwright journeys treat retry-pass as flaky until understood. Record each command, result, environment, tested SHA, and any skipped/N/A gate with reason. Stop merge readiness on unexplained P0/P1 failures or flakes.
 ```
 
 ## User-journey gate
