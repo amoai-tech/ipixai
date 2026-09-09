@@ -268,12 +268,26 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- 5. Grants: revoke broad access, grant execute to authenticated + service_role
+-- 5. Grants: revoke broad access, grant execute to authenticated only.
+-- No caller in this codebase invokes these two RPCs via service_role (only
+-- the user-scoped approveDraft tool does, with the operator's own JWT) and
+-- both bodies fail closed to UNAUTHENTICATED when auth.uid() is null anyway.
+-- Omitting the service_role grant tightens the human-approval boundary at
+-- the DB layer instead of relying solely on that in-function check — a
+-- future service-role caller must be deliberately re-granted, not silently
+-- inherit the ability to call these.
+--
+-- service_role must be revoked explicitly, not just omitted from the grant
+-- list below: a platform default ACL (pg_default_acl, defaclrole
+-- supabase_admin/postgres, defaclobjtype 'f') auto-grants EXECUTE to
+-- service_role on every newly created function in public, independent of
+-- these statements. Confirmed locally — before this line, service_role
+-- still held EXECUTE despite never being named in the grant.
 -- ---------------------------------------------------------------------------
-revoke all on function public.approve_brand_intelligence_draft(uuid, text) from public, anon;
-revoke all on function public.reject_brand_intelligence_draft(uuid, text) from public, anon;
-grant execute on function public.approve_brand_intelligence_draft(uuid, text) to authenticated, service_role;
-grant execute on function public.reject_brand_intelligence_draft(uuid, text) to authenticated, service_role;
+revoke all on function public.approve_brand_intelligence_draft(uuid, text) from public, anon, service_role;
+revoke all on function public.reject_brand_intelligence_draft(uuid, text) from public, anon, service_role;
+grant execute on function public.approve_brand_intelligence_draft(uuid, text) to authenticated;
+grant execute on function public.reject_brand_intelligence_draft(uuid, text) to authenticated;
 
 revoke all on table public.brand_profile_approvals from anon;
 grant select on table public.brand_profile_approvals to authenticated, service_role;
