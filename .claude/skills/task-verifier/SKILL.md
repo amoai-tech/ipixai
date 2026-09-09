@@ -5,7 +5,8 @@ description: >
   failure-mode analysis, audits of completion claims, and before Linear Done. Consumes the canonical
   `tasks` standard, exact current code/PR head, tests/CI/runtime, and affected domain skills. It tries
   to disprove unsafe or incomplete claims rather than maintaining a parallel implementation lifecycle.
-version: "2.4.0"
+metadata:
+  version: "2.4.0"
 ---
 
 # task-verifier — adversarial evidence gate
