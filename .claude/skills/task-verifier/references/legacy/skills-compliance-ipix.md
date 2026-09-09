@@ -1,6 +1,6 @@
 # Skills compliance — iPix (Phase 5b)
 
-**Parent:** [../SKILL.md](../SKILL.md) · **Inventory:** [`index-skills.md`](../../index-skills.md) · **Map:** [`tasks/intelligence/ai/skill-map.md`](../../../../tasks/intelligence/ai/skill-map.md)
+**Parent:** [../../SKILL.md](../../SKILL.md) · **Inventory:** [`index-skills.md`](../../../index-skills.md) · **Map:** [`tasks/intelligence/ai/skill-map.md`](../../../../../tasks/intelligence/ai/skill-map.md)
 
 Run **after** Phase 1 (source-of-truth), **before** Phase 4 (scope). Fail closed on 🔴 MUST violations.
 
@@ -18,7 +18,7 @@ Parse in order; merge deduped:
 |--------|---------------|
 | Frontmatter | `skill:` / `skills:` on IPI md or task file |
 | SCR / DESIGN V2 | `### 2. Skill routing` table — rows with ✅ in "This screen" |
-| skill-map | Row for task ID in [`skill-map.md`](../../../../tasks/intelligence/ai/skill-map.md) |
+| skill-map | Row for task ID in [`skill-map.md`](../../../../../tasks/intelligence/ai/skill-map.md) |
 | Path heuristic | `app/**` → `nextjs-developer`; `supabase/**` → `ipix-supabase`; DC HTML → `design-to-production` |
 
 Split **required** (✅ / explicit in map) vs **optional** (— / "if Client").
@@ -38,7 +38,7 @@ test -f ".claude/skills/${SLUG}/SKILL.md" && echo OK || echo MISSING
 | Optional missing | 🟡 |
 | Symlink to `archive/` (e.g. `design-md`) | 🟡 — prefer canonical path in task text |
 
-Cross-check [`index-skills.md`](../../index-skills.md) 🔴 **Degraded** column — if sole authority skill is degraded, flag before Done.
+Cross-check [`index-skills.md`](../../../index-skills.md) 🔴 **Degraded** column — if sole authority skill is degraded, flag before Done.
 
 ---
 
