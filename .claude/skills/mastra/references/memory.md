@@ -1,86 +1,126 @@
 ---
-title: Mastra memory — docs + reference
-description: Load when configuring Mastra Memory, working memory, threads, or storage. iPixai Core = thread-scoped working memory only.
+title: Mastra memory — iPix proof model
+description: Load when configuring or verifying Mastra message history, working memory, resource/thread scope, or durable storage.
 parent: mastra
 impact: HIGH
-impactDescription: Doc URLs and reference API for @mastra/memory
-tags: mastra, memory, working-memory, observational-memory
+impactDescription: Separates message history, working memory, tenant ownership, and hosted persistence proof
+tags: mastra, memory, working-memory, persistence, tenant
 ---
 
-# Mastra memory — docs & reference index
+# Mastra memory — iPix proof model
 
-**iPixai Core:** thread-scoped **working memory** only (starter `weather-agent` until Planner lands). Do **not** enable observational memory, semantic recall, or multi-user threads unless a convert-plan ticket opens that work.
+## Current iPix rule
 
-**Lookup order:** [`mcp-docs-lookup.md`](mcp-docs-lookup.md) → **`mastraDocs`** paths below → [`links.md`](../links.md).
+Current iPix uses the Production Planner with durable Mastra Postgres storage. Do **not** treat old weather-agent/thread-only starter text as current architecture.
 
----
+Message history, working memory, and authorization are different contracts:
 
-## Concepts (docs)
+```text
+message history
+= what happened in one conversation thread
 
-| Topic | URL | mdeai |
-| --- | --- | --- |
-| Agents (memory entry) | https://mastra.ai/docs/agents/overview | Working memory wired on `conciergeAgent` |
-| Memory overview | https://mastra.ai/docs/memory/overview | Start here |
-| Storage | https://mastra.ai/docs/memory/storage | LibSQL dev; Postgres prod path |
-| Message history | https://mastra.ai/docs/memory/message-history | Thread turns |
-| Working memory | https://mastra.ai/docs/memory/working-memory | **Phase 1 — primary** |
-| Observational memory | https://mastra.ai/docs/memory/observational-memory | Phase 2 defer |
-| Semantic recall | https://mastra.ai/docs/memory/semantic-recall | Phase 2 defer (use SQL hybrid in MIS) |
-| Memory processors | https://mastra.ai/docs/memory/memory-processors | Optional filters |
-| Multi-user threads | https://mastra.ai/docs/memory/multi-user-threads | Phase 2 defer |
+working memory
+= structured state the agent carries for the configured scope
 
----
-
-## Reference API (`reference/memory/`)
-
-Index via MCP: `mastraDocs` path `reference/memory/`
-
-| API | URL | Maps to doc |
-| --- | --- | --- |
-| **`Memory` class** | https://mastra.ai/reference/memory/memory-class | [overview](https://mastra.ai/docs/memory/overview) |
-| Observational memory config | https://mastra.ai/reference/memory/observational-memory | [observational-memory](https://mastra.ai/docs/memory/observational-memory) |
-| `recall` tool (OM retrieval) | https://mastra.ai/reference/memory/recall | [observational-memory § retrieval](https://mastra.ai/docs/memory/observational-memory) |
-| `createThread` | https://mastra.ai/reference/memory/createThread | [multi-user threads](https://mastra.ai/docs/memory/multi-user-threads) |
-| `getThreadById` | https://mastra.ai/reference/memory/getThreadById | threads |
-| `listThreads` | https://mastra.ai/reference/memory/listThreads | threads |
-| `cloneThread` | https://mastra.ai/reference/memory/cloneThread | threads |
-| `deleteMessages` | https://mastra.ai/reference/memory/deleteMessages | [message history](https://mastra.ai/docs/memory/message-history) |
-| Clone utilities | https://mastra.ai/reference/memory/clone-utilities | threads |
-| Client JS memory | https://mastra.ai/reference/client-js/memory | [Mastra Client](https://mastra.ai/docs/server/mastra-client) |
-
-**Processors (memory-related):**
-
-| Processor | URL |
-| --- | --- |
-| Working memory processor | https://mastra.ai/reference/processors/working-memory-processor |
-| Semantic recall processor | https://mastra.ai/reference/processors/semantic-recall-processor |
-| Message history processor | https://mastra.ai/reference/processors/message-history-processor |
-
-**Storage (persistence layer):** https://mastra.ai/reference/storage/ · doc: [storage](https://mastra.ai/docs/memory/storage)
-
----
-
-## MCP fetch examples
-
-```json
-{
-  "paths": [
-    "docs/memory/working-memory",
-    "docs/memory/observational-memory",
-    "reference/memory/memory-class",
-    "reference/memory/observational-memory"
-  ]
-}
+authorization / tenant truth
+= server-derived application authority outside model memory
 ```
 
-Package: `@mastra/memory` — use `readMastraDocs` with `projectPath` = this repo root (`$(git rev-parse --show-toplevel)`).
+Never use memory as authorization or durable business truth.
 
----
+## Scope must be explicit
 
-## mdeai pointers
+Before changing working memory, inspect the current `Memory` configuration and installed `@mastra/memory` source/types.
 
-| Artifact | Path |
-| --- | --- |
-| Concierge working memory schema | `mdeapp/src/mastra/agents/concierge.ts` + `mdeapp/src/lib/types.ts` |
-| Concierge patterns | [`mdeai-concierge.md`](mdeai-concierge.md) |
-| v1 memory migration | https://mastra.ai/guides/migrations/upgrade-to-v1/memory |
+Record whether state is scoped to:
+- `thread`; or
+- `resource`.
+
+Do not infer scope from old docs or Lumina. A change from thread → resource or resource → thread is a product behavior change and requires its own tests.
+
+Current official Mastra concepts distinguish thread identity from resource ownership; current remote docs are useful for concepts, but the installed package family defines the exact API available to this repository.
+
+## Independent proof contracts
+
+### 1. Message-history persistence
+
+```text
+fresh thread + unique nonce
+→ process A writes conversation
+→ process A exits
+→ process B loads same owned thread/resource
+→ agent recalls nonce from persisted message history
+```
+
+A database row existing is not enough; prove a new process actually uses it.
+
+### 2. Working-memory behavior
+
+Test the configured scope directly.
+
+For thread scope:
+- same thread restores state;
+- different thread does not inherit it unless explicitly designed.
+
+For resource scope:
+- a new thread under the same resource can use intended shared state;
+- a foreign resource cannot read or influence it.
+
+### 3. Tenant ownership
+
+Same thread ID under a foreign resource/org must fail closed. Never accept browser-supplied resource identity as authority.
+
+### 4. Hosted durability
+
+Hosted proof requires Postgres-backed storage across a real process/runtime restart. Process-local LibSQL/in-memory fallback is not evidence of production durability.
+
+## Production Planner working memory
+
+Lumina contained useful production-state concepts such as brand, shoot type, approved concepts, and pending decisions. Treat those as **product candidates**, not a schema to copy.
+
+If `IPI-1020 · COPILOT-PERSIST-001 — Keep iPix AI Conversations and Working Memory Across Refreshes, Restarts, and Cloudflare Isolates` retains a working-memory scope after audit, define the smallest current typed Planner schema against current V2 needs.
+
+Rules:
+- bounded fields;
+- no secrets;
+- no auth/role/permission authority;
+- no duplicate domain records;
+- no approved artifact treated as valid merely because memory says it was approved;
+- explicit migration behavior if schema changes existing persisted rows/state.
+
+## Observational Memory / semantic recall
+
+Do not enable Observational Memory, semantic recall, or multi-user-thread behavior on the current critical path just because current Mastra supports them.
+
+Use a separate product task with:
+- quality benefit;
+- latency/cost evidence;
+- restart/concurrency proof;
+- tenant/resource isolation;
+- prompt-injection/data-retention analysis;
+- rollback.
+
+Recent Mastra history has included fixes around memory concurrency and advanced memory features, so installed-version proof is mandatory before adoption.
+
+## Source priority
+
+```text
+current iPix memory config
+→ installed @mastra/memory + @mastra/pg source/types
+→ embedded docs when that package ships them
+→ current Mastra docs/MCP for concepts
+→ migration notes/releases/issues when version behavior matters
+```
+
+The local docs MCP may not contain embedded docs for every installed package. An empty embedded search is not evidence that an API does not exist.
+
+## Useful current docs
+
+- https://mastra.ai/docs/memory/overview
+- https://mastra.ai/docs/memory/message-history
+- https://mastra.ai/docs/memory/working-memory
+- https://mastra.ai/docs/memory/storage
+- https://mastra.ai/docs/memory/observational-memory
+- https://mastra.ai/docs/memory/semantic-recall
+- https://mastra.ai/docs/memory/multi-user-threads
+- https://mastra.ai/docs/server/request-context

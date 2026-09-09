@@ -1,71 +1,96 @@
 ---
 title: Mastra docs MCP lookup
-description: Load before using Cursor user-mastra MCP tools; set projectPath to this repo root.
+description: Load before using the Mastra docs MCP or current remote docs; installed source/types remain authoritative for the pinned runtime.
 parent: mastra
 impact: HIGH
-impactDescription: When to use user-mastra MCP vs embedded vs links.md
-tags: mastra, mcp, docs
+impactDescription: Prevents latest-doc examples from being applied blindly to the installed Mastra package family
+tags: mastra, mcp, docs, versions
 ---
 
-# Mastra docs — MCP lookup matrix
+# Mastra docs — source and MCP lookup matrix
 
-Use **before** guessing APIs from training data. iPixai has **`user-mastra`** MCP (Cursor). Optional **`@mastra/mcp-docs-server`** is for agent-in-app MCP, not a substitute for installed types.
+## Core rule
 
-## Tool pick (Cursor `user-mastra`)
+Use Mastra MCP/docs aggressively for current concepts, but do not let latest remote docs override the pinned installed runtime.
 
-| Need | Tool | Required args | Notes |
-| --- | --- | --- | --- |
-| Full doc page by path | **`mastraDocs`** | `paths: ["docs/agents/overview"]` | Best for known URLs; returns markdown + related paths |
-| Browse embedded guides | **`readMastraDocs`** | `package`, `projectPath`, optional `topic` | `@mastra/core`, `@mastra/memory`, … |
-| Keyword search in installed docs | **`searchMastraDocs`** | `query`, **`projectPath`** | Often empty if embedded tree sparse — fall back to `mastraDocs` |
-| List installed packages | **`listMastraPackages`** | `projectPath` | `@mastra/core`, `@mastra/memory`, `@mastra/pg`, … |
-| Export / API surface | **`getMastraExports`** | `package`, `projectPath` | Type discovery |
-| v1 migration | **`mastraMigration`** | (see schema) | Breaking changes |
+```text
+exact current iPix code
+→ installed package.json/lockfile versions
+→ installed source/types
+→ embedded docs for that installed package when available
+→ current Mastra MCP/docs for concepts/current patterns
+→ mastraMigration + release notes for version transitions
+→ official GitHub source/issues for unresolved behavior
+```
 
-Pass `projectPath` **only** to tools whose schema declares it (`searchMastraDocs`, `readMastraDocs`, `listMastraPackages`, `getMastraExports`, `getMastraHelp`). Value = `$(git rev-parse --show-toplevel)` (iPixai repo root — **not** `/home/sk/ipix/app` and **not** `mdeapp`). **`mastraDocs` does not take `projectPath`** — use `paths` and optional `queryKeywords` only.
+## Embedded docs are package-dependent
 
-## `mastraDocs` path patterns
+Do not assume every installed `@mastra/*` package ships embedded docs. The current docs server may list embedded material for only a subset of packages.
 
-| Area | Example paths |
-| --- | --- |
-| Docs | `docs/agents/overview`, `docs/memory/working-memory`, `docs/workflows/suspend-and-resume`, `docs/browser/overview` |
-| Guides | `guides/build-your-ui/copilotkit`, `guides/guide/web-search`, `guides/migrations/upgrade-to-v1/overview` |
-| Reference | `reference/agents/generate`, `reference/agents/agent`, `reference/streaming/agents/stream`, `reference/streaming/agents/MastraModelOutput` |
-| Reference dirs | `reference/processors/`, `reference/harness/`, `reference/ai-sdk/`, `reference/memory/` |
-| Tools API | `reference/tools/create-tool` |
-| Core API | `reference/core/getAgentById` |
-| Workflows suspend | `docs/workflows/suspend-and-resume` *(404 at `reference/workflows/suspend-and-resume`)* |
-| Auth | `reference/auth/supabase` |
-| Observability | `reference/observability/` · `reference/observability/tracing` |
-| Evals | `reference/evals/` · `reference/evals/create-scorer` · `reference/evals/run-evals` |
-| Memory | `reference/memory/memory-class` · [`references/memory.md`](../references/memory.md) |
-| Workflows | `reference/workflows/workflow` · `reference/workflows/run-methods/resume` · [`references/workflows.md`](../references/workflows.md) |
-| Streaming | `reference/streaming/agents/stream` · `reference/streaming/ChunkType` · [`references/streaming.md`](../references/streaming.md) |
-| Browser | `reference/browser/agent-browser` · `reference/browser/browser-viewer` · [`references/browser.md`](../references/browser.md) |
-| Examples v0 | *(not in MCP)* — HTTP/Firecrawl only | [`references/examples-v0.md`](../references/examples-v0.md) |
+Therefore:
+- `listMastraPackages` tells you what embedded docs are actually available;
+- an empty `searchMastraDocs` result is **not** evidence that an API/feature does not exist;
+- use installed source/types for exact APIs when embedded docs are absent;
+- use remote `mastraDocs` for current conceptual documentation.
 
-Optional: `queryKeywords: ["CopilotKit", "stream"]` for related-path hints.
+## Tool selection
 
-## Remote fallbacks (MCP miss)
+| Need | Preferred tool/source | Rule |
+| --- | --- | --- |
+| Exact pinned method/type/signature | installed source/types, then `getMastraExports`/details if useful | version authority |
+| Known current docs page | `mastraDocs` | current concepts; no `projectPath` |
+| Search embedded docs | `searchMastraDocs` | requires repo `projectPath`; sparse results possible |
+| Browse embedded package docs | `readMastraDocs` | only when package actually exposes embedded docs |
+| List embedded packages | `listMastraPackages` | do this before assuming docs exist |
+| Breaking version transition | `mastraMigration` + release notes | compare source/target installed families |
+| Unclear bug/runtime edge | official GitHub matching version/issue | do not extrapolate from unrelated versions |
 
-1. [`links.md`](../links.md) → append **`.md`** to doc URL
-2. `curl -sL https://mastra.ai/llms.txt`
-3. Firecrawl / browser on `https://mastra.ai/docs/...` or `https://mastra.ai/examples/v0/...` (examples **not** in `mastraDocs`)
+Pass `projectPath` only when the tool schema declares it. Use the iPixai repo root, not an old `/home/sk/ipix/app` or mdeai path. `mastraDocs` uses document paths/query keywords and does not take `projectPath`.
 
-## iPixai CopilotKit pattern (critical)
+## High-value current paths
 
-Official CopilotKit + Mastra guides often show a **standalone Mastra server** + `/chat` on `:4111`.
+- `docs/agents/tools`
+- `reference/tools/create-tool`
+- `docs/server/request-context`
+- `docs/memory/overview`
+- `docs/memory/working-memory`
+- `docs/workflows/suspend-and-resume`
+- `docs/workflows/snapshots`
+- `docs/streaming/overview`
+- `docs/streaming/tool-streaming`
+- `docs/agents/agent-approval`
+- observability/evals references when those tasks are in scope
 
-**iPixai Core** uses **in-process** `MastraAgent.getLocalAgents({ mastra, resourceId })` in Next.js `/api/copilotkit` — **not** `:4111/chat`. `resourceId` is `org:{orgId}::user:{userId}`.
+## iPix CopilotKit pattern
 
-CopilotKit v2 UI (`useComponent`, slots, headless) → **`copilotkit` skill**, not these Mastra refs.
+Generic Mastra/CopilotKit guides may show a standalone Mastra server. Current iPix uses its repository-owned in-process CopilotKit/AG-UI route and local Mastra agents. Current repo code and installed packages win over guide topology.
 
-If you deploy a **bundled** Mastra server with CopilotKit, externalize `@copilotkit/runtime` in bundler config (see official CopilotKit guide deployment section).
+Do not copy a standalone `/chat`, second Mastra server, Worker/DurableAgent transport, or legacy interrupt shim unless a current task proves the existing in-process architecture cannot meet the requirement.
 
-## Processors reference (guardrails / safety)
+## RequestContext warning
 
-Built-in processor API lives under `reference/processors/` — e.g. `pii-detector`, `prompt-injection-detector`, `moderation-processor`, `token-limiter-processor`, `semantic-recall-processor`, `working-memory-processor`. Start from [`docs/agents/processors`](https://mastra.ai/docs/agents/processors).
+RequestContext is request-scoped context, not authentication truth by itself. Any values originating from the browser/body must still be verified server-side before becoming trusted org/brand/shoot authority.
 
-## Observational memory vs iPixai working memory
+When a future standalone Mastra server path is considered, inspect current native server mapping/authorization capabilities first instead of inventing a parallel context layer.
 
-Observational Memory (`@mastra/memory`) can compress long threads with Observer/Reflector agents. **iPixai Core** uses PostgresStore memory with org/user `resourceId` — do not swap in OM or Gemini-only concierge patterns without a convert-plan ticket.
+## Migration lookup rule
+
+Before changing a Mastra package family:
+
+1. record exact current installed family;
+2. identify target family and reason;
+3. run `mastraMigration` / official migration docs;
+4. inspect installed/current source for changed APIs;
+5. search recent upstream issues for the exact affected feature;
+6. update the package family together as required;
+7. rerun the risk-specific proof classes, not just typecheck.
+
+## Remote fallbacks
+
+If MCP lookup is incomplete:
+1. official Mastra docs/llms index;
+2. official Mastra GitHub source matching the relevant version/tag when possible;
+3. official issues/releases for behavior changes;
+4. secondary sources only when official sources cannot answer the question.
+
+Never use absence from the MCP index as a reason to invent an API or custom implementation.

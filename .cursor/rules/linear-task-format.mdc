@@ -11,7 +11,7 @@ When **creating or rewriting** a Linear IPI issue, the description **must** matc
 
 ## Title
 
-`IPI-NNN · SPEC — Plain-English outcome`
+`IPI-NNN · TASK-ID — Plain-English outcome`
 
 ## Description order
 
@@ -24,9 +24,9 @@ When **creating or rewriting** a Linear IPI issue, the description **must** matc
 - **Official GitHub repo** when the work depends on a vendor example — verify not archived.
 - **Skills:** always `task-verifier` (`.claude/skills/task-verifier/SKILL.md`), `graphify`, ponytail, fastest, plus domain skills from `.claude/skills/index-skills.md`.
 - **MCP:** Mastra, CopilotKit, Supabase **read-only/preview**, Context7, Linear — when that layer is in scope. Never production Supabase writes.
-- **Verify-before-implement:** graphify + live code + Supabase preview + **task-verifier Quick**. Any 🔴 → stop.
+- **Verify-before-implement:** graphify + live code + Supabase preview + **task-verifier Standard** for substantial tasks; Adversarial auto-escalates for high-risk work. Any BLOCKER → stop.
 - **Each step:** better/faster/more efficient path → **use it**.
-- **Done:** task-verifier **Full** + proven ACs. Merge ≠ Done.
+- **Done:** task-verifier **Standard** or **Adversarial** (risk-matched) + proven ACs. Merge ≠ Done.
 
 UI / cross-system tasks: Mermaid journey (`mermaid-diagrams` skill). Hosting for this repo is Vercel/Next, not Cloudflare Workers.
 

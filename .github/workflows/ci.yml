@@ -475,6 +475,12 @@ jobs:
           end $$;
           SQL
 
+          # Reusable deterministic subset of Supabase security-Advisor/catalog checks.
+          # Hosted Advisors are not available against local Docker, so keep this to
+          # invariants we can prove from pg_catalog without production access.
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/catalog-security-regression.sql
+
           # End-to-end proof, not just schema-level: a real signup on this
           # fresh database must actually produce a profiles row (the exact
           # bug this task's own review caught and fixed).

@@ -6,8 +6,8 @@ impact: HIGH
 # OpenClaw (OCL) task verification
 
 **Task specs:** `/home/sk/mdeai/tasks/openclaw/tasks/OCL-*.md`  
-**Sources hub:** [`tasks/openclaw/docs/sources.md`](../../../../tasks/openclaw/docs/sources.md)  
-**Index:** [`tasks/openclaw/index-ocl.md`](../../../../tasks/openclaw/index-ocl.md)
+**Sources hub:** [`tasks/openclaw/docs/sources.md`](../../../../../tasks/openclaw/docs/sources.md)  
+**Index:** [`tasks/openclaw/index-ocl.md`](../../../../../tasks/openclaw/index-ocl.md)
 
 ## Skills to load
 
@@ -22,8 +22,8 @@ impact: HIGH
 
 | Claim | Probe |
 |-------|--------|
-| Gateway up | `curl -sS "$OPENCLAW_GATEWAY_URL/health"` → 200 |
-| No secret in mdeapp client | `rg service.role\|OPENCLAW_GATEWAY_TOKEN mdeapp/src` — token server-side only |
+| Gateway up | `curl -sS -o /dev/null -w '%{http_code}' "$OPENCLAW_GATEWAY_URL/health"` → prints `200` (bare `curl` without `-w`/`-f` does not check the status code) |
+| No secret in mdeapp client | `rg -e 'service[_.]role' -e 'OPENCLAW_GATEWAY_TOKEN' mdeapp/src` — token server-side only (explicit `-e` flags avoid shell-dependent `\|` alternation) |
 | Custom skills only | Prod compose / VPS: no `clawhub install` in startup; only `skills/mde-*` |
 | Approval before job | SQL: no `openclaw_jobs` without matching `automation_approvals.approved` |
 | Docs match version | Fetch [llms.txt](https://docs.openclaw.ai/llms.txt) when config flags disagree with spec |

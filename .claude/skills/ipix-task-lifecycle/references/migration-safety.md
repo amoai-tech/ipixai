@@ -28,7 +28,7 @@ Use during Phase 2 research and Phase 3 implementation before any schema change.
 [ ] No breaking rename without coordinated app change in same PR
 [ ] Service role bypass documented if required (edge functions only)
 [ ] No secrets in migration files
-[ ] `tasks/plan/todo.md` seq respected — blocked issues not migrated early
+[ ] live Linear blocked-by/dependency order respected — blocked issues not migrated early
 ```
 
 ---

@@ -1,8 +1,6 @@
 # iPixai skills
 
-Copied **2026-08-24** from `/home/sk/ipix/.claude/skills` — **not** a full dump.
-
-Live tree: `.claude/skills/` · Cursor also loads `.cursor/skills` → symlink to the same tree.
+Canonical repository skill tree: `.claude/skills/`. Cursor also loads `.cursor/skills` → symlink to the same tree.
 
 Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Cursor rules: `.cursor/rules/`.
 
@@ -20,9 +18,10 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Cursor rules: `.cursor/rule
 | `shadcn` | UI components |
 | `vercel-react-best-practices` | Perf |
 | `linear` | IPI issues |
-| `ipix-task-lifecycle` | Five-phase ship |
-| `task-verifier` | Done gate |
-| `pr-workflow` | PRs (lifecycle dependency; not in the original ask list) |
+| `tasks` | **Primary iPix task skill** — task setup/execution, agent prompts, pre-commit, testing, PR review, user journeys, CI, migration reuse, and post-merge proof |
+| `task-verifier` | **Adversarial independent evidence gate** — Quick narrow checks, Standard task/PR review, automatic Adversarial escalation for high-risk work |
+| `ipix-task-lifecycle` | **Deprecated compatibility alias** → use `tasks` for new work |
+| `pr-workflow` | **Deprecated compatibility alias** → use `tasks` PR/Actions/post-merge references |
 | `lean` | Velocity audit |
 | `worktrees` | Isolated branches |
 | `refactor-plan` | Multi-file refactors |
@@ -53,4 +52,4 @@ Also not copied from the wider old catalog: `mercur`, `amazon-bedrock`, `ipix` r
 - Next: port 3000, `src/app/`
 - Supabase: preview-first, do not `cd /home/sk/ipix` from this repo
 - CopilotKit: `ipix-production.md` is old-app notes
-- Lifecycle: Linear is SSOT; Graphify CLI is uv `graphifyy` 0.9.48
+- Task execution: `tasks` is canonical; `ipix-task-lifecycle` and `pr-workflow` are compatibility aliases only

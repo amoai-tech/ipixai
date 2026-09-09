@@ -9,13 +9,13 @@
 | OpenClaw OCL | [openclaw-ocl.md](./openclaw-ocl.md) |
 | Coffee Tour CTI | [agent-cti.md](./agent-cti.md) |
 | Events | [agent-events.md](./agent-events.md) |
-| Disk probes | [../scripts/probe-disk.sh](../scripts/probe-disk.sh) — `REPO=/home/sk/mdeai` |
+| Disk probes | [../../scripts/legacy/probe-disk.sh](../../scripts/legacy/probe-disk.sh) — `REPO=/home/sk/mdeai` |
 | MCP cadence | [mcp-cadence.md](./mcp-cadence.md) |
-| Anti-fake-done (mdeapp) | [anti-fake-done-checklist.md](./anti-fake-done-checklist.md) § Legacy mdeai |
+| Anti-fake-done (mdeapp) | [anti-fake-done-checklist.md](../anti-fake-done-checklist.md) § Legacy mdeai |
 
 ## Mastra port pack (F13–F20)
 
-See [task-spec-rubric.md](./task-spec-rubric.md) § Legacy mdeai extras.
+See [task-spec-rubric.md](../task-spec-rubric.md) § Legacy mdeai extras.
 
 ## Common traps (mdeai)
 

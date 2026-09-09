@@ -37,7 +37,7 @@ Never print secrets. Never delete projects/issues unless asked. Bulk/destructive
 
 ## Naming & one concern
 
-- Titles / first mention: **`IPI-NNN · SPEC — Plain English`** (`task-naming.mdc`)
+- Titles / first mention: **`IPI-NNN · TASK-ID — Plain English`** (`task-naming.mdc`)
 - Team: **iPix1** (`IPI`) unless the user names another team
 - One independently testable outcome per issue/PR
 - Never mix unrelated docs + production code
@@ -86,6 +86,6 @@ PR body: `pr-description.mdc`.
 | ❌ Don’t | ✅ Do |
 |---------|--------|
 | Trust markdown dates | Live Linear |
-| Bare `IPI-249` in user text | Full **IPI-249 · SPEC — …** |
+| Bare `IPI-249` in user text | Full **IPI-249 · TASK-ID — …** |
 | Mark Done from a sibling merge | Evidence for **this** issue |
 | Weaken fail-closed auth for a green `/info` | Fix data/env |

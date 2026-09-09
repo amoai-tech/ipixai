@@ -1,7 +1,6 @@
 # PRD Template (iPix)
 
-Use when a new initiative needs a full PRD before Linear issue breakdown. **SSOT after draft:**
-`prd.md` · `docs/prd/` · `docs/linear/issues/IPI-*.md`.
+Use when a new initiative needs a full PRD before Linear issue breakdown. Keep the PRD in its owning product doc; once issues exist, live Linear owns task execution/progress.
 
 For epic → feature PRDs, use [`breakdown-feature-prd`](../../archive/brainstorming/breakdown-feature-prd/SKILL.md).
 
@@ -25,7 +24,7 @@ For epic → feature PRDs, use [`breakdown-feature-prd`](../../archive/brainstor
 - Integration points (Mercur, Cloudinary, Firecrawl)
 
 ### 4. AI Feature Specs (if applicable)
-- Model selection rationale (Gemini via Mastra or edge fn — server-only)
+- Model selection rationale
 - Prompt design / structured output schemas
 - Fallback behavior
 - Latency and cost budgets
@@ -39,17 +38,16 @@ For epic → feature PRDs, use [`breakdown-feature-prd`](../../archive/brainstor
 - At least 2 explicit exclusions
 
 ### 7. Timeline
-- Phases, milestones, dependencies vs `tasks/plan/todo.md`
+- Phases, milestones, dependencies vs live Linear project/dependency state
 
 ## Save location
 
 | Artifact | Path |
 |----------|------|
 | Initiative PRD section | `docs/prd/<topic>.md` or extend `prd.md` |
-| Linear issue spec | `docs/linear/issues/IPI-<n>-<SPEC-ID>.md` |
+| Linear task | live Linear issue using `IPI-NNN · TASK-ID — Title` |
 | Design spec (pre-plan) | `docs/plan/tasks/YYYY-MM-DD-<topic>-design.md` |
 
 ## Handoff
 
-After PRD approval → [`writing-plans`](../../writing-plans/SKILL.md) or Phase 1 of
-[`ipix-task-lifecycle`](../SKILL.md) for Linear A–E + wiring.
+After PRD approval, create/enrich the live Linear issue using the canonical [`tasks`](../../tasks/SKILL.md) contract. Use `writing-plans` only when a detailed implementation plan is needed; do not route new work through `ipix-task-lifecycle`.

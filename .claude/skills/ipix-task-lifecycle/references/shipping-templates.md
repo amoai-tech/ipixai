@@ -1,22 +1,27 @@
 # Shipping templates (iPix)
 
+These are compatibility examples only. Live Linear is the task/progress/evidence source of truth; do not maintain obsolete `todo.md` or local issue-file mirrors.
+
 ---
 
-## tasks/plan/todo.md row update
+## Live Linear progress update
 
-Change dot in master table:
+Update the current Linear issue directly:
 
 ```markdown
-| 12 | PLT-004 | Validate env at startup | M2 | 🟢 | [IPI-17](…) | IPI-17-PLT-004.md |
+## Progress
+- Current status: In Review
+- Verified checkpoints: 8/10
+- Exact head: <sha>
+- Remaining blocker: <none / exact blocker>
+- Next action: <exact action>
 ```
-
-Update **Updated:** date in todo header. Refresh executive summary counts if milestone closed.
 
 ---
 
-## Issue spec close-out
+## Issue close-out
 
-In `docs/linear/issues/IPI-*-<SPEC-ID>.md`:
+In the live Linear issue:
 
 ```markdown
 ## Acceptance criteria
@@ -25,40 +30,33 @@ In `docs/linear/issues/IPI-*-<SPEC-ID>.md`:
 - [x] **AC2** … — VERIFIED 2026-06-15
 ```
 
-Fill `## Verify` checkboxes with command output summary.
+Record the applicable verification and post-merge evidence before Done.
 
 ---
 
 ## Linear description
 
-Tick each step in completion block:
+Tick each completion step only when its proof exists:
 
 ```markdown
 #### B. Implementation
-- [x] **B1** Operator sees … — proof: screenshot / build log
+- [x] **B1** Operator sees … — proof: screenshot / build log / targeted test
 ```
 
-Set issue state **Done** when all verify gates pass and `tasks/plan/todo.md` is 🟢.
+Set issue state **Done** only after all applicable verify + post-merge gates pass and evidence is recorded.
 
 ---
 
 ## Commit examples
 
-```
+```text
 feat(plt): IPI-16 PLT-003 — brand profile row + RLS for operators
-
 fix(ui): IPI-22 UI-001 — dashboard shell four-state loading
-
-docs(linear): IPI-17 PLT-004 — sync verify steps to Linear
+docs(linear): IPI-17 PLT-004 — update verified Linear evidence
 ```
 
 ---
 
-## Sync script
+## Linear updates
 
-```bash
-node scripts/linear-update-issue.mjs IPI-16
-node scripts/linear-update-issue.mjs --all
-```
-
-Push descriptions from local `docs/linear/issues/` to Linear API.
+Use the available connected Linear connector/API. If Linear is unavailable, report the update as blocked rather than creating a local authoritative substitute.

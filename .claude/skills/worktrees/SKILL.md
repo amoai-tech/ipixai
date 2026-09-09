@@ -1,6 +1,9 @@
 ---
 name: worktrees
-description: Set up and operate git worktrees for isolated, parallel development — running multiple branches or Claude sessions at once without stashing or branch-switching, reviewing a PR while developing, comparing implementations side by side, or giving a risky change its own clean checkout. Use whenever the user mentions worktrees, "isolated workspace", "parallel branches", "work on two things at once", `git worktree`, `--worktree`, removing/cleaning up a worktree, salvaging uncommitted docs before delete, or before executing a multi-step implementation plan that should not touch the current working tree. Also use when you (the agent) need an isolated checkout to make file changes that must not collide with the user's working tree, and **mandatory** at Phase 5 ship when deciding whether uncommitted docs must be committed and the worktree removed.
+description: >
+  Git worktree isolation workflow for iPix development — when and how to create, use, and clean up
+  worktrees for parallel/multi-step work, iPix branch/directory conventions, safety rails (merge
+  gate, forensic audit, documentation preservation), and troubleshooting.
 ---
 
 # Git Worktrees
@@ -52,7 +55,7 @@ cd app && npm ci && cd ..
 
 **Before adding:** `npm run worktree:audit` — check count, orphans, merged/stale trees ([docs/development/worktree-tracker.md](../../../docs/development/worktree-tracker.md)).
 
-**Default validation** — run **in the worktree**, matched to changed paths ([pr-workflow verify-matrix](../pr-workflow/references/verify-matrix.md)):
+**Default validation** — run **in the worktree**, matched to changed paths ([tasks pre-merge-tests](../tasks/references/pre-merge-tests.md)):
 
 | Changed | Commands |
 |---------|----------|
@@ -66,7 +69,7 @@ cd app && npm ci && cd ..
 **Hard rules (iPix):**
 
 - **Never push to `main`** — branch `ipi/<id>-<slug>`, PR to `main` only ([CLAUDE.md](../../../CLAUDE.md)).
-- **One concern per PR** — split before staging ([pr-workflow](../pr-workflow/SKILL.md)).
+- **One concern per PR** — split before staging ([tasks](../tasks/SKILL.md)).
 - **Forensic verify before Done** — [task-verifier](../task-verifier/SKILL.md) in the worktree.
 
 ## iPix safety rails
@@ -77,7 +80,7 @@ Always-on guardrails for iPix worktree work. Command recipes for the longer ones
 
 Before opening a PR, merging, or flipping a task to Done — all must hold, or it's "looks done" but broken:
 
-- [ ] Area verify matrix green ([pr-workflow](../pr-workflow/references/verify-matrix.md)) — typically `cd app && lint · typecheck · test` (+ build if applicable)
+- [ ] Area verify matrix green ([tasks pre-merge-tests](../tasks/references/pre-merge-tests.md)) — typically `cd app && lint · typecheck · test` (+ build if applicable)
 - [ ] Supabase verify when `supabase/**` touched (`infisical run -- npm run supabase:verify*`)
 - [ ] [Forensic audit](references/ipix-ops.md#forensic-audit) clean — no unexpected dirty or untracked files
 - [ ] [Production SHA check](references/ipix-ops.md#production-sha-check) — base is current `origin/main`, local `main` not diverged
@@ -170,7 +173,7 @@ Do not keep unused worktrees. They waste disk space, create stale branches, and 
 
 If the user says "keep the worktree for follow-up", record **why** and a **remove-by date** in the PR or Linear comment — default is still remove after merge.
 
-**Agent duty at Phase 5:** [ipix-task-lifecycle](../ipix-task-lifecycle/shipping.md) — run this gate before reporting Done.
+**Agent duty at Phase 5:** [tasks/references/post-merge.md](../tasks/references/post-merge.md) and [task-verifier](../task-verifier/SKILL.md) — run this gate before reporting Done.
 
 ### Leak guard
 
@@ -342,4 +345,4 @@ iPix command playbooks (forensic audit, production SHA check, PR splitting, week
 
 ## Non-git VCS
 
-For SVN/Perforce/Mercurial, configure `WorktreeCreate` and `WorktreeRemove` hooks to supply custom create/cleanup logic (the hook replaces git behavior, so `.worktreeinclude` is skipped — copy configs in the hook). See the Claude Code hooks reference.
+For SVN/Perforce/Mercurial, configure `WorktreeCreate` and `WorktreeRemove` hooks to supply custom create/cleanup logic (the hook replaces git behavior, so `.worktreeinclude` is skipped — copy configs in the hook instead). See the Claude Code hooks reference.

@@ -1,331 +1,160 @@
 ---
-title: Tools — Mastra
-description: Load when defining createTool, tool schemas, or agent tool lists. Verify createTool signature in embedded-docs.
+title: Mastra tools — iPix authority and routing contract
+description: Load when defining createTool, tool schemas, agent tool lists, external side effects, or natural-language tool routing.
 parent: mastra
 impact: HIGH
-impactDescription: createTool and agent tools
-tags: mastra, tools, zod
-mdeapp: active
+impactDescription: Prevents schema, authority, provenance, routing, and excessive-agency failures
+tags: mastra, tools, zod, authority, routing
 ---
 
-# Tools
+# Mastra tools — iPix contract
 
-## Contents
+## Use tools for deterministic capabilities
 
-- [When to use tools](#when-to-use-tools)
-- [Quickstart](#quickstart)
-- [Define schemas](#define-schemas)
-- [Multiple tools](#multiple-tools)
-- [Agents as tools](#agents-as-tools)
-- [Workflows as tools](#workflows-as-tools)
-- [Shape output for the model](#shape-output-for-the-model)
-- [Transform tool payloads for UI and transcripts](#transform-tool-payloads-for-ui-and-transcripts)
-- [Control tool selection](#control-tool-selection)
-- [Control `toolName` in stream responses](#control-toolname-in-stream-responses)
-- [Related](#related)
+Use a tool when the agent needs typed, deterministic access to data, code, or an external capability. Keep the agent's tool set least-privilege: exposing a tool is granting a capability, not merely improving convenience.
 
+## Verify the installed execute signature
 
-Agents use tools to call APIs, query databases, or run custom functions from your codebase. Tools give agents capabilities beyond language generation by providing structured access to data and performing clearly defined operations. You can also load tools from remote [MCP servers](https://mastra.ai/docs/mcp/overview) to expand an agent's capabilities.
+Mastra evolves quickly. Inspect installed `@mastra/core` source/types before copying web examples. Current Mastra tool docs use an execution shape equivalent to validated input plus an execution context that can include request context, tracing context, abort signal, suspend/resume data, and related runtime values.
 
-## When to use tools
+Do not mechanically rewrite current iPix code to match the latest docs when the pinned installed family differs.
 
-Use tools when an agent needs additional context or information from remote resources, or when it needs to run code that performs a specific operation. This includes tasks a model can't reliably handle on its own, such as fetching live data or returning consistent, well-defined outputs.
+## Every production tool needs four independent proofs
 
-## Quickstart
+### 1. Schema correctness
 
-Import [`createTool`](https://mastra.ai/reference/tools/create-tool) from `@mastra/core/tools` and define a tool with an `id`, `description`, `inputSchema`, `outputSchema`, and `execute` function.
+Prove:
+- input schema validates required/optional fields;
+- numbers are finite and bounded;
+- arrays/text are bounded where material;
+- enums come from current domain truth;
+- output schema reflects the contract consumers use;
+- malformed/hostile inputs fail safely.
 
-This example shows how to create a tool that fetches weather data from an API. When the agent calls the tool, it provides the required input as defined by the tool's `inputSchema`. The tool accesses this data through its `inputData` parameter, which in this example includes the `location` used in the weather API query.
+### 2. Business correctness
 
-```typescript
-import { createTool } from '@mastra/core/tools'
-import { z } from 'zod'
+A schema-valid result can still be wrong.
 
-export const weatherTool = createTool({
-  id: 'weather-tool',
-  description: 'Fetches weather for a location',
-  inputSchema: z.object({
-    location: z.string(),
-  }),
-  outputSchema: z.object({
-    weather: z.string(),
-  }),
-  execute: async inputData => {
-    const { location } = inputData
+Verify current iPix truth for:
+- channel/format values;
+- rates/pricing assumptions;
+- reference IDs/provenance;
+- duplicate handling;
+- coverage rules;
+- rounding/currency;
+- current database/reference-table values.
 
-    const response = await fetch(`https://wttr.in/${location}?format=3`)
-    const weather = await response.text()
+Lumina constants and fixtures are regression references, not authority.
 
-    return { weather }
-  },
-})
+### 3. Authority correctness
+
+Prompt instructions are not authorization.
+
+For tools that read or write tenant data:
+- derive authenticated actor and org/resource server-side;
+- verify browser/page context IDs before use;
+- do not accept user/org authority from model-visible tool arguments;
+- never accept JWT/service-role/provider credentials as ordinary model tool input;
+- consequential writes must remain behind the current domain authorization/HITL boundary.
+
+### 4. Agent-selection correctness
+
+A passing direct `tool.execute()` does not prove the model will use the tool correctly.
+
+Test natural-language behavior independently:
+- should call;
+- should not call;
+- plausible wrong tool;
+- missing required input;
+- ambiguous intent;
+- malformed/adversarial request.
+
+Forced `toolChoice` can test transport/tool execution but cannot be the only routing proof.
+
+## Tool descriptions are routing controls, not security controls
+
+Descriptions and schemas should clearly say what the tool does and when it is appropriate. They help model selection. They do not prevent an unauthorized or stale call from executing.
+
+## Request/page context
+
+Browser-supplied `brand_id`, `shoot_id`, active page IDs, route context, or AG-UI context are claims. Resolve/verify them server-side before returning `verified: true` context to the model or using them in a tool.
+
+No consequential tool should act on an unverified identifier merely because the page supplied it.
+
+## Abort and timeout
+
+External-call tools should:
+- consume the runtime abort signal when available in the installed API;
+- pass it to `fetch`/SDK calls where supported;
+- use bounded timeouts;
+- distinguish cancellation from provider failure where behavior differs;
+- prove no protected side effect occurs after successful cancellation.
+
+See `streaming.md` for the full Stop chain.
+
+## Consequential write tools
+
+Default iPix rule:
+
+```text
+AI proposes
+→ operator reviews exact artifact
+→ explicit approval binds artifact/revision/hash
+→ server revalidates actor/org/artifact
+→ idempotent domain service/RPC executes
+→ result/audit recorded
 ```
 
-When creating tools, keep descriptions concise and focused on what the tool does, emphasizing its primary use case. Descriptive schema names can also help guide the agent on how to use the tool.
+Do not copy Lumina patterns where a tool itself accepts an access token, interprets prompt/schema wording as approval, or writes from a browser-authoritative payload.
 
-> **Note:** Visit the [`createTool`](https://mastra.ai/reference/tools/create-tool) reference for more information on available properties, configurations, and examples.
+## Tool result shaping
 
-To make a tool available to an agent, add it to the `tools` property on the `Agent` class. Mentioning available tools and their general purpose in the agent's system prompt helps the agent decide when to call a tool and when not to.
+When supported by the installed version:
+- use `toModelOutput` to keep model context small while preserving full application output;
+- use safe transforms/redaction for browser/transcript payloads;
+- never expose secrets or oversized raw provider payloads to model/UI just because the tool returned them.
 
-```typescript
-import { Agent } from '@mastra/core/agent'
-import { weatherTool } from '../tools/weather-tool'
+## Provenance
 
-export const weatherAgent = new Agent({
-  id: 'weather-agent',
-  name: 'Weather Agent',
-  instructions: `
-    You are a helpful weather assistant.
-    Use the weatherTool to fetch current weather data.`,
-  model: 'openai/gpt-5.5',
-  tools: { weatherTool },
-})
+When outputs depend on trusted references, include stable provenance sufficient for downstream verification. Do not allow the model to invent reference IDs, source labels, approval state, or durable object identity.
+
+## Agent/tool inventory gate
+
+For every agent change, verify the actual registered tool inventory. A tool removed from instructions but still registered remains available to the model.
+
+For Production Planner specifically, keep the tool surface narrower than booking/CRM/publishing/payment capabilities unless a task explicitly changes authority.
+
+## Direct test vs agent test
+
+```text
+pure tool test
+→ proves deterministic implementation
+
+agent turn with natural language
+→ proves model selection/arguments
+
+authorized integration test
+→ proves tenant/authority boundary
+
+HITL/idempotency test
+→ proves consequential-write safety
 ```
 
-## Define schemas
+Do not substitute one for another.
 
-You can define the tool's `inputSchema` and `outputSchema` with any library that supports [Standard JSON Schema](https://standardschema.dev/json-schema). This includes libraries like [Zod](https://zod.dev/), [Valibot](https://valibot.dev/), and [ArkType](https://arktype.io/).
+## Source priority
 
-**Zod**:
-
-```typescript
-import { createTool } from '@mastra/core/tools'
-import { z } from 'zod'
-
-export const weatherTool = createTool({
-  id: 'weather-tool',
-  description: 'Fetches weather for a location',
-  inputSchema: z.object({
-    location: z.string(),
-  }),
-  outputSchema: z.object({
-    weather: z.string(),
-  }),
-  execute: async inputData => {
-    // Fetch weather data
-  },
-})
+```text
+current iPix tool + domain truth
+→ installed @mastra/core source/types
+→ embedded docs when present
+→ current Mastra docs/MCP
+→ migration notes/releases/issues when version behavior matters
 ```
 
-**Valibot**:
-
-```typescript
-import { createTool } from '@mastra/core/tools'
-import * as v from 'valibot'
-import { toStandardJsonSchema } from '@valibot/to-json-schema'
-
-export const weatherTool = createTool({
-  id: 'weather-tool',
-  description: 'Fetches weather for a location',
-  inputSchema: toStandardJsonSchema(
-    v.object({
-      location: v.string(),
-    }),
-  ),
-  outputSchema: toStandardJsonSchema(
-    v.object({
-      weather: v.string(),
-    }),
-  ),
-  execute: async inputData => {
-    // Fetch weather data
-  },
-})
-```
-
-**ArkType**:
-
-```typescript
-import { createTool } from '@mastra/core/tools'
-import { type } from 'arktype'
-
-export const weatherTool = createTool({
-  id: 'weather-tool',
-  description: 'Fetches weather for a location',
-  inputSchema: type({
-    location: 'string',
-  }),
-  outputSchema: type({
-    weather: 'string',
-  }),
-  execute: async inputData => {
-    // Fetch weather data
-  },
-})
-```
-
-## Multiple tools
-
-An agent can use multiple tools to handle more complex tasks by delegating specific parts to individual tools. The agent decides which tools to use based on the user's message, the agent's instructions, and the tool descriptions and schemas.
-
-```typescript
-import { Agent } from '@mastra/core/agent'
-import { weatherTool } from '../tools/weather-tool'
-import { hazardsTool } from '../tools/hazards-tool'
-
-export const weatherAgent = new Agent({
-  id: 'weather-agent',
-  name: 'Weather Agent',
-  instructions: `
-    You are a helpful weather assistant.
-    Use the weatherTool to fetch current weather data.
-    Use the hazardsTool to provide information about potential weather hazards.`,
-  model: 'openai/gpt-5.5',
-  tools: { weatherTool, hazardsTool },
-})
-```
-
-## Agents as tools
-
-Add subagents through the `agents` configuration to create a [supervisor](https://mastra.ai/docs/agents/supervisor-agents). Mastra converts each subagent to a tool named `agent-<key>`. Include a `description` on each subagent so the supervisor knows when to delegate.
-
-```typescript
-import { Agent } from '@mastra/core/agent'
-
-const writer = new Agent({
-  id: 'writer',
-  name: 'Writer',
-  description: 'Drafts and edits written content',
-  instructions: 'You are a skilled writer.',
-  model: 'openai/gpt-5.5',
-})
-
-export const supervisor = new Agent({
-  id: 'supervisor',
-  name: 'Supervisor',
-  instructions: 'Coordinate the writer to produce content.',
-  model: 'openai/gpt-5.5',
-  agents: { writer },
-})
-```
-
-## Workflows as tools
-
-Add workflows through the `workflows` configuration. Mastra converts each workflow to a tool named `workflow-<key>`, using the workflow's `inputSchema` and `outputSchema`. Include a `description` on the workflow so the agent knows when to trigger it.
-
-```typescript
-import { Agent } from '@mastra/core/agent'
-import { researchWorkflow } from '../workflows/research-workflow'
-
-export const researchAgent = new Agent({
-  id: 'research-agent',
-  name: 'Research Agent',
-  instructions: 'You are a research assistant.',
-  model: 'openai/gpt-5.5',
-  workflows: { researchWorkflow },
-})
-```
-
-## Shape output for the model
-
-Use `toModelOutput` when your tool returns rich structured data for your application, but you want the model to receive a smaller or multimodal representation. This keeps model context focused while preserving the full tool result in your app.
-
-```typescript
-export const weatherTool = createTool({
-  execute: async ({ location }) => {
-    const response = await fetch(`https://wttr.in/${location}?format=j1`)
-    const data = await response.json()
-
-    return {
-      location,
-      temperature: data.current_condition[0].temp_F,
-      condition: data.current_condition[0].weatherDesc[0].value,
-      weatherIconUrl: data.current_condition[0].weatherIconUrl[0].value,
-      source: data,
-    }
-  },
-  toModelOutput: output => {
-    return {
-      type: 'content',
-      value: [
-        {
-          type: 'text',
-          text: `${output.location}: ${output.temperature}F and ${output.condition}`,
-        },
-        { type: 'image-url', url: output.weatherIconUrl },
-      ],
-    }
-  },
-})
-```
-
-## Transform tool payloads for UI and transcripts
-
-Use `transform` when a tool returns raw data your application needs, but browser-facing streams or user-visible transcript messages should receive a smaller or safer shape. `transform` is separate from `toModelOutput`: `toModelOutput` shapes the payload sent back to the model, while `transform` shapes tool input, output, errors, approval payloads, and suspension payloads for `display` and `transcript` targets.
-
-If a transform is configured and it fails, Mastra does not fall back to the raw payload for display or transcript targets. Input deltas are suppressed when no safe `inputDelta` transform is available.
-
-See the [`createTool()` reference](https://mastra.ai/reference/tools/create-tool) for a `transform` example. For shared rules across several tools, configure the agent-level `transform` policy in the [`Agent` constructor](https://mastra.ai/reference/agents/agent).
-
-## Control tool selection
-
-Pass `toolChoice` or `activeTools` to `.generate()` or `.stream()` to control which tools the agent uses at runtime.
-
-```typescript
-await agent.generate('Check the forecast', {
-  toolChoice: 'required',
-  activeTools: ['weatherTool'],
-})
-```
-
-> **Note:** See the [`Agent.generate()` reference](https://mastra.ai/reference/agents/generate) for all runtime options including `toolsets`, `clientTools`, and `prepareStep`.
-
-## Control `toolName` in stream responses
-
-The `toolName` in stream responses is determined by the **object key** you use, not the `id` property of the tool, agent, or workflow.
-
-```typescript
-export const weatherTool = createTool({
-  id: 'weather-tool',
-})
-
-// Using the variable name as the key
-tools: { weatherTool }
-// Stream returns: toolName: "weatherTool"
-
-// Using the tool's id as the key
-tools: { [weatherTool.id]: weatherTool }
-// Stream returns: toolName: "weather-tool"
-
-// Using a custom key
-tools: { "my-custom-name": weatherTool }
-// Stream returns: toolName: "my-custom-name"
-```
-
-This lets you specify how tools are identified in the stream. If you want the `toolName` to match the tool's `id`, use the tool's `id` as the object key.
-
-### Subagents and workflows as tools
-
-Subagents and workflows follow the same pattern. They're converted to tools with a prefix followed by your object key:
-
-| Property    | Prefix      | Example key | `toolName`          |
-| ----------- | ----------- | ----------- | ------------------- |
-| `agents`    | `agent-`    | `weather`   | `agent-weather`     |
-| `workflows` | `workflow-` | `research`  | `workflow-research` |
-
-```typescript
-const orchestrator = new Agent({
-  agents: {
-    weather: weatherAgent, // toolName: "agent-weather"
-  },
-  workflows: {
-    research: researchWorkflow, // toolName: "workflow-research"
-  },
-})
-```
-
-Note that for subagents, you'll see two different identifiers in stream responses:
-
-- `toolName: "agent-weather"` in tool call events — the generated tool wrapper name
-- `id: "weather-agent"` in `data-tool-agent` chunks — the subagent's actual `id` property
-
-## Related
-
-- [`createTool` reference](https://mastra.ai/reference/tools/create-tool)
-- [`Agent.generate()` reference](https://mastra.ai/reference/agents/generate): Runtime options for tool selection, steps, and callbacks
-- [Background tasks](https://mastra.ai/docs/agents/background-tasks): Run long-running tools without blocking the agent loop
-- [MCP overview](https://mastra.ai/docs/mcp/overview)
-- [Dynamic tool search](https://mastra.ai/reference/processors/tool-search-processor): Load tools on demand for agents with large tool libraries
-- [Tools with structured output](https://mastra.ai/docs/agents/structured-output): Model compatibility when combining tools and structured output
-- [Agent approval](https://mastra.ai/docs/agents/agent-approval)
-- [Request context](https://mastra.ai/docs/server/request-context)
+Useful current docs:
+- https://mastra.ai/docs/agents/tools
+- https://mastra.ai/reference/tools/create-tool
+- https://mastra.ai/docs/server/request-context
+- https://mastra.ai/docs/agents/agent-approval
+- https://mastra.ai/docs/streaming/tool-streaming

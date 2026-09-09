@@ -5,7 +5,7 @@ former `create-migration` skill.
 
 **Also load:** [`../supabase-core/MIGRATIONS.md`](../supabase-core/MIGRATIONS.md) (generic structure) ·
 [`../project-rules/supabase-migrations.md`](../project-rules/supabase-migrations.md) ·
-[`../../../ipix-task-lifecycle/references/migration-safety.md`](../../../ipix-task-lifecycle/references/migration-safety.md)
+[`../../../tasks/references/pre-merge-tests.md`](../../../tasks/references/pre-merge-tests.md)
 
 ---
 

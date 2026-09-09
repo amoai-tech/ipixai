@@ -6,7 +6,7 @@ tags: ipix-task-lifecycle, linear, prompt-engineering, IPI
 
 # Linear prompt engineering (iPix standard)
 
-Every executable Linear issue is a **prompt** to Cursor, Claude, and future engineers. This doc is the **SSOT** for issue-as-prompt quality — do not route to other prompt skills; apply the rules below in Phase 1.
+Every substantial executable Linear issue is a prompt to coding agents. The canonical task/prompt contract is [tasks](../../tasks/SKILL.md); this file provides lifecycle-specific examples and must not override that standard.
 
 **Pair with:** [linear-issue-steps.md](linear-issue-steps.md) · [linear-spec-template.md](linear-spec-template.md) · Phase 1 [planning.md](../planning.md)
 
@@ -41,7 +41,7 @@ Use these when writing or enriching any IPI issue. Map each to a Linear section 
 | **Task** | Acceptance criteria (outcomes, not implementation) |
 | **Constraints** | Technical notes · **Do NOT** · Out of scope |
 | **Examples (multishot)** | Wireframe + states table · good/bad SQL or API snippets |
-| **Chain of thought** | Completion steps A→E (ordered reasoning) |
+| **Execution sequence** | Completion steps A→E (ordered work + proof gates) |
 | **Output format** | Every step ends with `proof:` … |
 | **Eval** | Verify block + regression guard AC |
 
@@ -49,21 +49,21 @@ Use these when writing or enriching any IPI issue. Map each to a Linear section 
 
 ## Prompt-optimized issue template
 
-Use this as the **minimum bar** on top of [linear-issue-steps.md](linear-issue-steps.md). SSOT lives in `docs/linear/issues/IPI-*.md`; sync via `node scripts/linear-update-issue.mjs IPI-NNN`.
+Use this as lifecycle-specific guidance on top of [linear-issue-steps.md](linear-issue-steps.md). The live Linear issue is the task execution/progress SSOT; verify repo/runtime facts before saving changes.
 
 ```markdown
 ## SPEC-ID — Title
 
-**Role:** You are implementing this as an iPix engineer. Stack: Next.js `app/`, Supabase remote-only, one concern per PR.
+**Role:** You are implementing this as an iPix engineer. Stack facts must be verified from current repo/AGENTS; one concern per PR.
 
 **Plain English:** <one sentence outcome>
 
 **Context — what's broken today:**
 - Today: …
 - Mistake we prevent: …
-- SSOT: `docs/linear/issues/IPI-NNN-….md` §section
+- Source of truth: `<current repo/live contract/Linear section>`
 
-**Blocked by:** … · **Unblocks:** … · **Skills:** `ipix-task-lifecycle` · `<domain-slug>` … (see [domain-skill-routing.md](domain-skill-routing.md))
+**Blocked by:** … · **Unblocks:** … · **Skills:** `tasks` · `<domain-slug>` … (see [domain-skill-routing.md](domain-skill-routing.md))
 
 ---
 
@@ -105,7 +105,7 @@ UPDATE crm_deals SET stage = 'won' WHERE id = …;
 ## Verification instructions (for the implementing agent)
 
 **Naming — does it match what's already there?**
-- Before writing a new function/type/component name, grep for it: `grep -rn "<name>" app/src/` — if something with that name already exists, confirm in a comment whether this is an intentional wrapper/extension or a naming collision to rename away from. Never let two independent implementations share a name silently.
+- Before naming exploration, run `PATH="$HOME/.local/bin:$PATH" graphify query "<task naming question>"` when the graph exists, then grep the scoped paths for the candidate name. If something with that name already exists, confirm whether this is an intentional wrapper/extension or a naming collision to rename away from.
 
 **Source of truth — where does each claim in this ticket come from?**
 | Claim in this issue | Source (file:line / table / doc) | Re-check command |
@@ -189,7 +189,7 @@ Add **E — Regression guard** AC for safety-critical work:
 
 Every issue includes a **Verification instructions** block (see template) so the implementing agent re-checks the ticket's facts against live reality before treating them as true:
 
-- Naming: grep before reusing/extending a name — confirm wrapper-vs-collision.
+- Naming: Graphify first, then grep before reusing/extending a name — confirm wrapper-vs-collision.
 - Source of truth: a claim → source-file/table → re-check-command table, not assertions.
 - Proof: run each AC's `proof:` command yourself; a ticket's prose is never proof.
 - A ticket written months ago can drift from the codebase — this rule exists so drift is caught at implementation time, not just at spec time.
@@ -204,11 +204,11 @@ If AC says "requires Pipeline board" or "at-risk filter", set Linear `blockedBy`
 
 ## SSOT workflow (prevent prompt drift)
 
-1. Edit `docs/linear/issues/IPI-*.md` first (never hand-edit Linear only).
-2. Push: `node scripts/linear-update-issue.mjs IPI-NNN`
-3. On PR merge: checkboxes in spec md + Linear state Done stay aligned.
+1. Read the current Linear issue and verify load-bearing claims against repo/live evidence.
+2. Update the live Linear issue directly with corrected task structure, progress, evidence, and dependencies.
+3. After implementation/merge, update the same live issue with exact-head/post-merge proof.
 
-**Drift symptom:** Linear body says "RLS or route" while local spec says "DB trigger only" — agents pick the easier path.
+If an intentionally maintained local mirror is introduced later, its owning task must define one-way synchronization and conflict resolution. Do not assume a local mirror exists.
 
 ---
 
@@ -220,7 +220,7 @@ If AC says "requires Pipeline board" or "at-risk filter", set Linear `blockedBy`
 | No problem statement | 2–4 bullets: what breaks today + concrete mistake |
 | Happy-path only | States table + error/empty examples |
 | Implementation in AC | "Add migration" → "cross-org SELECT returns 0 rows" |
-| Linear ≠ local spec | SSOT sync script |
+| Linear contradicts current repo/live evidence | verify, correct Linear, record evidence |
 | AC OR for security | Single mandatory mechanism |
 | Relations ≠ AC | Add `blockedBy` / `blocks` edges |
 | Missing proof on steps | Every A–E checkbox needs `proof:` |
@@ -241,8 +241,8 @@ Run mentally (or via future `scripts/linear-lint-issue-spec.mjs`) before marking
 [ ] ≥2 Out of scope lines
 [ ] Every A–E step has proof:
 [ ] blockedBy matches any cross-issue AC dependency
-[ ] Local md synced to Linear (or sync planned in step E)
-[ ] Verification instructions block present — naming-check + source-of-truth table + proof-first directive
+[ ] Live Linear issue is the authoritative progress/evidence record; no local mirror required
+[ ] Verification instructions block present — graphify-first naming check + source-of-truth table + proof-first directive
 ```
 
 ---

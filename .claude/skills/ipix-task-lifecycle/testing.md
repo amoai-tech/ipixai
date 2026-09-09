@@ -3,9 +3,9 @@
 Aggregate verification after Phase 3. **Per-task tests already ran in Phase 3** —
 this phase confirms full-matrix coverage and captures ship evidence.
 
-**Playbook:** [`docs/process/04-testing-qa-playbook.md`](../../../docs/process/04-testing-qa-playbook.md) · **Evidence:** [`qa-evidence-template.md`](../../../docs/process/templates/qa-evidence-template.md)  
+**Playbook:** [`docs/process/04-testing-qa-playbook.md`](../../../docs/process/04-testing-qa-playbook.md) · **Evidence:** [`qa-evidence-template.md`](../../../docs/process/templates/qa-evidence-template.md)
 Matrix: [references/testing-matrix.md](references/testing-matrix.md) · per-task contract:
-[references/per-task-testing.md](references/per-task-testing.md) · path commands: [verify-matrix](../pr-workflow/references/verify-matrix.md).
+[references/per-task-testing.md](references/per-task-testing.md) · canonical pre-merge matrix: [tasks pre-merge tests](../tasks/references/pre-merge-tests.md).
 
 ---
 
@@ -18,72 +18,26 @@ Matrix: [references/testing-matrix.md](references/testing-matrix.md) · per-task
 
 ---
 
-## Required gates (iPix platform)
+## Required gates
 
-```bash
-cd app && npm run lint && npm run typecheck && npm test
-cd app && npm run build    # if routes/config/schema changed
-```
+Use [tasks pre-merge tests](../tasks/references/pre-merge-tests.md) as the canonical risk matrix. Before any file/code exploration, run Graphify when `graphify-out/graph.json` exists; then re-read root `package.json` and `.github/workflows/ci.yml` as needed. Do not duplicate stale path-specific commands here.
 
-From repo root (when touched):
+Current root capabilities include targeted/full Vitest (`npm test`), `npm run typecheck`, `npm run build`, and Playwright `e2e*` scripts. There is no root lint script. Run the cheapest proof that covers the changed risk, then escalate to build/browser/preview only when required.
 
-```bash
-infisical run -- npm run supabase:verify
-infisical run -- npm run supabase:verify-rls    # migration / RLS
-npm run supabase:verify-edge                     # edge fn
-```
-
-**Browser smoke (auth/UI):** `cd app && npm run dev` → `http://localhost:3002` → login → target route · four states.
-
-Record evidence in issue spec verify section or Linear step proofs.
-
----
+For user-facing or AI-native flows, apply [tasks user-journey testing](../tasks/references/user-journey-testing.md). Explorbot is an exploratory pilot, not a mandatory merge gate.
 
 ## Workflow checklist
 
 ```
-[ ] 1.  Confirm Phase 3 per-task Test log — every task has PASS proof.
-[ ] 2.  Map each AC to matrix row (below); fill gaps if any AC lacks a test.
-[ ] 3.  cd app && npm test — full suite, no new failures vs main.
-[ ] 4.  Run Supabase verify scripts per change shape.
-[ ] 5.  Manual browser smoke for UI/auth flows not covered by Vitest.
-[ ] 6.  Capture proof strings for Linear steps (counts, status codes).
-[ ] 7.  Optional: task-verifier on spec md before Done.
-[ ] 8.  Any gate fails → loop to implementation.md (identify failing task).
-[ ] 9.  Hand off to shipping.md.
+[ ] 1. Confirm every Phase 3 leaf checkpoint has PASS evidence.
+[ ] 2. Map each affected acceptance criterion/risk to the tasks pre-merge matrix.
+[ ] 3. Run targeted tests first; run broader `npm test` only when scope/risk justifies it.
+[ ] 4. Run `npm run typecheck` when TypeScript surface changed; run `npm run build` when route/config/runtime risk requires production-build proof.
+[ ] 5. Run SQL/Supabase, Playwright, preview, or live-provider proof only when the changed boundary requires it.
+[ ] 6. Record command, result, environment, tested SHA, and any justified N/A gate in Linear.
+[ ] 7. Any unexplained P0/P1 failure or critical flake loops back to implementation.
+[ ] 8. Hand off to shipping.md only after required evidence is green.
 ```
-
----
-
-## Test type matrix
-
-| Change shape | Per-task (Phase 3) | Aggregate (Phase 4) |
-|--------------|-------------------|---------------------|
-| Hook / service / util | Vitest per task | `npm test` full suite |
-| React component | Vitest + RTL per task | smoke + full suite |
-| Page / route | Vitest + smoke per task | browser smoke 375px + 1280px |
-| Edge function | verify-edge per fn task | verify-edge + invoke |
-| Migration + RLS | verify-rls per migration task | verify-rls + advisors |
-| AI prompt / schema | manual eval in task notes | ≥5 cases logged |
-
-Full matrix: [references/testing-matrix.md](references/testing-matrix.md).  
-Vitest authoring: [gen-test](../gen-test/SKILL.md).
-
----
-
-## Validation hierarchy
-
-```
-0. per-task Test commands (Phase 3) — already green
-1. cd app && npm run lint
-2. cd app && npm run typecheck
-3. cd app && npm test
-4. supabase:verify (+ rls / edge as needed)
-5. cd app && npm run build (if applicable)
-6. browser smoke
-```
-
-Stop at first failure; fix in Phase 3 at the task that regressed.
 
 ---
 
@@ -101,6 +55,7 @@ Stop at first failure; fix in Phase 3 at the task that regressed.
 | Need | Route to |
 |------|----------|
 | Per-task contract | [references/per-task-testing.md](references/per-task-testing.md) |
+| Canonical risk matrix | [tasks pre-merge tests](../tasks/references/pre-merge-tests.md) |
 | Matrix details | [references/testing-matrix.md](references/testing-matrix.md) |
 | Test authoring | [gen-test](../gen-test/SKILL.md) |
 | Forensic Done gate | [task-verifier](../task-verifier/SKILL.md) |
