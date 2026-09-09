@@ -10,10 +10,10 @@ Use this order unless a task-specific reason requires otherwise.
 6. **Requirement vs Recommended Implementation** — preserve outcome/invariants while allowing a better verified path.
 7. **Architecture connections** — Mermaid + source of truth + ownership when useful.
 8. **Dependencies** — blocked by / blocks / related using full Linear names.
-9. **Source → instruction → target matrix** — exact URLs and destinations.
-10. **Pre-implementation gate** — worktree, skills, Graphify, code, live contracts.
+9. **Reference Appendix / research summary** — compact source/action matrix only; never the execution source.
+10. **Pre-implementation gate** — worktree, skills, Graphify, code, live contracts, MCP/CLI/dashboard checks when relevant.
 11. **Decision branches + STOP conditions** — explicit IF → THEN edge cases and facts that invalidate the plan.
-12. **Implementation order** — one file or tightly coupled group at a time.
+12. **Ordered Implementation Runbook** — authoritative dependency-ordered execution. Put every important full URL inside the exact step that uses it, with Inspect → explicit action → current owner → exact target → reuse/adapt → defer/drop → constraints → checkpoint.
 13. **Performance/query contract** when data access is involved.
 14. **Test-data strategy + checkpoint self-check**.
 15. **User Journey / AI Journey Certification** when applicable — actor, starting state, business outcome, systems crossed, negative paths, system correctness, and AI correctness.
@@ -36,7 +36,20 @@ If a section reads as generic enough to paste into any other task unchanged, it 
 
 ## Per-file/group section
 
-Every implementation group must state: goal, current iPix pattern, external/Lumina source when used, explicit action, exact implementation, Mermaid when helpful, COPY/REWRITE/DROP decisions, success criteria, and verification checkpoint.
+Every implementation group must state: goal, current iPix pattern, explicit action, exact implementation, Mermaid when helpful, COPY/REWRITE/DROP decisions, success criteria, and verification checkpoint.
+
+When an external/Lumina source is used, put the **full URL in that exact group** and include:
+
+- **Inspect** — exact symbol/API/pattern to read.
+- **Action** — COPY / COPY + CLEAN / COPY + CLEAN TOKENS / PORT / EXTRACT + REUSE / REIMPLEMENT USING CURRENT iPix PATTERN / MOVE TO / DROP.
+- **Current owner / truth** — the iPix file/service/schema/runtime that wins on conflict.
+- **Target** — exact iPix file/symbol/layer.
+- **Reuse / adapt** — behavior/schema/test/UX to preserve.
+- **Defer / drop** — demo/legacy/runtime/provider/storage/UI pieces not to copy.
+- **Constraints** — version, auth/tenant, cost/plan, limits, license/deprecation when relevant.
+- **Checkpoint** — exact proof before moving on.
+
+If the same source is used in multiple groups, repeat the full URL with a narrower instruction for the different invariant. Never use `same URL` in the execution runbook. Mutable GitHub sources require an immutable SHA/pinned URL in PR evidence.
 
 **Rule:** do not continue to the next group until the current checkpoint passes, unless the task explicitly documents safe parallel work.
 
