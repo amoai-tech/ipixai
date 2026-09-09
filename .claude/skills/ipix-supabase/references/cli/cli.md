@@ -110,25 +110,27 @@ supabase db reset
 
 ## Deploying Migrations
 
+> **iPix production rule (IPI-1171):** the commands below are generic Supabase CLI reference only. For the iPix production project, do **not** manually run `supabase db push --linked` after merging a migration PR. Protected `main` + the enabled Supabase GitHub Integration own normal production migration application; verify the live ledger/objects read-only after merge. Use linked mutation only in an explicit reviewed recovery/incident procedure.
+
 Dry-run deployment:
 
 ```bash
 supabase db push --linked --dry-run
 ```
 
-Deploy to remote:
+Generic CLI example — push to a linked remote outside the normal iPix production path:
 
 ```bash
 supabase db push --linked
 ```
 
-Deploy with seed data:
+Generic CLI example — push with seed data (not iPix production):
 
 ```bash
 supabase db push --linked --include-seed
 ```
 
-Deploy with custom roles:
+Generic CLI example — push with custom roles (not the normal iPix production path):
 
 ```bash
 supabase db push --linked --include-roles
