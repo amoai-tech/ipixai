@@ -55,8 +55,16 @@ export async function loadChannelSpecs(channels: readonly string[]): Promise<Map
       ]);
     if (platformsError || imageTypesError || !platforms?.length || !imageTypes?.length) return specs;
 
-    const platformIdBySlug = new Map(platforms.map((p) => [p.slug, p.id]));
-    const imageTypeIdBySlug = new Map(imageTypes.map((t) => [t.slug, t.id]));
+    const platformIdBySlug = new Map(
+      platforms.flatMap((platform) =>
+        platform.slug && platform.id ? [[platform.slug, platform.id] as const] : [],
+      ),
+    );
+    const imageTypeIdBySlug = new Map(
+      imageTypes.flatMap((imageType) =>
+        imageType.slug && imageType.id ? [[imageType.slug, imageType.id] as const] : [],
+      ),
+    );
 
     const { data: specRows, error: specsError } = await supabase
       .from("image_specs")
@@ -78,14 +86,18 @@ export async function loadChannelSpecs(channels: readonly string[]): Promise<Map
           `[channel-specs] rule for "${channel}" has multiple platform/image-type candidates; using only the first (platform_slugs=${JSON.stringify(rule.platform_slugs)}, image_type_slugs=${JSON.stringify(rule.image_type_slugs)})`,
         );
       }
-      const platformId = platformIdBySlug.get(rule.platform_slugs?.[0]);
-      const imageTypeId = imageTypeIdBySlug.get(rule.image_type_slugs?.[0]);
+      const platformSlug = rule.platform_slugs?.[0];
+      const imageTypeSlug = rule.image_type_slugs?.[0];
+      if (!platformSlug || !imageTypeSlug) continue;
+      const platformId = platformIdBySlug.get(platformSlug);
+      const imageTypeId = imageTypeIdBySlug.get(imageTypeSlug);
       if (!platformId || !imageTypeId) continue;
       const spec = specByPair.get(`${platformId}:${imageTypeId}`);
-      if (!spec?.aspect_ratio_label || !spec.accepted_formats?.length) continue;
+      const acceptedFormat = spec?.accepted_formats?.[0];
+      if (!spec?.aspect_ratio_label || !acceptedFormat) continue;
       specs.set(channel, {
         aspectRatioLabel: spec.aspect_ratio_label,
-        acceptedFormat: spec.accepted_formats[0],
+        acceptedFormat,
         backgroundRequired: spec.background_required ?? null,
       });
     }

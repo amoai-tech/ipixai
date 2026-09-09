@@ -13,6 +13,8 @@
     "build": "node scripts/dev-guard.mjs --port 3000 --port 4111 -- next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "supabase:types": "supabase db reset --local --no-seed && node scripts/generate-supabase-types.mjs",
+    "supabase:types:check": "node scripts/generate-supabase-types.mjs --check",
     "test": "vitest run",
     "test:design": "vitest run src/components/ui/empty-state.test.tsx src/components/ui/error-state.test.tsx src/components/ui/entity-list.test.tsx src/components/ui/status-chip.test.tsx",
     "channel": "tsx --tsconfig tsconfig.channel.json channel-host.mts",
