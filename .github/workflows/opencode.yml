@@ -7,9 +7,10 @@ name: opencode
 #   1. Install the app on this repo: https://github.com/apps/opencode-agent
 #   2. Add the model API key as a repo secret (OPENAI_API_KEY already exists
 #      for CI; this workflow reuses it).
-#   3. The action exchanges an OIDC token for an app installation token, so no
-#      GITHUB_TOKEN secret is needed. If you prefer a caller-provided token,
-#      set `use_github_token: true` and pass GITHUB_TOKEN via env instead.
+#   3. `opencode github run` exchanges an OIDC token for an app installation
+#      token, so no GITHUB_TOKEN secret is needed (USE_GITHUB_TOKEN=false). If
+#      you prefer a caller-provided token, set USE_GITHUB_TOKEN=true and pass
+#      GITHUB_TOKEN via env instead.
 #
 # Security notes:
 #   - This repo is public, so only OWNER/COLLABORATOR comments can trigger a
@@ -42,8 +43,8 @@ jobs:
       (
         startsWith(github.event.comment.body, '/oc') ||
         startsWith(github.event.comment.body, '/opencode') ||
-        contains(github.event.comment.body, ' /oc') ||
-        contains(github.event.comment.body, ' /opencode')
+        contains(github.event.comment.body, '/oc') ||
+        contains(github.event.comment.body, '/opencode')
       )
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -54,18 +55,42 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Run OpenCode
-        uses: anomalyco/opencode/github@830d5eb5354874105cc31599635a80c1662609e8 # v1.18.30
+      - name: Install opencode (pinned + checksum-verified)
+        shell: bash
         env:
-          # Pin the opencode binary the action installs. Without this the action
-          # resolves releases/latest, so the SHA pin alone would not make the
-          # executed agent code immutable.
-          VERSION: v1.18.30
+          # CodeRabbit: the upstream anomalyco/opencode/github action installs the
+          # agent via the mutable `curl -fsSL https://opencode.ai/install | bash`
+          # script with no checksum verification. Instead, download the immutable
+          # per-tag GitHub release asset and verify its SHA-256 before executing.
+          # The vendor publishes no release checksums, so the content hash is
+          # pinned here and must be updated together with OPCODE_VERSION.
+          OPCODE_VERSION: v1.18.30
+          OPCODE_SHA256: 55007246858165496ff85ba1c2b648f7421e8e2013bf4189a680c9ff8e699d17
+        run: |
+          set -euo pipefail
+          install_dir="$HOME/.opencode/bin"
+          mkdir -p "$install_dir"
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+          asset="opencode-linux-x64.tar.gz"
+          curl -fsSL --retry 3 -o "$tmp_dir/$asset" \
+            "https://github.com/anomalyco/opencode/releases/download/$OPCODE_VERSION/$asset"
+          echo "$OPCODE_SHA256  $tmp_dir/$asset" | sha256sum -c -
+          tar -xzf "$tmp_dir/$asset" -C "$tmp_dir"
+          install -m 0755 "$tmp_dir/opencode" "$install_dir/opencode"
+          echo "$install_dir" >> "$GITHUB_PATH"
+
+      - name: Run OpenCode
+        shell: bash
+        env:
+          # Mirrors the inputs of the upstream action (model, share: false,
+          # use_github_token: false) so behavior is unchanged; only the mutable
+          # installer was replaced.
+          MODEL: openai/gpt-5
+          SHARE: 'false'
+          USE_GITHUB_TOKEN: 'false'
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        with:
-          model: openai/gpt-5
-          share: false
-          prompt: |
+          PROMPT: |
             You are working in the amoai-tech/ipixai repository. Follow these
             repo rules for every task:
 
