@@ -18,7 +18,7 @@ Use during **Standard** and **Adversarial** verification. Every applicable row r
 | AI | system correctness + positive/negative AI correctness proved when AI participates |
 | Operations | production-affecting work has detection, recovery, rollback/containment and smoke proof |
 | Reviews/CI | substantive findings resolved and required exact-head CI green |
-| Post-merge | `tasks/references/post-merge.md` evidence passed when claiming Done |
+| Post-merge | `.claude/skills/tasks/references/post-merge.md` evidence passed when claiming Done |
 | Linear | live issue state/progress matches verified reality |
 
 ## Hard rule
