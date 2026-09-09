@@ -1,6 +1,6 @@
 # Phase 3 — Implementation
 
-Coordinator for coding in `/home/sk/ipixai`. Routes trivial edits directly; non-trivial work through
+Coordinator for coding from the current repository root / active worktree. Routes trivial edits directly; non-trivial work through
 [feature-dev](../archive/feature-dev/SKILL.md). **Per-task testing:** [references/per-task-testing.md](references/per-task-testing.md).
 
 ---
@@ -10,7 +10,7 @@ Coordinator for coding in `/home/sk/ipixai`. Routes trivial edits directly; non-
 | | Criterion |
 |---|---|
 | **Entry** | Live Linear issue satisfies the `tasks` format gate · required skills/context identified · Linear **In Progress**. Phase 2 = green-light or trivial-skip. [Step 1b](#step-1b--mandatory-pre-edit-gate) complete before first edit. |
-| **Exit** | All planned leaf checkpoints implemented and verified. Relevant targeted tests and `npm run typecheck` pass; build/browser proof runs only when the risk requires it. Ready for [testing.md](testing.md). |
+| **Exit** | All planned leaf checkpoints implemented and verified. Relevant targeted tests pass; `npm run typecheck` runs when TypeScript surface risk warrants it; build/browser proof runs only when the risk requires it. Ready for [testing.md](testing.md). |
 
 ---
 
@@ -57,7 +57,8 @@ Before editing code, the agent must complete this gate. **Fail closed** — stop
 
 ### 3. Existing-code gate
 
-- Inspect the current code path before creating new files (`graphify query` if multi-file).
+- Before any `Read`, `Grep`, `Glob`, or exploratory `Bash`, run `PATH="$HOME/.local/bin:$PATH" graphify query "<task question>"` when `graphify-out/graph.json` exists; use the scoped graph to choose the smallest file set.
+- Inspect the current code path before creating new files.
 - Reuse existing components, routes, schemas, and helpers where possible.
 - Do not duplicate logic already covered by shared primitives.
 
@@ -99,9 +100,9 @@ Load [gen-test](../gen-test/SKILL.md) when authoring Vitest. Full contract:
 
 **Mandatory.**
 
-- Read all wiring-plan paths before first edit.
-- Grep callers for hooks/services you touch.
-- Migrations: read latest in `supabase/migrations/`.
+- Run Graphify first as described in Step 1b, then read all wiring-plan paths before first edit.
+- Grep callers for hooks/services you touch only after the Graphify pass.
+- Migrations: read latest in `supabase/migrations/` after the Graphify pass.
 - Edge: [ipix-supabase](../ipix-supabase/SKILL.md) + [gemini](../gemini/SKILL.md) if AI.
 - RLS: [ipix-supabase](../ipix-supabase/SKILL.md) patterns.
 
@@ -165,7 +166,7 @@ Full rules: [CLAUDE.md](../../../CLAUDE.md) · `.cursor/rules/`.
 |-------|-----|
 | Defer all tests to Phase 4 | Test after every plan task |
 | `it.skip` without follow-up issue | Fix or file IPI follow-up |
-| Edit before reading | Read wiring plan files first |
+| Edit before reading | Graphify first, then read wiring-plan files |
 | Scope creep | One issue = one shippable unit |
 | `supabase start` | Remote linked project only |
 
