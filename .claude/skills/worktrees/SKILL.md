@@ -1,3 +1,11 @@
+---
+name: worktrees
+description: >
+  Git worktree isolation workflow for iPix development — when and how to create, use, and clean up
+  worktrees for parallel/multi-step work, iPix branch/directory conventions, safety rails (merge
+  gate, forensic audit, documentation preservation), and troubleshooting.
+---
+
 # Git Worktrees
 
 A git worktree is a second working directory with its own files and branch that **shares the same repository history and remote** as your main checkout. Worktrees let you have several branches checked out at once — edits in one never touch another — without stashing, cloning, or constantly switching branches.
@@ -337,4 +345,4 @@ iPix command playbooks (forensic audit, production SHA check, PR splitting, week
 
 ## Non-git VCS
 
-For SVN/Perforce/Mercurial, configure `WorktreeCreate` and `WorktreeRemove` hooks to supply custom create/cleanup logic (the hook replaces git behavior, so `.worktreeinclude` is skipped — copy configs in the hook). See the Claude Code hooks reference.
+For SVN/Perforce/Mercurial, configure `WorktreeCreate` and `WorktreeRemove` hooks to supply custom create/cleanup logic (the hook replaces git behavior, so `.worktreeinclude` is skipped — copy configs in the hook instead). See the Claude Code hooks reference.
