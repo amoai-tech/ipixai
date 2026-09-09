@@ -7,20 +7,34 @@ Cursor rule: `.cursor/rules/linear-task-format.mdc` (summary only — do not dup
 
 Title: **`IPI-NNN · TASK-ID — Plain-English outcome`**. Never a tech-only title.
 
+Immediately below the title:
+
+```markdown
+**What changes:** <2–4 plain-English lines>
+**Real-world example:** <actor → action → visible/durable result>
+**Faster/better approach:** <smallest safe proven path>
+**Current status:** <state + verified progress %>
+**Tech stack touched:** <only affected systems>
+**Skills / MCPs / CLI / dashboards:** <only what is actually required + why>
+**Production-ready when:** <one observable success sentence>
+```
+
+Unknown values are `Needs verification`, not guesses.
+
 ---
 
 ## Agent order (hard)
 
-Paste the **Implementation prompt** at the **top** of every Linear description. After the agent reads the task, the **first work** is verification. **No code until verification passes.**
+Start every Linear description with a **plain-English title + Top Task Snapshot** so a product/operator can understand the outcome immediately. Put the **Agent Contract / implementation instructions after that snapshot**. After the agent reads the task, the first work is verification. **No code until verification passes.**
 
 ```mermaid
 flowchart TD
     start([Read Linear task]) --> verify[Verify the task is still true]
-    verify --> docs[Official docs MCP and Context7 max 5 URLs]
+    verify --> docs[Task-relevant official docs max 5 URLs]
     docs --> gh[Official GitHub repo if listed]
-    gh --> code[Graphify then live codebase]
-    code --> supa[Supabase MCP read-only preview]
-    supa --> tv[task-verifier Standard]
+    gh --> code[Inspect live code; Graphify when dependency discovery is needed]
+    code --> contracts[Verify affected live/domain contracts when relevant]
+    contracts --> tv[Risk-matched task-verifier when required]
     tv --> gate{Verifier 🔴?}
     gate -->|yes| stop[Stop — rewrite task or report Blocked]
     gate -->|no| fastest[Faster path? Use it]
@@ -34,7 +48,7 @@ flowchart TD
 
 ---
 
-## Implementation prompt (paste at top of every issue)
+## Agent Contract / implementation instructions (after the Top Task Snapshot)
 
 ```markdown
 ## Implementation prompt
@@ -46,12 +60,12 @@ You are implementing **IPI-NNN · TASK-ID — Full title** in the current iPixai
 ### Verify-before-implement (mandatory, in order)
 
 1. Read this issue, parent project, blockers, `AGENTS.md`, and `.cursor/rules/`.
-2. **Official docs only** — no blogs. Use **Context7**, **Mastra MCP**, **CopilotKit MCP**, **Supabase MCP** `search_docs`, and the matching `.claude/skills/*/SKILL.md`. Open **at most 5** URLs listed in **Official references** below. Each URL must prove one **critical fact** for *this* task. Fetch/MCP-check every URL; if a link 404s, is a blog, or does not match installed package types, label it **Unverified** and stop.
+2. **Official docs only** — no blogs. Use only the documentation tools relevant to the affected stack (for example Context7, Mastra MCP, CopilotKit MCP, Supabase `search_docs`, or the matching `.claude/skills/*/SKILL.md`). Open **at most 5** URLs listed in **Official references** below. Each URL must prove one **critical fact** for *this* task. Fetch/MCP-check every URL with the relevant tool; if a required link 404s, is a blog, or conflicts with installed package types, label it **Unverified** and stop. If no external contract is involved, record `Official docs: N/A — <reason>`.
 3. If **Official GitHub repo** is set, fetch that path (official org only: `mastra-ai`, `CopilotKit`, `supabase`, `vercel`, `facebook/react` as applicable). Confirm the example is not archived.
-4. **Live codebase:** `PATH="$HOME/.local/bin:$PATH" graphify query "<this task>"` then Read/Grep. Confirm the gap still exists. Reuse what is already here (`ponytail`).
-5. **Supabase:** connect Supabase MCP **read-only** (preview / `list_tables` / `list_migrations` / advisors). Never `db push`, never production writes. Confirm schema/RLS claims in this ticket against live preview — not memory.
-6. **Skills:** load every skill in **Skills** below. Index: `.claude/skills/index-skills.md`.
-7. Run **task-verifier Standard** for substantial tasks. Use Quick only for an explicitly narrow check; Adversarial is automatic for security/tenant/HITL/data-integrity/production-risk triggers. Any BLOCKER → **do not implement**. Report blockers.
+4. **Live codebase:** inspect the current implementation and confirm the gap still exists. For substantial code tasks or cross-file dependency/blast-radius questions, run `PATH="$HOME/.local/bin:$PATH" graphify query "<this task>"` then Read/Grep and list `graphify` in **Skills / MCPs / CLI / dashboards**. For a narrow docs/config-only task where Graphify adds no useful proof, record `Graphify: N/A — <reason>` and use the cheapest direct inspection. Reuse what is already here (`ponytail`) when applicable.
+5. **Affected live/domain contracts only:** if the task touches Supabase schema/RLS/RPC/data/auth, connect Supabase MCP **read-only** (preview / `list_tables` / `list_migrations` / advisors), list it in **Skills / MCPs / CLI / dashboards**, and confirm those claims against live preview. Never `db push`, never production writes. If Supabase is not touched, record `Supabase verification: N/A — <reason>`. Apply the same rule to other vendor dashboards/MCPs/CLIs: use and list them only when that system is authoritative for the task.
+6. **Skills:** load every skill named in **Skills / MCPs / CLI / dashboards** below. Index: `.claude/skills/index-skills.md`.
+7. **Verification depth:** substantial implementation tasks require **task-verifier Standard** and must list `task-verifier`; explicitly narrow docs/config checks may use Quick or record `task-verifier: N/A — <reason>` when no verifier proof is meaningful. Adversarial is automatic for security/tenant/HITL/data-integrity/production-risk triggers. Any BLOCKER → **do not implement**. Report blockers.
 8. At every later step ask: *is there a better, faster, more efficient way?* Use it (`.cursor/rules/fastest.mdc`). Prefer managed dashboard → official CLI/SDK → official example → small adapter → custom last.
 
 ### Only then implement
@@ -59,7 +73,7 @@ You are implementing **IPI-NNN · TASK-ID — Full title** in the current iPixai
 9. Smallest change that meets ACs. One concern per PR/commit.
 10. Targeted tests first; browser when UI changed (`dev:ui` + `dev:agent` split).
 11. Compare to every AC. Do not mark Linear **Done** because code exists.
-12. Before Done: **task-verifier Standard**, or **Adversarial** when its risk triggers apply. After merge: `.claude/skills/tasks/references/post-merge.md`.
+12. Before Done: run the **risk-matched task-verifier** required by step 7 — Standard for substantial implementation, Adversarial when its triggers apply, or the documented Quick/N/A path for an explicitly narrow docs/config task. After merge: `.claude/skills/tasks/references/post-merge.md`.
 ```
 
 ---
@@ -152,9 +166,9 @@ Premium or optional capabilities must **not** block Core MVP unless essential to
 
 ## Skills (every IPI task)
 
-**Always include:** `tasks`, `task-verifier`, `graphify`, `ponytail`, `fastest`, `explain`, plus the matching domain skill(s) from `.claude/skills/index-skills.md`.
+**Always use the canonical `tasks` rules, then name only the additional skills/tools actually required by this task.** Typical choices include `task-verifier`, `graphify`, `ipix-supabase`, `mastra`, `copilotkit`, `cloudinary`, `nextjs-developer`, Playwright, GitHub, Linear, Supabase, or other connected MCPs/CLIs.
 
-Do not add deprecated `ipix-task-lifecycle` or `pr-workflow` to new task skill lists.
+For every named skill/MCP/CLI/dashboard, state **why it is needed** and verify it is available before relying on it. If the mandatory verification flow above makes a tool required for this task (for example Graphify on substantial cross-file code work, Supabase MCP on schema/RLS work, or task-verifier Standard on substantial implementation), that tool **must also appear in this list**. If a tool is not relevant, record the applicable `N/A — <reason>` in the verification step rather than naming or invoking it. Do not add deprecated `ipix-task-lifecycle` or `pr-workflow` to new task skill lists.
 
 ---
 
