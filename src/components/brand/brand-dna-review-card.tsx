@@ -131,7 +131,7 @@ export function BrandDNAReviewCard({
       <CardContent className="space-y-4">
         {banner && (
           <p
-            role="status"
+            role={banner.kind === "error" ? "alert" : "status"}
             className={
               banner.kind === "error"
                 ? "text-sm text-[var(--destructive)]"

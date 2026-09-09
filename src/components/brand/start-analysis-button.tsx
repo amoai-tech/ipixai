@@ -40,7 +40,11 @@ export function StartAnalysisButton({
       <Button variant={variant} onClick={run} disabled={isPending}>
         {isPending ? "Starting…" : label}
       </Button>
-      {error && <p className="text-sm text-[var(--destructive)]">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-[var(--destructive)]">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

@@ -17,16 +17,26 @@ const VALID_DRAFT = {
   _workflow_run_id: "run-1",
 };
 
+const DEFAULT_BRAND_ROW = {
+  id: BRAND_ID,
+  name: "Acme",
+  org_id: "org-1",
+  brand_url: "https://acme.co",
+  intake_status: "draft_ready",
+  ai_profile: {},
+  approved_profile_at: null,
+};
+
 function fakeSupabase({
   brandRow,
   brandError = null,
-  hash = "H1",
-  hashError = null,
+  snapshot = { draft: null, hash: null },
+  snapshotError = null,
 }: {
   brandRow: Record<string, unknown> | null;
   brandError?: unknown;
-  hash?: string | null;
-  hashError?: unknown;
+  snapshot?: { draft: unknown; hash: string | null } | null;
+  snapshotError?: unknown;
 }) {
   return {
     from: () => ({
@@ -36,7 +46,7 @@ function fakeSupabase({
         }),
       }),
     }),
-    rpc: async () => ({ data: hash, error: hashError }),
+    rpc: async () => ({ data: snapshot, error: snapshotError }),
     // biome-ignore lint: test double, not a real SupabaseClient
   } as any;
 }
@@ -47,7 +57,7 @@ describe("loadBrandDetail", () => {
     expect(result).toEqual({ status: "not_found" });
   });
 
-  it("returns error on a query failure rather than a misleading empty state", async () => {
+  it("returns error on a brand query failure rather than a misleading empty state", async () => {
     const result = await loadBrandDetail(
       fakeSupabase({ brandRow: null, brandError: { message: "connection reset" } }),
       BRAND_ID,
@@ -55,20 +65,19 @@ describe("loadBrandDetail", () => {
     expect(result).toEqual({ status: "error" });
   });
 
-  it("loads a valid draft with its server-computed hash and extracted scores", async () => {
+  it("returns error when the draft snapshot RPC fails, rather than silently rendering no-draft", async () => {
+    const result = await loadBrandDetail(
+      fakeSupabase({ brandRow: DEFAULT_BRAND_ROW, snapshotError: { message: "rpc timeout" } }),
+      BRAND_ID,
+    );
+    expect(result).toEqual({ status: "error" });
+  });
+
+  it("loads a valid draft with its server-computed hash and extracted scores, from ONE atomic snapshot", async () => {
     const result = await loadBrandDetail(
       fakeSupabase({
-        brandRow: {
-          id: BRAND_ID,
-          name: "Acme",
-          org_id: "org-1",
-          brand_url: "https://acme.co",
-          intake_status: "draft_ready",
-          ai_profile: {},
-          ai_profile_draft: VALID_DRAFT,
-          approved_profile_at: null,
-        },
-        hash: "H1-computed",
+        brandRow: DEFAULT_BRAND_ROW,
+        snapshot: { draft: VALID_DRAFT, hash: "H1-computed" },
       }),
       BRAND_ID,
     );
@@ -82,23 +91,34 @@ describe("loadBrandDetail", () => {
     ]);
   });
 
-  it("degrades a malformed draft to null instead of throwing (page must not crash) — and still hashes it, since get_brand_draft_hash hashes raw JSON regardless of schema validity", async () => {
+  it("CRITICAL: draft content and its hash always come from the same snapshot call — closes the two-read race where a mutation between reads could bind an operator's approval to unreviewed content", async () => {
+    // A single supabase.rpc() mock backs both values here; there is no
+    // code path left in loadBrandDetail that could observe the draft from
+    // one moment and the hash from another.
+    let rpcCallCount = 0;
+    const supabase = fakeSupabase({ brandRow: DEFAULT_BRAND_ROW });
+    supabase.rpc = async () => {
+      rpcCallCount += 1;
+      return { data: { draft: VALID_DRAFT, hash: "H1-atomic" }, error: null };
+    };
+
+    const result = await loadBrandDetail(supabase, BRAND_ID);
+
+    expect(rpcCallCount).toBe(1);
+    expect(result.status).toBe("found");
+    if (result.status !== "found") return;
+    expect(result.detail.draft?.name).toBe("Acme");
+    expect(result.detail.draftHash).toBe("H1-atomic");
+  });
+
+  it("degrades a malformed draft to null instead of throwing (page must not crash) — and still hashes it, since the snapshot RPC hashes raw JSON regardless of schema validity", async () => {
     // This combination (draft: null, draftHash: non-null) is exactly the
     // state that previously broke the page's branching — see
     // select-view.test.ts for the regression on that logic.
     const result = await loadBrandDetail(
       fakeSupabase({
-        brandRow: {
-          id: BRAND_ID,
-          name: "Acme",
-          org_id: "org-1",
-          brand_url: "https://acme.co",
-          intake_status: "draft_ready",
-          ai_profile: {},
-          ai_profile_draft: { totally: "not a brand profile" },
-          approved_profile_at: null,
-        },
-        hash: "H1-still-computed",
+        brandRow: DEFAULT_BRAND_ROW,
+        snapshot: { draft: { totally: "not a brand profile" }, hash: "H1-still-computed" },
       }),
       BRAND_ID,
     );
@@ -110,30 +130,19 @@ describe("loadBrandDetail", () => {
     expect(result.detail.draftScores).toEqual([]);
   });
 
-  it("does not call get_brand_draft_hash when there is no draft", async () => {
-    let rpcCalled = false;
-    const supabase = fakeSupabase({
-      brandRow: {
-        id: BRAND_ID,
-        name: "Acme",
-        org_id: "org-1",
-        brand_url: "https://acme.co",
-        intake_status: "brand_created",
-        ai_profile: {},
-        ai_profile_draft: null,
-        approved_profile_at: null,
-      },
-    });
-    supabase.rpc = async () => {
-      rpcCalled = true;
-      return { data: null, error: null };
-    };
+  it("no draft: snapshot returns {draft: null, hash: null}, detail reflects both as null", async () => {
+    const result = await loadBrandDetail(
+      fakeSupabase({
+        brandRow: { ...DEFAULT_BRAND_ROW, intake_status: "brand_created" },
+        snapshot: { draft: null, hash: null },
+      }),
+      BRAND_ID,
+    );
 
-    const result = await loadBrandDetail(supabase, BRAND_ID);
-
-    expect(rpcCalled).toBe(false);
     expect(result.status).toBe("found");
     if (result.status !== "found") return;
+    expect(result.detail.draft).toBeNull();
     expect(result.detail.draftHash).toBeNull();
+    expect(result.detail.draftScores).toEqual([]);
   });
 });

@@ -14,9 +14,18 @@ import type { Database } from "@/lib/supabase/database.types";
  * Public-contract-first, matching the shoot detail pattern: RLS on
  * `public.brands` (`brands_select_org`) is the authorization boundary — a
  * foreign-org brand id simply returns no row, never a distinguishable
- * error, so existence is never leaked. `get_brand_draft_hash` is called
- * server-side only; the browser never recomputes or is trusted to supply
- * the reviewed-artifact hash (see approveDraft's exact-artifact contract).
+ * error, so existence is never leaked. `get_brand_draft_snapshot` is
+ * called server-side only; the browser never recomputes or is trusted to
+ * supply the reviewed-artifact hash (see approveDraft's exact-artifact
+ * contract).
+ *
+ * The draft and its hash come from ONE `get_brand_draft_snapshot` call,
+ * not a separate SELECT of `ai_profile_draft` plus a separate hash RPC —
+ * two independent reads of the same mutable column would let a
+ * regenerate landing between them bind the operator's Approve click to a
+ * hash for content they never actually saw (approve_brand_intelligence_draft
+ * would then silently promote whatever is CURRENT, not what was
+ * rendered).
  */
 
 export type BrandDetail = {
@@ -58,21 +67,20 @@ export async function loadBrandDetail(
 ): Promise<BrandDetailResult> {
   const { data: brand, error } = await supabase
     .from("brands")
-    .select("id, name, org_id, brand_url, intake_status, ai_profile, ai_profile_draft, approved_profile_at")
+    .select("id, name, org_id, brand_url, intake_status, ai_profile, approved_profile_at")
     .eq("id", brandId)
     .maybeSingle();
 
   if (error) return { status: "error" };
   if (!brand) return { status: "not_found" };
 
-  let draftHash: string | null = null;
-  if (brand.ai_profile_draft) {
-    const { data: hash, error: hashError } = await supabase.rpc("get_brand_draft_hash", {
-      p_brand_id: brandId,
-    });
-    if (hashError) return { status: "error" };
-    draftHash = hash ?? null;
-  }
+  const { data: snapshot, error: snapshotError } = await supabase.rpc("get_brand_draft_snapshot", {
+    p_brand_id: brandId,
+  });
+  if (snapshotError) return { status: "error" };
+
+  const rawDraft = (snapshot as { draft: unknown; hash: string | null } | null)?.draft ?? null;
+  const draftHash = (snapshot as { draft: unknown; hash: string | null } | null)?.hash ?? null;
 
   return {
     status: "found",
@@ -84,8 +92,8 @@ export async function loadBrandDetail(
       intakeStatus: brand.intake_status,
       approvedProfile: safeParseProfile(brand.ai_profile),
       approvedProfileAt: brand.approved_profile_at,
-      draft: brand.ai_profile_draft ? safeParseProfile(brand.ai_profile_draft) : null,
-      draftScores: brand.ai_profile_draft ? safeExtractDraftScores(brand.ai_profile_draft) : [],
+      draft: rawDraft ? safeParseProfile(rawDraft) : null,
+      draftScores: rawDraft ? safeExtractDraftScores(rawDraft) : [],
       draftHash,
     },
   };
