@@ -63,7 +63,7 @@ Use this as lifecycle-specific guidance on top of [linear-issue-steps.md](linear
 - Mistake we prevent: …
 - Source of truth: `<current repo/live contract/Linear section>`
 
-**Blocked by:** … · **Unblocks:** … · **Skills:** `ipix-task-lifecycle` · `<domain-slug>` … (see [domain-skill-routing.md](domain-skill-routing.md))
+**Blocked by:** … · **Unblocks:** … · **Skills:** `tasks` · `<domain-slug>` … (see [domain-skill-routing.md](domain-skill-routing.md))
 
 ---
 
@@ -105,7 +105,7 @@ UPDATE crm_deals SET stage = 'won' WHERE id = …;
 ## Verification instructions (for the implementing agent)
 
 **Naming — does it match what's already there?**
-- Before writing a new function/type/component name, grep for it: `grep -rn "<name>" src/` — if something with that name already exists, confirm in a comment whether this is an intentional wrapper/extension or a naming collision to rename away from. Never let two independent implementations share a name silently.
+- Before naming exploration, run `PATH="$HOME/.local/bin:$PATH" graphify query "<task naming question>"` when the graph exists, then grep the scoped paths for the candidate name. If something with that name already exists, confirm whether this is an intentional wrapper/extension or a naming collision to rename away from.
 
 **Source of truth — where does each claim in this ticket come from?**
 | Claim in this issue | Source (file:line / table / doc) | Re-check command |
@@ -189,7 +189,7 @@ Add **E — Regression guard** AC for safety-critical work:
 
 Every issue includes a **Verification instructions** block (see template) so the implementing agent re-checks the ticket's facts against live reality before treating them as true:
 
-- Naming: grep before reusing/extending a name — confirm wrapper-vs-collision.
+- Naming: Graphify first, then grep before reusing/extending a name — confirm wrapper-vs-collision.
 - Source of truth: a claim → source-file/table → re-check-command table, not assertions.
 - Proof: run each AC's `proof:` command yourself; a ticket's prose is never proof.
 - A ticket written months ago can drift from the codebase — this rule exists so drift is caught at implementation time, not just at spec time.
@@ -241,8 +241,8 @@ Run mentally (or via future `scripts/linear-lint-issue-spec.mjs`) before marking
 [ ] ≥2 Out of scope lines
 [ ] Every A–E step has proof:
 [ ] blockedBy matches any cross-issue AC dependency
-[ ] Local md synced to Linear (or sync planned in step E)
-[ ] Verification instructions block present — naming-check + source-of-truth table + proof-first directive
+[ ] Live Linear issue is the authoritative progress/evidence record; no local mirror required
+[ ] Verification instructions block present — graphify-first naming check + source-of-truth table + proof-first directive
 ```
 
 ---
