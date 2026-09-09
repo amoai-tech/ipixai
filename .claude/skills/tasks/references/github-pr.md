@@ -56,7 +56,7 @@ A bot summary or approval on an older SHA is stale evidence after a push.
 
 ## PR troubleshooting rule
 
-A review comment is a hypothesis, not authority.
+A review comment is a hypothesis, not authority. Follow the concrete re-check procedure in [`task-verifier/SKILL.md` § "Bot findings are hypotheses, not facts"](../../task-verifier/SKILL.md) — re-fetch the exact file(s) a bot names at the PR's current head before fixing or dismissing anything it reports; this file does not duplicate that procedure.
 
 For every actionable comment:
 
@@ -90,5 +90,5 @@ PR work is complete only when:
 ## Agent prompt
 
 ```text
-Prepare or troubleshoot this PR as part of the same Linear task. Re-read the task goal/DoD, inspect the exact diff versus current base, run the pre-commit and pre-merge gates, and verify every changed file belongs to scope. Build a reviewer-friendly PR body with outcome, architecture/reuse decisions, security/tenant impact, exact verification, reviewer fast path, non-goals, and post-merge checks. Inventory every substantive review thread, classify each before editing, route uncertain claims through the owning skill/MCP/official source, apply the smallest verified fix, rerun targeted proof, reply with evidence, and resolve only after proof. Do not merge until current-head required checks are green and no blocker remains.
+Prepare or troubleshoot this PR as part of the same Linear task. Re-read the task goal/DoD, inspect the exact diff versus current base, run the pre-commit and pre-merge gates, and verify every changed file belongs to scope. Build a reviewer-friendly PR body with outcome, architecture/reuse decisions, security/tenant impact, exact verification, reviewer fast path, non-goals, and post-merge checks. Inventory every substantive review thread, classify each before editing, route uncertain claims through the owning skill/MCP/official source, apply the smallest verified fix, rerun targeted proof, reply with evidence, and resolve only after proof. Before acting on any bot-reported finding, follow task-verifier/SKILL.md's bot-recheck procedure: re-fetch the exact file at the current head and confirm the finding still holds. Do not merge until current-head required checks are green and no blocker remains.
 ```
