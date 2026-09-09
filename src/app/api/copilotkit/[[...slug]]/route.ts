@@ -16,6 +16,8 @@ import {
 } from "@/lib/auth/planner-session";
 import { handle } from "hono/vercel";
 import { Observable } from "rxjs";
+import { requestToken } from "@/lib/request-token";
+import { createClientFromRequest } from "@/lib/supabase/server";
 
 import {
   ensureMastraThread,
@@ -236,7 +238,22 @@ async function handleCopilot(request: Request) {
     hooks: copilotAuthHooksFor(resourceId),
   });
 
-  return handle(app)(request);
+  // AUTH-002: tools that act as the operator (brand-intelligence start/approve)
+  // resolve identity from the verified session JWT, not from browser-supplied
+  // brand/actor IDs. requestToken.run scopes the token to this request's async
+  // context so Mastra tool execution can read it via requestToken.getStore().
+  // getVerifiedOperatorForRequest above uses getClaims() (identity only, no
+  // network round-trip); getSession() here is the separate call needed to
+  // recover the raw JWT itself for the user-scoped Supabase client tools use.
+  const authClient = createClientFromRequest(request);
+  const {
+    data: { session: authSession },
+  } = authClient
+    ? await authClient.auth.getSession()
+    : { data: { session: null } };
+  const accessToken = authSession?.access_token;
+
+  return requestToken.run(accessToken ?? "", () => handle(app)(request));
 }
 
 export const GET = handleCopilot;

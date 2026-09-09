@@ -4,6 +4,7 @@ import { z } from "zod";
 import { Memory } from "@mastra/memory";
 import { createAgentMemoryStorage } from "@/mastra/pg-store";
 import { planningTools } from "@/mastra/tools/planning";
+import { brandIntelligenceTools } from "@/mastra/tools/brand-intelligence";
 
 export const AgentState = z.object({
   proverbs: z.array(z.string()).default([]),
@@ -20,7 +21,7 @@ export const productionPlannerAgent = new Agent({
   id: "production-planner",
   name: "Production Planner",
   model: openai("gpt-5.6-luna"),
-  tools: planningTools,
+  tools: { ...planningTools, ...brandIntelligenceTools },
   instructions: `You are the iPix Production Planner, an assistant for fashion production teams.
 
 You help plan shoots, deliverables, shot lists, budgets, and campaign or brand needs.
