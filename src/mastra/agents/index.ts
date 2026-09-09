@@ -35,7 +35,13 @@ You have four planning tools: recommendShootType, planDeliverables, generateShot
 - Each returns status: "ok" or "needs_input". When a tool returns "needs_input", ask the operator for the listed missingInputs (or, for recommendShootType, ask them to pick between the listed candidates) instead of guessing or re-calling the tool with invented values.
 - Any assumptions the tool made (e.g. default rates) are listed with their source — mention them as assumptions, not facts, when you explain a result.
 - generateShotListDraft is available once an authorized iPix reference-selection/read path supplies its trustedReferenceShotTypes. Never ask the operator for raw reference shot types and never invent them; reference-backed shot lists await that path.
-- A tool result is a draft computation only. It is never saved, approved, or booked by calling the tool.`,
+- A planning tool result is a draft computation only. It is never saved, approved, or booked by calling the tool.
+
+You also have two brand-intelligence tools: startBrandAnalysis and approveDraft. Unlike the planning tools above, approveDraft performs a real, durable write.
+- startBrandAnalysis may only start a crawl and produce a draft for the operator to review. It never approves or publishes anything.
+- approveDraft is the only tool that promotes a draft to the brand's approved profile (or rejects it). Call it only after the operator has explicitly confirmed a specific decision on a specific draft they were shown — never infer or assume approval from ambiguous phrasing.
+- approveDraft requires the draftHash from the current review UI (the hash of the exact draft the operator is looking at). If you do not have a current draftHash for this brand, ask the operator to reopen/refresh the draft — do not guess, reuse an old one, or omit it.
+- If approveDraft returns ok: false, the decision was NOT recorded — relay its message to the operator plainly and do not claim the draft was approved or rejected.`,
   memory: new Memory({
     storage: createAgentMemoryStorage(),
     options: {

@@ -213,7 +213,7 @@ describe("approveDraft", () => {
     expect(result).toMatchObject({ ok: false });
   });
 
-  it("does not resume on replay of an already-approved decision (ALREADY_APPROVED)", async () => {
+  it("does not double-resume on replay of an already-approved decision (ALREADY_APPROVED)", async () => {
     mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: DRAFT }, error: null });
     mocks.rpc.mockResolvedValue({ data: { ok: true, code: "ALREADY_APPROVED" }, error: null });
 
@@ -222,9 +222,41 @@ describe("approveDraft", () => {
       ctx,
     );
 
-    // ok:true per the RPC contract (idempotent replay, not an error), but
-    // still gated by the RPC — the tool never resumes twice off one call.
+    // ok:true per the RPC contract (idempotent replay, not an error) — but
+    // an earlier call already resumed the workflow for this decision. A
+    // second resume attempt here would double-resume a step that already
+    // moved past saveDraftAndWait.
+    expect(mocks.resume).not.toHaveBeenCalled();
     expect(result).toMatchObject({ ok: true });
+  });
+
+  it("does not double-resume on replay of an already-rejected decision (ALREADY_REJECTED)", async () => {
+    mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: DRAFT }, error: null });
+    mocks.rpc.mockResolvedValue({ data: { ok: true, code: "ALREADY_REJECTED" }, error: null });
+
+    const result = await approveDraft.execute!(
+      { brandId: BRAND_ID, draftHash: "H1-reviewed", approved: false },
+      ctx,
+    );
+
+    expect(mocks.resume).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: true });
+  });
+
+  it("reports success with a retry hint when the RPC commits but the post-commit resume fails", async () => {
+    mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: DRAFT }, error: null });
+    mocks.rpc.mockResolvedValue({ data: { ok: true, code: "APPROVED" }, error: null });
+    mocks.resume.mockRejectedValue(new Error("run not suspended"));
+
+    const result = await approveDraft.execute!(
+      { brandId: BRAND_ID, draftHash: "H1-reviewed", approved: true },
+      ctx,
+    );
+
+    // The RPC already committed the decision durably; only the in-memory
+    // workflow resume failed. This must not throw and lose that fact.
+    expect(result).toMatchObject({ ok: true, approved: true });
+    expect((result as { message: string }).message).toMatch(/try again/);
   });
 
   it("does not resume on malformed scores (INVALID_DRAFT)", async () => {

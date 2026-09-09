@@ -43,8 +43,11 @@ create table if not exists public.brand_profile_approvals (
 
 alter table public.brand_profile_approvals enable row level security;
 
-create index brand_profile_approvals_brand_id_idx
+create index if not exists brand_profile_approvals_brand_id_idx
   on public.brand_profile_approvals (brand_id);
+
+drop policy if exists brand_profile_approvals_select_org
+  on public.brand_profile_approvals;
 
 create policy brand_profile_approvals_select_org
   on public.brand_profile_approvals

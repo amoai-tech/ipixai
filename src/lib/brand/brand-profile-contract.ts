@@ -59,7 +59,9 @@ export const brandProfileSchema = z
 
 export const brandDraftScoreSchema = z.object({
   score_type: z.string().min(1),
-  score: z.number(),
+  // Matches the approval RPC's own range check (0-100) so an out-of-range
+  // score is caught at draft generation, not only later at approval time.
+  score: z.number().min(0).max(100),
   score_version: z.number().int().min(1).default(1),
   source: z.string().min(1).default("edge_fn"),
   details: z.record(z.string(), z.unknown()).default({}),

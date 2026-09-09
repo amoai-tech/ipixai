@@ -15,6 +15,15 @@ function verifyInternalSecret(header: string | null, expected: string | undefine
 }
 
 export async function POST(request: Request) {
+  // Auth is a static shared secret compared against the header only — it
+  // needs no request body, so check it before reading/buffering the body.
+  // Otherwise an unauthenticated caller could force full-body buffering
+  // (up to MAX_BODY_BYTES) on every request before ever being rejected.
+  const signature = request.headers.get("x-internal-secret");
+  if (!verifyInternalSecret(signature, process.env.INTERNAL_WEBHOOK_SECRET)) {
+    return Response.json({ ok: false, error: { code: "unauthorized" } }, { status: 401 });
+  }
+
   const contentLength = Number(request.headers.get("content-length") ?? "0");
   if (contentLength > MAX_BODY_BYTES) {
     return Response.json({ ok: false, error: { code: "payload_too_large" } }, { status: 413 });
@@ -23,11 +32,6 @@ export async function POST(request: Request) {
   const rawBody = await request.text();
   if (Buffer.byteLength(rawBody, "utf8") > MAX_BODY_BYTES) {
     return Response.json({ ok: false, error: { code: "payload_too_large" } }, { status: 413 });
-  }
-
-  const signature = request.headers.get("x-internal-secret");
-  if (!verifyInternalSecret(signature, process.env.INTERNAL_WEBHOOK_SECRET)) {
-    return Response.json({ ok: false, error: { code: "unauthorized" } }, { status: 401 });
   }
 
   let body: { runId?: string; crawlId?: string; failed?: boolean; error?: string };

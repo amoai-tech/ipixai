@@ -105,7 +105,12 @@ const waitForCrawlOutputSchema = z.object({
 });
 
 const waitForCrawlResumeSchema = z.object({
-  crawlId: z.string().uuid(),
+  // Optional: a failure signal (failed:true) may arrive without a crawlId.
+  // The step checks `failed` before comparing crawlId, so this still fails
+  // the step cleanly via the "Crawl failed" branch rather than the resume
+  // being rejected by schema validation before the step ever runs, which
+  // would leave the workflow stuck suspended instead of failing closed.
+  crawlId: z.string().uuid().optional(),
   failed: z.boolean().optional(),
   error: z.string().optional(),
 });
@@ -333,7 +338,11 @@ const extractProfile = createStep({
       throw await failAnalysis(brandId, "No draft produced", draftError?.message ?? "ai_profile_draft empty after extraction");
     }
 
-    assertBrandProfile(draftBrand.ai_profile_draft);
+    try {
+      assertBrandProfile(draftBrand.ai_profile_draft);
+    } catch (err) {
+      throw await failAnalysis(brandId, "Draft failed Brand DNA validation", err);
+    }
 
     return { brandId };
   },
@@ -351,13 +360,18 @@ const saveDraftAndWait = createStep({
     if (!resumeData) {
       const sb = await requireServiceRoleClient();
 
+      // Every failure branch below routes through failAnalysis: intake_status
+      // is still "analysis_running" here (set by extractProfile) and stays
+      // that way on a bare throw, which the validateBrand claim guard treats
+      // as "already in progress" — permanently blocking any retry. See the
+      // matching comment on extractProfile's assertBrandProfile call above.
       const { data: brand, error: brandError } = await sb
         .from("brands")
         .select("ai_profile_draft")
         .eq("id", brandId)
         .single();
       if (brandError || !brand?.ai_profile_draft) {
-        throw new Error(`No draft to review: ${boundDetail(brandError?.message)}`);
+        throw await failAnalysis(brandId, "No draft to review", brandError?.message);
       }
 
       // The deployed brand-intelligence edge function does not write the
@@ -377,19 +391,21 @@ const saveDraftAndWait = createStep({
         })
         .eq("id", brandId);
       if (runIdError) {
-        throw new Error(
-          `Failed to record workflow run on draft: ${boundDetail(runIdError.message)}`,
-        );
+        throw await failAnalysis(brandId, "Failed to record workflow run on draft", runIdError.message);
       }
 
-      assertBrandProfile(draftWithRunId);
-      extractDraftScores(draftWithRunId);
+      try {
+        assertBrandProfile(draftWithRunId);
+        extractDraftScores(draftWithRunId);
+      } catch (err) {
+        throw await failAnalysis(brandId, "Draft failed Brand DNA validation", err);
+      }
 
       const { data: draftHash, error: hashError } = await sb.rpc("get_brand_draft_hash", {
         p_brand_id: brandId,
       });
       if (hashError || !draftHash) {
-        throw new Error(`Failed to compute draft hash: ${boundDetail(hashError?.message)}`);
+        throw await failAnalysis(brandId, "Failed to compute draft hash", hashError?.message);
       }
 
       const { error: statusError } = await sb
@@ -397,7 +413,7 @@ const saveDraftAndWait = createStep({
         .update({ intake_status: "draft_ready", updated_at: new Date().toISOString() })
         .eq("id", brandId);
       if (statusError) {
-        throw new Error(`Failed to mark draft ready: ${boundDetail(statusError.message)}`);
+        throw await failAnalysis(brandId, "Failed to mark draft ready", statusError.message);
       }
 
       return suspend({ brandId, draftHash }, { resumeLabel: "operator-review" });
