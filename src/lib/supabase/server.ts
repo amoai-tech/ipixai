@@ -3,13 +3,14 @@ import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
 
 import { getPublicSupabaseConfig } from "@/lib/supabase/env";
+import type { Database } from "@/lib/supabase/database.types";
 
 export async function createClient() {
   const config = getPublicSupabaseConfig();
   if (!config) return null;
   const cookieStore = await cookies();
 
-  return createServerClient(config.url, config.publishableKey, {
+  return createServerClient<Database>(config.url, config.publishableKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -34,7 +35,7 @@ export function createClientFromRequest(
   const config = getPublicSupabaseConfig();
   if (!config) return null;
 
-  return createServerClient(config.url, config.publishableKey, {
+  return createServerClient<Database>(config.url, config.publishableKey, {
     cookies: {
       getAll() {
         return parseCookieHeader(request.headers.get("cookie") ?? "");

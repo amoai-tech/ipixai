@@ -424,6 +424,10 @@ jobs:
           version: 2.116.0
       - run: supabase start
       - run: supabase db reset --local
+      - name: Verify generated Supabase types are deterministic and current
+        run: |
+          node scripts/generate-supabase-types.mjs --check
+          node scripts/generate-supabase-types.mjs --check
       - name: Schema / RLS / RPC assertions
         env:
           PGPASSWORD: postgres
