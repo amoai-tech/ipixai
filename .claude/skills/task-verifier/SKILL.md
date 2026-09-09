@@ -5,7 +5,7 @@ description: >
   failure-mode analysis, audits of completion claims, and before Linear Done. Consumes the canonical
   `tasks` standard, exact current code/PR head, tests/CI/runtime, and affected domain skills. It tries
   to disprove unsafe or incomplete claims rather than maintaining a parallel implementation lifecycle.
-version: "2.2.3"
+version: "2.3.0"
 ---
 
 # task-verifier — adversarial evidence gate
@@ -73,6 +73,26 @@ Use the cheapest authoritative proof that answers the claim:
 
 Memory, reviewer prose, scores, and status labels are not proof.
 
+### Citation requirement (every verdict)
+
+A verdict — `VERIFIED`, `PARTIAL`, `UNVERIFIED`, `FAILED`, `NOISE`, or any severity label — is a conclusion, not evidence. It must point at what it is based on. Every verdict requires:
+
+1. **The source**: exact file + line (or commit SHA), the exact command/query run, or the exact test/CI job and its output.
+2. **The result**: the specific quote or output that backs the verdict — not a paraphrase, not "looks fine."
+
+`"Verified against AGENTS.md"` is a claim. `AGENTS.md:158 — "TASK-ID is the real spec identifier such as MIGRATE-TEMPLATE"` is proof — it lets anyone (including a later pass by this same skill) re-check the verdict in seconds instead of re-deriving it from scratch. A verdict published without a citation is itself unproven and must be treated as `UNVERIFIED`, never accepted at face value.
+
+### Bot findings are hypotheses, not facts
+
+CodeRabbit, Kilo, Macroscope, and similar review bots produce hypotheses to check, not verdicts to apply. Before acting on any bot-reported finding:
+
+1. Re-fetch the exact file(s) the finding names **at the PR's current head** — not the state implied by the bot's comment, which can already be several commits stale.
+2. Confirm the finding still describes what is actually there.
+3. Cross-check against the higher-tier sources in Evidence priority above (code/PR head > tests/CI > Linear > `AGENTS.md`/`tasks` > domain skill) before fixing or dismissing it.
+4. If the finding is wrong, dismiss it as `NOISE` with the citation that disproves it (per Citation requirement above) — do not fix a bot-hallucinated issue just because a bot asked, and do not silently ignore it either.
+
+Example: a review bot flagged a PR title as violating format ("must say `SPEC`, not `TASK-ID`"). Re-checking `AGENTS.md`, `CLAUDE.md`, and `docs/linear/linear-format.md` at the PR's current head showed all three require literal `TASK-ID` (e.g. `MIGRATE-TEMPLATE`). The finding was `NOISE`, confirmed by citation — not fixed by assumption.
+
 ### Web search evidence (tier 8 — last resort, not first move)
 
 Web search is the cheapest-proof-first list's *fallback*, used only when runtime/code/tests/CI/Linear/domain-skill/installed-source evidence (tiers 1–7) cannot answer the question. When it is used:
@@ -87,7 +107,7 @@ Web search is the cheapest-proof-first list's *fallback*, used only when runtime
 
 1. **Task validity audit:** prove the gap still exists; detect stale assumptions, duplicate work, wrong architecture, obsolete APIs/files/routes, and ACs that do not prove the real user outcome.
 2. **Exact head:** record branch/PR SHA and changed paths before evaluating implementation evidence.
-3. **AC map:** classify every applicable AC as `VERIFIED`, `PARTIAL`, `UNVERIFIED`, or `FAILED` with concrete evidence.
+3. **AC map:** classify every applicable AC as `VERIFIED`, `PARTIAL`, `UNVERIFIED`, or `FAILED` with concrete, cited evidence (see Citation requirement).
 4. **Adversarial pre-mortem:** identify likely failure points and record a failure-mode matrix: trigger, impact, protection, proof, status.
 5. **False-green gate:** ask whether all listed tests could pass while the operator/business outcome is still broken; convert plausible false greens into missing proof.
 6. **Domain best practices:** load only affected domain skills and run the relevant checks from [domain-best-practices.md](references/domain-best-practices.md).
@@ -101,7 +121,7 @@ Web search is the cheapest-proof-first list's *fallback*, used only when runtime
 12. **Journey:** for user-facing work verify the complete business journey using [`../tasks/references/user-journey-testing.md`](../tasks/references/user-journey-testing.md); when Mastra participates, use the Mastra journey map for the AI/runtime/backend decomposition rather than duplicating it here.
 13. **Exact-head proof:** required CI/reviews/tests must apply to the current head; older green evidence is stale after a push.
 14. **Post-merge:** when claiming Done require applicable [`../tasks/references/post-merge.md`](../tasks/references/post-merge.md) evidence. Merge alone is insufficient.
-15. **Verdict:** blockers first, then high/medium findings, then improvements. Missing required evidence means not Done.
+15. **Verdict:** blockers first, then high/medium findings, then improvements. Every verdict is cited (see Citation requirement). Missing required evidence means not Done.
 
 ## Mastra false-green gate
 
@@ -169,5 +189,5 @@ Only **Standard** or **Adversarial** may publish a score, and only when the evid
 ## Agent prompt
 
 ```text
-Independently review this task and try to disprove Done. Read the live Linear task and `.claude/skills/tasks/SKILL.md`. Verify the task itself is still valid before evaluating implementation. Record the exact current branch/PR SHA. Map every AC to current evidence. Build a failure-mode matrix and identify plausible false-green scenarios where tests could pass but the real user outcome would still fail. Load only affected domain skills and check their current best-practice/security contracts. Automatically use Adversarial mode for auth/RLS/tenant, HITL/consequential AI, migrations/data integrity, production config/release, security-sensitive dependency changes, publishing/payments, destructive writes, and Mastra workflow resume/callback/storage/tenant-memory/cancellation/MCP-auth/sensitive-RequestContext changes. For material Mastra work identify the independent applicable proof classes and use the Mastra testing-gates/user-journeys references for domain proof patterns rather than recreating them. Do not substitute tool tests for routing, persistence for restart recall, stream closure for abort, or approval booleans for exact reviewed-artifact proof. If RequestContext/tracing/snapshots/evals changed, verify privacy/retention, realistic payload size, and reproducible versioned eval inputs. Test retry/idempotency/partial-failure/recovery where state can change; review supply-chain risk when manifests/lockfiles/actions change; require rollback/monitoring proof for deployment-affecting work. When tiers 1-7 cannot answer a load-bearing question, use web search only to falsify the current approach (known failure modes, breaking changes, advisories) with version-pinned queries against primary sources, and record the query and what it established. Classify findings by severity and category. Treat missing required evidence as not Done. Use numeric scores only when evidence is complete enough to justify them. End with the smallest fixes/proofs required to reach verified Done.
+Independently review this task and try to disprove Done. Read the live Linear task and `.claude/skills/tasks/SKILL.md`. Verify the task itself is still valid before evaluating implementation. Record the exact current branch/PR SHA. Map every AC to current evidence. Build a failure-mode matrix and identify plausible false-green scenarios where tests could pass but the real user outcome would still fail. Load only affected domain skills and check their current best-practice/security contracts. Automatically use Adversarial mode for auth/RLS/tenant, HITL/consequential AI, migrations/data integrity, production config/release, security-sensitive dependency changes, publishing/payments, destructive writes, and Mastra workflow resume/callback/storage/tenant-memory/cancellation/MCP-auth/sensitive-RequestContext changes. For material Mastra work identify the independent applicable proof classes and use the Mastra testing-gates/user-journeys references for domain proof patterns rather than recreating them. Do not substitute tool tests for routing, persistence for restart recall, stream closure for abort, or approval booleans for exact reviewed-artifact proof. If RequestContext/tracing/snapshots/evals changed, verify privacy/retention, realistic payload size, and reproducible versioned eval inputs. Test retry/idempotency/partial-failure/recovery where state can change; review supply-chain risk when manifests/lockfiles/actions change; require rollback/monitoring proof for deployment-affecting work. When tiers 1-7 cannot answer a load-bearing question, use web search only to falsify the current approach (known failure modes, breaking changes, advisories) with version-pinned queries against primary sources, and record the query and what it established. Every verdict — including NOISE dismissals of bot findings — must cite the exact file/line/commit/command/test output it is based on; re-check any bot-reported finding against the current PR head before acting on it, since bot findings are hypotheses, not facts. Classify findings by severity and category. Treat missing required evidence as not Done. Use numeric scores only when evidence is complete enough to justify them. End with the smallest fixes/proofs required to reach verified Done.
 ```
