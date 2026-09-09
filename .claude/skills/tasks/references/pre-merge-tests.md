@@ -100,6 +100,8 @@ Do not run preview/browser certification for pure helpers or isolated server log
 
 ## Current iPix pre-merge gaps to assess — do not silently change CI
 
+**These are a point-in-time snapshot, not a live fact.** Before citing any gap below as still true, re-verify it directly (`package.json`, `playwright.config.ts`, current CI workflow) — the repo changes independently of this file, and a gap fixed elsewhere without updating this list would otherwise be cited as still-open.
+
 These are verified observations from the current repo and should become explicit follow-up decisions when relevant:
 
 1. **No root lint script.** `package.json` has no `lint`; do not invent one in task instructions. Typecheck/tests/build are the current static gates. If linting is desired, create/own that change separately.
@@ -114,7 +116,7 @@ Do not put optional improvements on the critical path unless the task's risk req
 ## Agent prompt
 
 ```text
-Choose the smallest pre-merge test set that proves the risks introduced by this change. Start with exact Git diff/scope. Before any Read, Grep, Glob, or exploratory Bash codebase inspection, run Graphify when graphify-out/graph.json exists and use the scoped result to choose the static review surface. Map changed behavior to the test matrix, run targeted unit/component/SQL/integration tests first, then typecheck/build, then localhost browser proof, production-build smoke, preview E2E, or live-provider tests only when the risk requires them. For auth/tenant changes include negative and Org A/Org B proof; for critical Playwright journeys treat retry-pass as flaky until understood. Record each command, result, environment, tested SHA, and any skipped/N/A gate with reason. Stop merge readiness on unexplained P0/P1 failures or flakes.
+Choose the smallest pre-merge test set that proves the risks introduced by this change. Start with exact Git diff/scope. Before any Read, Grep, Glob, or exploratory Bash codebase inspection, run Graphify when graphify-out/graph.json exists and use the scoped result to choose the static review surface. Map changed behavior to the test matrix, run targeted unit/component/SQL/integration tests first, then typecheck/build, then localhost browser proof, production-build smoke, preview E2E, or live-provider tests only when the risk requires them. For auth/tenant changes include negative and Org A/Org B proof; for critical Playwright journeys treat retry-pass as flaky until understood. Before citing any "current iPix pre-merge gap" from this file, re-verify it against package.json/CI directly rather than assuming it is still true. Record each command, result, environment, tested SHA, and any skipped/N/A gate with reason. Stop merge readiness on unexplained P0/P1 failures or flakes.
 ```
 
 ## User-journey gate
