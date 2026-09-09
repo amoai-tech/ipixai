@@ -121,6 +121,30 @@ Use the cheapest reliable proof first and follow the risk-specific evidence rule
 
 Never claim production-ready, persistence, authentication, tenant isolation, HITL safety, or Done without the specific evidence required for that claim. Missing evidence is `BLOCKED` or `UNVERIFIED`.
 
+### Claude Code built-in accelerators
+
+Reuse Claude Code bundled skills instead of rebuilding equivalent orchestration:
+
+- `/code-review` = focused independent code/diff defect review.
+- `/run` = launch and drive the real application.
+- `/verify` = prove the changed behavior against the running application.
+
+They produce evidence; they do not replace `tasks`, domain skills, CI, or `task-verifier`.
+
+After PR #106 merges, from clean current `main`:
+
+1. run `/run-skill-generator` once to record the real iPix build/start/run recipe as a project skill;
+2. review and verify the generated recipe before committing it in a small follow-up PR;
+3. run `/skill-doctor` locally to identify unused or high-context skills and tune descriptions/visibility.
+
+## Skill authoring
+
+Prefer `.claude/skills/<name>/SKILL.md` for reusable procedures. `.claude/commands/` files are compatibility shims only when an equivalent project skill exists.
+
+For important behavioral skills such as `pr`, keep realistic prompts in `evals/evals.json` and compare a changed skill against the previous version before claiming the rewrite is better. Keep trigger conditions in the skill description, keep `SKILL.md` concise, and move detailed material into supporting references/scripts when needed.
+
+Side-effecting skills must require explicit user invocation or an equally strong human approval boundary. In particular, `/pr` is user-controlled and bare `/pr` is read-only; commit/push requires explicit `/pr ship`.
+
 ## Git / task safety
 
 - Work from clean current `origin/main` for substantial multi-step work.
