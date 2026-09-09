@@ -1,92 +1,51 @@
-# ipix-task-lifecycle
+# ipix-task-lifecycle — compatibility index
 
-Five-phase orchestrator for iPix platform work: **plan → research → implement → test → ship**.
+This legacy five-phase material is preserved for old prompts only. **New work must start from [`tasks`](../../tasks/SKILL.md)**, which owns substantial task execution, PR review, CI, and post-merge proof.
 
-**Canonical hub:** [SKILL.md](../SKILL.md) (v1.8.0) — this file is an index; when in doubt, read SKILL.md.
+Legacy conceptual phases remain available for compatibility:
+**plan → research → implement → test → ship**.
 
-## Discovery
+## Start here
 
+```text
+.claude/skills/tasks/SKILL.md
 ```
-.claude/skills/ipix-task-lifecycle/SKILL.md   ← start here
-```
 
-## `/task IPI-NNN` (summary)
+Do not load `ipix-task-lifecycle` or `pr-workflow` as the primary workflow for new work.
 
-See [SKILL.md § default flow](../SKILL.md). Phase 3: [Step 1b pre-edit gate](../implementation.md#step-1b--mandatory-pre-edit-gate) before any code edit.
+## Legacy phase modules
 
-## Phase modules (read one at a time)
+| Phase | Compatibility file |
+|-------|--------------------|
+| Plan | [planning.md](../planning.md) |
+| Research | [research.md](../research.md) |
+| Implement | [implementation.md](../implementation.md) |
+| Test | [testing.md](../testing.md) |
+| Ship | [shipping.md](../shipping.md) |
 
-| Phase | File |
-|-------|------|
-| 1 Plan | [planning.md](../planning.md) |
-| 2 Research | [research.md](../research.md) |
-| 3 Implement | [implementation.md](../implementation.md) |
-| 4 Test | [testing.md](../testing.md) |
-| 5 Ship | [shipping.md](../shipping.md) · [pr-workflow](../../pr-workflow/SKILL.md) |
+Each compatibility file must defer to the canonical `tasks` contract when instructions conflict.
 
-## Process skills
+## Canonical routing
 
-| Child | Purpose |
-|-------|---------|
-| [brainstorming](../../archive/brainstorming/SKILL.md) | Intent / design exploration |
-| [writing-plans](../../writing-plans/SKILL.md) | Implementation plan |
-| [mvp](../../mvp/SKILL.md) | Scope cuts |
-| [prd-template](prd-template.md) | Full PRD |
-| [breakdown-feature-prd](../../archive/brainstorming/breakdown-feature-prd/SKILL.md) | Epic → PRD |
-| [lean](../../lean/SKILL.md) | Repo / docs hygiene |
-| [feature-dev](../../archive/feature-dev/SKILL.md) | Multi-file architecture |
-| [graphify](../../graphify/SKILL.md) | Blast radius before multi-file reads |
+| Need | Owner |
+|------|-------|
+| Task structure/progress | [`tasks`](../../tasks/SKILL.md) + live Linear |
+| PR creation/verification | [`tasks/references/github-pr.md`](../../tasks/references/github-pr.md) |
+| Review comments | [`tasks/references/review-comments.md`](../../tasks/references/review-comments.md) |
+| Pre-merge tests | [`tasks/references/pre-merge-tests.md`](../../tasks/references/pre-merge-tests.md) |
+| Post-merge proof | [`tasks/references/post-merge.md`](../../tasks/references/post-merge.md) |
+| Independent Done gate | [`task-verifier`](../../task-verifier/SKILL.md) |
+| Domain HOW | relevant domain skill |
 
-## Domain skills (Phase 1 mandatory)
+## Useful compatibility references
 
-| Child | Purpose |
-|-------|---------|
-| [domain-skill-routing.md](domain-skill-routing.md) | Path heuristics + **Skills:** line |
-| [tasks/intelligence/ai/skill-map.md](../../../../tasks/intelligence/ai/skill-map.md) | Task → skill inventory |
-| [mastra](../../mastra/SKILL.md) | Agents, tools, workflows |
-| [copilotkit](../../copilotkit/SKILL.md) | CK v2 runtime/UI |
-| [ipix-supabase](../../ipix-supabase/SKILL.md) | Schema, RLS, edge |
-| [gemini](../../gemini/SKILL.md) | Structured AI output |
-| [worktrees](../../worktrees/SKILL.md) | Branch isolation |
-| [pr-workflow](../../pr-workflow/SKILL.md) | PR + verify matrix |
-| [task-verifier](../../task-verifier/SKILL.md) | Forensic Done gate |
+- [linear-issue-steps.md](linear-issue-steps.md)
+- [linear-prompt-engineering.md](linear-prompt-engineering.md)
+- [domain-skill-routing.md](domain-skill-routing.md)
+- [linear-spec-template.md](linear-spec-template.md)
+- [prd-template.md](prd-template.md)
+- [per-task-testing.md](per-task-testing.md)
+- [migration-safety.md](migration-safety.md)
+- [testing-matrix.md](testing-matrix.md)
 
-## Sibling skills
-
-| Skill | When |
-|-------|------|
-| [claude-md-improver](../../archive/claude-md-improver/SKILL.md) | CLAUDE.md + glossary |
-| [mermaid-diagrams](../../mermaid-diagrams/SKILL.md) | Linear diagrams |
-| [ipix-wireframe](../../ipix-wireframe/SKILL.md) | Lo-fi wireframes |
-
-## References
-
-| File | Contents |
-|------|----------|
-| [linear-issue-steps.md](linear-issue-steps.md) | A–E steps, gantt, personas |
-| [linear-prompt-engineering.md](linear-prompt-engineering.md) | Issues as agent prompts — SSOT |
-| [domain-skill-routing.md](domain-skill-routing.md) | mastra / supabase / … routing |
-| [linear-spec-template.md](linear-spec-template.md) | Issue markdown shape |
-| [prd-template.md](prd-template.md) | PRD structure |
-| [per-task-testing.md](per-task-testing.md) | Test per plan task |
-| [migration-safety.md](migration-safety.md) | Supabase migrations |
-| [audit-checklist.md](audit-checklist.md) | Phase 2 forensic |
-| [testing-matrix.md](testing-matrix.md) | Test routing |
-| [verifier-probes-ipix.md](verifier-probes-ipix.md) | task-verifier hooks |
-| [mcp-cadence-ipix.md](mcp-cadence-ipix.md) | Supabase MCP usage |
-| [shipping-templates.md](shipping-templates.md) | todo / commit templates |
-
-## Trackers
-
-- Live Linear project/issues — backlog, dependencies, execution/progress SSOT
-- [`tasks`](../../tasks/SKILL.md) — executable task specification/progress standard
-- [`supabase/README.md`](../../../../supabase/README.md) — remote DB ops
-
-## Worktree commands (hub summary)
-
-| When | Command |
-|------|---------|
-| Before add | `npm run worktree:audit` |
-| Create | `npm run worktree:add -- IPI-NNN slug` |
-| Before code (existing wt) | `npm run worktree:health` |
-| Before remove | `npm run worktree:pre-delete` |
+Live Linear is the task/progress/evidence source of truth. Do not recreate obsolete local todo/issue mirrors.
