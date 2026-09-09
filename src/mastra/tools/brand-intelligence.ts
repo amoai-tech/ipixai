@@ -196,24 +196,25 @@ export const approveDraft = createTool({
       };
     }
 
-    // Always attempt resume on any ok:true outcome — including ALREADY_APPROVED/
-    // ALREADY_REJECTED replays, not just a fresh APPROVED/REJECTED decision.
+    // State-aware reconciliation, not a blind resume-and-catch. An earlier
+    // version gated resume on outcome.code === "APPROVED" | "REJECTED" to
+    // avoid double-resuming; that overcorrected — if the RPC commits but that
+    // same resume call then fails (network blip, cold start), the *next* call
+    // gets ALREADY_APPROVED and — gated — would never attempt resume again,
+    // permanently orphaning the suspended run despite the DB decision being
+    // durably correct. A later version always attempted resume regardless of
+    // code, relying on Mastra's internal resume-claim dedup to make a
+    // redundant call safe — correct, but imprecise (can't tell "already
+    // resumed" from "genuinely failed" apart in the response).
     //
-    // An earlier version of this gated resume on outcome.code === "APPROVED" |
-    // "REJECTED" to avoid double-resuming. That overcorrected: if the RPC
-    // commits but this same resume call then fails (network blip, cold start),
-    // the *next* call gets ALREADY_APPROVED and — gated — would never attempt
-    // resume again, permanently orphaning the suspended run despite the DB
-    // decision being durably correct.
-    //
-    // Mastra's own resume() de-duplicates via a persisted "resume claim" (see
-    // WorkflowOptions.allowUnclaimedResumes, @mastra/core/dist/workflows/
-    // types.d.ts) — calling it again on a run already past saveDraftAndWait is
-    // the framework's problem to make safe, not this tool's. commitOrReject
-    // (the step resume advances into) is read-only re-verification of current
-    // DB state, so even a redundant resume has no side effect. Always
-    // attempting resume both avoids double-resume (framework dedup) and
-    // recovers an orphaned suspend (retry actually tries again).
+    // Read the run's actual persisted state first and only resume when it's
+    // still suspended:
+    //   - suspended: this decision (fresh or replayed after a failed first
+    //     resume) needs to actually resume the run — do it.
+    //   - anything else (success/failed/tripwire/not found): the run already
+    //     advanced past saveDraftAndWait (or never will), so there's nothing
+    //     to resume. The DB decision from the RPC is the durable truth either
+    //     way.
     const notFinished = (detail: string) => ({
       ok: true,
       approved,
@@ -223,29 +224,31 @@ export const approveDraft = createTool({
         `(${detail}).`,
     });
 
+    const { mastra } = await import("@/mastra");
+    const workflow = mastra.getWorkflow("brand-intelligence");
+
+    let runState: Awaited<ReturnType<typeof workflow.getWorkflowRunById>>;
     try {
-      const { mastra } = await import("@/mastra");
-      const workflow = mastra.getWorkflow("brand-intelligence");
-      const run = await workflow.createRun({ runId });
-      const resumeResult = await run.resume({
-        resumeData: { approved },
-        step: "saveDraftAndWait",
-      });
-      // resume() can report failure via a non-throwing result (status !==
-      // "success") as well as by throwing — WorkflowResult['status'] includes
-      // 'failed' | 'suspended' | 'tripwire' | etc. alongside 'success'.
-      // Checking only try/catch would miss that case.
-      if (resumeResult.status !== "success") {
-        return notFinished(resumeResult.status);
+      runState = await workflow.getWorkflowRunById(runId);
+    } catch (stateError) {
+      return notFinished(
+        stateError instanceof Error ? stateError.message : "could not read workflow state",
+      );
+    }
+
+    if (runState?.status === "suspended") {
+      try {
+        const run = await workflow.createRun({ runId });
+        const resumeResult = await run.resume({
+          resumeData: { approved },
+          step: "saveDraftAndWait",
+        });
+        if (resumeResult.status !== "success") {
+          return notFinished(resumeResult.status);
+        }
+      } catch (resumeError) {
+        return notFinished(resumeError instanceof Error ? resumeError.message : "resume failed");
       }
-    } catch (resumeError) {
-      // The RPC already committed the decision durably (ai_profile/audit row
-      // on approve, cleared draft on reject) — only the workflow resume
-      // failed (or, on a true replay, the run was already past this step,
-      // which Mastra may also surface as an error here). Report success with
-      // a retry hint rather than throwing: a retry re-hits the RPC (now
-      // ALREADY_APPROVED/ALREADY_REJECTED) and attempts resume again.
-      return notFinished(resumeError instanceof Error ? resumeError.message : "resume failed");
     }
 
     return {

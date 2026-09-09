@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   resume: vi.fn(),
   createRun: vi.fn(),
   getWorkflow: vi.fn(),
+  getWorkflowRunById: vi.fn(),
 }));
 
 vi.mock("@/lib/request-token", () => ({
@@ -76,6 +77,7 @@ function mockUserScopedClient() {
 function mockWorkflow() {
   mocks.getWorkflow.mockReturnValue({
     createRun: mocks.createRun,
+    getWorkflowRunById: mocks.getWorkflowRunById,
   });
   mocks.createRun.mockResolvedValue({
     startAsync: mocks.startAsync,
@@ -103,6 +105,7 @@ beforeEach(() => {
   mocks.getStore.mockReturnValue("tok");
   mocks.getUser.mockResolvedValue({ data: { user: { id: "op-1" } }, error: null });
   mocks.crawlLinkMaybeSingle.mockResolvedValue({ data: { id: "crawl-1" }, error: null });
+  mocks.getWorkflowRunById.mockResolvedValue({ status: "suspended" });
   mockUserScopedClient();
   mockWorkflow();
 });
@@ -213,9 +216,10 @@ describe("approveDraft", () => {
     expect(result).toMatchObject({ ok: false });
   });
 
-  it("still attempts resume on replay of an already-approved decision (ALREADY_APPROVED) — Mastra's own resume-claim dedup makes a redundant resume safe", async () => {
+  it("resumes on replay of an already-approved decision (ALREADY_APPROVED) when the run is still genuinely suspended", async () => {
     mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: DRAFT }, error: null });
     mocks.rpc.mockResolvedValue({ data: { ok: true, code: "ALREADY_APPROVED" }, error: null });
+    mocks.getWorkflowRunById.mockResolvedValue({ status: "suspended" });
     mocks.resume.mockResolvedValue({ status: "success" });
 
     const result = await approveDraft.execute!(
@@ -227,8 +231,9 @@ describe("approveDraft", () => {
     // was the bug: if the first call's RPC committed but its own resume then
     // failed, the next call gets ALREADY_APPROVED and — gated — would never
     // retry resume, orphaning the suspended run forever despite the DB
-    // decision being correct. Always attempting resume relies on Mastra's
-    // own resume-claim dedup to make a truly-redundant resume harmless.
+    // decision being correct. Checking the run's actual persisted state
+    // (not just the RPC's code) is what makes this precise.
+    expect(mocks.getWorkflowRunById).toHaveBeenCalledWith(RUN_ID);
     expect(mocks.resume).toHaveBeenCalledWith({
       resumeData: { approved: true },
       step: "saveDraftAndWait",
@@ -236,7 +241,22 @@ describe("approveDraft", () => {
     expect(result).toMatchObject({ ok: true });
   });
 
-  it("still attempts resume on replay of an already-rejected decision (ALREADY_REJECTED)", async () => {
+  it("does NOT attempt resume when the run already advanced past suspend (state check avoids a pointless/unsafe redundant resume)", async () => {
+    mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: DRAFT }, error: null });
+    mocks.rpc.mockResolvedValue({ data: { ok: true, code: "ALREADY_APPROVED" }, error: null });
+    // The earlier resume already landed — the run completed normally.
+    mocks.getWorkflowRunById.mockResolvedValue({ status: "success" });
+
+    const result = await approveDraft.execute!(
+      { brandId: BRAND_ID, draftHash: "H1-reviewed", approved: true },
+      ctx,
+    );
+
+    expect(mocks.resume).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: true });
+  });
+
+  it("still attempts resume on replay of an already-rejected decision (ALREADY_REJECTED) while the run remains suspended", async () => {
     mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: DRAFT }, error: null });
     mocks.rpc.mockResolvedValue({ data: { ok: true, code: "ALREADY_REJECTED" }, error: null });
     mocks.resume.mockResolvedValue({ status: "success" });
@@ -269,8 +289,25 @@ describe("approveDraft", () => {
     expect((result as { message: string }).message).toMatch(/try again/);
   });
 
-  it("recovers an orphaned suspend on retry: first call's resume fails (leaving the run suspended), a later ALREADY_APPROVED replay attempts resume again and succeeds", async () => {
+  it("reports success with a retry hint when resume() resolves with a non-throwing failure status", async () => {
     mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: DRAFT }, error: null });
+    mocks.rpc.mockResolvedValue({ data: { ok: true, code: "APPROVED" }, error: null });
+    // WorkflowResult.status includes 'failed'/'suspended'/etc as non-throwing
+    // outcomes — a try/catch-only check would miss this.
+    mocks.resume.mockResolvedValue({ status: "failed", error: new Error("step failed") });
+
+    const result = await approveDraft.execute!(
+      { brandId: BRAND_ID, draftHash: "H1-reviewed", approved: true },
+      ctx,
+    );
+
+    expect(result).toMatchObject({ ok: true, approved: true });
+    expect((result as { message: string }).message).toMatch(/try again/);
+  });
+
+  it("recovers an orphaned suspend on retry: first call's resume fails (leaving the run suspended), a later ALREADY_APPROVED replay checks state, finds it still suspended, and resumes it", async () => {
+    mocks.brandSingle.mockResolvedValue({ data: { ai_profile_draft: DRAFT }, error: null });
+    mocks.getWorkflowRunById.mockResolvedValue({ status: "suspended" });
 
     // First call: RPC commits APPROVED, but resume() fails (e.g. cold start).
     mocks.rpc.mockResolvedValueOnce({ data: { ok: true, code: "APPROVED" }, error: null });
@@ -283,8 +320,8 @@ describe("approveDraft", () => {
     expect(mocks.resume).toHaveBeenCalledTimes(1);
 
     // Retry: RPC now reports ALREADY_APPROVED (decision already durable).
-    // The run is still actually suspended (the first resume never landed) —
-    // this call must try resume again, not skip it.
+    // getWorkflowRunById still reports "suspended" (the first resume never
+    // landed) — this call must check that and resume again, not skip it.
     mocks.rpc.mockResolvedValueOnce({ data: { ok: true, code: "ALREADY_APPROVED" }, error: null });
     mocks.resume.mockResolvedValueOnce({ status: "success" });
     const second = await approveDraft.execute!(
