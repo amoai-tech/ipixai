@@ -200,7 +200,7 @@ AI proposes
 → durable result is recorded/read back
 ```
 
-Do not autonomously publish, pay, delete, or commit sensitive business state when human approval is appropriate.
+Do not autonomously publish, pay, delete, or commit sensitive business state.
 
 ## Code style
 
