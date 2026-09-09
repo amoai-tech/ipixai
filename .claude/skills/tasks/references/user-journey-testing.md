@@ -4,6 +4,18 @@ A user journey is not “does this page work?” It is whether the operator can 
 
 Prioritize a small number of business-critical journeys over broad low-value coverage.
 
+## Quick lookup — which canonical journey applies?
+
+Check this before reading the rest of the file. If the task touches:
+
+| Task type / area | Canonical journey (see below) |
+| -- | -- |
+| Brand URL, brand research, Brand DNA/Brand Brain | **Brand Intelligence** |
+| Campaign brief, Planner, shoot plan, shoot approval | **Production Planning** |
+| Planner chat, thread continuity, run/thread restore | **Planner chat continuity** |
+| Upload, Cloudinary, asset metadata, DNA analysis, product linking | **Assets** |
+| None of the above / a new journey | Define a new journey using the fields listed below; do not force-fit an unrelated canonical journey |
+
 For each journey define:
 - actor + starting state
 - business goal
@@ -142,7 +154,7 @@ If a workflow layer does not exist yet, mark it `N/A — owner task not landed`,
 ## Agent prompt
 
 ```text
-Identify the smallest set of business-critical user journeys affected by this task.
+Identify the smallest set of business-critical user journeys affected by this task, starting from the quick-lookup table if the task fits an existing canonical journey.
 
 For each journey:
 1. Define actor, starting state, business goal, observable success, systems crossed, durable writes, and approval boundaries.
