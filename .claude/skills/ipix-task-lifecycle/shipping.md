@@ -1,8 +1,8 @@
 # Phase 5 — Shipping
 
-Coordinator for **closing the loop** — PR, live Linear, git commit, and post-merge evidence. **Mandatory** for every shipped issue.
+Deprecated lifecycle compatibility coordinator for closing the loop. The canonical task/PR/post-merge workflow is `.claude/skills/tasks/SKILL.md` and its references.
 
-**PR + threads:** [pr-workflow](../pr-workflow/SKILL.md) · **Done gate:** [task-verifier](../task-verifier/SKILL.md)
+**PR + threads:** [tasks PR guidance](../tasks/references/github-pr.md) + [review comments](../tasks/references/review-comments.md) · **Done gate:** [task-verifier](../task-verifier/SKILL.md)
 
 ---
 
@@ -10,24 +10,24 @@ Coordinator for **closing the loop** — PR, live Linear, git commit, and post-m
 
 | | Criterion |
 |---|---|
-| **Entry** | Phase 4 verify matrix green. Proofs captured. |
-| **Exit** | **Never mark Done unless** Done gate in [SKILL.md](SKILL.md) is satisfied. PR merged (or waived) · threads resolved · post-merge proof recorded in Linear · user informed. |
+| **Entry** | Required risk-matched verification is green. Proofs captured. |
+| **Exit** | **Never mark Done unless** the canonical tasks post-merge gate and task-verifier requirements are satisfied. PR merged (or explicitly waived) · substantive threads resolved · post-merge proof recorded in Linear · user informed. |
 
 ---
 
 ## Shipping checklist
 
 ```
-[ ]  1. Run the risk-matched verification from tasks/pre-merge-tests and capture evidence.
+[ ]  1. Run the risk-matched verification from tasks/references/pre-merge-tests.md and capture evidence.
 [ ]  2. Run task-verifier when required; document a justified trivial-work waiver only when allowed.
 [ ]  3. Update the live Linear issue: acceptance criteria/progress, exact verification evidence, blockers, and next state.
 [ ]  4. PR: all substantive review threads classified/resolved; current-head CI/review freshness recorded.
-[ ]  5. Set Linear In Review while waiting on merge. Done only after tasks/post-merge proves the observable outcome.
+[ ]  5. Set Linear In Review while waiting on merge. Done only after tasks/references/post-merge.md proves the observable outcome.
 [ ]  6. Self-review exact git diff — one concern, no secrets, no debug residue.
 [ ]  7. Stage explicit task paths and commit with the repository task reference.
 [ ]  8. Push / merge only if user explicitly asks.
 [ ]  9. After merge: verify origin/main, main CI/deployment as applicable, task smoke/domain proof, then update Linear to 100% / Done.
-[ ] 10. Worktree teardown only after documentation/evidence preservation and post-merge requirements are satisfied.
+[ ] 10. Worktree teardown only after evidence preservation and post-merge requirements are satisfied.
 ```
 
 ## Canonical records
@@ -49,30 +49,10 @@ See [references/shipping-templates.md](references/shipping-templates.md).
 ### Commit message
 
 ```
-<type>(<area>): IPI-<n> <SPEC-ID> — <outcome>
+<type>(<area>): IPI-<n> <TASK-ID> — <outcome>
 
 Co-Authored-By: Claude <noreply@anthropic.com>
 ```
-
-| type | When |
-|------|------|
-| `feat` | New capability |
-| `fix` | Bug on shipped behavior |
-| `refactor` | No behavior change |
-| `docs` | Spec / todo / linear docs only |
-| `chore` | Tooling, deps |
-| `test` | Tests only |
-
-| area | When |
-|------|------|
-| `plt` | Platform / auth / env |
-| `ai` | Edge + Gemini |
-| `dna` | DNA scoring |
-| `ui` | Dashboard / operator UI |
-| `com` | Commerce (Mercur) |
-| `supabase` | Migrations / RLS |
-
----
 
 ## Linear update
 
@@ -84,7 +64,7 @@ Prefer the connected Linear MCP/API and write the verified task state directly t
 
 | Action | Allowed |
 |--------|---------|
-| Local commit | Yes — every Phase 5 |
+| Local commit | Yes when task execution authorizes it |
 | Push to remote | User explicitly requests |
 | Force-push main | Never |
 | Push to `main` | Never — `ipi/*` branch + PR only |
@@ -95,10 +75,10 @@ Prefer the connected Linear MCP/API and write the verified task state directly t
 
 | Situation | Action |
 |-----------|--------|
-| Small forward fix | Follow-up commit; update todo row note |
-| Bad migration | Rollback SQL from migration comment; repair per supabase/README |
-| Broken edge fn | Redeploy previous version; reopen issue |
-| Unclear regression | `git revert`; set Linear Back to In Progress |
+| Small forward fix | Follow-up commit; update Linear evidence |
+| Bad migration | Follow owning Supabase rollback/recovery plan; reopen task |
+| Broken edge fn | Restore previous known-good version; reopen task |
+| Unclear regression | `git revert`; set Linear back to In Progress |
 
 ---
 
@@ -106,11 +86,11 @@ Prefer the connected Linear MCP/API and write the verified task state directly t
 
 | Need | Route to |
 |------|----------|
-| Linear step format | [references/linear-issue-steps.md](references/linear-issue-steps.md) |
-| Commit templates | [references/shipping-templates.md](references/shipping-templates.md) |
+| Canonical task/PR workflow | [tasks](../tasks/SKILL.md) |
+| PR create/verify | [tasks PR guidance](../tasks/references/github-pr.md) |
+| Review comments/threads | [tasks review comments](../tasks/references/review-comments.md) |
 | Forensic Done gate | [task-verifier](../task-verifier/SKILL.md) |
-| PR create, verify, threads, merge | [pr-workflow](../pr-workflow/SKILL.md) |
-| After merge (verify main, Linear, risks, runtime) | [tasks post-merge](../tasks/references/post-merge.md) — merge ≠ Done |
+| After merge | [tasks post-merge](../tasks/references/post-merge.md) |
 | Worktree cleanup | [worktrees](../worktrees/SKILL.md) |
 
-After Phase 5: use the live Linear project/dependency state to identify the next eligible task.
+After Phase 5: use live Linear project/dependency state to identify the next eligible task.
