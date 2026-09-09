@@ -24,6 +24,8 @@ Hard rules:
 
 Historical migrations now fresh-replay in CI. The repository's `supabase-fresh-replay` job runs a real local Supabase database and `supabase db reset --local`; this is the canonical reproducibility gate. Linked/live inspection is a separate read-only comparison, not a substitute for replay.
 
+For migration-bearing PRs, protected `main` requires both `Supabase Preview` and `supabase-fresh-replay`, plus explicit human approval. Per IPI-1171, merging to `main` is the production approval point because the enabled Supabase GitHub Integration has **Deploy to production** ON. Do not follow older instructions that call for a second manual `supabase db push --linked` after merge.
+
 ### Verify before opening the PR
 
 Run the cheapest applicable proof in this order:
