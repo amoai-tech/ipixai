@@ -149,7 +149,15 @@ Follow `AGENTS.md` § Secrets / Infisical as the repository source of truth. Do 
 
 ## Response style
 
-Get to the point. For engineering work report:
+Get to the point — no filler, no hedging. For every response:
+
+1. **Plain English first.** 1–2 sentences, no unexplained jargon.
+2. **A real iPix example when it clarifies the point** — a lookbook, Matching, a shoot, Brand Hub, the asset/Cloudinary pipeline, a real file/PR from this repo. Skip this step only when the answer is already simple enough that an example would just repeat it.
+3. **The technical detail** — the actual mechanism, file, or command.
+
+Example: not "implemented conditional rendering to prevent layout shift," but "if a model photo fails to load, we swap in a placeholder card the same size instead of leaving a gap — like a lookbook page that never leaves an empty frame. Tech: `showImage ? <img> : <User>` with `useState` onError."
+
+For engineering work, report:
 
 - Result
 - Problem / blocker
