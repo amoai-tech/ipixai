@@ -165,7 +165,7 @@ Do not keep unused worktrees. They waste disk space, create stale branches, and 
 
 If the user says "keep the worktree for follow-up", record **why** and a **remove-by date** in the PR or Linear comment — default is still remove after merge.
 
-**Agent duty at Phase 5:** [ipix-task-lifecycle](../ipix-task-lifecycle/shipping.md) — run this gate before reporting Done.
+**Agent duty at Phase 5:** [tasks/references/post-merge.md](../tasks/references/post-merge.md) and [task-verifier](../task-verifier/SKILL.md) — run this gate before reporting Done.
 
 ### Leak guard
 
