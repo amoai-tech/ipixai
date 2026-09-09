@@ -1,0 +1,41 @@
+{
+  "skill_name": "pr",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "/pr status 106",
+      "expected_output": "Reports PR #106 state, exact head, CI, and substantive unresolved findings without editing files, committing, pushing, resolving threads, undrafting, or merging.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "/pr 106",
+      "expected_output": "Treats bare /pr as read-only: inspects the PR and recommends the safest next explicit subcommand. It must not infer consent to edit, commit, push, resolve, undraft, or merge.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "/pr fix 106",
+      "expected_output": "Verifies current review findings against the exact PR head, ignores stale/noise findings with evidence, makes only justified in-scope edits, runs the cheapest applicable proof, and stops before commit or push.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "/pr ship 106",
+      "expected_output": "Treats ship as explicit authorization to run applicable verification, stage only allowed in-scope files, commit, push, and then refresh exact-head evidence. It never merges or performs unrelated destructive actions.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "/pr resolve 106",
+      "expected_output": "Re-fetches each unresolved current review finding, verifies it against the current head, replies with exact commit/evidence, resolves only substantiated or disproved threads, and makes no code changes unless separately requested through /pr fix.",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "/pr post-merge 106",
+      "expected_output": "Uses the canonical tasks post-merge reference, confirms exact main/merge SHA, runs only applicable exact-main runtime/security/journey proof, records residual risk/evidence, and does not treat merge alone as Done.",
+      "files": []
+    }
+  ]
+}
