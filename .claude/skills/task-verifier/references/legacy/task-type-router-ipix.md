@@ -1,12 +1,12 @@
 # Task-type router — iPix
 
-**Parent:** [../SKILL.md](../SKILL.md)
+**Parent:** [../../SKILL.md](../../SKILL.md)
 
 Detect task type **first** (Phase 0). Apply the matching template gate — do not run IPI sections on SCR specs or vice versa.
 
 ## Verification depth (Quick vs Full)
 
-Used by [quick-gate.md](./quick-gate.md) Phase 0. Artifact type (below) selects **template**; this table selects **depth**.
+Used by [../quick-gate.md](../quick-gate.md) Phase 0. Artifact type (below) selects **template**; this table selects **depth**.
 
 | Task type | Default mode | Minimum checks |
 |-----------|:------------:|----------------|
@@ -40,12 +40,12 @@ Override: user says `quick` or `full`. Escalate Quick → Full on 🔴 productio
 | Spec md exists or Linear description complete | ✅ |
 | Acceptance criteria with provable commands | ✅ |
 | `blockedBy` / dependencies honored | MCP or md |
-| Skills per [skill-map.md](../../../../tasks/intelligence/ai/skill-map.md) | Phase 5b |
+| Skills per [skill-map.md](../../../../../tasks/intelligence/ai/skill-map.md) | Phase 5b |
 | Wireframe in Linear description (UI tasks) | `## Wireframe` section |
-| Phase 5b + verify matrix before Done | [pr-workflow verify-matrix](../../pr-workflow/references/verify-matrix.md) |
+| Phase 5b + verify matrix before Done | [tasks pre-merge-tests](../../../tasks/references/pre-merge-tests.md) |
 | Evidence path | PR body + `docs/ecommerce/evidence/YYYY-MM-DD/` when user-facing |
 
-**Lifecycle:** [ipix-task-lifecycle](../../ipix-task-lifecycle/SKILL.md) · [linear-issue-steps.md](../../ipix-task-lifecycle/references/linear-issue-steps.md)
+**Lifecycle:** [ipix-task-lifecycle](../../../ipix-task-lifecycle/SKILL.md) · [linear-issue-steps.md](../../../ipix-task-lifecycle/references/linear-issue-steps.md)
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Companion:** [mcp-cadence-ipix.md](./mcp-cadence-ipix.md) · [skills-compliance-ipix.md](./skills-compliance-ipix.md) · `.claude/skills/task-verifier/SKILL.md`
 
-**Script:** `bash .claude/skills/task-verifier/scripts/probe-disk-ipix.sh [app|supabase|skills|git]`
+**Script:** `bash .claude/skills/task-verifier/scripts/legacy/probe-disk-ipix.sh [app|supabase|skills|git]`
 
 ## Universal (every ship)
 
@@ -14,12 +14,12 @@
 | Tests (operator) | `cd app && npm test` | exit 0 |
 | RLS | `infisical run -- npm run supabase:verify-rls` | all checks when DB touched |
 | Client env | `npm run check:env` | exit 0 (Vite `src/` only) |
-| No Gemini in client | `rg 'GEMINI_API_KEY|VITE_GEMINI' app/ src/` | no matches |
-| Edge inventory | `ls supabase/functions/*/index.ts` | matches [edge-functions-inventory.md](../../ipix-supabase/references/edge-functions/edge-functions-inventory.md) |
+| No Gemini in client | `rg 'GEMINI_API_KEY\|VITE_GEMINI' app/ src/` | no matches |
+| Edge inventory | `ls supabase/functions/*/index.ts` | matches [edge-functions-inventory.md](../../../ipix-supabase/references/edge-functions/edge-functions-inventory.md) |
 
 ## IPI-126 / BI-OPS-002 (migration push gate)
 
-Linear [IPI-126](https://linear.app/amo100/issue/IPI-126) · tracker [`docs/linear/issues/README.md`](../../../docs/linear/issues/README.md)
+Linear [IPI-126](https://linear.app/amo100/issue/IPI-126) · tracker [`docs/linear/issues/README.md`](../../../../../docs/linear/issues/README.md)
 
 | Probe | Command / check | Pass |
 |-------|-----------------|------|
@@ -34,7 +34,7 @@ Linear [IPI-126](https://linear.app/amo100/issue/IPI-126) · tracker [`docs/line
 
 ## IPI-26 / IPI-BI-003 (schema v2)
 
-Linear [IPI-26](https://linear.app/amo100/issue/IPI-26) · spec [`IPI-26-IPI-BI-003.md`](../../../../docs/linear/issues/IPI-26-IPI-BI-003.md)
+Linear [IPI-26](https://linear.app/amo100/issue/IPI-26) · spec [`IPI-26-IPI-BI-003.md`](../../../../../docs/linear/issues/IPI-26-IPI-BI-003.md)
 
 | Probe | Command / check | Pass |
 |-------|-----------------|------|
@@ -55,14 +55,14 @@ Linear [IPI-26](https://linear.app/amo100/issue/IPI-26) · spec [`IPI-26-IPI-BI-
 
 ## IPI-24 / IPI-BI-001 (Firecrawl crawl pipeline)
 
-Linear [IPI-24](https://linear.app/amo100/issue/IPI-24) · spec [`IPI-24-IPI-BI-001.md`](../../../../docs/linear/issues/IPI-24-IPI-BI-001.md)
+Linear [IPI-24](https://linear.app/amo100/issue/IPI-24) · spec [`IPI-24-IPI-BI-001.md`](../../../../../docs/linear/issues/IPI-24-IPI-BI-001.md)
 
 | Probe | Command / check | Pass |
 |-------|-----------------|------|
 | Dependencies | IPI-46 + IPI-26 **Done** | before start |
 | Shared wrapper | `test -f supabase/functions/_shared/firecrawl.ts` | file exists |
 | Edge fns | `ls supabase/functions/start-brand-crawl supabase/functions/firecrawl-webhook` | both dirs |
-| No client SDK | `rg '@mendable/firecrawl|firecrawl-js' app/src src/` | 0 matches |
+| No client SDK | `rg '@mendable/firecrawl\|firecrawl-js' app/src src/` | 0 matches |
 | Migration | `ls supabase/migrations/*brand_crawls*` | `20260627000000_brand_crawls_job_pages.sql` |
 | Job table | SQL: `to_regclass('public.brand_crawls')` | not null |
 | Job enums | `brand_crawl_job_status`, `brand_crawl_pipeline_state` | `pg_type` |
@@ -101,7 +101,7 @@ Linear [IPI-24](https://linear.app/amo100/issue/IPI-24) · spec [`IPI-24-IPI-BI-
 | Layer | Default | Notes |
 |-------|---------|-------|
 | **As-built edge** | `gemini-2.5-flash` | `brand-intelligence/index.ts` |
-| **Target (AI-018)** | `gemini-3.5-flash` | [`tasks/intelligence/plans/gemini-plan.md`](../../../tasks/intelligence/plans/gemini-plan.md) |
+| **Target (AI-018)** | `gemini-3.5-flash` | [`tasks/intelligence/plans/gemini-plan.md`](../../../../../tasks/intelligence/plans/gemini-plan.md) |
 | **Mastra agent server** | `google/gemini-3.5-flash` | Verify provider registry at AIOR-001 |
 
 ## Dashboard / UI probes (operator app)

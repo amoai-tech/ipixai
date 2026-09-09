@@ -28,7 +28,8 @@ Split **required** (✅ / explicit in map) vs **optional** (— / "if Client").
 ## Step 2 — Exist on disk
 
 ```bash
-test -f .claude/skills/<slug>/SKILL.md && echo OK || echo MISSING
+SLUG="<fill-in-skill-slug>"
+test -f ".claude/skills/${SLUG}/SKILL.md" && echo OK || echo MISSING
 ```
 
 | Result | Severity |
@@ -64,10 +65,10 @@ Probe only skills whose domain touches **changed files** this task/PR.
 | | CSS modules / tokens | no raw legacy hex in changed `.module.css` / inline styles |
 | | Parity documented | Report ≥75% or gaps listed per design-to-production § scoring |
 | `ipix-supabase` | RLS on new tables | migration has `enable row level security` + policies |
-| | No service role in client | `rg 'SERVICE_ROLE|service_role' app/src` on changed files → 0 |
+| | No service role in client | `rg 'SERVICE_ROLE\|service_role' app/src` on changed files → 0 |
 | | Migrations in repo | `ls supabase/migrations/*.sql` matches spec |
 | `copilotkit` | v2 imports only | `rg '@copilotkit/react-core/v2' app/src` · no v1 paths |
-| `pr-workflow` | One concern per PR | `git diff --stat main...HEAD` — no docs+code mix |
+| `tasks` | One concern per PR | `git diff --stat main...HEAD` — no docs+code mix |
 | | Verify matrix in PR | PR body lists commands run |
 | `worktrees` | Branch naming | `git branch --show-current` matches `ipi/<id>-*` |
 | | Not direct to main | never push feature to `main` |
@@ -76,7 +77,7 @@ Probe only skills whose domain touches **changed files** this task/PR.
 | | Matches local SSOT | diff vs `wireframes/*.md` if SCR task |
 | `nextjs-developer` | Server Components default | pages without `'use client'` unless justified |
 | | Server Actions for mutations | forms/mutations not raw client fetch to secrets |
-| `gemini` | Keys server-only | `rg 'GEMINI_API_KEY|NEXT_PUBLIC_GEMINI' app/src` → 0 |
+| `gemini` | Keys server-only | `rg 'GEMINI_API_KEY\|NEXT_PUBLIC_GEMINI' app/src` → 0 |
 | | Edge or Mastra path | AI calls in `supabase/functions/` or `app/src/mastra/` |
 | `frontend-design` | `design.md` consulted | UI task references tokens / OperatorPanel patterns |
 | `cloudinary` | No raw upload secrets client-side | keys in server/edge only |
