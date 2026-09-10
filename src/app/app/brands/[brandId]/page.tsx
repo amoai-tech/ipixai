@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ErrorState } from "@/components/ui/error-state";
 import { StatusChip } from "@/components/ui/status-chip";
 import { appWorkspaceDependencies, requireResolvedAppWorkspace } from "@/lib/auth/app-shell";
+import { isHttpUrl } from "@/lib/brand/brand-profile-contract";
 import { isDatabaseUuid } from "@/lib/database-uuid";
 import { loadBrandDetail, type BrandDetail } from "@/lib/brand/get-brand-detail";
 import { selectBrandDetailView } from "./select-view";
@@ -184,7 +185,7 @@ export default async function BrandDetailPage({
     <div className="mx-auto max-w-3xl space-y-6 p-8">
       <div>
         <h1 className="text-2xl font-semibold">{detail.name}</h1>
-        {detail.brandUrl && (
+        {detail.brandUrl && isHttpUrl(detail.brandUrl) ? (
           <a
             href={detail.brandUrl}
             target="_blank"
@@ -193,6 +194,14 @@ export default async function BrandDetailPage({
           >
             {detail.brandUrl}
           </a>
+        ) : (
+          detail.brandUrl && (
+            // task-verifier finding: brand_url has no format validation on
+            // every write path (e.g. CRM deal conversion copies a free-text
+            // domain field verbatim). Never render an unsafe scheme as a
+            // clickable href — show the stored value as plain text instead.
+            <p className="text-sm text-[var(--muted-foreground)]">{detail.brandUrl}</p>
+          )
         )}
       </div>
       {body}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { brandEvidenceSchema, brandProfileSchema } from "@/lib/brand/brand-profile-contract";
+import { brandEvidenceSchema, brandProfileSchema, isHttpUrl } from "@/lib/brand/brand-profile-contract";
 
 /**
  * IPI-1093 · BRAND-INTEL-001 (task-verifier finding) — evidence.sourceUrl
@@ -55,5 +55,18 @@ describe("brandProfileSchema sourceUrl and nested evidence", () => {
   it("accepts the same profile with only http(s) URLs", () => {
     const result = brandProfileSchema.safeParse(BASE_PROFILE);
     expect(result.success).toBe(true);
+  });
+});
+
+describe("isHttpUrl (task-verifier finding — also guards brands.brand_url render site)", () => {
+  it.each(["javascript:alert(1)", "data:text/html,<script>alert(1)</script>", "not a url", ""])(
+    "rejects %s",
+    (unsafe) => {
+      expect(isHttpUrl(unsafe)).toBe(false);
+    },
+  );
+
+  it.each(["https://acme.co", "http://acme.co"])("accepts %s", (safe) => {
+    expect(isHttpUrl(safe)).toBe(true);
   });
 });

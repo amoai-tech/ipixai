@@ -9,8 +9,16 @@ export const BRAND_PROFILE_SCHEMA_VERSION = 2 as const;
  * AI/crawler-derived and later rendered directly as `<a href>` in
  * BrandDNAReviewCard, so an untrusted scheme here is a stored-XSS vector,
  * not just a cosmetic validation gap. Restrict to http(s).
+ *
+ * Also reused at the Brand Detail page's own `brand_url` render site
+ * (task-verifier finding): `brands.brand_url` has no format validation
+ * on every write path — the CRM deal-conversion RPC
+ * (crm_deals_convert_validate_company_org_all_decisions.sql) copies
+ * `crm_companies.domain`, a free-text column, straight into `brand_url`
+ * with only a trim/empty check. The render site must not trust the
+ * database to always contain a safe URL.
  */
-function isHttpUrl(value: string): boolean {
+export function isHttpUrl(value: string): boolean {
   try {
     const protocol = new URL(value).protocol;
     return protocol === "http:" || protocol === "https:";
