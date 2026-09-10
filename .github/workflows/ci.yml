@@ -524,4 +524,11 @@ jobs:
             -f supabase/migrations/20260907040000_ipi1163_sb_sec_revoke_excess_anon_grants.sql
           psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/tests/security/ipi1163-sb-sec.sql
+
+          # IPI-1093 · BRAND-INTEL-001 (task-verifier finding) — org isolation
+          # for get_brand_draft_snapshot. Needs the real auth.users/
+          # organizations schema from the full replay above, not a bare-
+          # Postgres mock, so it runs here rather than as its own job.
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/ipi1093-brand-draft-snapshot-isolation.sql
       - run: supabase stop

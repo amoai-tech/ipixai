@@ -4730,6 +4730,7 @@ export type Database = {
         Returns: Json
       }
       get_brand_draft_hash: { Args: { p_brand_id: string }; Returns: string }
+      get_brand_draft_snapshot: { Args: { p_brand_id: string }; Returns: Json }
       get_event_registration_count: {
         Args: { p_event_id: string }
         Returns: number
