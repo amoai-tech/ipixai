@@ -107,7 +107,7 @@ export default async function BrandDetailPage({
 }: {
   params: Promise<{ brandId: string }>;
 }) {
-  await requireResolvedAppWorkspace(appWorkspaceDependencies);
+  const operator = await requireResolvedAppWorkspace(appWorkspaceDependencies);
 
   const supabase = await appWorkspaceDependencies.getServerClient();
   if (!supabase) {
@@ -133,6 +133,19 @@ export default async function BrandDetailPage({
 
   const { detail } = result;
 
+  // Bot finding (Kilo) — real UX gap: Approve/Reject are correctly denied
+  // server-side (approveDraft's RPC enforces is_org_editor_or_above), but
+  // showing an active-looking button to a viewer who can't act on it is
+  // misleading. RLS scopes this to the operator's own membership row, so a
+  // viewer never learns another member's role from it.
+  const { data: membership } = await supabase
+    .from("org_members")
+    .select("role")
+    .eq("org_id", detail.orgId)
+    .eq("user_id", operator.id)
+    .maybeSingle();
+  const canDecide = membership?.role === "owner" || membership?.role === "editor";
+
   let body: React.ReactNode;
   switch (selectBrandDetailView(detail)) {
     case "review":
@@ -144,6 +157,7 @@ export default async function BrandDetailPage({
           draft={detail.draft!}
           draftHash={detail.draftHash!}
           draftScores={detail.draftScores}
+          canDecide={canDecide}
         />
       );
       break;

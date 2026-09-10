@@ -97,11 +97,16 @@ export function BrandDNAReviewCard({
   draft,
   draftHash,
   draftScores,
+  canDecide,
 }: {
   brandId: string;
   draft: BrandProfile;
   draftHash: string;
   draftScores: BrandDraftScore[];
+  /** Bot finding (Kilo) — the RPC already enforces editor/owner server-side
+   *  (the real authorization boundary); this only hides/disables the
+   *  controls so a viewer isn't shown actions that will fail. */
+  canDecide: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -181,12 +186,21 @@ export function BrandDNAReviewCard({
         <ScoresBlock scores={draftScores} />
       </CardContent>
       <CardFooter className="flex flex-wrap items-center gap-2">
-        <Button onClick={() => decide(true)} disabled={isPending}>
+        <Button onClick={() => decide(true)} disabled={isPending || !canDecide}>
           {isPending ? "Submitting…" : "Approve"}
         </Button>
-        <Button variant="destructive" onClick={() => decide(false)} disabled={isPending}>
+        <Button
+          variant="destructive"
+          onClick={() => decide(false)}
+          disabled={isPending || !canDecide}
+        >
           Reject
         </Button>
+        {!canDecide && (
+          <p className="text-xs text-[var(--muted-foreground)]">
+            Only editors and owners can approve or reject this draft.
+          </p>
+        )}
       </CardFooter>
     </Card>
   );

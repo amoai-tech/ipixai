@@ -60,14 +60,14 @@ afterEach(() => cleanup());
 describe("BrandDNAReviewCard", () => {
   it("CRITICAL: renders no Regenerate/start-analysis action — the workflow's claim guard rejects a new run while intake_status='draft_ready' (the status this card is shown for), so a one-click regenerate here would always silently fail", () => {
     render(
-      <BrandDNAReviewCard brandId={BRAND_ID} draft={DRAFT} draftHash={DRAFT_HASH} draftScores={[]} />,
+      <BrandDNAReviewCard brandId={BRAND_ID} draft={DRAFT} draftHash={DRAFT_HASH} draftScores={[]} canDecide />,
     );
     expect(screen.queryByRole("button", { name: /regenerate/i })).toBeNull();
   });
 
   it("Approve calls decideBrandDraft with approved:true and the exact unmodified draftHash prop", async () => {
     render(
-      <BrandDNAReviewCard brandId={BRAND_ID} draft={DRAFT} draftHash={DRAFT_HASH} draftScores={[]} />,
+      <BrandDNAReviewCard brandId={BRAND_ID} draft={DRAFT} draftHash={DRAFT_HASH} draftScores={[]} canDecide />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: /approve/i }));
@@ -80,7 +80,7 @@ describe("BrandDNAReviewCard", () => {
 
   it("CRITICAL: Reject calls decideBrandDraft with approved:false, not true — a swapped boolean here would silently approve what the operator meant to reject", async () => {
     render(
-      <BrandDNAReviewCard brandId={BRAND_ID} draft={DRAFT} draftHash={DRAFT_HASH} draftScores={[]} />,
+      <BrandDNAReviewCard brandId={BRAND_ID} draft={DRAFT} draftHash={DRAFT_HASH} draftScores={[]} canDecide />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: /reject/i }));
@@ -93,7 +93,7 @@ describe("BrandDNAReviewCard", () => {
 
   it("displays the exact draftHash it was given, never a recomputed one — no client-side hashing of draft content occurs", async () => {
     render(
-      <BrandDNAReviewCard brandId={BRAND_ID} draft={DRAFT} draftHash={DRAFT_HASH} draftScores={[]} />,
+      <BrandDNAReviewCard brandId={BRAND_ID} draft={DRAFT} draftHash={DRAFT_HASH} draftScores={[]} canDecide />,
     );
 
     // The card truncates for display but the value must be a literal
@@ -109,7 +109,7 @@ describe("BrandDNAReviewCard", () => {
     });
 
     render(
-      <BrandDNAReviewCard brandId={BRAND_ID} draft={DRAFT} draftHash={DRAFT_HASH} draftScores={[]} />,
+      <BrandDNAReviewCard brandId={BRAND_ID} draft={DRAFT} draftHash={DRAFT_HASH} draftScores={[]} canDecide />,
     );
     fireEvent.click(screen.getByRole("button", { name: /approve/i }));
 
@@ -119,12 +119,34 @@ describe("BrandDNAReviewCard", () => {
 
   it("on a committed decision (ok:true), refreshes the page to re-read durable truth", async () => {
     render(
-      <BrandDNAReviewCard brandId={BRAND_ID} draft={DRAFT} draftHash={DRAFT_HASH} draftScores={[]} />,
+      <BrandDNAReviewCard brandId={BRAND_ID} draft={DRAFT} draftHash={DRAFT_HASH} draftScores={[]} canDecide />,
     );
     fireEvent.click(screen.getByRole("button", { name: /approve/i }));
 
     await vi.waitFor(() => {
       expect(mocks.refresh).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("bot finding (Kilo): canDecide=false disables Approve/Reject and never calls decideBrandDraft even on click — the RPC's editor/owner check is the real boundary, this just avoids a misleading enabled control for a viewer", () => {
+    render(
+      <BrandDNAReviewCard
+        brandId={BRAND_ID}
+        draft={DRAFT}
+        draftHash={DRAFT_HASH}
+        draftScores={[]}
+        canDecide={false}
+      />,
+    );
+
+    const approve = screen.getByRole("button", { name: /approve/i }) as HTMLButtonElement;
+    const reject = screen.getByRole("button", { name: /reject/i }) as HTMLButtonElement;
+    expect(approve.disabled).toBe(true);
+    expect(reject.disabled).toBe(true);
+
+    fireEvent.click(approve);
+    fireEvent.click(reject);
+    expect(mocks.decideBrandDraft).not.toHaveBeenCalled();
+    expect(screen.getByText(/only editors and owners can approve or reject/i)).toBeDefined();
   });
 });
