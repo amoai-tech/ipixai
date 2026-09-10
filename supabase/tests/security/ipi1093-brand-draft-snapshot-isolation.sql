@@ -1,6 +1,6 @@
 -- IPI-1093 · BRAND-INTEL-001 — get_brand_draft_snapshot org isolation.
 --
--- get_brand_draft_snapshot (20260909173135) is `language sql ... set
+-- get_brand_draft_snapshot (20260909224846) is `language sql ... set
 -- search_path = ''` with no `security definer` — it runs SECURITY INVOKER,
 -- so RLS on public.brands (brands_select_org) governs it like any ordinary
 -- authenticated read. This proves that isn't just a reading of the
