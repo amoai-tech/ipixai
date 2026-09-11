@@ -75,6 +75,37 @@ describe("BrandsSearchFilter", () => {
     expect(failedChip.getAttribute("aria-pressed")).toBe("true");
   });
 
+  it("'ready' status is its own filter chip, distinct from 'analyzing'", () => {
+    const brands: BrandListItem[] = [
+      ...BRANDS,
+      {
+        id: "b4",
+        name: "Ready Reserve",
+        brandUrl: null,
+        intakeStatus: "ready",
+        approvedProfileAt: null,
+      },
+    ];
+    render(<BrandsSearchFilter brands={brands} />);
+    fireEvent.click(screen.getByRole("button", { name: "Ready" }));
+    expect(screen.getByText("Ready Reserve")).toBeDefined();
+    expect(screen.queryByText("Maison Solène")).toBeNull();
+    expect(screen.queryByText("Atelier Rive")).toBeNull();
+    expect(screen.queryByText("Nova Studio")).toBeNull();
+  });
+
+  it("sorts the grid by name via the sort control", () => {
+    render(<BrandsSearchFilter brands={BRANDS} />);
+    fireEvent.change(screen.getByRole("combobox", { name: "Sort brands" }), {
+      target: { value: "name-asc" },
+    });
+    const names = screen.getAllByRole("listitem").map((li) => li.textContent);
+    const positions = ["Atelier Rive", "Maison Solène", "Nova Studio"].map((name) =>
+      names.findIndex((text) => text?.includes(name)),
+    );
+    expect(positions).toEqual([...positions].toSorted((a, b) => a - b));
+  });
+
   it("renders an honest no-match state instead of an empty grid", () => {
     render(<BrandsSearchFilter brands={BRANDS} />);
     fireEvent.change(screen.getByRole("searchbox", { name: "Search brands" }), {

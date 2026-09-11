@@ -4,8 +4,11 @@ import { useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import {
+  BRAND_SORT_OPTIONS,
   BRAND_STATUS_FILTERS,
   filterBrands,
+  sortBrands,
+  type BrandSortOption,
   type BrandStatusFilter,
 } from "@/lib/brand/brand-list-filters";
 import type { BrandListItem } from "@/lib/brand/get-brands";
@@ -14,19 +17,20 @@ import { BrandCard } from "./BrandCard";
 import styles from "./brands-list.module.css";
 
 /**
- * IPI-1068 · BRAND-001 — client-side search + status filter over the
+ * IPI-1068 · BRAND-001 — client-side search + status filter + sort over the
  * already-fetched (server-authorized) brand page. No new Supabase reads:
- * filtering the org-scoped list `BrandsListStates` already loaded, not a
- * second, browser-supplied query — so there's no tenant-boundary surface
- * here to get wrong.
+ * filtering/sorting the org-scoped list `BrandsListStates` already loaded,
+ * not a second, browser-supplied query — so there's no tenant-boundary
+ * surface here to get wrong.
  */
 export function BrandsSearchFilter({ brands }: { brands: BrandListItem[] }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<BrandStatusFilter>("all");
+  const [sortOption, setSortOption] = useState<BrandSortOption>("newest");
 
   const filtered = useMemo(
-    () => filterBrands(brands, { query, statusFilter }),
-    [brands, query, statusFilter],
+    () => sortBrands(filterBrands(brands, { query, statusFilter }), sortOption),
+    [brands, query, statusFilter, sortOption],
   );
 
   return (
@@ -58,6 +62,18 @@ export function BrandsSearchFilter({ brands }: { brands: BrandListItem[] }) {
             </button>
           ))}
         </div>
+        <select
+          aria-label="Sort brands"
+          className={styles.sortSelect}
+          value={sortOption}
+          onChange={(e) => setSortOption(e.target.value as BrandSortOption)}
+        >
+          {BRAND_SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {filtered.length === 0 ? (

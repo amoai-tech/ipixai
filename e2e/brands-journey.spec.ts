@@ -74,11 +74,23 @@ async function getOwnFirstBrand(page: Page): Promise<DiscoveredBrand | null> {
  *  broken (it only matched statuses no live brand actually had). Duplicated
  *  rather than imported: Playwright specs here don't resolve the `@/` alias
  *  the way the Next.js app and Vitest suite do. */
-function expectedFilterFor(brand: DiscoveredBrand): "Approved" | "Draft" | "Analyzing" | "Failed" {
+function expectedFilterFor(
+  brand: DiscoveredBrand,
+): "Approved" | "Draft" | "Analyzing" | "Ready" | "Failed" {
   if (brand.approvedProfileAt !== null) return "Approved";
   if (brand.intakeStatus === "brand_created" || brand.intakeStatus === "draft_ready") return "Draft";
   if (brand.intakeStatus === "failed") return "Failed";
-  return "Analyzing"; // crawl_running, crawl_complete, analysis_running, scores_complete, ready
+  if (brand.intakeStatus === "ready") return "Ready";
+  return "Analyzing"; // crawl_running, crawl_complete, analysis_running, scores_complete
+}
+
+/** Exact canonical identity for a brand card: the record's real id via its
+ *  detail-route href, not a name regex. Brand ID is the actual record
+ *  identity — names are not guaranteed unique forever, and a regex-name
+ *  locator could silently match the wrong card (or a false positive) if two
+ *  brands ever share a name. */
+function brandCardLocator(page: Page, brandId: string) {
+  return page.locator(`a[href="/app/brands/${brandId}"]`);
 }
 
 test.describe("brands browse (authenticated)", () => {
@@ -107,9 +119,9 @@ test.describe("brands browse (authenticated)", () => {
       return;
     }
 
-    const card = page.getByRole("link", { name: new RegExp(brand.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) });
+    const card = brandCardLocator(page, brand.id);
     await expect(card).toBeVisible();
-    await expect(card).toHaveAttribute("href", `/app/brands/${brand.id}`);
+    await expect(card).toContainText(brand.name);
   });
 
   test("search narrows the list live, and clears back to the full grid", async ({ page }) => {
@@ -137,7 +149,7 @@ test.describe("brands browse (authenticated)", () => {
     // Any bucket other than the correct one — proves exclusion without
     // hardcoding "Failed", which is currently always wrong for every real
     // brand and would silently pass even if every filter were broken.
-    const wrongFilter = (["Approved", "Draft", "Analyzing", "Failed"] as const).find(
+    const wrongFilter = (["Approved", "Draft", "Analyzing", "Ready", "Failed"] as const).find(
       (f) => f !== correctFilter,
     )!;
 
