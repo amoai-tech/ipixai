@@ -3,10 +3,7 @@ import {
   validateBrandProfilePayload,
 } from "../schemas/brand-profile.ts";
 import { getOptionalSecret } from "../env.ts";
-import {
-  resolveBiProviderFromEnv,
-  resolveDnaProviderFromEnv,
-} from "./allowlist.ts";
+import { resolveBiProviderFromEnv } from "./allowlist.ts";
 import type { AiProvider, StructuredGenerationScope } from "./types.ts";
 import { orderPromptMessages } from "./constraints.ts";
 import {
@@ -140,16 +137,9 @@ export function resolveStructuredProviderFromEnv(env: {
     });
   }
   if (scope === "dna") {
-    // resolveDnaProviderFromEnv can still return "groq" (IPI-1093 removed
-    // Groq/Cloudflare only from the brand-intelligence/"bi" path — DNA
-    // vision is a separate, not-yet-reconciled-into-this-repo function; see
-    // allowlist.ts's doc comment). generateStructuredContent below falls
-    // through to the generic "not wired" error for that case rather than
-    // silently mishandling it, since there's no Groq client left to call.
-    return resolveDnaProviderFromEnv({
-      aiProvider: env.aiProvider,
-      dnaUseGemini: env.dnaUseGemini,
-    });
+    throw new Error(
+      'Structured scope "dna" is not wired in this module; audit-asset-dna owns its provider path separately.',
+    );
   }
   const provider = (env.aiProvider ?? "gemini").trim().toLowerCase();
   if (provider === "gemini") return provider;
@@ -176,13 +166,9 @@ export async function generateStructuredContent<T>(
 ): Promise<StructuredGenerationResult<T>> {
   const provider = resolveStructuredProvider(options.scope);
   if (provider === "gemini") {
-    return generateGeminiStructured<T>(options);
+    return await generateGeminiStructured<T>(options);
   }
   throw new Error(`Structured provider "${provider}" is not wired.`);
 }
 
-export {
-  resolveAiProvider,
-  resolveBiProvider,
-  resolveDnaProvider,
-} from "./allowlist.ts";
+export { resolveAiProvider, resolveBiProvider } from "./allowlist.ts";
