@@ -137,6 +137,10 @@ describe("IPI-1116 · CLD-UPLOAD-001 direct signed upload contract", () => {
     expect(fetchMock.mock.calls[1][0]).toBe(
       "https://api.cloudinary.com/v1_1/ipix-cloudinary/auto/upload",
     );
+    const signSignal = fetchMock.mock.calls[0][1].signal as AbortSignal;
+    const providerSignal = fetchMock.mock.calls[1][1].signal as AbortSignal;
+    expect(signSignal).toBeInstanceOf(AbortSignal);
+    expect(providerSignal).toBe(signSignal);
     const formData = fetchMock.mock.calls[1][1].body as FormData;
     expect(formData.get("file")).toBeInstanceOf(File);
     expect(formData.get("type")).toBe("authenticated");
@@ -145,6 +149,37 @@ describe("IPI-1116 · CLD-UPLOAD-001 direct signed upload contract", () => {
     expect(formData.get("context")).toBe(signedResponse().context);
     expect(formData.has("api_secret")).toBe(false);
     expect(screen.queryByText("Ready")).toBeNull();
+  });
+
+  it("cancels an active upload and ignores later request completion", async () => {
+    let resolveSign!: (response: Response) => void;
+    const signResponse = new Promise<Response>((resolve) => {
+      resolveSign = resolve;
+    });
+    const fetchMock = vi.fn().mockReturnValueOnce(signResponse);
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ShootAssetUploader brandId={BRAND_ID} shootId={SHOOT_ID} />);
+    fireEvent.change(screen.getByLabelText("Upload image files"), {
+      target: { files: [image("cancel-me.png")] },
+    });
+
+    await screen.findByText("Uploading…");
+    const signal = fetchMock.mock.calls[0][1].signal as AbortSignal;
+    expect(signal.aborted).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(signal.aborted).toBe(true);
+    expect(await screen.findByText("Cancelled")).not.toBeNull();
+
+    resolveSign(jsonResponse(signedResponse()));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(screen.getByText("Cancelled")).not.toBeNull();
+    expect(screen.queryByText("Processing")).toBeNull();
+    expect(screen.queryByText("Failed")).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("fails closed when Cloudinary reports a non-authenticated delivery type", async () => {

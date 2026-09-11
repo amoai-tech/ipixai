@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,7 @@ import {
 const MAX_FILES_PER_BATCH = 10;
 const IMAGE_MIME_PREFIX = "image/";
 
-type UploadStatus = "uploading" | "processing" | "failed";
+type UploadStatus = "uploading" | "processing" | "failed" | "cancelled";
 
 type UploadItem = {
   id: number;
@@ -41,14 +41,33 @@ function uploadErrorMessage(error: unknown): string {
 export function ShootAssetUploader({ brandId, shootId }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const nextId = useRef(0);
+  const controllers = useRef(new Map<number, AbortController>());
   const [items, setItems] = useState<UploadItem[]>([]);
   const [batchError, setBatchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const activeControllers = controllers.current;
+    return () => {
+      for (const controller of activeControllers.values()) controller.abort();
+      activeControllers.clear();
+    };
+  }, []);
 
   function updateItem(id: number, update: Partial<UploadItem>) {
     setItems((current) => current.map((item) => (item.id === id ? { ...item, ...update } : item)));
   }
 
+  function updateActiveItem(id: number, update: Partial<UploadItem>) {
+    setItems((current) =>
+      current.map((item) =>
+        item.id === id && item.status !== "cancelled" ? { ...item, ...update } : item,
+      ),
+    );
+  }
+
   async function upload(item: UploadItem) {
+    const controller = new AbortController();
+    controllers.current.set(item.id, controller);
     updateItem(item.id, { status: "uploading", error: undefined });
     try {
       const signResponse = await fetch("/api/cloudinary/sign", {
@@ -59,6 +78,7 @@ export function ShootAssetUploader({ brandId, shootId }: Props) {
           v2_shoot_id: shootId,
           paramsToSign: {},
         }),
+        signal: controller.signal,
       });
       if (!signResponse.ok) throw new Error("signing_failed");
 
@@ -66,16 +86,27 @@ export function ShootAssetUploader({ brandId, shootId }: Props) {
       const providerResponse = await fetch(directUploadUrl(contract.cloudName), {
         method: "POST",
         body: buildDirectUploadFormData(item.file, contract),
+        signal: controller.signal,
       });
       if (!providerResponse.ok) throw new Error("provider_upload_failed");
 
       // Processing is the terminal success state for this task.  IPI-1115
       // owns the notification route that can later prove durable Ready.
       parseAuthenticatedUploadResult(await providerResponse.json());
-      updateItem(item.id, { status: "processing" });
+      if (!controller.signal.aborted) updateActiveItem(item.id, { status: "processing" });
     } catch (error) {
-      updateItem(item.id, { status: "failed", error: uploadErrorMessage(error) });
+      if (!controller.signal.aborted) {
+        updateActiveItem(item.id, { status: "failed", error: uploadErrorMessage(error) });
+      }
+    } finally {
+      if (controllers.current.get(item.id) === controller) controllers.current.delete(item.id);
     }
+  }
+
+  function cancelUpload(id: number) {
+    controllers.current.get(id)?.abort();
+    controllers.current.delete(id);
+    updateItem(id, { status: "cancelled", error: undefined });
   }
 
   function addFiles(files: FileList | File[]) {
@@ -133,8 +164,24 @@ export function ShootAssetUploader({ brandId, shootId }: Props) {
             <li key={item.id} className="flex flex-wrap items-center gap-2 text-sm">
               <span className="font-medium">{item.file.name}</span>
               <span role="status">
-                {item.status === "uploading" ? "Uploading…" : item.status === "processing" ? "Processing" : "Failed"}
+                {item.status === "uploading"
+                  ? "Uploading…"
+                  : item.status === "processing"
+                    ? "Processing"
+                    : item.status === "cancelled"
+                      ? "Cancelled"
+                      : "Failed"}
               </span>
+              {item.status === "uploading" && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => cancelUpload(item.id)}
+                >
+                  Cancel
+                </Button>
+              )}
               {item.status === "failed" && (
                 <>
                   <span role="alert" className="text-[var(--destructive)]">{item.error}</span>
