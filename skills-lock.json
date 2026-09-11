@@ -1,11 +1,23 @@
 {
   "version": 1,
   "skills": {
+    "automate-manual-test-cases": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/automate-manual-test-cases/SKILL.md",
+      "computedHash": "e599d21158cc76107d67dfd79f66f0ea1ecbe3d9f870c8342d304ab0e7165880"
+    },
     "code-review": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/engineering/code-review/SKILL.md",
       "computedHash": "caa9a086baaf9e0f7cd71f64edfa83da6821c05e826b083221f3d02e3d6a1905"
+    },
+    "debug-fix-failed-flaky-autotests": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/debug-fix-failed-flaky-autotests/SKILL.md",
+      "computedHash": "341a0e1f977574440073d265a25c1ea1ec7d5c6fd4ed62cbb0c12b4744d447b5"
     },
     "diagnosing-bugs": {
       "source": "mattpocock/skills",
@@ -13,11 +25,155 @@
       "skillPath": "skills/engineering/diagnosing-bugs/SKILL.md",
       "computedHash": "37b5e9c624513551da790b52864dc8c84bff996a6d03a380cc6facdcc0a88354"
     },
+    "epic-requirements-specification": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/epic-requirements-specification/SKILL.md",
+      "computedHash": "8130ecc7cad0fe68997b4c31e2fbb8ba0dd9b7d33d1d041739182ccf2ac5e472"
+    },
+    "explorbot-fundamentals": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/explorbot-fundamentals/SKILL.md",
+      "computedHash": "8c6133cf6a4a0725122da7cd47f8b963ad3e00010517797b1759dbd0bfdd4240"
+    },
+    "explorbot-plan": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/explorbot-plan/SKILL.md",
+      "computedHash": "4666f15982ea4aa5bdfe8f2cd76083db378ff382724f8206bba8d39900754f17"
+    },
+    "explorbot-setup": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/explorbot-setup/SKILL.md",
+      "computedHash": "61534d034f8bcf1d71fcb4ea9fdc5427bc6ba4ebe63c79096e34e0474d40573c"
+    },
+    "improve-test-cases": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/improve-test-cases/SKILL.md",
+      "computedHash": "3da59e9eb9bc93671f43fa71a553d1b5ba9e0648573ee56c47c538736138b113"
+    },
+    "prima": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/prima/SKILL.md",
+      "computedHash": "8d95ed273421fae0d7d16e2dd99ef6d14399df3cf3dc99fc8585a6056d904317"
+    },
+    "pull-request-diff-analyzer": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/pull-request-diff-analyzer/SKILL.md",
+      "computedHash": "339609a3febf9b9136de2fc3ffc44ab0a51a2cd16e22ebc311903919bc2b08ad"
+    },
+    "qa-automation-test-consolidation": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/qa-automation-test-consolidation/SKILL.md",
+      "computedHash": "d303c26e7dd8bad020bcb729831f178a4bf995937bb53a11f6368d15734e54b1"
+    },
+    "qa-data-seeder": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/qa-data-seeder/SKILL.md",
+      "computedHash": "4e649c5652a50cd6afe1795aee0ad899867169a8409da26bcb7ea84071aa1e94"
+    },
+    "qa-e2e-tests-reporting": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/qa-e2e-tests-reporting/SKILL.md",
+      "computedHash": "77ec64822b62172431c89afada88894b932c05aa2065a45e1a90e555abf2999e"
+    },
+    "qa-explain-behavior": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/qa-explain-behavior/SKILL.md",
+      "computedHash": "e26dec6deb34e25741b2112c63da0eb887d27ca7c747c5978f45f7043f8f7695"
+    },
+    "qa-lead-strategy-advisor": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/qa-lead-strategy-advisor/SKILL.md",
+      "computedHash": "e6e718e1e5e75ecef0bd814fad55e026c1b8937b6bc65de98f43602b259c6921"
+    },
+    "qa-pr-requirements-analyzer": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/qa-pr-requirements-analyzer/SKILL.md",
+      "computedHash": "5568b85685e59b525beb734e29465b40308d5884e11b5a8a2b9438c6452a2bdc"
+    },
+    "qa-requirement-reviewer": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/qa-requirement-reviewer/SKILL.md",
+      "computedHash": "87e94932ac0754488e052c72769169e0b7bdae74b7293889e011f3f5ae4ba42f"
+    },
+    "qa-review-pr": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/qa-review-pr/SKILL.md",
+      "computedHash": "86a2b680c17096b12a3a007ba5b801e96fecdd12ab333a9b5847bce2a69af6da"
+    },
+    "qa-split-testing-levels-pyramid": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/qa-split-testing-levels-pyramid/SKILL.md",
+      "computedHash": "58784296eae72c4837d368f390029e154f35418fd14f8c784aa1430f8f2a7a0d"
+    },
+    "qa-sprint-report-by-testomatio": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/qa-sprint-report-by-testomatio/SKILL.md",
+      "computedHash": "07e89c792d7929fe5a6af45c65b8995269e759742cbaed0f5b4e2394835541c5"
+    },
+    "qa-test-code-coverage": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/qa-test-code-coverage/SKILL.md",
+      "computedHash": "0a0fd1567d94d64d19687a0b56df206ac55610c65c7e5c884fc027c2c3649a0b"
+    },
+    "qa-thinking": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/qa-thinking/SKILL.md",
+      "computedHash": "fc8ec768342bab6381ba30d06b73f8519102014e6037dab669ceca1366388c22"
+    },
+    "qa-write-test-cases": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/qa-write-test-cases/SKILL.md",
+      "computedHash": "66463dcbfc413870987528eec4fe4c2662b2dad1c0e5b8f56a79b3758b01d5e1"
+    },
     "research": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/engineering/research/SKILL.md",
       "computedHash": "c8c1cba327a6f824b554cd978079a3dadd7406d73174f8fb9bfef58824691970"
+    },
+    "run-tests-with-testomatio-reporter": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/run-tests-with-testomatio-reporter/SKILL.md",
+      "computedHash": "16e65b801e34f537ff9bda24ab53b9c07f74f8dadf6cf55fd115379b62645e38"
+    },
+    "setup-change-aware-pr-testing": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/setup-change-aware-pr-testing/SKILL.md",
+      "computedHash": "ca39d9419208fd5818170d7d8bbde915e58935c7be31afc8854267865ce2780d"
+    },
+    "setup-ci-automation": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/setup-ci-automation/SKILL.md",
+      "computedHash": "6a44b6f58a09991191c8830cb44f3c237116fecb9e54ff5dd56cb2ac276b8bd6"
+    },
+    "sync-test-cases-with-tms": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/sync-test-cases-with-tms/SKILL.md",
+      "computedHash": "fbbafe4d2076b61b6f509b813e7c38a13d3a1d1e95863882a9bdc0fcfc7ad368"
     },
     "tdd": {
       "source": "mattpocock/skills",
@@ -25,11 +181,29 @@
       "skillPath": "skills/engineering/tdd/SKILL.md",
       "computedHash": "e753a5da75292bbe59d302d89566bc2c53d0e73944da2f0e944a7578883c07d0"
     },
+    "testing-workflow": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/testing-workflow/SKILL.md",
+      "computedHash": "2e4fb340fcd43e4ff768e89376280cb089d16ccd2b132be87d8dc8a7063fc23e"
+    },
+    "testomatio-mcp": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/testomatio-mcp/SKILL.md",
+      "computedHash": "844e961c059142681390f74aa3f7e7383383fb50516d83e403388109829ee557"
+    },
     "to-spec": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/engineering/to-spec/SKILL.md",
       "computedHash": "3fa1a0695d4ea242fae9e569e4d22aa1788623197abb33bfadafae7315789bbf"
+    },
+    "write-user-story": {
+      "source": "testomatio/skills",
+      "sourceType": "github",
+      "skillPath": "skills/write-user-story/SKILL.md",
+      "computedHash": "64a561c1715e2f30f6d04c8f039757bba1539057242ec331982f60476398dd07"
     }
   }
 }
