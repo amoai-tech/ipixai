@@ -84,8 +84,9 @@ export default defineConfig({
       // login-journey does its own real UI login (not storageState) —
       // one extra hosted sign-in beyond setup is enough; running it per
       // viewport too would sign into the real account 3× per full run.
-      // planner-journey makes one real hosted GPT-4o call — same reasoning,
-      // once per suite, not once per viewport.
+      // planner-journey and copilot-intelligence-isolation each make one real
+      // hosted GPT-4o call — same reasoning, once per suite, not once per
+      // viewport.
       // Keep the production-only smoke excluded here too because project-level
       // testIgnore replaces the inherited/global value.
       testIgnore: [
@@ -93,6 +94,7 @@ export default defineConfig({
         /production-smoke\.spec\.ts/,
         /planner-journey\.spec\.ts/,
         /session-reuse\.spec\.ts/,
+        /copilot-intelligence-isolation\.spec\.ts/,
       ],
     },
   ],
