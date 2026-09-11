@@ -132,7 +132,9 @@ function mockOrgAThreadAccess() {
 
 describe("IPI-1009 intelligence tenant safety", () => {
   const previousLicense = process.env.COPILOTKIT_LICENSE_TOKEN;
-  const previousIntelligence = process.env.INTELLIGENCE_API_KEY;
+  // IPI-1191 · COPILOT-INTEL-001 — route.ts reads CPK_INTELLIGENCE_API_KEY
+  // (COPILOTKIT_API_KEY alias), not the stale INTELLIGENCE_API_KEY name.
+  const previousIntelligence = process.env.CPK_INTELLIGENCE_API_KEY;
 
   afterEach(() => {
     memberships.rows = [];
@@ -144,16 +146,19 @@ describe("IPI-1009 intelligence tenant safety", () => {
       process.env.COPILOTKIT_LICENSE_TOKEN = previousLicense;
     }
     if (previousIntelligence === undefined) {
-      delete process.env.INTELLIGENCE_API_KEY;
+      delete process.env.CPK_INTELLIGENCE_API_KEY;
     } else {
-      process.env.INTELLIGENCE_API_KEY = previousIntelligence;
+      process.env.CPK_INTELLIGENCE_API_KEY = previousIntelligence;
     }
     vi.restoreAllMocks();
   });
 
+  // Recommended managed-mode production config sets only the Intelligence
+  // key, not COPILOTKIT_LICENSE_TOKEN (that's a separate, offline/self-
+  // hosted-only credential — see route.ts's drift warning). Normal tests
+  // below reflect that; the mixed-config case has its own dedicated test.
   function enableIntelligence() {
-    process.env.COPILOTKIT_LICENSE_TOKEN = "test-license-token";
-    process.env.INTELLIGENCE_API_KEY = "test-intelligence-key";
+    process.env.CPK_INTELLIGENCE_API_KEY = "test-intelligence-key";
   }
 
   it("encodes Intelligence identity as org+user, not JWT user id", () => {
@@ -163,6 +168,52 @@ describe("IPI-1009 intelligence tenant safety", () => {
     expect(memoryResourceId({ userId: USER_A, orgId: ORG_B })).toBe(
       RESOURCE_A_IN_ORG_B,
     );
+  });
+
+  // Key-selection coverage: CPK_INTELLIGENCE_API_KEY present -> intelligence
+  // is already exercised by every enableIntelligence()-based test below, so
+  // it isn't duplicated here. These two cases were the genuinely uncovered
+  // ones (route.ts:212-215's `||` fallback chain).
+  it("uses COPILOTKIT_API_KEY fallback to select Intelligence mode", async () => {
+    const previousAlias = process.env.COPILOTKIT_API_KEY;
+    delete process.env.CPK_INTELLIGENCE_API_KEY;
+    process.env.COPILOTKIT_API_KEY = "test-alias-key";
+    memberships.rows = [{ org_id: ORG_A }];
+    try {
+      const info = await GET(
+        copilotRequest("/api/copilotkit/info", { method: "GET" }),
+      );
+      expect(info.status).toBe(200);
+      const payload = (await info.json()) as { mode?: string };
+      expect(payload.mode).toBe("intelligence");
+    } finally {
+      if (previousAlias === undefined) {
+        delete process.env.COPILOTKIT_API_KEY;
+      } else {
+        process.env.COPILOTKIT_API_KEY = previousAlias;
+      }
+    }
+  });
+
+  it("falls back to SSE mode when neither Intelligence key is set", async () => {
+    const previousAlias = process.env.COPILOTKIT_API_KEY;
+    delete process.env.CPK_INTELLIGENCE_API_KEY;
+    delete process.env.COPILOTKIT_API_KEY;
+    memberships.rows = [{ org_id: ORG_A }];
+    try {
+      const info = await GET(
+        copilotRequest("/api/copilotkit/info", { method: "GET" }),
+      );
+      expect(info.status).toBe(200);
+      const payload = (await info.json()) as { mode?: string };
+      expect(payload.mode).toBe("sse");
+    } finally {
+      if (previousAlias === undefined) {
+        delete process.env.COPILOTKIT_API_KEY;
+      } else {
+        process.env.COPILOTKIT_API_KEY = previousAlias;
+      }
+    }
   });
 
   it("selects Intelligence mode without TenantAbortRunner", async () => {
@@ -274,5 +325,21 @@ describe("IPI-1009 intelligence tenant safety", () => {
       threadId: ORG_A_THREAD,
     });
     expect(RESOURCE_A_IN_ORG_B).not.toBe(RESOURCE_A);
+  });
+
+  it("warns when a managed Intelligence key and COPILOTKIT_LICENSE_TOKEN are both present", async () => {
+    enableIntelligence();
+    process.env.COPILOTKIT_LICENSE_TOKEN = "stale-self-hosted-token";
+    memberships.rows = [{ org_id: ORG_A }];
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const info = await GET(
+      copilotRequest("/api/copilotkit/info", { method: "GET" }),
+    );
+    expect(info.status).toBe(200);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("COPILOTKIT_LICENSE_TOKEN is also present"),
+    );
   });
 });

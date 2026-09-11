@@ -5,8 +5,8 @@ import { test, expect } from "@playwright/test";
 // (same pattern as unauthenticated.spec.ts).
 test.use({ storageState: { cookies: [], origins: [] } });
 
-test.describe("marketing header/footer: Sign in vs Sign up navigation", () => {
-  test("desktop header: Sign in and Sign up navigate to distinct routes", async ({ page }, testInfo) => {
+test.describe("marketing header/footer: Sign in vs Sign up navigation @S15d22453", () => {
+  test("desktop header: Sign in and Sign up navigate to distinct routes @T4c6802e5", async ({ page }, testInfo) => {
     // The desktop nav is `hidden md:flex` — present in the DOM but not
     // visible below the md breakpoint, so this only runs where it's real.
     test.skip(testInfo.project.name !== "chromium", "desktop nav only");
@@ -23,7 +23,7 @@ test.describe("marketing header/footer: Sign in vs Sign up navigation", () => {
     await expect(page.getByRole("heading", { name: "Welcome" })).toBeVisible();
   });
 
-  test("mobile menu: Sign in and Sign up both navigate and the sheet closes", async ({ page }, testInfo) => {
+  test("mobile menu: Sign in and Sign up both navigate and the sheet closes @T8d7f5190", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "mobile-chromium", "mobile sheet only renders below the md breakpoint");
 
     await page.goto("/");
@@ -44,7 +44,7 @@ test.describe("marketing header/footer: Sign in vs Sign up navigation", () => {
     await expect(page.getByRole("navigation", { name: "Mobile" })).toHaveCount(0);
   });
 
-  test("footer: Sign in and Sign up navigate to distinct routes", async ({ page }) => {
+  test("footer: Sign in and Sign up navigate to distinct routes @T94dfb5cf", async ({ page }) => {
     await page.goto("/");
     const footer = page.getByRole("contentinfo");
     await footer.getByRole("link", { name: "Sign up" }).click();

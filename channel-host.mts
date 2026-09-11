@@ -26,31 +26,50 @@ import {
 } from "@copilotkit/runtime/v2";
 import { createDefaultChannel, resolveChannelName } from "./channels.mjs";
 
-/** Reads a required env var, or exits naming the one that is missing. */
-function required(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    console.error(`[channel] missing required env var: ${name}`);
-    process.exit(1);
-  }
-  return value;
-}
-
 async function main(): Promise<void> {
   const channelName = resolveChannelName();
+
+  // IPI-1191 · COPILOT-INTEL-001 — same credential resolution as
+  // src/app/api/copilotkit/[[...slug]]/route.ts: CPK_INTELLIGENCE_API_KEY is
+  // the canonical env var emitted by the current CopilotKit CLI and used by
+  // this integration (COPILOTKIT_API_KEY is the accepted fallback). Some
+  // official CopilotKit apps/examples have used INTELLIGENCE_API_KEY, so
+  // don't read that as "never real" — iPix just doesn't read it here.
+  const intelligenceKey =
+    process.env.CPK_INTELLIGENCE_API_KEY?.trim() ||
+    process.env.COPILOTKIT_API_KEY?.trim();
+  if (!intelligenceKey) {
+    console.error(
+      "[channel] missing required env var: CPK_INTELLIGENCE_API_KEY (or COPILOTKIT_API_KEY)",
+    );
+    process.exit(1);
+  }
+  // CopilotKit docs: override apiUrl/wsUrl together only (self-hosted target).
+  // A one-sided override would split the REST and realtime planes across
+  // managed and self-hosted backends, so a partial pair is dropped entirely
+  // (falls back to managed defaults for both) rather than passed through split.
+  const intelligenceApiUrl = process.env.INTELLIGENCE_API_URL?.trim() || undefined;
+  const intelligenceWsUrl = process.env.INTELLIGENCE_GATEWAY_WS_URL?.trim() || undefined;
+  const hasPairedEndpoints = Boolean(intelligenceApiUrl) === Boolean(intelligenceWsUrl);
+  if (!hasPairedEndpoints) {
+    console.warn(
+      "[channel] INTELLIGENCE_API_URL and INTELLIGENCE_GATEWAY_WS_URL " +
+        "must be set together — one was set without the other. Ignoring " +
+        "both and falling back to managed Intelligence defaults.",
+    );
+  }
+  const intelligenceEndpoints =
+    hasPairedEndpoints && intelligenceApiUrl && intelligenceWsUrl
+      ? { apiUrl: intelligenceApiUrl, wsUrl: intelligenceWsUrl }
+      : {};
 
   const runtime = new CopilotRuntime({
     // The Channel supplies its own agent, so no runtime-hosted agents are needed.
     agents: {},
     channels: [createDefaultChannel(channelName)],
     intelligence: new CopilotKitIntelligence({
-      apiKey: required("INTELLIGENCE_API_KEY"),
-      ...(process.env.INTELLIGENCE_API_URL
-        ? { apiUrl: process.env.INTELLIGENCE_API_URL }
-        : {}),
-      ...(process.env.INTELLIGENCE_GATEWAY_WS_URL
-        ? { wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL }
-        : {}),
+      apiKey: intelligenceKey,
+      ...intelligenceEndpoints,
     }),
   });
 
