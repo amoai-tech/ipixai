@@ -40,18 +40,45 @@ async function signInOrgB(browser: Browser) {
   );
 }
 
+type DiscoveredBrand = {
+  id: string;
+  name: string;
+  intakeStatus: string;
+  approvedProfileAt: string | null;
+};
+
 /** The signed-in session's own most recent brand, read directly (RLS-
  *  enforced, same as getOwnOrgId) rather than assumed — null when this org
  *  currently has none. */
-async function getOwnFirstBrand(page: Page): Promise<{ id: string; name: string } | null> {
+async function getOwnFirstBrand(page: Page): Promise<DiscoveredBrand | null> {
   const supabase = await supabaseForPage(page);
   const { data, error } = await supabase
     .from("brands")
-    .select("id, name")
+    .select("id, name, intake_status, approved_profile_at")
     .order("created_at", { ascending: false })
     .limit(1);
   expect(error, `brands read failed: ${error?.message ?? "unknown"}`).toBeNull();
-  return data && data.length > 0 ? { id: data[0].id, name: data[0].name ?? "" } : null;
+  const row = data?.[0];
+  return row
+    ? {
+        id: row.id,
+        name: row.name ?? "",
+        intakeStatus: row.intake_status,
+        approvedProfileAt: row.approved_profile_at,
+      }
+    : null;
+}
+
+/** Must mirror src/lib/brand/brand-list-filters.ts's matchesBrandStatusFilter
+ *  bucket assignment exactly — this is what proved the original mapping was
+ *  broken (it only matched statuses no live brand actually had). Duplicated
+ *  rather than imported: Playwright specs here don't resolve the `@/` alias
+ *  the way the Next.js app and Vitest suite do. */
+function expectedFilterFor(brand: DiscoveredBrand): "Approved" | "Draft" | "Analyzing" | "Failed" {
+  if (brand.approvedProfileAt !== null) return "Approved";
+  if (brand.intakeStatus === "brand_created" || brand.intakeStatus === "draft_ready") return "Draft";
+  if (brand.intakeStatus === "failed") return "Failed";
+  return "Analyzing"; // crawl_running, crawl_complete, analysis_running, scores_complete, ready
 }
 
 test.describe("brands browse (authenticated)", () => {
@@ -101,15 +128,34 @@ test.describe("brands browse (authenticated)", () => {
     await expect(page.getByRole("heading", { name: "No matching brands" })).toHaveCount(0);
   });
 
-  test("the status filter chips narrow and restore the grid", async ({ page }) => {
+  test("the correct status filter includes the brand; an unrelated one excludes it", async ({
+    page,
+  }) => {
     const brand = await getOwnFirstBrand(page);
     test.skip(!brand, "this org currently has no real brand to filter");
+    const correctFilter = expectedFilterFor(brand!);
+    // Any bucket other than the correct one — proves exclusion without
+    // hardcoding "Failed", which is currently always wrong for every real
+    // brand and would silently pass even if every filter were broken.
+    const wrongFilter = (["Approved", "Draft", "Analyzing", "Failed"] as const).find(
+      (f) => f !== correctFilter,
+    )!;
 
     await page.goto("/app/brands");
-    // A filter this brand's current status can't match proves narrowing
-    // works without assuming which status the real brand happens to have.
-    await page.getByRole("button", { name: "Failed", exact: true }).click();
-    const stillVisible = await page.getByText(brand!.name, { exact: true }).isVisible().catch(() => false);
+
+    // Positive proof: the filter this brand's real, live status actually
+    // maps to must include it. This is the assertion the original test
+    // never made — it only proved narrowing, not correct inclusion — and
+    // would have caught the dead-filter regression immediately.
+    await page.getByRole("button", { name: correctFilter, exact: true }).click();
+    await expect(page.getByText(brand!.name, { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "All", exact: true }).click();
+    await page.getByRole("button", { name: wrongFilter, exact: true }).click();
+    const stillVisible = await page
+      .getByText(brand!.name, { exact: true })
+      .isVisible()
+      .catch(() => false);
     if (!stillVisible) {
       await expect(page.getByRole("heading", { name: "No matching brands" })).toBeVisible();
     }

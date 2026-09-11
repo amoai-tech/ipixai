@@ -53,38 +53,44 @@ describe("matchesBrandStatusFilter", () => {
     expect(matchesBrandStatusFilter(brand({}), "approved")).toBe(false);
   });
 
-  it("an approved brand does not also match draft/analyzing/failed", () => {
-    const approved = brand({ intakeStatus: "draft_ready", approvedProfileAt: "2026-09-10T00:00:00Z" });
-    expect(matchesBrandStatusFilter(approved, "draft_ready")).toBe(false);
+  it("an approved brand matches only 'approved' — not draft/analyzing/failed, even if its old intake_status would otherwise", () => {
+    for (const intakeStatus of ["brand_created", "draft_ready", "crawl_complete", "failed"] as const) {
+      const approved = brand({ intakeStatus, approvedProfileAt: "2026-09-10T00:00:00Z" });
+      for (const filter of ["draft", "analyzing", "failed"] as const) {
+        expect(matchesBrandStatusFilter(approved, filter)).toBe(false);
+      }
+    }
   });
 
-  it("'draft_ready' matches unapproved brands with intake_status draft_ready", () => {
-    expect(matchesBrandStatusFilter(brand({ intakeStatus: "draft_ready" }), "draft_ready")).toBe(
-      true,
-    );
-    expect(matchesBrandStatusFilter(brand({ intakeStatus: "brand_created" }), "draft_ready")).toBe(
-      false,
-    );
-  });
+  // Every brand_intake_status enum value must land in exactly one bucket —
+  // the regression this catches: a status reachable only through "All"
+  // silently makes its filter chip dead. Live production (2026-09-11) has
+  // 8 brand_created + 3 crawl_complete and 0 of every other status — this
+  // table would have failed loudly against that data before the fix, where
+  // the old mapping only matched draft_ready/crawl_running/analysis_running.
+  const EXPECTED_BUCKET: Record<string, "draft" | "analyzing" | "failed"> = {
+    brand_created: "draft",
+    draft_ready: "draft",
+    crawl_running: "analyzing",
+    crawl_complete: "analyzing",
+    analysis_running: "analyzing",
+    scores_complete: "analyzing",
+    ready: "analyzing",
+    failed: "failed",
+  };
 
-  it("'analyzing' matches crawl_running and analysis_running", () => {
-    expect(
-      matchesBrandStatusFilter(brand({ intakeStatus: "crawl_running" }), "analyzing"),
-    ).toBe(true);
-    expect(
-      matchesBrandStatusFilter(brand({ intakeStatus: "analysis_running" }), "analyzing"),
-    ).toBe(true);
-    expect(matchesBrandStatusFilter(brand({ intakeStatus: "draft_ready" }), "analyzing")).toBe(
-      false,
-    );
-  });
-
-  it("'failed' matches only unapproved brands with intake_status failed", () => {
-    expect(matchesBrandStatusFilter(brand({ intakeStatus: "failed" }), "failed")).toBe(true);
-    expect(matchesBrandStatusFilter(brand({ intakeStatus: "brand_created" }), "failed")).toBe(
-      false,
-    );
-  });
+  it.each(Object.entries(EXPECTED_BUCKET))(
+    "unapproved intake_status %s matches only its expected bucket ('%s')",
+    (intakeStatus, expectedBucket) => {
+      const b = brand({ intakeStatus: intakeStatus as BrandListItem["intakeStatus"] });
+      for (const filter of ["draft", "analyzing", "failed"] as const) {
+        expect(
+          matchesBrandStatusFilter(b, filter),
+          `intake_status=${intakeStatus} vs filter=${filter}`,
+        ).toBe(filter === expectedBucket);
+      }
+    },
+  );
 });
 
 describe("filterBrands", () => {
