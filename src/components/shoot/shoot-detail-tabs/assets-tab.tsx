@@ -135,7 +135,7 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
           height={asset.height ?? undefined}
         />
         <div className={styles.assetOverlay}>
-          <span className={styles.assetStatus}>{asset.status}</span>
+          {asset.status && <span className={styles.assetStatus}>{asset.status}</span>}
           {asset.dna_score !== null && (
             <span className={styles.assetDnaScore}>DNA {asset.dna_score}</span>
           )}
