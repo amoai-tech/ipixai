@@ -37,15 +37,21 @@ function resolveAnonKey(): string {
 }
 
 function resolveServiceRoleKey(): string {
-  return (
+  // Trimmed once here, not at each comparison site: resolve-caller.ts
+  // compares this against a trimmed Authorization header token
+  // (`header.slice(7).trim()`) — an untrimmed secret (trailing newline from
+  // a copy-paste into secret storage, common in practice) would silently
+  // reject every legitimate service-role caller, including the ones this
+  // PR's blocker #3 fix now relies on as the *only* accepted caller.
+  const raw =
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
     parseKeyFromJson("SUPABASE_SECRET_KEYS") ??
     (() => {
       throw new Error(
         "Missing service role key (SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEYS)",
       );
-    })()
-  );
+    })();
+  return raw.trim();
 }
 
 /** Validate Supabase-injected env vars once per cold start. */

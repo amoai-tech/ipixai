@@ -258,7 +258,13 @@ type BiDiagnosticStage =
   | "PROVIDER_COMPLETED"
   | "SCHEMA_VALID"
   | "DRAFT_WRITTEN"
-  | "DRAFT_READY";
+  // IPI-1093 blocker #4 (PR review finding) — this Edge write only ever
+  // reaches intake_status 'scores_complete' now (see the DRAFT_WRITTEN
+  // update above); 'draft_ready' is set later, only by Mastra's
+  // saveDraftAndWait after it attaches _workflow_run_id. Renamed from the
+  // old DRAFT_READY label so this diagnostic stage doesn't claim a
+  // readiness this function never actually reaches.
+  | "SCORES_COMPLETE";
 
 function logBiDiagnostic(
   correlationId: string,
@@ -743,7 +749,7 @@ Use URL content AND web search for press, social, and competitor signals.
       crawlResultId: crawlRow?.id ?? crawlResultId,
     });
     draftPersisted = true;
-    diagnosticStage = "DRAFT_READY";
+    diagnosticStage = "SCORES_COMPLETE";
     logBiDiagnostic(correlationId, diagnosticStage, {
       brandId,
       crawlResultId: crawlRow?.id ?? crawlResultId,
@@ -821,7 +827,7 @@ Use URL content AND web search for press, social, and competitor signals.
       ? "provider"
       : diagnosticStage === "PROVIDER_COMPLETED"
       ? "schema"
-      : diagnosticStage === "DRAFT_READY"
+      : diagnosticStage === "SCORES_COMPLETE"
       ? "orchestration/invocation"
       : "database write";
     logFailure(category, "internal_error", {

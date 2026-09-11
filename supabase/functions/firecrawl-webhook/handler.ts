@@ -435,13 +435,17 @@ export async function handleFirecrawlWebhook(req: Request): Promise<Response> {
             throw new Error(`crawl.completed brand update: ${brandUpdateErr.message}`);
           }
 
-          await logWebhook(
-            { job_status: "complete", pages_crawled: pages.length, webhookClaimId: claimId },
-            duration_ms,
-          );
-
           // IPI-32: resume Mastra brand-intelligence workflow if one is waiting.
           // Only use the DB-persisted workflow_id — never fall back to payload data.
+          //
+          // logWebhook runs AFTER this succeeds, not before: it used to run
+          // first, so a resume failure (network blip, cold start) threw
+          // *after* the log row was already inserted. withTerminalClaim then
+          // marks the claim "failed" and a Firecrawl retry re-enters this
+          // same work() closure from the top, inserting a second log row for
+          // the same webhook delivery. Reordering costs nothing here — this
+          // is diagnostic logging, nothing downstream depends on it running
+          // before the resume call.
           const workflowRunId = job?.workflow_id;
           if (workflowRunId) {
             const { appUrl, resumeSecret } = await requireWorkflowResumeConfig(
@@ -463,6 +467,11 @@ export async function handleFirecrawlWebhook(req: Request): Promise<Response> {
               throw new Error(`workflow resume ${res.status}: ${msg}`);
             }
           }
+
+          await logWebhook(
+            { job_status: "complete", pages_crawled: pages.length, webhookClaimId: claimId },
+            duration_ms,
+          );
         },
       );
       if (outcome === "duplicate") {
@@ -506,15 +515,14 @@ export async function handleFirecrawlWebhook(req: Request): Promise<Response> {
             throw new Error(`crawl.failed brand update: ${brandFailErr.message}`);
           }
 
-          await logWebhook({
-            job_status: "failed",
-            error: errorMessage,
-            webhookClaimId: claimId,
-          });
-
           // Resume workflow with failure signal so it doesn't stay permanently suspended.
           // wait-for-crawl throws on failed:true → resume route often returns 500; that
           // still means the fail signal was delivered (do not leave claim failed forever).
+          //
+          // logWebhook moved after this block, same reason as the
+          // crawl.completed branch above: it must not commit before a
+          // retryable failure point, or a Firecrawl retry duplicates the log
+          // row.
           const failWorkflowRunId = job?.workflow_id;
           if (failWorkflowRunId) {
             const { appUrl, resumeSecret } = await requireWorkflowResumeConfig(
@@ -543,6 +551,12 @@ export async function handleFirecrawlWebhook(req: Request): Promise<Response> {
               }
             }
           }
+
+          await logWebhook({
+            job_status: "failed",
+            error: errorMessage,
+            webhookClaimId: claimId,
+          });
         },
       );
       if (outcome === "duplicate") {

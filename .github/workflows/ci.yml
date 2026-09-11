@@ -531,4 +531,15 @@ jobs:
           # Postgres mock, so it runs here rather than as its own job.
           psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/tests/security/ipi1093-brand-draft-snapshot-isolation.sql
+
+          # IPI-1093 · BRAND-INTEL-001 blocker #2 (PR review finding) — this
+          # file existed and passed locally every time it was run this task,
+          # but was never wired into this job, so it provided zero CI
+          # regression protection for the DB write-boundary fix (direct-write
+          # denial, INSERT-fabrication denial, cross-org, stale-hash, replay,
+          # reject-preserves-prior). Same reason as the snapshot-isolation
+          # test above: needs the real auth.users/organizations/org_members
+          # schema from the full replay.
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/ipi1093-brand-db-write-boundary.sql
       - run: supabase stop

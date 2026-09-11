@@ -166,6 +166,36 @@ describe("loadBrandDetail", () => {
     expect(result.detail.draftScores).toEqual([]);
   });
 
+  it("PR review finding: runId present but intake_status still 'scores_complete' — the ms-wide window between Mastra attaching the run id and setting draft_ready — must still render as no-draft, not review", async () => {
+    const result = await loadBrandDetail(
+      fakeSupabase({
+        brandRow: { ...DEFAULT_BRAND_ROW, intake_status: "scores_complete" },
+        snapshot: { draft: VALID_DRAFT, hash: "H1-runid-not-yet-draft-ready" },
+      }),
+      BRAND_ID,
+    );
+
+    expect(result.status).toBe("found");
+    if (result.status !== "found") return;
+    expect(result.detail.draft).toBeNull();
+    expect(result.detail.draftHash).toBeNull();
+  });
+
+  it("PR review finding: runId present AND intake_status 'draft_ready' reviews normally", async () => {
+    const result = await loadBrandDetail(
+      fakeSupabase({
+        brandRow: { ...DEFAULT_BRAND_ROW, intake_status: "draft_ready" },
+        snapshot: { draft: VALID_DRAFT, hash: "H1-fully-ready" },
+      }),
+      BRAND_ID,
+    );
+
+    expect(result.status).toBe("found");
+    if (result.status !== "found") return;
+    expect(result.detail.draft?.name).toBe("Acme");
+    expect(result.detail.draftHash).toBe("H1-fully-ready");
+  });
+
   it("a schema-valid draft WITH _workflow_run_id still reviews normally (the fix must not gate every draft, only the pre-provenance window)", async () => {
     const result = await loadBrandDetail(
       fakeSupabase({
