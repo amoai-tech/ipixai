@@ -18,28 +18,14 @@ import {
   generateStructuredContent as generateGeminiStructuredContent,
   resolveGeminiModel,
 } from "../_shared/gemini.ts";
-import {
-  resolveBiProvider,
-  resolveCloudflareModel,
-  resolveGroqModelId,
-} from "../_shared/llm/allowlist.ts";
+import { resolveBiProvider } from "../_shared/llm/allowlist.ts";
 import {
   biUsedCrawlInRequest,
-  groqEmptyCrawlError,
   missingBiProviderConfigError,
-} from "../_shared/bi-groq-guards.ts";
-import {
-  generateStructuredContent as generateLlmStructuredContent,
-  StructuredOutputValidationError,
-} from "../_shared/llm/structured.ts";
-import type {
-  StructuredGenerationLog,
-  StructuredGenerationOptions,
-  StructuredGenerationResult,
-} from "../_shared/llm/types.ts";
+} from "../_shared/bi-guards.ts";
+import { StructuredOutputValidationError } from "../_shared/llm/structured.ts";
 import {
   brandProfileResponseSchema,
-  brandProfileStrictJsonSchema,
   buildAiProfileFromPayload,
   clampScore,
   type BrandProfilePayload,
@@ -110,44 +96,6 @@ Set sourceUrl to ${JSON.stringify(url)}.
 `.trim();
 }
 
-const GROQ_BI_SYSTEM_PROMPT = `
-You are a fashion brand intelligence analyst for iPix, a creative production platform.
-
-Analyze brand website content and extract a complete brand profile with readiness scores (0-100).
-
-Example 1 — DTC apparel:
-Input: Clean beauty site with minimal palette, sustainability copy, shop grid.
-Output: tagline "Skincare for real life", category "DTC beauty", contentPillars ["clean ingredients","inclusivity","education"], brandVoice "friendly, minimal, science-forward", scores visual 78 audience 82 consistency 75 commerce_readiness 88.
-
-Example 2 — Luxury fashion:
-Input: Editorial lookbook, heritage story, high-price catalog.
-Output: tagline "Modern heritage tailoring", category "Luxury apparel", brandPersonality "refined, confident", scores visual 90 audience 70 consistency 85 commerce_readiness 72.
-
-Return ONLY valid JSON matching the schema.
-`.trim();
-
-function buildGroqCrawlUserContent(params: {
-  url: string;
-  brandName?: string;
-  shellProfile: Record<string, unknown>;
-  crawlText: string;
-  pageCount: number;
-}): string {
-  const shell = JSON.stringify(params.shellProfile, null, 2);
-  return `
-Brand URL: ${params.url}
-${params.brandName ? `Brand name hint: ${params.brandName}` : ""}
-
-Onboarding metadata (preserve industry, goal, instagram_handle when merging):
-${shell}
-
-Crawl content (${params.pageCount} pages):
-${params.crawlText}
-
-Set sourceUrl to ${JSON.stringify(params.url)}.
-`.trim();
-}
-
 async function loadCrawlRow(
   client: SupabaseClient,
   brandId: string,
@@ -211,30 +159,14 @@ async function markIntakeFailedIfRunning(
     .eq("intake_status", "analysis_running");
 }
 
-type LlmStructuredGenerate = typeof generateLlmStructuredContent;
-let llmStructuredGenerateForTests: LlmStructuredGenerate | null = null;
 type GeminiStructuredGenerate = typeof generateGeminiStructuredContent;
 let geminiStructuredGenerateForTests: GeminiStructuredGenerate | null = null;
-
-/** Test seam — override shared LLM call in handler tests only. */
-export function __setLlmStructuredGenerateForTests(
-  fn: LlmStructuredGenerate | null,
-): void {
-  llmStructuredGenerateForTests = fn;
-}
 
 /** Test seam — override the direct Gemini call in handler tests only. */
 export function __setGeminiStructuredGenerateForTests(
   fn: GeminiStructuredGenerate | null,
 ): void {
   geminiStructuredGenerateForTests = fn;
-}
-
-function runLlmStructuredContent<T>(
-  options: StructuredGenerationOptions,
-): Promise<StructuredGenerationResult<T>> {
-  const generate = llmStructuredGenerateForTests ?? generateLlmStructuredContent;
-  return generate<T>(options);
 }
 
 function runGeminiStructuredContent(
@@ -287,12 +219,6 @@ function logBiDiagnostic(
   }
 }
 
-function configuredModel(provider: "gemini" | "groq" | "workers-ai") {
-  if (provider === "gemini") return resolveGeminiModel();
-  if (provider === "workers-ai") return resolveCloudflareModel();
-  return resolveGroqModelId("structured");
-}
-
 function biConfigurationSource() {
   if (getOptionalSecret("BI_PROVIDER")?.trim()) return "BI_PROVIDER";
   const forceGemini = getOptionalSecret("BI_USE_GEMINI")?.trim().toLowerCase();
@@ -311,7 +237,7 @@ export async function handleBrandIntelligenceRequest(req: Request): Promise<Resp
     ? suppliedCorrelationId
     : crypto.randomUUID();
   let diagnosticStage: BiDiagnosticStage = "REQUEST_RECEIVED";
-  let diagnosticProvider: "gemini" | "groq" | "workers-ai" | null = null;
+  let diagnosticProvider: "gemini" | null = null;
   let diagnosticModel: string | null = null;
   let providerStarted = 0;
   let providerDurationMs: number | null = null;
@@ -375,15 +301,9 @@ export async function handleBrandIntelligenceRequest(req: Request): Promise<Resp
 
     const biProvider = resolveBiProvider();
     diagnosticProvider = biProvider;
-    diagnosticModel = configuredModel(biProvider);
-    // Same preference as resolveCloudflareCredentials; whitespace GATEWAY falls through to API.
-    const configError = missingBiProviderConfigError(biProvider, {
+    diagnosticModel = resolveGeminiModel();
+    const configError = missingBiProviderConfigError({
       geminiApiKey: getOptionalSecret("GEMINI_API_KEY"),
-      groqApiKey: getOptionalSecret("GROQ_API_KEY"),
-      cloudflareApiToken:
-        getOptionalSecret("CLOUDFLARE_AI_GATEWAY_TOKEN")?.trim() ||
-        getOptionalSecret("CLOUDFLARE_API_TOKEN"),
-      cloudflareAccountId: getOptionalSecret("CLOUDFLARE_ACCOUNT_ID"),
     });
     if (configError) {
       logFailure("configuration", configError.code);
@@ -532,46 +452,12 @@ export async function handleBrandIntelligenceRequest(req: Request): Promise<Resp
     const crawlRow = await loadCrawlRow(client, brandId, crawlResultId, url);
     failureCrawlResultId = crawlRow?.id ?? crawlResultId;
     const rawData = (crawlRow?.raw_data ?? null) as CrawlRawData | null;
-    // IPI-741 — provider-neutral budget: a full 10-page crawl easily exceeds
-    // rate/cost limits on smaller-tier models (e.g. Groq's openai/gpt-oss-20b
-    // on_demand TPM cap). 24k chars / 6 pages is comfortably enough context
-    // for brand analysis while keeping every provider's prompt bounded.
+    // IPI-741 — 24k chars / 6 pages is comfortably enough context for brand
+    // analysis while keeping the prompt bounded.
     const CRAWL_PROMPT_BUDGET = { maxChars: 24_000, maxPages: 6 } as const;
-    let crawlText = formatCrawlForPrompt(rawData, CRAWL_PROMPT_BUDGET);
-    if (
-      (biProvider === "groq" || biProvider === "workers-ai") &&
-      !crawlText.trim() &&
-      rawData?.pages?.length
-    ) {
-      const pagesWithMarkdown = rawData.pages.filter(
-        (page) => (page.markdown?.trim().length ?? 0) > 0,
-      );
-      if (pagesWithMarkdown.length > 0) {
-        crawlText = formatCrawlForPrompt(
-          { pages: pagesWithMarkdown },
-          CRAWL_PROMPT_BUDGET,
-        );
-      }
-    }
+    const crawlText = formatCrawlForPrompt(rawData, CRAWL_PROMPT_BUDGET);
     const useCrawl = !isCrawlThin(rawData);
-    const usedCrawlInRequest = biUsedCrawlInRequest(
-      biProvider,
-      rawData,
-      crawlText,
-    );
-
-    if (biProvider !== "gemini") {
-      const crawlError = groqEmptyCrawlError(crawlText, rawData);
-      if (crawlError) {
-        await markIntakeFailedIfRunning(client, brandId);
-        logFailure("orchestration/invocation", crawlError.code);
-        return errorResponse(
-          crawlError.code,
-          crawlError.message,
-          crawlError.status,
-        );
-      }
-    }
+    const usedCrawlInRequest = biUsedCrawlInRequest(rawData, crawlText);
 
     const llmStarted = performance.now();
     providerStarted = llmStarted;
@@ -586,11 +472,10 @@ export async function handleBrandIntelligenceRequest(req: Request): Promise<Resp
     });
     let profile: BrandProfilePayload;
     let model: string;
-    let llmLog: StructuredGenerationLog | null = null;
     let structuredResponse: GenerateContentResponse | null = null;
     let contextResponse: GenerateContentResponse | null = null;
 
-    if (biProvider === "gemini") {
+    {
       const apiKey = getOptionalSecret("GEMINI_API_KEY")!;
       model = resolveGeminiModel();
 
@@ -648,27 +533,6 @@ Use URL content AND web search for press, social, and competitor signals.
         structuredResponse = result.response;
         profile = parseGeminiProfile(result.text);
       }
-    } else {
-      const structured = await runLlmStructuredContent<BrandProfilePayload>({
-        scope: "bi",
-        systemPrompt: GROQ_BI_SYSTEM_PROMPT,
-        userContent: buildGroqCrawlUserContent({
-          url,
-          brandName,
-          shellProfile: priorProfile,
-          crawlText,
-          pageCount: rawData?.pages?.length ?? crawlRow?.pages_crawled ?? 0,
-        }),
-        jsonSchema: brandProfileStrictJsonSchema as Record<string, unknown>,
-        geminiResponseSchema: brandProfileResponseSchema,
-        schemaName: "brand_profile",
-        tier: "structured",
-        temperature: 0.1,
-        timeoutMs: 45_000,
-      });
-      profile = structured.data;
-      llmLog = structured.log;
-      model = structured.log.model;
     }
 
     const geminiMs = Math.round(performance.now() - llmStarted);
@@ -678,7 +542,7 @@ Use URL content AND web search for press, social, and competitor signals.
     logBiDiagnostic(correlationId, diagnosticStage, {
       brandId,
       crawlResultId: crawlRow?.id ?? crawlResultId,
-      provider: llmLog?.provider ?? biProvider,
+      provider: biProvider,
       model,
       providerDurationMs: geminiMs,
     });
@@ -687,7 +551,7 @@ Use URL content AND web search for press, social, and competitor signals.
     if (validationError) {
       await markIntakeStatus(client, brandId, "failed");
       logFailure("schema", "validation_error", {
-        provider: llmLog?.provider ?? biProvider,
+        provider: biProvider,
         model,
         providerDurationMs: geminiMs,
       });
@@ -697,7 +561,7 @@ Use URL content AND web search for press, social, and competitor signals.
     logBiDiagnostic(correlationId, diagnosticStage, {
       brandId,
       crawlResultId: crawlRow?.id ?? crawlResultId,
-      provider: llmLog?.provider ?? biProvider,
+      provider: biProvider,
       model,
     });
 
@@ -825,15 +689,13 @@ Use URL content AND web search for press, social, and competitor signals.
           brandId,
           crawlResultId: crawlRow?.id ?? crawlResultId,
           usedCrawl: usedCrawlInRequest,
-          provider: llmLog?.provider ?? biProvider,
+          provider: biProvider,
         },
         output: {
           brandId,
           scoreCount: 0,
-          provider: llmLog?.provider ?? biProvider,
+          provider: biProvider,
           model,
-          xGroqRequestId: llmLog?.xGroqRequestId ?? null,
-          schemaRepairCount: llmLog?.schemaRepairCount ?? 0,
           urlRetrieval:
             contextResponse?.candidates?.[0]?.urlContextMetadata ?? null,
           grounding:
@@ -841,13 +703,11 @@ Use URL content AND web search for press, social, and competitor signals.
         },
         model,
         tokensIn:
-          (llmLog?.usage?.promptTokens ??
-            (usage?.promptTokenCount ?? 0) + (contextUsage?.promptTokenCount ?? 0)) ||
+          (usage?.promptTokenCount ?? 0) + (contextUsage?.promptTokenCount ?? 0) ||
           null,
         tokensOut:
-          (llmLog?.usage?.completionTokens ??
-            (usage?.candidatesTokenCount ?? 0) +
-              (contextUsage?.candidatesTokenCount ?? 0)) ||
+          (usage?.candidatesTokenCount ?? 0) +
+            (contextUsage?.candidatesTokenCount ?? 0) ||
           null,
         durationMs,
       });
@@ -864,7 +724,7 @@ Use URL content AND web search for press, social, and competitor signals.
       ...(logId ? { logId } : {}),
       durationMs,
       geminiMs,
-      provider: llmLog?.provider ?? biProvider,
+      provider: biProvider,
       usedCrawl: usedCrawlInRequest,
       crawlResultId: crawlRow?.id ?? null,
       correlationId,

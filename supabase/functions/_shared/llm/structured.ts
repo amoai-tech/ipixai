@@ -4,24 +4,11 @@ import {
 } from "../schemas/brand-profile.ts";
 import { getOptionalSecret } from "../env.ts";
 import {
-  resolveAiProvider,
-  resolveBiProvider,
   resolveBiProviderFromEnv,
-  resolveCloudflareModel,
-  resolveDnaProvider,
   resolveDnaProviderFromEnv,
-  resolveGroqModelId,
 } from "./allowlist.ts";
 import type { AiProvider, StructuredGenerationScope } from "./types.ts";
 import { orderPromptMessages } from "./constraints.ts";
-import {
-  buildStrictJsonRequest,
-  groqStructuredCompletion,
-} from "./groq-client.ts";
-import {
-  buildCloudflareStrictJsonRequest,
-  cloudflareStructuredCompletion,
-} from "./cloudflare-client.ts";
 import {
   generateGeminiStructuredContent,
   resolveGeminiModel,
@@ -78,30 +65,6 @@ function validateParsedText(text: string): {
   return validatePayload(parsed.value);
 }
 
-/** Sum token usage across Groq strict JSON attempts (initial + schema repair). */
-export function mergeGroqUsage(
-  primary?: StructuredGenerationLog["usage"],
-  secondary?: StructuredGenerationLog["usage"],
-): StructuredGenerationLog["usage"] | undefined {
-  if (!primary && !secondary) return undefined;
-  const promptTokens = (primary?.promptTokens ?? 0) + (secondary?.promptTokens ?? 0);
-  const completionTokens =
-    (primary?.completionTokens ?? 0) + (secondary?.completionTokens ?? 0);
-  // Each side contributes its explicit total when it reports one, else its
-  // prompt+completion. This uses the explicit sum only when both sides truly
-  // provide totals; mixing an explicit total with a total-less side no longer
-  // drops the other side's tokens.
-  const sideTotal = (usage?: StructuredGenerationLog["usage"]) =>
-    typeof usage?.totalTokens === "number"
-      ? usage.totalTokens
-      : (usage?.promptTokens ?? 0) + (usage?.completionTokens ?? 0);
-  return {
-    promptTokens,
-    completionTokens,
-    totalTokens: sideTotal(primary) + sideTotal(secondary),
-  };
-}
-
 async function generateGeminiStructured<T>(
   options: StructuredGenerationOptions,
 ): Promise<StructuredGenerationResult<T>> {
@@ -138,13 +101,9 @@ async function generateGeminiStructured<T>(
       temperature: 0,
       timeoutMs: options.timeoutMs ?? 45_000,
     });
-    // PR review finding: the Groq/Cloudflare paths below both reassign their
-    // `result` variable to the repair response on success — this path used
-    // to leave `result` pointing at the ORIGINAL (invalid) response, so a
-    // successful repair returned `data`/`validation.payload` from the
-    // repaired text but `text`/`log.model` from the first, still-invalid
-    // attempt. Reassigning keeps all three fields sourced from the same
-    // artifact, matching the other two providers.
+    // Reassign so data/text/log.model all derive from the same repaired
+    // artifact on a successful repair, rather than mixing the validated
+    // repair payload with the original (still-invalid) response's text.
     result = repair;
     validation = validateParsedText(result.text);
     if (validation.error) {
@@ -156,124 +115,6 @@ async function generateGeminiStructured<T>(
     provider: "gemini",
     model: result.model,
     schemaRepairCount,
-  };
-
-  return {
-    data: validation.payload as T,
-    text: result.text,
-    log,
-  };
-}
-
-async function generateGroqStructured<T>(
-  options: StructuredGenerationOptions,
-): Promise<StructuredGenerationResult<T>> {
-  const tier = options.tier ?? "structured";
-  const model = resolveGroqModelId(tier);
-  const request = buildStrictJsonRequest(
-    model,
-    options.systemPrompt,
-    options.userContent,
-    options.jsonSchema,
-    options.schemaName ?? "response",
-    options.maxCompletionTokens ?? 4096,
-  );
-
-  let schemaRepairCount = 0;
-  let result = await groqStructuredCompletion({
-    ...request,
-    temperature: options.temperature ?? 0.2,
-  });
-  let aggregatedUsage = result.usage;
-
-  let validation = validateParsedText(result.text);
-
-  if (validation.error) {
-    schemaRepairCount += 1;
-    const repairRequest = buildStrictJsonRequest(
-      model,
-      options.systemPrompt,
-      `${options.userContent}${REPAIR_SUFFIX}`,
-      options.jsonSchema,
-      options.schemaName ?? "response",
-      options.maxCompletionTokens ?? 4096,
-    );
-    const repairResult = await groqStructuredCompletion({
-      ...repairRequest,
-      temperature: 0,
-    });
-    aggregatedUsage = mergeGroqUsage(result.usage, repairResult.usage);
-    result = repairResult;
-    validation = validateParsedText(result.text);
-    if (validation.error) {
-      throw new StructuredOutputValidationError(validation.error);
-    }
-  }
-
-  const log: StructuredGenerationLog = {
-    provider: "groq",
-    model: result.model,
-    xGroqRequestId: result.xGroqRequestId,
-    schemaRepairCount,
-    usage: aggregatedUsage,
-  };
-
-  return {
-    data: validation.payload as T,
-    text: result.text,
-    log,
-  };
-}
-
-async function generateCloudflareStructured<T>(
-  options: StructuredGenerationOptions,
-): Promise<StructuredGenerationResult<T>> {
-  const model = resolveCloudflareModel();
-  const request = buildCloudflareStrictJsonRequest(
-    model,
-    options.systemPrompt,
-    options.userContent,
-    options.jsonSchema,
-    options.schemaName ?? "response",
-    options.maxCompletionTokens ?? 4096,
-  );
-
-  let schemaRepairCount = 0;
-  let result = await cloudflareStructuredCompletion({
-    ...request,
-    temperature: options.temperature ?? 0.2,
-  });
-  let aggregatedUsage = result.usage;
-
-  let validation = validateParsedText(result.text);
-
-  if (validation.error) {
-    schemaRepairCount += 1;
-    const repairRequest = buildCloudflareStrictJsonRequest(
-      model,
-      options.systemPrompt,
-      `${options.userContent}${REPAIR_SUFFIX}`,
-      options.jsonSchema,
-      options.schemaName ?? "response",
-      options.maxCompletionTokens ?? 4096,
-    );
-    const repairResult = await cloudflareStructuredCompletion({
-      ...repairRequest,
-      temperature: 0,
-    });
-    aggregatedUsage = mergeGroqUsage(result.usage, repairResult.usage);
-    result = repairResult;
-    validation = validateParsedText(result.text);
-    if (validation.error) {
-      throw new StructuredOutputValidationError(validation.error);
-    }
-  }
-
-  const log: StructuredGenerationLog = {
-    provider: "workers-ai",
-    model: result.model,
-    schemaRepairCount,
-    usage: aggregatedUsage,
   };
 
   return {
@@ -299,18 +140,21 @@ export function resolveStructuredProviderFromEnv(env: {
     });
   }
   if (scope === "dna") {
+    // resolveDnaProviderFromEnv can still return "groq" (IPI-1093 removed
+    // Groq/Cloudflare only from the brand-intelligence/"bi" path — DNA
+    // vision is a separate, not-yet-reconciled-into-this-repo function; see
+    // allowlist.ts's doc comment). generateStructuredContent below falls
+    // through to the generic "not wired" error for that case rather than
+    // silently mishandling it, since there's no Groq client left to call.
     return resolveDnaProviderFromEnv({
       aiProvider: env.aiProvider,
       dnaUseGemini: env.dnaUseGemini,
     });
   }
   const provider = (env.aiProvider ?? "gemini").trim().toLowerCase();
-  if (provider === "gemini" || provider === "groq") return provider;
-  if (provider === "openai") {
-    throw new Error('AI_PROVIDER="openai" is not wired in edge LLM module.');
-  }
+  if (provider === "gemini") return provider;
   throw new Error(
-    `AI_PROVIDER="${provider}" is invalid (expected gemini | groq | openai).`,
+    `AI_PROVIDER="${provider}" is invalid — only gemini is wired in this module (IPI-1093 removed Groq/Cloudflare Workers AI).`,
   );
 }
 
@@ -326,19 +170,13 @@ export function resolveStructuredProvider(
   });
 }
 
-/** Brand-profile validation today; GROQ-003 wires schema selection by caller. */
+/** Brand-profile validation today; Gemini only (IPI-1093 removed Groq/Cloudflare Workers AI). */
 export async function generateStructuredContent<T>(
   options: StructuredGenerationOptions,
 ): Promise<StructuredGenerationResult<T>> {
   const provider = resolveStructuredProvider(options.scope);
   if (provider === "gemini") {
     return generateGeminiStructured<T>(options);
-  }
-  if (provider === "groq") {
-    return generateGroqStructured<T>(options);
-  }
-  if (provider === "workers-ai") {
-    return generateCloudflareStructured<T>(options);
   }
   throw new Error(`Structured provider "${provider}" is not wired.`);
 }
@@ -347,5 +185,4 @@ export {
   resolveAiProvider,
   resolveBiProvider,
   resolveDnaProvider,
-  resolveGroqModelId,
 } from "./allowlist.ts";
