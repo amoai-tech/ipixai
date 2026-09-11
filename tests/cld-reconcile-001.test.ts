@@ -53,6 +53,12 @@ describe("IPI-1114 Cloudinary V2 reconciliation", () => {
     expect(report.records[0]?.classification).toBe("legacy_excluded");
   });
 
+  it("fails closed when a trusted V2 mirror has malformed identity or version", () => {
+    const report = classify([], [db({ cloudinaryAssetId: "trusted-bad", version: null, trustedV2: true })]);
+    expect(report.records[0]?.classification).toBe("invalid_unclassifiable");
+    expect(reportExitCode(report)).toBe(1);
+  });
+
   it("fails closed for duplicate trusted DB immutable IDs", () => {
     const report = classify([provider()], [db(), db({ assetId: "db-2" })]);
     expect(report.records[0]?.classification).toBe("invalid_unclassifiable");
@@ -129,9 +135,22 @@ describe("IPI-1114 Cloudinary V2 reconciliation", () => {
     expect(report.records[0]?.classification).toBe("expected_archived_deleted");
   });
 
-  it("produces byte-identical normalized JSON for identical input", () => {
-    const input = { providerAssets: [provider({ assetId: "b" }), provider({ assetId: "a" })], dbMirrors: [db({ cloudinaryAssetId: "b" }), db({ cloudinaryAssetId: "a" })] };
-    expect(stringifyReport(reconcileInventories(input))).toBe(stringifyReport(reconcileInventories(input)));
+  it("produces byte-identical normalized JSON for equivalent inventory permutations", () => {
+    const providers = [
+      provider({ assetId: "duplicate", version: 8, bytes: 80 }),
+      provider({ assetId: "duplicate", version: 7, bytes: 70 }),
+      provider({ assetId: "invalid", version: null }),
+      provider({ assetId: "live", version: 3 }),
+    ];
+    const mirrors = [
+      db({ assetId: "db-duplicate-b", cloudinaryAssetId: "duplicate", version: 8 }),
+      db({ assetId: "db-duplicate-a", cloudinaryAssetId: "duplicate", version: 7 }),
+      db({ assetId: "db-invalid", cloudinaryAssetId: "invalid", version: null, trustedV2: true }),
+      db({ assetId: "db-live", cloudinaryAssetId: "live", version: 3 }),
+    ];
+    const first = reconcileInventories({ providerAssets: providers, dbMirrors: mirrors });
+    const second = reconcileInventories({ providerAssets: [...providers].reverse(), dbMirrors: [...mirrors].reverse() });
+    expect(stringifyReport(first)).toBe(stringifyReport(second));
   });
 
   it("fails closed for an unknown contradictory state", () => {

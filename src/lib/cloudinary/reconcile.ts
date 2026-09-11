@@ -81,14 +81,45 @@ function emptySummary(): ReconcileReport["summary"] {
   return Object.fromEntries(RECONCILE_CLASSIFICATIONS.map((key) => [key, 0])) as ReconcileReport["summary"];
 }
 
+function compareNullableString(a: string | null, b: string | null): number {
+  return (a ?? "").localeCompare(b ?? "") || Number(a === null) - Number(b === null);
+}
+
+function compareNullableNumber(a: number | null, b: number | null): number {
+  return (a ?? -1) - (b ?? -1) || Number(a === null) - Number(b === null);
+}
+
+function compareProvider(a: ProviderAsset, b: ProviderAsset): number {
+  return compareNullableString(a.assetId, b.assetId) ||
+    compareNullableNumber(a.version, b.version) ||
+    Number(a.placeholder) - Number(b.placeholder) ||
+    compareNullableNumber(a.bytes, b.bytes) ||
+    Number(a.backup) - Number(b.backup);
+}
+
+function compareDbMirror(a: DbMirror, b: DbMirror): number {
+  return compareNullableString(a.cloudinaryAssetId, b.cloudinaryAssetId) ||
+    a.assetId.localeCompare(b.assetId) ||
+    compareNullableNumber(a.version, b.version) ||
+    a.status.localeCompare(b.status) ||
+    Number(a.trustedV2) - Number(b.trustedV2) ||
+    Number(a.hasMatchingDeleteEvent) - Number(b.hasMatchingDeleteEvent);
+}
+
+function addToGroup<T>(groups: Map<string, T[]>, id: string, value: T): void {
+  const group = groups.get(id);
+  if (group) group.push(value);
+  else groups.set(id, [value]);
+}
+
 /** Classify inventories by immutable Cloudinary asset_id and exact version. */
 export function reconcileInventories(input: {
   providerAssets: ProviderAsset[];
   dbMirrors: DbMirror[];
 }): ReconcileReport {
   const records: ReconcileRecord[] = [];
-  const providerById = new Map<string, ProviderAsset>();
-  const dbById = new Map<string, DbMirror>();
+  const providerGroups = new Map<string, ProviderAsset[]>();
+  const dbGroups = new Map<string, DbMirror[]>();
   const invalidIds = new Set<string>();
 
   for (const provider of input.providerAssets) {
@@ -103,12 +134,11 @@ export function reconcileInventories(input: {
       });
       continue;
     }
-    if (providerById.has(provider.assetId)) invalidIds.add(provider.assetId);
-    providerById.set(provider.assetId, provider);
+    addToGroup(providerGroups, provider.assetId, provider);
   }
 
   for (const db of input.dbMirrors) {
-    if (!validId(db.cloudinaryAssetId) || !validVersion(db.version) || !db.trustedV2) {
+    if (!db.trustedV2) {
       records.push({
         cloudinaryAssetId: db.cloudinaryAssetId ?? "",
         classification: "legacy_excluded",
@@ -119,13 +149,26 @@ export function reconcileInventories(input: {
       });
       continue;
     }
-    if (dbById.has(db.cloudinaryAssetId)) invalidIds.add(db.cloudinaryAssetId);
-    dbById.set(db.cloudinaryAssetId, db);
+    if (!validId(db.cloudinaryAssetId) || !validVersion(db.version)) {
+      records.push({
+        cloudinaryAssetId: db.cloudinaryAssetId ?? "",
+        classification: "invalid_unclassifiable",
+        dbAssetId: db.assetId,
+        dbStatus: db.status,
+        dbVersion: db.version,
+        providerVersion: null,
+      });
+      continue;
+    }
+    addToGroup(dbGroups, db.cloudinaryAssetId, db);
   }
 
+  for (const [id, group] of providerGroups) if (group.length > 1) invalidIds.add(id);
+  for (const [id, group] of dbGroups) if (group.length > 1) invalidIds.add(id);
+
   for (const id of [...invalidIds].sort()) {
-    const db = dbById.get(id);
-    const provider = providerById.get(id);
+    const db = dbGroups.get(id)?.sort(compareDbMirror)[0];
+    const provider = providerGroups.get(id)?.sort(compareProvider)[0];
     records.push({
       cloudinaryAssetId: id,
       classification: "invalid_unclassifiable",
@@ -136,12 +179,12 @@ export function reconcileInventories(input: {
     });
   }
 
-  const ids = [...new Set([...providerById.keys(), ...dbById.keys()])]
+  const ids = [...new Set([...providerGroups.keys(), ...dbGroups.keys()])]
     .filter((id) => !invalidIds.has(id))
     .sort();
   for (const id of ids) {
-    const provider = providerById.get(id);
-    const db = dbById.get(id);
+    const provider = providerGroups.get(id)?.[0];
+    const db = dbGroups.get(id)?.[0];
     let classification: ReconcileClassification;
     if (!db) {
       classification = "provider_only_v2";
@@ -173,7 +216,10 @@ export function reconcileInventories(input: {
   records.sort((a, b) =>
     a.cloudinaryAssetId.localeCompare(b.cloudinaryAssetId) ||
     a.classification.localeCompare(b.classification) ||
-    (a.dbAssetId ?? "").localeCompare(b.dbAssetId ?? ""),
+    compareNullableString(a.dbAssetId, b.dbAssetId) ||
+    compareNullableString(a.dbStatus, b.dbStatus) ||
+    compareNullableNumber(a.dbVersion, b.dbVersion) ||
+    compareNullableNumber(a.providerVersion, b.providerVersion),
   );
   const summary = emptySummary();
   for (const record of records) summary[record.classification] += 1;
