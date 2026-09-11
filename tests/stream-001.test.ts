@@ -593,9 +593,9 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
 
   it("still preflights Mastra thread storage when only COPILOTKIT_LICENSE_TOKEN is set", async () => {
     const previousLicense = process.env.COPILOTKIT_LICENSE_TOKEN;
-    const previousIntelligence = process.env.INTELLIGENCE_API_KEY;
+    const previousIntelligence = process.env.CPK_INTELLIGENCE_API_KEY;
     process.env.COPILOTKIT_LICENSE_TOKEN = "test-license-token";
-    delete process.env.INTELLIGENCE_API_KEY;
+    delete process.env.CPK_INTELLIGENCE_API_KEY;
     const { agent: streamAgent, stats } = createStreamHarness();
     vi.spyOn(agent, "createLocalAgents").mockReturnValue({
       default: streamAgent,
@@ -628,20 +628,26 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
         process.env.COPILOTKIT_LICENSE_TOKEN = previousLicense;
       }
       if (previousIntelligence === undefined) {
-        delete process.env.INTELLIGENCE_API_KEY;
+        delete process.env.CPK_INTELLIGENCE_API_KEY;
       } else {
-        process.env.INTELLIGENCE_API_KEY = previousIntelligence;
+        process.env.CPK_INTELLIGENCE_API_KEY = previousIntelligence;
       }
     }
   });
 
   it("whitespace-padded license and whitespace-only Intelligence key stay on SSE", async () => {
     const previousLicense = process.env.COPILOTKIT_LICENSE_TOKEN;
-    const previousIntelligence = process.env.INTELLIGENCE_API_KEY;
+    const previousIntelligence = process.env.CPK_INTELLIGENCE_API_KEY;
+    const previousAlias = process.env.COPILOTKIT_API_KEY;
     // Without trim(), a whitespace-only Intelligence key is still truthy and
     // would construct CopilotKitIntelligence — the regression this PR fixes.
     process.env.COPILOTKIT_LICENSE_TOKEN = "  test-license-token  ";
-    process.env.INTELLIGENCE_API_KEY = " \t ";
+    process.env.CPK_INTELLIGENCE_API_KEY = " \t ";
+    // Clear the alias too: route.ts falls back to COPILOTKIT_API_KEY when
+    // CPK_INTELLIGENCE_API_KEY is unset/blank, so a leftover ambient alias
+    // (e.g. from a dev shell or a prior test) would otherwise still select
+    // Intelligence mode and hide the whitespace regression this test proves.
+    delete process.env.COPILOTKIT_API_KEY;
     const { agent: streamAgent } = createStreamHarness();
     vi.spyOn(agent, "createLocalAgents").mockReturnValue({
       default: streamAgent,
@@ -678,9 +684,14 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
         process.env.COPILOTKIT_LICENSE_TOKEN = previousLicense;
       }
       if (previousIntelligence === undefined) {
-        delete process.env.INTELLIGENCE_API_KEY;
+        delete process.env.CPK_INTELLIGENCE_API_KEY;
       } else {
-        process.env.INTELLIGENCE_API_KEY = previousIntelligence;
+        process.env.CPK_INTELLIGENCE_API_KEY = previousIntelligence;
+      }
+      if (previousAlias === undefined) {
+        delete process.env.COPILOTKIT_API_KEY;
+      } else {
+        process.env.COPILOTKIT_API_KEY = previousAlias;
       }
     }
   });

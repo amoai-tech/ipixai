@@ -35,8 +35,8 @@ async function signInOrgB(browser: Browser) {
   );
 }
 
-test.describe("shoots browse (authenticated)", () => {
-  test("loads /app/shoots without console or page errors", async ({ page }) => {
+test.describe("shoots browse (authenticated) @Scbd07080", () => {
+  test("loads /app/shoots without console or page errors @T7e744474", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (err) => errors.push(err.message));
     page.on("console", (msg) => {
@@ -48,7 +48,7 @@ test.describe("shoots browse (authenticated)", () => {
     expect(errors, `console/page errors: ${errors.join("; ")}`).toEqual([]);
   });
 
-  test("lists the org's real shoots and opens a shoot record", async ({ browser }) => {
+  test("lists the org's real shoots and opens a shoot record @T3c6ce80b", async ({ browser }) => {
     test.setTimeout(TEST_TIMEOUT_MS);
     const { page: orgA, close: closeOrgA } = await signInOrgA(browser);
     try {
@@ -88,7 +88,7 @@ test.describe("shoots browse (authenticated)", () => {
     }
   });
 
-  test("org B cannot see org A shoots: empty list + direct URL 404", async ({ browser }) => {
+  test("org B cannot see org A shoots: empty list + direct URL 404 @T8510130f", async ({ browser }) => {
     test.setTimeout(TEST_TIMEOUT_MS);
 
     // Org A: capture a real shoot id from the list.
@@ -119,14 +119,14 @@ test.describe("shoots browse (authenticated)", () => {
     }
   });
 
-  test("unknown shoot id renders 404 (foreign/unknown record)", async ({ page }) => {
+  test("unknown shoot id renders 404 (foreign/unknown record) @T4eeb5be6", async ({ page }) => {
     test.setTimeout(TEST_TIMEOUT_MS);
     await page.goto("/app/shoots/00000000-0000-4000-8000-000000000000");
     await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
     await expect(page.getByText("This page could not be found.")).toBeVisible();
   });
 
-  test("non-UUID shoot id renders 404", async ({ page }) => {
+  test("non-UUID shoot id renders 404 @Ta6df8c3a", async ({ page }) => {
     test.setTimeout(TEST_TIMEOUT_MS);
     await page.goto("/app/shoots/not-a-uuid");
     await expect(page.getByRole("heading", { name: "404" })).toBeVisible();

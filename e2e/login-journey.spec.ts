@@ -16,7 +16,7 @@ test.use({
 });
 test.setTimeout(60_000);
 
-test("critical journey: login succeeds", async ({ page }) => {
+test("critical journey: login succeeds @T5dbe2c0f", async ({ page }) => {
   await signInAsE2ETestOperator(page);
   // Explicit here (not just inside the shared helper) — this is the
   // public, user-observable proof that password sign-in lands the
@@ -28,10 +28,10 @@ test("critical journey: login succeeds", async ({ page }) => {
 // PR #52 (IPI-1066) merged — /app is the real Command Center now.
 // Reuses the auth.setup storageState (already signed in) so this test does
 // not trigger a second password sign-in that Supabase may rate-limit.
-test.describe("dashboard navigation (reuses auth.setup session)", () => {
+test.describe("dashboard navigation (reuses auth.setup session) @Sb901bcd7", () => {
   test.use({ storageState: "playwright/.auth/user.json" });
 
-  test("critical journey: dashboard → brand navigation", async ({ page }) => {
+  test("critical journey: dashboard → brand navigation @T4dd34fbf", async ({ page }) => {
     await page.goto("/app");
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 

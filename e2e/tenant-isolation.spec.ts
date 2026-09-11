@@ -78,7 +78,7 @@ async function expectEmptyIsolatedDashboard(page: Page) {
 // PR #52 (IPI-1066) merged — /app has the real "Dashboard" heading and
 // brand list now. This is the real, intended two-account reciprocal proof.
 test(
-  "org A vs org B: signed-in dashboards remain tenant-isolated",
+  "org A vs org B: signed-in dashboards remain tenant-isolated @T1cb98401",
   async ({ browser, page }) => {
     const orgAId = await getOwnOrgId(page);
 

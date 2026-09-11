@@ -54,7 +54,7 @@ async function signInClean(
  * sign-out revokes refresh tokens immediately, local sign-out does not, so a
  * successful refresh is the true local-vs-global discriminator.
  */
-test("signing out in one browser leaves the user's other sessions signed in", async ({
+test("signing out in one browser leaves the user's other sessions signed in @Ta555b30b", async ({
   browser,
 }) => {
   const emailA = await requireEnv("E2E_TEST_EMAIL");
@@ -119,7 +119,7 @@ test("signing out in one browser leaves the user's other sessions signed in", as
  * /login server guard bounces the authenticated browser to /app, which the
  * helper detects and reports.
  */
-test("an already-authenticated browser cannot sign in again — the attempt fails fast", async ({
+test("an already-authenticated browser cannot sign in again — the attempt fails fast @Ta11fef0a", async ({
   browser,
 }) => {
   const email = await requireEnv("E2E_TEST_EMAIL");

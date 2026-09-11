@@ -46,8 +46,8 @@ async function attachScreenshot(testInfo: TestInfo, name: string, page: Page) {
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: false }), contentType: "image/png" });
 }
 
-test.describe("populated Command Center (authenticated, real org data)", () => {
-  test("loads /app with a real hero, no console/page errors, no 0-brand empty state", async ({
+test.describe("populated Command Center (authenticated, real org data) @S4a09cc59", () => {
+  test("loads /app with a real hero, no console/page errors, no 0-brand empty state @T5d09e888", async ({
     browser,
   }, testInfo) => {
     test.setTimeout(TEST_TIMEOUT_MS);
@@ -78,7 +78,7 @@ test.describe("populated Command Center (authenticated, real org data)", () => {
     }
   });
 
-  test("chat welcome and Intelligence rail are portfolio-aware, not generic", async ({ browser }) => {
+  test("chat welcome and Intelligence rail are portfolio-aware, not generic @T166229d1", async ({ browser }) => {
     test.setTimeout(TEST_TIMEOUT_MS);
     const { page, close } = await signInPopulatedOrg(browser);
     try {
@@ -106,7 +106,7 @@ test.describe("populated Command Center (authenticated, real org data)", () => {
     }
   });
 
-  test("Recent Work renders real tiles that deep-link to their exact shoot", async ({ browser }) => {
+  test("Recent Work renders real tiles that deep-link to their exact shoot @T8e54ea68", async ({ browser }) => {
     test.setTimeout(TEST_TIMEOUT_MS);
     const { page, close } = await signInPopulatedOrg(browser);
     try {
@@ -127,7 +127,7 @@ test.describe("populated Command Center (authenticated, real org data)", () => {
     }
   });
 
-  test("an authorized Recent Work image, when present, loads over HTTP 200 from Cloudinary", async ({
+  test("an authorized Recent Work image, when present, loads over HTTP 200 from Cloudinary @T10b2799c", async ({
     browser,
   }, testInfo) => {
     test.setTimeout(TEST_TIMEOUT_MS);
@@ -197,7 +197,7 @@ test.describe("populated Command Center (authenticated, real org data)", () => {
     }
   });
 
-  test("mobile viewport keeps Recent Work horizontally scrollable and usable", async ({ browser }, testInfo) => {
+  test("mobile viewport keeps Recent Work horizontally scrollable and usable @T77fd0222", async ({ browser }, testInfo) => {
     test.setTimeout(TEST_TIMEOUT_MS);
     const { page, close } = await signInPopulatedOrg(browser);
     try {

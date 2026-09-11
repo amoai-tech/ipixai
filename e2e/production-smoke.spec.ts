@@ -23,7 +23,7 @@ async function gotoWithNetworkChangeRetry(page: import("@playwright/test").Page,
   }
 }
 
-test("production auth lifecycle: sign in, sign out, and protected route stays closed", async ({
+test("production auth lifecycle: sign in, sign out, and protected route stays closed @T79a59b5a", async ({
   page,
 }) => {
   await gotoWithNetworkChangeRetry(page, "/login");
@@ -43,7 +43,7 @@ test("production auth lifecycle: sign in, sign out, and protected route stays cl
   await expect(page).toHaveURL(/\/login$/);
 });
 
-test("production desktop marketing auth links target sign-in and sign-up", async ({ page }) => {
+test("production desktop marketing auth links target sign-in and sign-up @Td51c8d4d", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoWithNetworkChangeRetry(page, "/");
   const header = page.getByRole("banner");
@@ -54,7 +54,7 @@ test("production desktop marketing auth links target sign-in and sign-up", async
   await expect(footer.getByRole("link", { name: "Sign up" })).toHaveAttribute("href", "/signup");
 });
 
-test("production mobile marketing auth links expose sign-in and sign-up", async ({ page }) => {
+test("production mobile marketing auth links expose sign-in and sign-up @T8db7705a", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await gotoWithNetworkChangeRetry(page, "/");
   await page.getByRole("button", { name: "Toggle menu" }).click();
