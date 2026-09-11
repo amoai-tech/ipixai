@@ -8,10 +8,6 @@ import {
 } from "@/lib/auth/app-shell";
 
 const COPY: Record<string, { heading: string; body: string }> = {
-  brands: {
-    heading: "Brands",
-    body: "BRAND-001 will fill this slot. No brand records are loaded here.",
-  },
   shoots: {
     heading: "Shoots",
     body: "SHOOT-001 will fill this slot. No shoot records are loaded here.",
