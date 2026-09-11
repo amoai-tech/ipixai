@@ -53,7 +53,7 @@ A guard refuses to start if that port is already listening. `npm run build` also
 ## Running a Channel
 
 `channel-host.mts` mounts the same agent as an Intelligence Channel
-(Slack, Teams). It requires `INTELLIGENCE_API_KEY` and a declared Channel in
+(Slack, Teams). It requires `CPK_INTELLIGENCE_API_KEY` and a declared Channel in
 `.copilotkit/channels.json` — set both up with `copilotkit init` or
 `copilotkit channels add`, which write that file and the credentials your
 `.env` needs, then:
@@ -117,8 +117,64 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## CopilotKit Intelligence & Threads (Optional)
 
 CopilotKit Intelligence adds durable thread history and cross-session memory to
-your agent. It requires a `COPILOTKIT_LICENSE_TOKEN` and a running local
-Intelligence stack (Docker Desktop + a local Intelligence repo checkout).
+your agent. Two deployment modes exist — pick one per environment, don't mix
+their credentials.
+
+### Managed (recommended — what this starter's deployed environments use)
+
+Hosted by CopilotKit; no local Docker stack. Provision the project key with
+the CopilotKit CLI:
+
+```bash
+npx copilotkit project select --project <your-project>
+```
+
+This writes `CPK_INTELLIGENCE_API_KEY` into `.env` (gitignored). The runtime
+(`src/app/api/copilotkit/[[...slug]]/route.ts`) and the Channel host
+(`channel-host.mts`) both read `CPK_INTELLIGENCE_API_KEY` (`COPILOTKIT_API_KEY`
+is the accepted alias) and switch into Intelligence mode automatically when it
+is set — no `COPILOTKIT_LICENSE_TOKEN` needed. `COPILOTKIT_LICENSE_TOKEN` is a
+**separate, offline/self-hosted-only** credential; do not set it for managed
+mode, and never reuse a `ck_pub_...` Cloud public key as its value — that
+combination previously produced `Invalid CopilotKit license token` even with a
+valid project key.
+
+Then start the dev server as usual (`npm run dev:ui`). Verify with:
+
+`/api/copilotkit/*` (including `/info`) requires a verified Supabase session
+and org membership — a bare `curl` gets `401`, not the fields below. Sign in
+at `http://localhost:3000/login` first, then either:
+
+- open `http://localhost:3000/api/copilotkit/info` in that same signed-in
+  browser tab and read the JSON directly, or
+- reuse the browser's session cookie:
+  ```bash
+  curl -s http://localhost:3000/api/copilotkit/info \
+    -H "Cookie: $(pbpaste)" | jq '.mode, .licenseStatus'
+  # "intelligence"
+  # "valid"
+  ```
+  (copy the `Cookie` request header value from your browser's Network tab
+  for any `/api/copilotkit/*` request; `pbpaste` is macOS — swap in your
+  platform's clipboard tool, or paste the value directly).
+
+### Self-hosted (Docker, legacy local dev only — not CopilotKit's current self-hosting architecture)
+
+Runs your own local Intelligence stack instead of the managed platform.
+Requires Docker Desktop, a local Intelligence repo checkout, and
+`COPILOTKIT_LICENSE_TOKEN` (self-hosted licensing — a different credential
+family from the managed `CPK_INTELLIGENCE_API_KEY` above; the two modes are
+not interchangeable and should not both be configured at once).
+
+> This `docker-compose.intelligence.yml` path is a legacy iPix/local
+> development setup, not CopilotKit's current official self-hosting
+> architecture — production self-hosting is the `copilot-intelligence` Helm
+> chart into your own Kubernetes cluster (Postgres, Redis, ingress, OIDC),
+> per [CopilotKit's self-hosting docs](https://docs.copilotkit.ai/intelligence/self-hosting).
+> iPix targets managed Intelligence (above) for every real deployment; this
+> section is for local experimentation only. If it drifts further from
+> CopilotKit's current self-hosting story, treat their docs as authoritative
+> over this README.
 
 ### Prerequisites
 
@@ -156,8 +212,9 @@ INTELLIGENCE_API_URL=http://localhost:4204
 INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4404
 ```
 
-Then start the dev server as usual (`npm run dev`). Thread history and memory
-features are activated automatically when `COPILOTKIT_LICENSE_TOKEN` is set.
+Then start the dev server (`npm run dev:ui` — the combined `dev` script is
+disabled, see "Available Scripts" above). Thread history and memory features
+are activated automatically when `COPILOTKIT_LICENSE_TOKEN` is set.
 
 ### Stop / reset
 

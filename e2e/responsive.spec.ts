@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 // projects automatically — no per-test viewport handling needed.
 //
 // PR #52 (IPI-1066) merged — /app has the real "Dashboard" heading now.
-test("dashboard has no horizontal overflow", async ({ page }) => {
+test("dashboard has no horizontal overflow @Tafece6a7", async ({ page }) => {
   await page.goto("/app");
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
