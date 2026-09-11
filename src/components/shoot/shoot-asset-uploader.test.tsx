@@ -199,7 +199,16 @@ describe("IPI-1116 · CLD-UPLOAD-001 direct signed upload contract", () => {
   });
 
   it("accepts no more than ten files in one batch", async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse(signedResponse())));
+    let signerRequests = 0;
+    let providerRequests = 0;
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/cloudinary/sign") {
+        signerRequests += 1;
+        return Promise.resolve(jsonResponse(signedResponse(signerRequests)));
+      }
+      providerRequests += 1;
+      return Promise.resolve(jsonResponse(providerResponse(providerRequests)));
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     render(<ShootAssetUploader brandId={BRAND_ID} shootId={SHOOT_ID} />);
@@ -209,6 +218,9 @@ describe("IPI-1116 · CLD-UPLOAD-001 direct signed upload contract", () => {
 
     expect(await screen.findByRole("alert")).not.toBeNull();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(20));
-    expect(screen.getAllByRole("status")).toHaveLength(10);
+    expect(screen.getAllByText("Processing")).toHaveLength(10);
+    expect(screen.queryByText("Failed")).toBeNull();
+    expect(signerRequests).toBe(10);
+    expect(providerRequests).toBe(10);
   });
 });
