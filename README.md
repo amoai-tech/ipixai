@@ -141,11 +141,22 @@ valid project key.
 
 Then start the dev server as usual (`npm run dev:ui`). Verify with:
 
-```bash
-curl -s http://localhost:3000/api/copilotkit/info | jq '.mode, .licenseStatus'
-# "intelligence"
-# "valid"
-```
+`/api/copilotkit/*` (including `/info`) requires a verified Supabase session
+and org membership — a bare `curl` gets `401`, not the fields below. Sign in
+at `http://localhost:3000/login` first, then either:
+
+- open `http://localhost:3000/api/copilotkit/info` in that same signed-in
+  browser tab and read the JSON directly, or
+- reuse the browser's session cookie:
+  ```bash
+  curl -s http://localhost:3000/api/copilotkit/info \
+    -H "Cookie: $(pbpaste)" | jq '.mode, .licenseStatus'
+  # "intelligence"
+  # "valid"
+  ```
+  (copy the `Cookie` request header value from your browser's Network tab
+  for any `/api/copilotkit/*` request; `pbpaste` is macOS — swap in your
+  platform's clipboard tool, or paste the value directly).
 
 ### Self-hosted (Docker, alternative)
 

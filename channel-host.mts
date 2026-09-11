@@ -43,12 +43,23 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   // CopilotKit docs: override apiUrl/wsUrl together only (self-hosted target).
-  if (Boolean(process.env.INTELLIGENCE_API_URL) !== Boolean(process.env.INTELLIGENCE_GATEWAY_WS_URL)) {
+  // A one-sided override would split the REST and realtime planes across
+  // managed and self-hosted backends, so a partial pair is dropped entirely
+  // (falls back to managed defaults for both) rather than passed through split.
+  const intelligenceApiUrl = process.env.INTELLIGENCE_API_URL?.trim() || undefined;
+  const intelligenceWsUrl = process.env.INTELLIGENCE_GATEWAY_WS_URL?.trim() || undefined;
+  const hasPairedEndpoints = Boolean(intelligenceApiUrl) === Boolean(intelligenceWsUrl);
+  if (!hasPairedEndpoints) {
     console.warn(
       "[channel] INTELLIGENCE_API_URL and INTELLIGENCE_GATEWAY_WS_URL " +
-        "should be set together (or neither) — one is set without the other.",
+        "must be set together — one was set without the other. Ignoring " +
+        "both and falling back to managed Intelligence defaults.",
     );
   }
+  const intelligenceEndpoints =
+    hasPairedEndpoints && intelligenceApiUrl && intelligenceWsUrl
+      ? { apiUrl: intelligenceApiUrl, wsUrl: intelligenceWsUrl }
+      : {};
 
   const runtime = new CopilotRuntime({
     // The Channel supplies its own agent, so no runtime-hosted agents are needed.
@@ -56,12 +67,7 @@ async function main(): Promise<void> {
     channels: [createDefaultChannel(channelName)],
     intelligence: new CopilotKitIntelligence({
       apiKey: intelligenceKey,
-      ...(process.env.INTELLIGENCE_API_URL
-        ? { apiUrl: process.env.INTELLIGENCE_API_URL }
-        : {}),
-      ...(process.env.INTELLIGENCE_GATEWAY_WS_URL
-        ? { wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL }
-        : {}),
+      ...intelligenceEndpoints,
     }),
   });
 
