@@ -61,6 +61,24 @@ function safeExtractDraftScores(value: unknown): BrandDraftScore[] {
   }
 }
 
+/**
+ * IPI-1093 · BRAND-INTEL-001 blocker #4 — Mastra's `saveDraftAndWait` step is
+ * the sole owner of "ready for review": it attaches `_workflow_run_id` to
+ * `ai_profile_draft` AFTER the `brand-intelligence` Edge function's own
+ * write. `brandProfileSchema` is `.passthrough()`, so a draft captured in
+ * that window parses successfully with no run id yet — reviewable-looking,
+ * but `approve_brand_intelligence_draft` requires a verified
+ * `_workflow_run_id` and would reject it as `INVALID_DRAFT`. A malformed
+ * draft (not this case) must still parse to `null` and surface as
+ * parse_error, not disappear — so this only asks "does the schema-valid
+ * draft carry a run id", never called on a draft that already failed
+ * `safeParseProfile`.
+ */
+function hasWorkflowRunId(parsedDraft: BrandProfile): boolean {
+  const runId = (parsedDraft as unknown as Record<string, unknown>)._workflow_run_id;
+  return typeof runId === "string" && runId !== "";
+}
+
 export async function loadBrandDetail(
   supabase: SupabaseClient<Database>,
   brandId: string,
@@ -80,7 +98,13 @@ export async function loadBrandDetail(
   if (snapshotError) return { status: "error" };
 
   const rawDraft = (snapshot as { draft: unknown; hash: string | null } | null)?.draft ?? null;
-  const draftHash = (snapshot as { draft: unknown; hash: string | null } | null)?.hash ?? null;
+  const rawDraftHash = (snapshot as { draft: unknown; hash: string | null } | null)?.hash ?? null;
+
+  const parsedDraft = rawDraft ? safeParseProfile(rawDraft) : null;
+  // See hasWorkflowRunId's doc comment: only a schema-valid draft that is
+  // still missing its run id counts as "pending provenance" — a malformed
+  // draft (parsedDraft === null) keeps its existing parse_error behavior.
+  const pendingProvenance = parsedDraft !== null && !hasWorkflowRunId(parsedDraft);
 
   return {
     status: "found",
@@ -92,9 +116,9 @@ export async function loadBrandDetail(
       intakeStatus: brand.intake_status,
       approvedProfile: safeParseProfile(brand.ai_profile),
       approvedProfileAt: brand.approved_profile_at,
-      draft: rawDraft ? safeParseProfile(rawDraft) : null,
-      draftScores: rawDraft ? safeExtractDraftScores(rawDraft) : [],
-      draftHash,
+      draft: pendingProvenance ? null : parsedDraft,
+      draftScores: pendingProvenance ? [] : rawDraft ? safeExtractDraftScores(rawDraft) : [],
+      draftHash: pendingProvenance ? null : rawDraftHash,
     },
   };
 }

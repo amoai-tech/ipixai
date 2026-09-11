@@ -145,4 +145,39 @@ describe("loadBrandDetail", () => {
     expect(result.detail.draftHash).toBeNull();
     expect(result.detail.draftScores).toEqual([]);
   });
+
+  it("CRITICAL (IPI-1093 blocker #4): a schema-valid draft missing _workflow_run_id — the exact shape brand-intelligence writes BEFORE Mastra's saveDraftAndWait step attaches it — must render as 'no draft yet', not 'review'. approve_brand_intelligence_draft rejects a run-id-less draft as INVALID_DRAFT, so showing Approve for it would always fail.", async () => {
+    const { _workflow_run_id: _omit, ...draftWithoutRunId } = VALID_DRAFT;
+    const result = await loadBrandDetail(
+      fakeSupabase({
+        brandRow: { ...DEFAULT_BRAND_ROW, intake_status: "scores_complete" },
+        snapshot: { draft: draftWithoutRunId, hash: "H1-pending-provenance" },
+      }),
+      BRAND_ID,
+    );
+
+    expect(result.status).toBe("found");
+    if (result.status !== "found") return;
+    // Both null (not just draft) — a lone non-null draftHash would make
+    // select-view.ts render parse_error, an operator-facing error state,
+    // for a brand that is simply still processing normally.
+    expect(result.detail.draft).toBeNull();
+    expect(result.detail.draftHash).toBeNull();
+    expect(result.detail.draftScores).toEqual([]);
+  });
+
+  it("a schema-valid draft WITH _workflow_run_id still reviews normally (the fix must not gate every draft, only the pre-provenance window)", async () => {
+    const result = await loadBrandDetail(
+      fakeSupabase({
+        brandRow: DEFAULT_BRAND_ROW,
+        snapshot: { draft: VALID_DRAFT, hash: "H1-ready" },
+      }),
+      BRAND_ID,
+    );
+
+    expect(result.status).toBe("found");
+    if (result.status !== "found") return;
+    expect(result.detail.draft?.name).toBe("Acme");
+    expect(result.detail.draftHash).toBe("H1-ready");
+  });
 });

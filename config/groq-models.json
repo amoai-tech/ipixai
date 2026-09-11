@@ -1,0 +1,125 @@
+{
+  "$schema": "./groq-models.schema.json",
+  "version": 1,
+  "updatedAt": "2026-07-05",
+  "envMapping": {
+    "default": "GROQ_MODEL_DEFAULT",
+    "fast": "GROQ_MODEL_FAST",
+    "structured": "GROQ_MODEL_STRUCTURED",
+    "structuredHeavy": "GROQ_MODEL_STRUCTURED_HEAVY",
+    "vision": "GROQ_MODEL_VISION",
+    "visionExperimental": "GROQ_MODEL_VISION_EXPERIMENTAL",
+    "compound": "GROQ_MODEL_COMPOUND",
+    "compoundMini": "GROQ_MODEL_COMPOUND_MINI",
+    "stt": "GROQ_MODEL_STT",
+    "safety": "GROQ_MODEL_SAFETY"
+  },
+  "defaults": {
+    "default": "llama-3.3-70b-versatile",
+    "fast": "llama-3.1-8b-instant",
+    "structured": "openai/gpt-oss-20b",
+    "structuredHeavy": "openai/gpt-oss-120b",
+    "vision": "",
+    "visionExperimental": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "compound": "groq/compound",
+    "compoundMini": "groq/compound-mini",
+    "stt": "whisper-large-v3-turbo",
+    "safety": "openai/gpt-oss-safeguard-20b"
+  },
+  "models": [
+    {
+      "id": "llama-3.1-8b-instant",
+      "tier": "fast",
+      "strictStructured": false,
+      "parallelTools": true,
+      "promptCaching": false,
+      "evaluationOnly": false,
+      "productionDefault": false,
+      "deprecatedAfter": "2026-08-16",
+      "replacementModel": "openai/gpt-oss-20b"
+    },
+    {
+      "id": "llama-3.3-70b-versatile",
+      "tier": "default",
+      "strictStructured": false,
+      "parallelTools": true,
+      "promptCaching": false,
+      "evaluationOnly": false,
+      "productionDefault": true,
+      "deprecatedAfter": "2026-08-16",
+      "replacementModel": "openai/gpt-oss-120b"
+    },
+    {
+      "id": "openai/gpt-oss-20b",
+      "tier": "structured",
+      "strictStructured": true,
+      "parallelTools": false,
+      "promptCaching": false,
+      "evaluationOnly": false,
+      "productionDefault": false
+    },
+    {
+      "id": "openai/gpt-oss-120b",
+      "tier": "structuredHeavy",
+      "strictStructured": true,
+      "parallelTools": false,
+      "promptCaching": false,
+      "evaluationOnly": false,
+      "productionDefault": false
+    },
+    {
+      "id": "qwen/qwen3-32b",
+      "tier": "default",
+      "strictStructured": false,
+      "parallelTools": true,
+      "promptCaching": false,
+      "evaluationOnly": false,
+      "productionDefault": false
+    },
+    {
+      "id": "meta-llama/llama-4-scout-17b-16e-instruct",
+      "tier": "visionExperimental",
+      "strictStructured": false,
+      "parallelTools": false,
+      "promptCaching": false,
+      "evaluationOnly": true,
+      "productionDefault": false
+    },
+    {
+      "id": "groq/compound",
+      "tier": "compound",
+      "strictStructured": false,
+      "parallelTools": true,
+      "promptCaching": false,
+      "evaluationOnly": false,
+      "productionDefault": false
+    },
+    {
+      "id": "groq/compound-mini",
+      "tier": "compoundMini",
+      "strictStructured": false,
+      "parallelTools": true,
+      "promptCaching": false,
+      "evaluationOnly": false,
+      "productionDefault": false
+    },
+    {
+      "id": "whisper-large-v3-turbo",
+      "tier": "stt",
+      "strictStructured": false,
+      "parallelTools": false,
+      "promptCaching": false,
+      "evaluationOnly": false,
+      "productionDefault": false
+    },
+    {
+      "id": "openai/gpt-oss-safeguard-20b",
+      "tier": "safety",
+      "strictStructured": true,
+      "parallelTools": false,
+      "promptCaching": false,
+      "evaluationOnly": false,
+      "productionDefault": false
+    }
+  ]
+}
