@@ -116,7 +116,7 @@ async function generateGeminiStructured<T>(
       .join("\n\n"),
   ].join("\n");
 
-  const result = await generateGeminiStructuredContent({
+  let result = await generateGeminiStructuredContent({
     apiKey,
     contents,
     responseSchema: options.geminiResponseSchema ?? options.jsonSchema,
@@ -138,7 +138,15 @@ async function generateGeminiStructured<T>(
       temperature: 0,
       timeoutMs: options.timeoutMs ?? 45_000,
     });
-    validation = validateParsedText(repair.text);
+    // PR review finding: the Groq/Cloudflare paths below both reassign their
+    // `result` variable to the repair response on success — this path used
+    // to leave `result` pointing at the ORIGINAL (invalid) response, so a
+    // successful repair returned `data`/`validation.payload` from the
+    // repaired text but `text`/`log.model` from the first, still-invalid
+    // attempt. Reassigning keeps all three fields sourced from the same
+    // artifact, matching the other two providers.
+    result = repair;
+    validation = validateParsedText(result.text);
     if (validation.error) {
       throw new StructuredOutputValidationError(validation.error);
     }

@@ -96,7 +96,7 @@ begin
     when insufficient_privilege then reset role;
   end;
 
-  -- (2b) editor cannot directly insert/update brand_scores either.
+  -- (2b) editor cannot directly insert/update/delete brand_scores either.
   execute format('set local role authenticated; set local request.jwt.claims = %L', json_build_object('sub', org_a_editor)::text);
   begin
     insert into public.brand_scores (brand_id, score_type, score) values (brand_a, 'forged', 100);
@@ -105,6 +105,32 @@ begin
   exception
     when insufficient_privilege then reset role;
   end;
+
+  -- PR review finding: only INSERT was covered above — UPDATE and DELETE
+  -- are separate grants, both also revoked by the migration. Fixture row
+  -- written as table owner (mirrors what the approval RPC itself would
+  -- write), not a claim under test.
+  insert into public.brand_scores (brand_id, score_type, score) values (brand_a, 'pre_existing', 55);
+
+  execute format('set local role authenticated; set local request.jwt.claims = %L', json_build_object('sub', org_a_editor)::text);
+  begin
+    update public.brand_scores set score = 100 where brand_id = brand_a and score_type = 'pre_existing';
+    reset role;
+    raise exception 'IPI-1093 FAIL: org A editor must not be able to UPDATE brand_scores directly';
+  exception
+    when insufficient_privilege then reset role;
+  end;
+
+  execute format('set local role authenticated; set local request.jwt.claims = %L', json_build_object('sub', org_a_editor)::text);
+  begin
+    delete from public.brand_scores where brand_id = brand_a and score_type = 'pre_existing';
+    reset role;
+    raise exception 'IPI-1093 FAIL: org A editor must not be able to DELETE brand_scores directly';
+  exception
+    when insufficient_privilege then reset role;
+  end;
+
+  delete from public.brand_scores where brand_id = brand_a and score_type = 'pre_existing';
 
   -- (3) viewer is blocked the same way (defense-in-depth: this role never had
   --     write RLS either, but the grant now fails closed even before RLS).
@@ -263,6 +289,18 @@ begin
     where brand_id = brand_a and score_type = 'visual_identity' and score = 82;
   if row_count is distinct from 1 then
     raise exception 'IPI-1093 FAIL: reject must not touch the previously approved brand_scores row, got %', row_count;
+  end if;
+
+  -- PR review finding: the reject audit row itself was never asserted —
+  -- only its non-effect on prior approved truth was. Confirm exactly one
+  -- 'rejected' row exists for this exact hash, with the verified
+  -- workflow_run_id the RPC extracted from the draft (not a caller-supplied
+  -- value — see approve_/reject_brand_intelligence_draft's own comments).
+  select count(*) into row_count from public.brand_profile_approvals
+    where brand_id = brand_a and draft_hash = hash_2 and decision = 'rejected'
+      and workflow_run_id = wf_run_2;
+  if row_count is distinct from 1 then
+    raise exception 'IPI-1093 FAIL: expected exactly 1 rejected audit row for hash_2 with workflow_run_id=%, got %', wf_run_2, row_count;
   end if;
 
   raise notice 'IPI-1093 brand DB write-boundary PASS';

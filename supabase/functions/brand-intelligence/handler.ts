@@ -52,6 +52,10 @@ import {
   safeErrorMessage,
 } from "../_shared/response.ts";
 
+// Same pattern as start-brand-crawl/handler.ts's UUID_RE.
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function buildUrlList(baseUrl: string): string[] {
   const origin = new URL(baseUrl).origin;
   return [baseUrl, `${origin}/about`, `${origin}/collections`, `${origin}/lookbook`].slice(0, 4);
@@ -397,10 +401,47 @@ export async function handleBrandIntelligenceRequest(req: Request): Promise<Resp
       configurationSource: biConfigurationSource(),
     });
 
+    const MAX_BODY_BYTES = 16384;
     const contentLength = parseInt(req.headers.get("content-length") ?? "0", 10);
-    if (contentLength > 16384) {
+    if (contentLength > MAX_BODY_BYTES) {
       logFailure("orchestration/invocation", "payload_too_large");
       return errorResponse("payload_too_large", "Payload too large", 413);
+    }
+
+    // PR review finding: Content-Length is absent/untrustworthy on some
+    // callers (chunked transfer), so the check above alone doesn't bound the
+    // read — req.json() buffers the full body before any size check can
+    // run. Same fix as src/app/api/workflows/brand-intelligence/resume/
+    // route.ts: read the stream incrementally and bail as soon as the limit
+    // is crossed, instead of trusting the client-supplied header.
+    let rawBody: string;
+    {
+      const reader = req.body?.getReader();
+      if (!reader) {
+        logFailure("orchestration/invocation", "invalid_json");
+        return errorResponse("invalid_input", "missing body", 400);
+      }
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > MAX_BODY_BYTES) {
+          await reader.cancel();
+          logFailure("orchestration/invocation", "payload_too_large");
+          return errorResponse("payload_too_large", "Payload too large", 413);
+        }
+        chunks.push(value);
+      }
+      rawBody = new TextDecoder().decode(
+        chunks.reduce((acc, c) => {
+          const merged = new Uint8Array(acc.length + c.length);
+          merged.set(acc);
+          merged.set(c, acc.length);
+          return merged;
+        }, new Uint8Array(0)),
+      );
     }
 
     let body: {
@@ -410,7 +451,7 @@ export async function handleBrandIntelligenceRequest(req: Request): Promise<Resp
       crawlResultId?: string;
     };
     try {
-      const parsed: unknown = await req.json();
+      const parsed: unknown = JSON.parse(rawBody);
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
         logFailure("orchestration/invocation", "invalid_json");
         return errorResponse(
@@ -426,7 +467,7 @@ export async function handleBrandIntelligenceRequest(req: Request): Promise<Resp
     }
 
     const brandId =
-      typeof body.brandId === "string" && body.brandId.length > 0
+      typeof body.brandId === "string" && UUID_RE.test(body.brandId)
         ? body.brandId
         : null;
 
@@ -452,7 +493,7 @@ export async function handleBrandIntelligenceRequest(req: Request): Promise<Resp
     }
 
     const crawlResultId =
-      typeof body.crawlResultId === "string" && body.crawlResultId.length > 0
+      typeof body.crawlResultId === "string" && UUID_RE.test(body.crawlResultId)
         ? body.crawlResultId
         : null;
     failureCrawlResultId = crawlResultId;
@@ -729,6 +770,15 @@ Use URL content AND web search for press, social, and competitor signals.
     // intake_status; see that file's comment for why both are needed).
     let updated: { id: string; name: string };
 
+    // PR review finding: this write had no compare-and-set guard, so a
+    // duplicate/retried invocation for the same brand (a Mastra step retry
+    // calling this Edge function twice, not a new workflow run — Mastra's
+    // own validateBrand CAS already blocks a genuinely new run while a
+    // draft is pending) could clobber a draft that had already advanced to
+    // draft_ready and is sitting in front of an operator for review.
+    // Requiring the brand to still be 'analysis_running' makes this
+    // specific write idempotent-safe: a second invocation loses the race
+    // and throws below instead of overwriting real review-pending state.
     const { data: draftUpdated, error: updateErr } = await client
       .from("brands")
       .update({
@@ -736,11 +786,15 @@ Use URL content AND web search for press, social, and competitor signals.
         intake_status: "scores_complete" as const,
       })
       .eq("id", brandId)
+      .eq("intake_status", "analysis_running")
       .select("id, name")
       .single();
 
     if (updateErr || !draftUpdated) {
-      throw new Error(updateErr?.message ?? "Failed to update brand");
+      throw new Error(
+        updateErr?.message ??
+          "Failed to update brand (already advanced past analysis_running — concurrent run?)",
+      );
     }
     updated = draftUpdated;
     diagnosticStage = "DRAFT_WRITTEN";

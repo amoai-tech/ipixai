@@ -381,7 +381,9 @@ export function validateBrandProfilePayload(
   const visual = record.visualIdentity as { colors?: unknown; mood?: unknown } | undefined;
   if (
     !trimmedString(visual?.mood) ||
-    !Array.isArray(visual?.colors)
+    !Array.isArray(visual?.colors) ||
+    visual.colors.length === 0 ||
+    visual.colors.some((c) => !trimmedString(c))
   ) {
     return "Incomplete brand profile returned";
   }

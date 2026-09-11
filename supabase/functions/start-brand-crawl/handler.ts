@@ -212,8 +212,14 @@ export async function handleStartBrandCrawl(req: Request): Promise<Response> {
     let crawlRowId: string;
 
     if (existing?.job_status === "queued" && !existing.firecrawl_job_id) {
-      crawlRowId = existing.id;
-      const { error: resetErr } = await admin
+      // PR review finding: two concurrent calls (double-click, retry) could
+      // both read this same queued/no-job-id row from `existing` above and
+      // both proceed to firecrawlStartCrawl below, creating two remote
+      // Firecrawl jobs for one row — whichever firecrawl_job_id update ran
+      // last would win, silently orphaning the other job. Condition the
+      // claim on the row still being queued+unclaimed at write time (CAS),
+      // same pattern as the INSERT branch's own 23505-race handling below.
+      const { data: claimed, error: resetErr } = await admin
         .from("brand_crawls")
         .update({
           source_url: sourceUrl,
@@ -221,8 +227,27 @@ export async function handleStartBrandCrawl(req: Request): Promise<Response> {
           started_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .eq("id", crawlRowId);
+        .eq("id", existing.id)
+        .eq("job_status", "queued")
+        .is("firecrawl_job_id", null)
+        .select("id")
+        .maybeSingle();
       if (resetErr) throw new Error(resetErr.message);
+      if (!claimed) {
+        // Lost the claim race — another concurrent call already advanced
+        // this row. Return its current state instead of starting a second
+        // remote Firecrawl job.
+        const dup = await findActiveCrawl(admin, brandId, idempotencyKey);
+        if (dup) {
+          return jsonResponse({
+            crawlId: dup.id,
+            firecrawlJobId: dup.firecrawl_job_id,
+            reused: true,
+          });
+        }
+        throw new Error("Failed to claim queued crawl row (concurrent update)");
+      }
+      crawlRowId = claimed.id;
     } else {
       const { data: crawlRow, error: insertErr } = await admin
         .from("brand_crawls")
@@ -310,10 +335,18 @@ export async function handleStartBrandCrawl(req: Request): Promise<Response> {
 
     if (updateErr) throw new Error(updateErr.message);
 
-    await admin
+    // PR review finding: result was previously ignored. The crawl itself
+    // already started successfully above (firecrawl_job_id/job_status are
+    // durable), so a failure here shouldn't fail the whole request — but it
+    // shouldn't be silent either. Non-fatal, matches the insertAgentLog
+    // error-logging style just below.
+    const { error: brandStatusErr } = await admin
       .from("brands")
       .update({ intake_status: "crawl_running" })
       .eq("id", brandId);
+    if (brandStatusErr) {
+      console.warn("start-brand-crawl: brands.intake_status update failed", brandStatusErr);
+    }
 
     try {
       await insertAgentLog(admin, {

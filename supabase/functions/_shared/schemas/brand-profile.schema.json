@@ -69,7 +69,7 @@
       "properties": {
         "colors": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": { "type": "string", "minLength": 1 },
           "minItems": 1,
           "maxItems": 12,
           "description": "Hex or descriptive color names"

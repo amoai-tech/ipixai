@@ -304,11 +304,22 @@ export async function handleFirecrawlWebhook(req: Request): Promise<Response> {
   let crawlId = meta.crawl_id;
   let brandId = meta.brand_id;
 
-  const { data: job } = await admin
+  // PR review finding: error was previously discarded — a genuine DB
+  // failure here (not "no row yet", which is a legitimate race the
+  // payload.metadata fallback below exists to handle) would silently fall
+  // through to the same "ignored" 200 as a real no-mapping case, telling
+  // Firecrawl the webhook succeeded when it didn't. Return 500 so Firecrawl
+  // retries; keep the metadata fallback intact for the real no-row case.
+  const { data: job, error: jobLookupErr } = await admin
     .from("brand_crawls")
     .select("id, brand_id, started_at, started_by, workflow_id")
     .eq("firecrawl_job_id", firecrawlJobId)
     .maybeSingle();
+
+  if (jobLookupErr) {
+    console.error("firecrawl-webhook: brand_crawls lookup failed", jobLookupErr);
+    return errorResponse("database_error", "Failed to look up crawl job", 500);
+  }
 
   if (job) {
     crawlId = job.id;

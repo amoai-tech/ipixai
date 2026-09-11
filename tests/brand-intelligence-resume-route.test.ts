@@ -152,6 +152,23 @@ describe("brand-intelligence resume route — IPI-1093 blocker #5 Phase B (wrong
     expect(getWorkflow).not.toHaveBeenCalled();
   });
 
+  it("PR review finding: a JSON literal null body must not crash with an uncaught TypeError on body.runId — clean 400, not 500", async () => {
+    const res = await POST(requestWithBody("null"));
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+    expect(getWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("PR review finding: a bare JSON array/number body is also rejected with 400, not treated as an object", async () => {
+    for (const literal of ["[1,2,3]", "42", '"just a string"']) {
+      const res = await POST(requestWithBody(literal));
+      expect(res.status).toBe(400);
+    }
+    expect(getWorkflow).not.toHaveBeenCalled();
+  });
+
   it("treats unparseable JSON as a clean 200 no-op, not a 500 — matches firecrawl-webhook's own tolerant-body contract", async () => {
     const res = await POST(requestWithBody("{not json"));
 
