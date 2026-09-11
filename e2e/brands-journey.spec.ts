@@ -66,6 +66,38 @@ test.describe("brands browse (authenticated)", () => {
     await expect(card.getByText("www.maaji.co")).toBeVisible();
   });
 
+  test("search narrows the list live, and clears back to the full grid", async ({ page }) => {
+    await page.goto("/app/brands");
+    const search = page.getByRole("searchbox", { name: "Search brands" });
+    await expect(search).toBeVisible();
+
+    await search.fill("nonexistent brand name");
+    await expect(page.getByRole("heading", { name: "No matching brands" })).toBeVisible();
+    await expect(
+      page.getByText("QA Test Brand — IPI-1093 live verification"),
+    ).toHaveCount(0);
+
+    await search.fill("maaji");
+    await expect(
+      page.getByText("QA Test Brand — IPI-1093 live verification"),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "No matching brands" })).toHaveCount(0);
+  });
+
+  test("the Approved status filter excludes an unapproved real brand", async ({ page }) => {
+    await page.goto("/app/brands");
+    await page.getByRole("button", { name: "Approved", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "No matching brands" })).toBeVisible();
+    await expect(
+      page.getByText("QA Test Brand — IPI-1093 live verification"),
+    ).toHaveCount(0);
+
+    await page.getByRole("button", { name: "All", exact: true }).click();
+    await expect(
+      page.getByText("QA Test Brand — IPI-1093 live verification"),
+    ).toBeVisible();
+  });
+
   test("org B cannot open a brand belonging to another org: direct URL 404", async ({
     browser,
   }) => {

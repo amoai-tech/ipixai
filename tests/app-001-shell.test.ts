@@ -104,13 +104,13 @@ beforeEach(() => {
 });
 
 describe("requireAppWorkspace", () => {
-  it("redirects signed-out operators to login", async () => {
+  it("redirects signed-out operators to login @T0dd76dd8", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(null);
     await expect(requireAppWorkspace()).rejects.toThrow("REDIRECT:/login");
     expect(redirect).toHaveBeenCalledWith("/login");
   });
 
-  it("returns the signed-in operator", async () => {
+  it("returns the signed-in operator @T0893ae76", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
     await expect(requireAppWorkspace()).resolves.toEqual(operator);
     expect(redirect).not.toHaveBeenCalled();
@@ -118,7 +118,7 @@ describe("requireAppWorkspace", () => {
 });
 
 describe("requireResolvedAppWorkspace", () => {
-  it("admits a single-org operator", async () => {
+  it("admits a single-org operator @Te831eff9", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
     serverCreateClient.mockResolvedValue(
       clientWithOrgIds(["22222222-2222-4222-8222-222222222222"]),
@@ -126,7 +126,7 @@ describe("requireResolvedAppWorkspace", () => {
     await expect(requireResolvedAppWorkspace()).resolves.toEqual(operator);
   });
 
-  it("uses caller-provided workspace dependencies", async () => {
+  it("uses caller-provided workspace dependencies @T49c63b2b", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
     await expect(
       requireResolvedAppWorkspace({
@@ -140,13 +140,13 @@ describe("requireResolvedAppWorkspace", () => {
     expect(serverCreateClient).not.toHaveBeenCalled();
   });
 
-  it("redirects a zero-org operator before the app shell mounts", async () => {
+  it("redirects a zero-org operator before the app shell mounts @T61eedddf", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
     serverCreateClient.mockResolvedValue(clientWithOrgIds([]));
     await expect(requireResolvedAppWorkspace()).rejects.toThrow("REDIRECT:/onboarding");
   });
 
-  it("redirects a multi-org operator before the app shell mounts", async () => {
+  it("redirects a multi-org operator before the app shell mounts @T44e4342f", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
     serverCreateClient.mockResolvedValue(
       clientWithOrgIds([
@@ -157,13 +157,13 @@ describe("requireResolvedAppWorkspace", () => {
     await expect(requireResolvedAppWorkspace()).rejects.toThrow("REDIRECT:/org-selection");
   });
 
-  it("fails closed when the membership lookup fails", async () => {
+  it("fails closed when the membership lookup fails @Tbd7fb4bc", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
     serverCreateClient.mockResolvedValue(clientWithOrgIds([], new Error("db")));
     await expect(requireResolvedAppWorkspace()).rejects.toThrow("REDIRECT:/login");
   });
 
-  it("fails closed when the server Supabase client is unavailable", async () => {
+  it("fails closed when the server Supabase client is unavailable @T5fa205e9", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
     serverCreateClient.mockResolvedValue(null);
     await expect(requireResolvedAppWorkspace()).rejects.toThrow("REDIRECT:/login");
@@ -171,7 +171,7 @@ describe("requireResolvedAppWorkspace", () => {
 });
 
 describe("APP-001 route split", () => {
-  it("signed-in /app layout exposes the operator workspace around children", async () => {
+  it("signed-in /app layout exposes the operator workspace around children @T518c1adf", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
     serverCreateClient.mockResolvedValue(
       clientWithOrgIds(["22222222-2222-4222-8222-222222222222"]),
@@ -184,7 +184,7 @@ describe("APP-001 route split", () => {
     expect(screen.getByText("Workspace body")).toBeDefined();
   });
 
-  it("signed-in /planner does not expose the operator workspace", async () => {
+  it("signed-in /planner does not expose the operator workspace @Tca04d226", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
     const ui = await PlannerPage();
     render(ui);
@@ -195,13 +195,13 @@ describe("APP-001 route split", () => {
     expect(screen.queryByTestId("operator-panel")).toBeNull();
   });
 
-  it("signed-out /planner redirects to login", async () => {
+  it("signed-out /planner redirects to login @T32b89593", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(null);
     await expect(PlannerPage()).rejects.toThrow("REDIRECT:/login");
     expect(redirect).toHaveBeenCalledWith("/login");
   });
 
-  it("unknown /app/[section] calls notFound", async () => {
+  it("unknown /app/[section] calls notFound @T26f01279", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
     serverCreateClient.mockResolvedValue(
       clientWithOrgIds(["22222222-2222-4222-8222-222222222222"]),
@@ -212,21 +212,24 @@ describe("APP-001 route split", () => {
     expect(notFound).toHaveBeenCalled();
   });
 
-  it("known /app/brands renders the EmptyState placeholder", async () => {
+  // IPI-1068 · BRAND-001 — "brands" was removed from the [section]
+  // placeholder map now that src/app/app/brands/page.tsx (a static route,
+  // which Next.js always prefers over this dynamic catch-all) owns
+  // /app/brands for real. This regression-guards against the catch-all
+  // ever serving a stale placeholder for brands again if that static route
+  // were ever removed.
+  it("[section] no longer serves brands — that's now a dedicated static route @T0e99541e", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
     serverCreateClient.mockResolvedValue(
       clientWithOrgIds(["22222222-2222-4222-8222-222222222222"]),
     );
-    const ui = await AppSectionPage({
-      params: Promise.resolve({ section: "brands" }),
-    });
-    render(ui);
-    expect(notFound).not.toHaveBeenCalled();
-    expect(screen.getByTestId("empty-state")).toBeDefined();
-    expect(screen.getByRole("heading", { name: "Brands" })).toBeDefined();
+    await expect(
+      AppSectionPage({ params: Promise.resolve({ section: "brands" }) }),
+    ).rejects.toThrow("NOT_FOUND");
+    expect(notFound).toHaveBeenCalled();
   });
 
-  it("redirects a zero-org operator from an app section before rendering it", async () => {
+  it("redirects a zero-org operator from an app section before rendering it @T94ae7c7c", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
     serverCreateClient.mockResolvedValue(clientWithOrgIds([]));
     await expect(

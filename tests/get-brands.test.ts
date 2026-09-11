@@ -34,13 +34,13 @@ function makeSupabaseStub(resolved: { data?: unknown; error?: unknown; count?: n
 }
 
 describe("listBrandsForOrg", () => {
-  it("scopes the query to the given org_id", async () => {
+  it("scopes the query to the given org_id @Tce11e726", async () => {
     const { supabase, eqCalls } = makeSupabaseStub({ data: [], error: null });
     await listBrandsForOrg(supabase, ORG_A);
     expect(eqCalls).toEqual([["org_id", ORG_A]]);
   });
 
-  it("maps rows and reports hasMore: false when under the limit", async () => {
+  it("maps rows and reports hasMore: false when under the limit @Tec4a6e6c", async () => {
     const { supabase } = makeSupabaseStub({
       data: [
         {
@@ -69,7 +69,7 @@ describe("listBrandsForOrg", () => {
     });
   });
 
-  it("falls back to 'Untitled brand' for a null name", async () => {
+  it("falls back to 'Untitled brand' for a null name @T2f044a44", async () => {
     const { supabase } = makeSupabaseStub({
       data: [
         {
@@ -86,7 +86,7 @@ describe("listBrandsForOrg", () => {
     expect(result.ok && result.brands[0].name).toBe("Untitled brand");
   });
 
-  it("reports hasMore: true and trims to the limit-sized page, never silently dropping the signal", async () => {
+  it("reports hasMore: true and trims to the limit-sized page, never silently dropping the signal @Td377abab", async () => {
     const rows = Array.from({ length: 201 }, (_, i) => ({
       id: `b${i}`,
       name: `Brand ${i}`,
@@ -100,7 +100,7 @@ describe("listBrandsForOrg", () => {
     expect(result.ok && result.brands).toHaveLength(200);
   });
 
-  it("fails closed (ok: false) on a query error, never a partial/fabricated result", async () => {
+  it("fails closed (ok: false) on a query error, never a partial/fabricated result @T11a06c6e", async () => {
     const { supabase } = makeSupabaseStub({ data: null, error: new Error("boom") });
     const result = await listBrandsForOrg(supabase, ORG_A);
     expect(result).toEqual({ ok: false });
@@ -108,14 +108,14 @@ describe("listBrandsForOrg", () => {
 });
 
 describe("countOrgBrands", () => {
-  it("scopes the count to the given org_id and returns it", async () => {
+  it("scopes the count to the given org_id and returns it @Taf03471e", async () => {
     const { supabase, eqCalls } = makeSupabaseStub({ count: 7, error: null });
     const result = await countOrgBrands(supabase, ORG_A);
     expect(eqCalls).toEqual([["org_id", ORG_A]]);
     expect(result).toEqual({ ok: true, count: 7 });
   });
 
-  it("fails closed on a query error", async () => {
+  it("fails closed on a query error @Tbce70c6f", async () => {
     const { supabase } = makeSupabaseStub({ count: null, error: new Error("boom") });
     const result = await countOrgBrands(supabase, ORG_A);
     expect(result).toEqual({ ok: false });
@@ -123,12 +123,12 @@ describe("countOrgBrands", () => {
 });
 
 describe("brandStatusLabel", () => {
-  it("shows Approved whenever approvedProfileAt is set, regardless of intake_status", () => {
+  it("shows Approved whenever approvedProfileAt is set, regardless of intake_status @Td54fd459", () => {
     expect(brandStatusLabel("brand_created", "2026-09-10T00:00:00.000Z")).toBe("Approved");
     expect(brandStatusLabel("scores_complete", "2026-09-10T00:00:00.000Z")).toBe("Approved");
   });
 
-  it("maps every non-approved intake_status to an honest label", () => {
+  it("maps every non-approved intake_status to an honest label @Taa7c7d5c", () => {
     expect(brandStatusLabel("brand_created", null)).toBe("Not analyzed yet");
     expect(brandStatusLabel("crawl_running", null)).toBe("Crawling site");
     expect(brandStatusLabel("crawl_complete", null)).toBe("Crawl complete");
@@ -141,13 +141,13 @@ describe("brandStatusLabel", () => {
 });
 
 describe("brandStatusDotToken", () => {
-  it("uses the approved token whenever approvedProfileAt is set", () => {
+  it("uses the approved token whenever approvedProfileAt is set @Tf774bd13", () => {
     expect(brandStatusDotToken("failed", "2026-09-10T00:00:00.000Z")).toBe(
       "var(--color-approved, #22c55e)",
     );
   });
 
-  it("uses the destructive token for a failed, unapproved brand", () => {
+  it("uses the destructive token for a failed, unapproved brand @Tb6e0a2b6", () => {
     expect(brandStatusDotToken("failed", null)).toBe("var(--color-destructive, #ef4444)");
   });
 });

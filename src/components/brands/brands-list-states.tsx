@@ -4,13 +4,14 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import type { BrandListResult } from "@/lib/brand/get-brands";
 
-import { BrandCard } from "./BrandCard";
-import styles from "./brands-list.module.css";
+import { BrandsSearchFilter } from "./brands-search-filter";
 
 /**
- * IPI-1068 · BRAND-001 — the three list states: error, empty, and the
- * brand grid. Mirrors `ShootsListStates` — a failed read degrades only
- * this section, the header stays usable.
+ * IPI-1068 · BRAND-001 — the three list states: error, empty (zero brands
+ * ever — no search would help), and search/filter over real brands.
+ * Mirrors `ShootsListStates` — a failed read degrades only this section,
+ * the header stays usable. Error and true-empty stay server-rendered; only
+ * a non-empty result needs the client-side search/filter component.
  */
 export function BrandsListStates({ result }: { result: BrandListResult }) {
   if (!result.ok) {
@@ -27,11 +28,5 @@ export function BrandsListStates({ result }: { result: BrandListResult }) {
     );
   }
 
-  return (
-    <ul className={styles.grid} data-testid="brands-list">
-      {result.brands.map((brand) => (
-        <BrandCard key={brand.id} brand={brand} />
-      ))}
-    </ul>
-  );
+  return <BrandsSearchFilter brands={result.brands} />;
 }
