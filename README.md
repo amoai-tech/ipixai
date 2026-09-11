@@ -166,6 +166,13 @@ Requires Docker Desktop, a local Intelligence repo checkout, and
 family from the managed `CPK_INTELLIGENCE_API_KEY` above; the two modes are
 not interchangeable and should not both be configured at once).
 
+> This `docker-compose.intelligence.yml` path is what this repo currently
+> ships, but iPix targets managed Intelligence (above) for every real
+> deployment — this section is for local experimentation only. If it drifts
+> from CopilotKit's current self-hosting story, treat
+> [CopilotKit's own self-hosting docs](https://docs.copilotkit.ai) as
+> authoritative over this README.
+
 ### Prerequisites
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) running
@@ -202,8 +209,9 @@ INTELLIGENCE_API_URL=http://localhost:4204
 INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4404
 ```
 
-Then start the dev server as usual (`npm run dev`). Thread history and memory
-features are activated automatically when `COPILOTKIT_LICENSE_TOKEN` is set.
+Then start the dev server (`npm run dev:ui` — the combined `dev` script is
+disabled, see "Available Scripts" above). Thread history and memory features
+are activated automatically when `COPILOTKIT_LICENSE_TOKEN` is set.
 
 ### Stop / reset
 

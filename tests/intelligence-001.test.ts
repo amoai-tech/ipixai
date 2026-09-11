@@ -167,6 +167,52 @@ describe("IPI-1009 intelligence tenant safety", () => {
     );
   });
 
+  // Key-selection coverage: CPK_INTELLIGENCE_API_KEY present -> intelligence
+  // is already exercised by every enableIntelligence()-based test below, so
+  // it isn't duplicated here. These two cases were the genuinely uncovered
+  // ones (route.ts:212-215's `||` fallback chain).
+  it("uses COPILOTKIT_API_KEY alone (deprecated alias) to select Intelligence mode", async () => {
+    const previousAlias = process.env.COPILOTKIT_API_KEY;
+    delete process.env.CPK_INTELLIGENCE_API_KEY;
+    process.env.COPILOTKIT_API_KEY = "test-alias-key";
+    memberships.rows = [{ org_id: ORG_A }];
+    try {
+      const info = await GET(
+        copilotRequest("/api/copilotkit/info", { method: "GET" }),
+      );
+      expect(info.status).toBe(200);
+      const payload = (await info.json()) as { mode?: string };
+      expect(payload.mode).toBe("intelligence");
+    } finally {
+      if (previousAlias === undefined) {
+        delete process.env.COPILOTKIT_API_KEY;
+      } else {
+        process.env.COPILOTKIT_API_KEY = previousAlias;
+      }
+    }
+  });
+
+  it("falls back to SSE mode when neither Intelligence key is set", async () => {
+    const previousAlias = process.env.COPILOTKIT_API_KEY;
+    delete process.env.CPK_INTELLIGENCE_API_KEY;
+    delete process.env.COPILOTKIT_API_KEY;
+    memberships.rows = [{ org_id: ORG_A }];
+    try {
+      const info = await GET(
+        copilotRequest("/api/copilotkit/info", { method: "GET" }),
+      );
+      expect(info.status).toBe(200);
+      const payload = (await info.json()) as { mode?: string };
+      expect(payload.mode).toBe("sse");
+    } finally {
+      if (previousAlias === undefined) {
+        delete process.env.COPILOTKIT_API_KEY;
+      } else {
+        process.env.COPILOTKIT_API_KEY = previousAlias;
+      }
+    }
+  });
+
   it("selects Intelligence mode without TenantAbortRunner", async () => {
     enableIntelligence();
     const sseStop = vi.spyOn(InMemoryAgentRunner.prototype, "stop");

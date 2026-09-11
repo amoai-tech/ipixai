@@ -593,9 +593,9 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
 
   it("still preflights Mastra thread storage when only COPILOTKIT_LICENSE_TOKEN is set", async () => {
     const previousLicense = process.env.COPILOTKIT_LICENSE_TOKEN;
-    const previousIntelligence = process.env.INTELLIGENCE_API_KEY;
+    const previousIntelligence = process.env.CPK_INTELLIGENCE_API_KEY;
     process.env.COPILOTKIT_LICENSE_TOKEN = "test-license-token";
-    delete process.env.INTELLIGENCE_API_KEY;
+    delete process.env.CPK_INTELLIGENCE_API_KEY;
     const { agent: streamAgent, stats } = createStreamHarness();
     vi.spyOn(agent, "createLocalAgents").mockReturnValue({
       default: streamAgent,
@@ -628,20 +628,20 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
         process.env.COPILOTKIT_LICENSE_TOKEN = previousLicense;
       }
       if (previousIntelligence === undefined) {
-        delete process.env.INTELLIGENCE_API_KEY;
+        delete process.env.CPK_INTELLIGENCE_API_KEY;
       } else {
-        process.env.INTELLIGENCE_API_KEY = previousIntelligence;
+        process.env.CPK_INTELLIGENCE_API_KEY = previousIntelligence;
       }
     }
   });
 
   it("whitespace-padded license and whitespace-only Intelligence key stay on SSE", async () => {
     const previousLicense = process.env.COPILOTKIT_LICENSE_TOKEN;
-    const previousIntelligence = process.env.INTELLIGENCE_API_KEY;
+    const previousIntelligence = process.env.CPK_INTELLIGENCE_API_KEY;
     // Without trim(), a whitespace-only Intelligence key is still truthy and
     // would construct CopilotKitIntelligence — the regression this PR fixes.
     process.env.COPILOTKIT_LICENSE_TOKEN = "  test-license-token  ";
-    process.env.INTELLIGENCE_API_KEY = " \t ";
+    process.env.CPK_INTELLIGENCE_API_KEY = " \t ";
     const { agent: streamAgent } = createStreamHarness();
     vi.spyOn(agent, "createLocalAgents").mockReturnValue({
       default: streamAgent,
@@ -678,9 +678,9 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
         process.env.COPILOTKIT_LICENSE_TOKEN = previousLicense;
       }
       if (previousIntelligence === undefined) {
-        delete process.env.INTELLIGENCE_API_KEY;
+        delete process.env.CPK_INTELLIGENCE_API_KEY;
       } else {
-        process.env.INTELLIGENCE_API_KEY = previousIntelligence;
+        process.env.CPK_INTELLIGENCE_API_KEY = previousIntelligence;
       }
     }
   });
