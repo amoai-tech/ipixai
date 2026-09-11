@@ -204,15 +204,33 @@ async function handleCopilot(request: Request) {
   const operator = session.operator;
   const agents = attachRunnerAbort(createLocalAgents(resourceId));
   const licenseToken = process.env.COPILOTKIT_LICENSE_TOKEN?.trim() || undefined;
-  // IPI-1191 · COPILOT-INTEL-001 — official managed-Intelligence env var is
-  // CPK_INTELLIGENCE_API_KEY (COPILOTKIT_API_KEY is the accepted alias);
-  // INTELLIGENCE_API_KEY was never a real CopilotKit name. Provisioned by
-  // `npx copilotkit project select` into .env (gitignored), project "ipix".
+  // IPI-1191 · COPILOT-INTEL-001 — CPK_INTELLIGENCE_API_KEY is the canonical
+  // env var emitted by the current CopilotKit CLI and used by this
+  // integration (COPILOTKIT_API_KEY is the accepted alias). The previous
+  // iPix INTELLIGENCE_API_KEY wiring did not match this integration —
+  // CopilotKit's docs are not fully uniform on the name across
+  // framework-specific pages, so don't read that as "never a real name".
+  // Provisioned by `npx copilotkit project select` into .env (gitignored),
+  // project "ipix".
   // https://docs.copilotkit.ai/intelligence/connect-your-runtime
   const intelligenceKey =
     process.env.CPK_INTELLIGENCE_API_KEY?.trim() ||
     process.env.COPILOTKIT_API_KEY?.trim() ||
     undefined;
+  // Installed @copilotkit/runtime reads COPILOTKIT_LICENSE_TOKEN from the
+  // environment itself (options.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN)
+  // even though this route no longer passes licenseToken explicitly — a
+  // stale self-hosted token left in a managed environment is silently
+  // picked up by the SDK, not neutralized by removing the explicit option.
+  // Warn, don't fail: valid self-hosted/license scenarios exist.
+  if (intelligenceKey && licenseToken) {
+    console.warn(
+      "[copilotkit] Managed Intelligence is configured (CPK_INTELLIGENCE_API_KEY " +
+        "or COPILOTKIT_API_KEY set) while COPILOTKIT_LICENSE_TOKEN is also present. " +
+        "Verify this is intentional — COPILOTKIT_LICENSE_TOKEN is a separate, " +
+        "offline/self-hosted-only credential and is not needed for managed mode.",
+    );
+  }
   // CopilotKit docs: override apiUrl/wsUrl together only (self-hosted target).
   // A one-sided override would split the REST and realtime planes across
   // managed and self-hosted backends — never a valid configuration — so a

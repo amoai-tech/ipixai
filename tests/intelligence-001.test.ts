@@ -171,7 +171,7 @@ describe("IPI-1009 intelligence tenant safety", () => {
   // is already exercised by every enableIntelligence()-based test below, so
   // it isn't duplicated here. These two cases were the genuinely uncovered
   // ones (route.ts:212-215's `||` fallback chain).
-  it("uses COPILOTKIT_API_KEY alone (deprecated alias) to select Intelligence mode", async () => {
+  it("uses COPILOTKIT_API_KEY fallback to select Intelligence mode", async () => {
     const previousAlias = process.env.COPILOTKIT_API_KEY;
     delete process.env.CPK_INTELLIGENCE_API_KEY;
     process.env.COPILOTKIT_API_KEY = "test-alias-key";

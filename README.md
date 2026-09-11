@@ -158,7 +158,7 @@ at `http://localhost:3000/login` first, then either:
   for any `/api/copilotkit/*` request; `pbpaste` is macOS — swap in your
   platform's clipboard tool, or paste the value directly).
 
-### Self-hosted (Docker, alternative)
+### Self-hosted (Docker, legacy local dev only — not CopilotKit's current self-hosting architecture)
 
 Runs your own local Intelligence stack instead of the managed platform.
 Requires Docker Desktop, a local Intelligence repo checkout, and
@@ -166,12 +166,15 @@ Requires Docker Desktop, a local Intelligence repo checkout, and
 family from the managed `CPK_INTELLIGENCE_API_KEY` above; the two modes are
 not interchangeable and should not both be configured at once).
 
-> This `docker-compose.intelligence.yml` path is what this repo currently
-> ships, but iPix targets managed Intelligence (above) for every real
-> deployment — this section is for local experimentation only. If it drifts
-> from CopilotKit's current self-hosting story, treat
-> [CopilotKit's own self-hosting docs](https://docs.copilotkit.ai) as
-> authoritative over this README.
+> This `docker-compose.intelligence.yml` path is a legacy iPix/local
+> development setup, not CopilotKit's current official self-hosting
+> architecture — production self-hosting is the `copilot-intelligence` Helm
+> chart into your own Kubernetes cluster (Postgres, Redis, ingress, OIDC),
+> per [CopilotKit's self-hosting docs](https://docs.copilotkit.ai/intelligence/self-hosting).
+> iPix targets managed Intelligence (above) for every real deployment; this
+> section is for local experimentation only. If it drifts further from
+> CopilotKit's current self-hosting story, treat their docs as authoritative
+> over this README.
 
 ### Prerequisites
 
