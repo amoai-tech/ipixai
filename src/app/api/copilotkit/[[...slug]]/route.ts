@@ -204,33 +204,52 @@ async function handleCopilot(request: Request) {
   const operator = session.operator;
   const agents = attachRunnerAbort(createLocalAgents(resourceId));
   const licenseToken = process.env.COPILOTKIT_LICENSE_TOKEN?.trim() || undefined;
-  const intelligenceKey = process.env.INTELLIGENCE_API_KEY?.trim() || undefined;
+  // IPI-1191 · COPILOT-INTEL-001 — official managed-Intelligence env var is
+  // CPK_INTELLIGENCE_API_KEY (COPILOTKIT_API_KEY is the accepted alias);
+  // INTELLIGENCE_API_KEY was never a real CopilotKit name. Provisioned by
+  // `npx copilotkit project select` into .env (gitignored), project "ipix".
+  // https://docs.copilotkit.ai/intelligence/connect-your-runtime
+  const intelligenceKey =
+    process.env.CPK_INTELLIGENCE_API_KEY?.trim() ||
+    process.env.COPILOTKIT_API_KEY?.trim() ||
+    undefined;
   // Official CopilotKit: Intelligence mode auto-wires IntelligenceAgentRunner.
   // Do not pass TenantAbortRunner together with intelligence (type/runtime conflict).
   // License-only (Preview today) keeps the SSE persist runner.
-  const runtime =
-    licenseToken && intelligenceKey
-      ? new CopilotRuntime({
-          agents,
-          // Intelligence keys threads by identifyUser.id (not TenantAbortRunner).
-          // AUTH-002 org+user resourceId so Org B cannot attach to Org A.
-          // Display name is the verified operator email/sub, not a dummy string.
-          identifyUser: async () =>
-            intelligenceIdentifyUser({ resourceId, operator }),
-          intelligence: new CopilotKitIntelligence({
-            apiKey: intelligenceKey,
-            apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
-            wsUrl:
-              process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
-          }),
-          licenseToken,
-        })
-      : new CopilotRuntime({
-          agents,
-          identifyUser: identifyOperator,
-          runner: new TenantAbortRunner(resourceId, request.signal),
-          ...(licenseToken ? { licenseToken } : {}),
-        });
+  const runtime = intelligenceKey
+    ? new CopilotRuntime({
+        agents,
+        // Intelligence keys threads by identifyUser.id (not TenantAbortRunner).
+        // AUTH-002 org+user resourceId so Org B cannot attach to Org A.
+        // Display name is the verified operator email/sub, not a dummy string.
+        identifyUser: async () =>
+          intelligenceIdentifyUser({ resourceId, operator }),
+        // apiUrl/wsUrl omitted: managed mode defaults to CopilotKit's hosted
+        // Intelligence platform. INTELLIGENCE_API_URL/INTELLIGENCE_GATEWAY_WS_URL
+        // pass through only if explicitly set (self-hosted/non-production
+        // override) — the prior hardcoded localhost:4201/4401 defaults were
+        // self-hosted remnants that don't apply to managed mode.
+        intelligence: new CopilotKitIntelligence({
+          apiKey: intelligenceKey,
+          ...(process.env.INTELLIGENCE_API_URL
+            ? { apiUrl: process.env.INTELLIGENCE_API_URL }
+            : {}),
+          ...(process.env.INTELLIGENCE_GATEWAY_WS_URL
+            ? { wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL }
+            : {}),
+        }),
+        // licenseToken intentionally omitted here: managed Intelligence setup
+        // does not issue/require COPILOTKIT_LICENSE_TOKEN (that field is for
+        // offline/self-hosted licensing only, per official docs) — passing a
+        // stale self-hosted token into the Intelligence runtime is what
+        // produced "Invalid CopilotKit license token" before this fix.
+      })
+    : new CopilotRuntime({
+        agents,
+        identifyUser: identifyOperator,
+        runner: new TenantAbortRunner(resourceId, request.signal),
+        ...(licenseToken ? { licenseToken } : {}),
+      });
 
   const app = createCopilotEndpoint({
     runtime,
