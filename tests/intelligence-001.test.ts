@@ -153,8 +153,11 @@ describe("IPI-1009 intelligence tenant safety", () => {
     vi.restoreAllMocks();
   });
 
+  // Recommended managed-mode production config sets only the Intelligence
+  // key, not COPILOTKIT_LICENSE_TOKEN (that's a separate, offline/self-
+  // hosted-only credential — see route.ts's drift warning). Normal tests
+  // below reflect that; the mixed-config case has its own dedicated test.
   function enableIntelligence() {
-    process.env.COPILOTKIT_LICENSE_TOKEN = "test-license-token";
     process.env.CPK_INTELLIGENCE_API_KEY = "test-intelligence-key";
   }
 
@@ -322,5 +325,21 @@ describe("IPI-1009 intelligence tenant safety", () => {
       threadId: ORG_A_THREAD,
     });
     expect(RESOURCE_A_IN_ORG_B).not.toBe(RESOURCE_A);
+  });
+
+  it("warns when a managed Intelligence key and COPILOTKIT_LICENSE_TOKEN are both present", async () => {
+    enableIntelligence();
+    process.env.COPILOTKIT_LICENSE_TOKEN = "stale-self-hosted-token";
+    memberships.rows = [{ org_id: ORG_A }];
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const info = await GET(
+      copilotRequest("/api/copilotkit/info", { method: "GET" }),
+    );
+    expect(info.status).toBe(200);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("COPILOTKIT_LICENSE_TOKEN is also present"),
+    );
   });
 });

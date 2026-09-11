@@ -91,18 +91,29 @@ test(
       // Direct connect attempt: Org B's session, Org A's threadId. Per
       // route.ts / intelligence-001.test.ts the server must key the connect
       // by the caller's own org+user resourceId, not the requested
-      // threadId's owner — so this must not surface Org A's thread.
-      await orgBPage.request.post("/api/copilotkit/agent/default/connect", {
-        data: {
-          threadId: orgAThreadId,
-          runId: `run-${orgAThreadId}`,
-          state: {},
-          messages: [],
-          tools: [],
-          context: [],
-          forwardedProps: {},
+      // threadId's owner — so this must not surface Org A's thread. Asserting
+      // rejection generically (not a hard-coded status) since the real
+      // hosted Intelligence platform's exact denial code isn't guaranteed by
+      // installed @copilotkit/runtime source — only that it must not be a
+      // 2xx success.
+      const forbiddenConnect = await orgBPage.request.post(
+        "/api/copilotkit/agent/default/connect",
+        {
+          data: {
+            threadId: orgAThreadId,
+            runId: `run-${orgAThreadId}`,
+            state: {},
+            messages: [],
+            tools: [],
+            context: [],
+            forwardedProps: {},
+          },
         },
-      });
+      );
+      expect(
+        forbiddenConnect.ok(),
+        `Org B must not successfully connect to Org A's Intelligence thread; status=${forbiddenConnect.status()}`,
+      ).toBe(false);
 
       const orgBThreadsAfterConnect = await fetchIntelligenceThreads(orgBPage);
       expect(

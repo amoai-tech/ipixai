@@ -31,8 +31,10 @@ async function main(): Promise<void> {
 
   // IPI-1191 · COPILOT-INTEL-001 — same credential resolution as
   // src/app/api/copilotkit/[[...slug]]/route.ts: CPK_INTELLIGENCE_API_KEY is
-  // the official managed-Intelligence project key (COPILOTKIT_API_KEY is the
-  // accepted alias). INTELLIGENCE_API_KEY was never a real CopilotKit name.
+  // the canonical env var emitted by the current CopilotKit CLI and used by
+  // this integration (COPILOTKIT_API_KEY is the accepted fallback). Some
+  // official CopilotKit apps/examples have used INTELLIGENCE_API_KEY, so
+  // don't read that as "never real" — iPix just doesn't read it here.
   const intelligenceKey =
     process.env.CPK_INTELLIGENCE_API_KEY?.trim() ||
     process.env.COPILOTKIT_API_KEY?.trim();
