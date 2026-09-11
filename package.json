@@ -79,6 +79,8 @@
     "@ag-ui/client": "0.0.58",
     "@ag-ui/core": "0.0.58",
     "@ag-ui/encoder": "0.0.58",
-    "@ag-ui/proto": "0.0.58"
+    "@ag-ui/proto": "0.0.58",
+    "qs": "6.16.0",
+    "shell-quote": "1.9.0"
   }
 }

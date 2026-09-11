@@ -12,8 +12,8 @@ const TEST_TIMEOUT_MS = NAV_TIMEOUT_MS + 15_000;
 
 // PR #52 (IPI-1066) merged — /app is the real Command Center now, not the
 // pre-merge placeholder. These assertions run for real.
-test.describe("dashboard (authenticated)", () => {
-  test("loads /app without console or page errors", async ({ page }) => {
+test.describe("dashboard (authenticated) @S7e001c6e", () => {
+  test("loads /app without console or page errors @Ta0eda785", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (err) => errors.push(err.message));
     page.on("console", (msg) => {
@@ -25,7 +25,7 @@ test.describe("dashboard (authenticated)", () => {
     expect(errors, `console/page errors: ${errors.join("; ")}`).toEqual([]);
   });
 
-  test("shows the honest empty state for the QA test org (0 brands)", async ({ page }) => {
+  test("shows the honest empty state for the QA test org (0 brands) @Te431923c", async ({ page }) => {
     // The E2E account's org ("QA iPix Isolation A") has 0 brands by design —
     // this is real live state, not a fixture, so the empty state is the
     // deterministic expected outcome, not a fake "No data" placeholder.
@@ -33,7 +33,7 @@ test.describe("dashboard (authenticated)", () => {
     await expect(page.getByRole("heading", { name: "No brands yet" })).toBeVisible();
   });
 
-  test("quick links have distinct accessible names and correct destinations", async ({ page }) => {
+  test("quick links have distinct accessible names and correct destinations @T43a795ee", async ({ page }) => {
     await page.goto("/app");
 
     const brands = page.getByRole("link", { name: "Open Brands" });
@@ -56,21 +56,21 @@ test.describe("dashboard (authenticated)", () => {
   // the preceding goto()/click() can't eat into that assertion's budget —
   // Playwright's default 30s per-test timeout would otherwise still be able
   // to abort the test before a full NAV_TIMEOUT_MS assertion wait completes.
-  test("Brands quick link navigates to /app/brands", async ({ page }) => {
+  test("Brands quick link navigates to /app/brands @T3e5b3896", async ({ page }) => {
     test.setTimeout(TEST_TIMEOUT_MS);
     await page.goto("/app");
     await page.getByRole("link", { name: "Open Brands" }).click();
     await expect(page).toHaveURL(/\/app\/brands$/, { timeout: NAV_TIMEOUT_MS });
   });
 
-  test("Shoots quick link navigates to /app/shoots", async ({ page }) => {
+  test("Shoots quick link navigates to /app/shoots @T5479234c", async ({ page }) => {
     test.setTimeout(TEST_TIMEOUT_MS);
     await page.goto("/app");
     await page.getByRole("link", { name: "Open Shoots" }).click();
     await expect(page).toHaveURL(/\/app\/shoots$/, { timeout: NAV_TIMEOUT_MS });
   });
 
-  test("Plans quick link navigates to /app/plans", async ({ page }) => {
+  test("Plans quick link navigates to /app/plans @T56d893e3", async ({ page }) => {
     test.setTimeout(TEST_TIMEOUT_MS);
     await page.goto("/app");
     await page.getByRole("link", { name: "Open Plans" }).click();
@@ -87,7 +87,7 @@ test.describe("dashboard (authenticated)", () => {
   // (command-center.test.tsx: "never references another brand's shoot in
   // the hero subline") and recorded as a known e2e coverage gap.
 
-  test("hero card does not render for the QA org's real 0-brand state", async ({ page }) => {
+  test("hero card does not render for the QA org's real 0-brand state @Tcb34cc4a", async ({ page }) => {
     // Deterministic, not assumed: confirm this session resolves to exactly
     // one real organization and that organization's brands really are 0
     // right now (read-only, RLS-enforced) before asserting on it — a
@@ -113,7 +113,7 @@ test.describe("dashboard (authenticated)", () => {
     await expect(page.getByTestId("command-center-hero")).toHaveCount(0);
   });
 
-  test("persistent chat dock is visible on /app and stays capability-honest", async ({ page }) => {
+  test("persistent chat dock is visible on /app and stays capability-honest @Ta35df995", async ({ page }) => {
     await page.goto("/app");
     await expect(page.getByTestId("operator-chat-dock")).toBeVisible();
     // No fabricated actions — real capability gate (quick-action-chips.tsx),
@@ -132,13 +132,13 @@ test.describe("dashboard (authenticated)", () => {
   // for its own desktop-only nav — so its visibility assertions are
   // desktop-scoped; the chat welcome copy isn't rail-gated and is checked
   // on every project.
-  test("chat welcome stays honest for the QA org's real 0-brand state", async ({ page }) => {
+  test("chat welcome stays honest for the QA org's real 0-brand state @T72b9d927", async ({ page }) => {
     await page.goto("/app");
     await expect(page.getByRole("heading", { name: "No brands yet" })).toBeVisible();
     await expect(page.getByText("Start by creating a brand or planning your first shoot.")).toBeVisible();
   });
 
-  test("Intelligence rail stays honest for the QA org's real 0-brand state", async ({ page }, testInfo) => {
+  test("Intelligence rail stays honest for the QA org's real 0-brand state @T6029e637", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "chromium", "rail is desktop-only (operator-panel.module.css)");
     await page.goto("/app");
     const rail = page.getByTestId("intelligence-rail");
@@ -151,21 +151,21 @@ test.describe("dashboard (authenticated)", () => {
     await expect(rail.getByText(/activity/i)).toHaveCount(0);
   });
 
-  test("Plan a shoot chip navigates to /app/plans", async ({ page }) => {
+  test("Plan a shoot chip navigates to /app/plans @T5915059a", async ({ page }) => {
     test.setTimeout(TEST_TIMEOUT_MS);
     await page.goto("/app");
     await page.getByRole("link", { name: "Plan a shoot" }).click();
     await expect(page).toHaveURL(/\/app\/plans$/, { timeout: NAV_TIMEOUT_MS });
   });
 
-  test("View all navigates to /app/shoots", async ({ page }) => {
+  test("View all navigates to /app/shoots @T441461d5", async ({ page }) => {
     test.setTimeout(TEST_TIMEOUT_MS);
     await page.goto("/app");
     await page.getByRole("link", { name: "View all" }).click();
     await expect(page).toHaveURL(/\/app\/shoots$/, { timeout: NAV_TIMEOUT_MS });
   });
 
-  test("scrolling the workspace does not detach the chat dock or block quick-link clicks", async ({
+  test("scrolling the workspace does not detach the chat dock or block quick-link clicks @T67b646f1", async ({
     page,
   }) => {
     test.setTimeout(TEST_TIMEOUT_MS);
@@ -182,7 +182,7 @@ test.describe("dashboard (authenticated)", () => {
     await expect(page).toHaveURL(/\/app\/brands$/, { timeout: NAV_TIMEOUT_MS });
   });
 
-  test("a short viewport keeps both dashboard content and the chat dock reachable", async ({
+  test("a short viewport keeps both dashboard content and the chat dock reachable @Tac1225a4", async ({
     page,
   }) => {
     // Mobile landscape-ish height, not just mobile-chromium's 390x844

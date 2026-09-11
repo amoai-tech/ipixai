@@ -14,13 +14,13 @@ const NAV_TIMEOUT_MS = 30_000;
 // deadline could fire before an inner wait got to report its real error.
 const TEST_TIMEOUT_MS = RESPONSE_TIMEOUT_MS + NAV_TIMEOUT_MS * 4 + 30_000;
 
-test.describe("planner journey (authenticated)", () => {
+test.describe("planner journey (authenticated) @Sc4711801", () => {
   // Never retry: a retry re-sends the real, paid OpenAI request and leaves
   // a second junk thread in the shared QA account. A flaky failure here
   // should surface, not be hidden by CI's default retries: 2.
   test.describe.configure({ retries: 0 });
 
-  test("operator gets a real budget draft from the Production Planner, and it survives reload", async ({
+  test("operator gets a real budget draft from the Production Planner, and it survives reload @Tc732f1af", async ({
     page,
   }) => {
     test.setTimeout(TEST_TIMEOUT_MS);
