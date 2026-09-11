@@ -126,3 +126,87 @@ describe("brand-intelligence resume route — body size limit", () => {
     expect(getWorkflow).not.toHaveBeenCalled();
   });
 });
+
+describe("brand-intelligence resume route — IPI-1093 blocker #5 Phase B (wrong secret, wrong step, duplicate resume)", () => {
+  it("rejects a present but WRONG secret — distinct from the no-header case, exercises the timingSafeEqual compare branch", async () => {
+    const req = new Request("http://localhost/api/workflows/brand-intelligence/resume", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-internal-secret": "not-the-real-secret" },
+      body: JSON.stringify({ runId: "run-1" }),
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: false, error: { code: "unauthorized" } });
+    expect(getWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("rejects a missing runId with 400 before ever touching the workflow", async () => {
+    const res = await POST(requestWithBody(JSON.stringify({ crawlId: "crawl-1" })));
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+    expect(getWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("treats unparseable JSON as a clean 200 no-op, not a 500 — matches firecrawl-webhook's own tolerant-body contract", async () => {
+    const res = await POST(requestWithBody("{not json"));
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: true, outcome: "noop_invalid_json" });
+    expect(getWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("'wrong step': resume() rejecting because the run is suspended at a different step surfaces as a clean 503, not an unhandled throw", async () => {
+    resume.mockRejectedValueOnce(
+      new Error('Step "waitForCrawl" is not the currently suspended step'),
+    );
+
+    const res = await POST(requestWithBody(JSON.stringify({ runId: "run-1", crawlId: "crawl-1" })));
+
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      ok: false,
+      error: { code: "resume_failed", message: expect.stringContaining("not the currently suspended step") },
+    });
+    expect(resume).toHaveBeenCalledTimes(1);
+  });
+
+  it("duplicate resume: a second call for an already-resumed run gets Mastra's real rejection message, mapped to a clean 503 with no duplicate side effect implied by a 200", async () => {
+    // This is the exact message the real Mastra framework throws — proven
+    // directly against a live suspend/resume/duplicate-resume cycle in the
+    // blocker #5 restart/resume proof (three separate processes, real
+    // PostgresStore) — not guessed here.
+    resume.mockRejectedValueOnce(new Error("This workflow run was not suspended"));
+
+    const res = await POST(requestWithBody(JSON.stringify({ runId: "run-1", crawlId: "crawl-1" })));
+
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      ok: false,
+      error: { code: "resume_failed", message: "This workflow run was not suspended" },
+    });
+    // The route itself is a thin pass-through — it calls resume exactly
+    // once per request and reports whatever Mastra's own dedup decided,
+    // rather than retrying or swallowing the rejection into a fake success.
+    expect(resume).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes the caller's failure signal straight through to resumeData on a genuine crawl failure", async () => {
+    const res = await POST(
+      requestWithBody(JSON.stringify({ runId: "run-1", failed: true, error: "Firecrawl reported crawl failure" })),
+    );
+
+    expect(res.status).toBe(200);
+    expect(resume).toHaveBeenCalledWith({
+      resumeData: { crawlId: undefined, failed: true, error: "Firecrawl reported crawl failure" },
+      step: "waitForCrawl",
+    });
+  });
+});
