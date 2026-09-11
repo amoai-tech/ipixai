@@ -1,4 +1,7 @@
-import { ImageIcon } from "lucide-react";
+"use client";
+
+import { useEffect, useState } from "react";
+import { ImageIcon, VideoIcon, FileIcon } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import type { ShootDetail } from "@/lib/shoot/get-shoot-detail";
@@ -8,10 +11,9 @@ import { formatCountLabel } from "../shoot-detail-format";
 import styles from "../shoot-detail.module.css";
 
 /**
- * IPI-1067 · SHOOT-001 — assets tab: count + honest placeholder only.
- * Secure previews arrive with IPI-1112 · CLD-DELIVERY-001 — asset URLs in
- * the detail payload have no proven secure-delivery bridge, so they are
- * never rendered here (same contract as the browse cards).
+ * IPI-1118 · SHOOT-ASSETS-001 — assets tab renders canonical V2 assets
+ * with IPI-1112 secure previews. Asset URLs in the detail payload are
+ * metadata only; the authorized preview route is the delivery boundary.
  */
 export function AssetsTab({ detail }: { detail: ShootDetail }) {
   const count = detail.assets.length;
@@ -27,14 +29,125 @@ export function AssetsTab({ detail }: { detail: ShootDetail }) {
       </div>
     );
   }
+
   return (
     <div data-testid="shoot-tab-assets" className="space-y-6">
       <p className={styles.sectionTitle}>{formatCountLabel(count, "asset")}</p>
-      <p className={styles.placeholderNote}>
-        Secure asset previews arrive with IPI-1112 · CLD-DELIVERY-001. Until then, asset
-        thumbnails are not rendered.
-      </p>
+      <div className={styles.assetGrid} role="list" aria-label="Shoot assets">
+        {detail.assets.map((asset) => (
+          <AssetCard key={asset.id} asset={asset} />
+        ))}
+      </div>
       <ShootAssetUploader brandId={detail.shoot.brand_id} shootId={detail.shoot.id} />
     </div>
+  );
+}
+
+function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
+  const isVideo = asset.resource_type === "video";
+  const isRaw = asset.resource_type === "raw";
+  const previewKind = isVideo ? "review" : "masonry";
+
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchPreview() {
+      try {
+        const res = await fetch(`/api/assets/${asset.id}/preview?preview=${previewKind}`);
+        if (!res.ok) throw new Error("preview failed");
+        const data = await res.json();
+        if (!cancelled && data.url) {
+          setPreviewUrl(data.url);
+        } else if (!cancelled) {
+          setError(true);
+        }
+      } catch {
+        if (!cancelled) setError(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchPreview();
+    return () => { cancelled = true; };
+  }, [asset.id, previewKind]);
+
+  if (loading) {
+    return (
+      <article className={styles.assetCard} role="listitem">
+        <div className={styles.assetPreview} aria-busy="true">
+          <div className={styles.loadingPlaceholder} />
+        </div>
+        <div className={styles.assetMeta}>
+          <p className={styles.assetId}>{asset.id.slice(0, 8)}…</p>
+          <p className={styles.assetDimensions}>
+            {asset.width && asset.height ? `${asset.width}×${asset.height}` : "—"}
+          </p>
+          <p className={styles.assetFormat}>{asset.format ?? "—"}</p>
+        </div>
+      </article>
+    );
+  }
+
+  if (error || !previewUrl) {
+    return (
+      <article className={styles.assetCard} role="listitem">
+        <div className={styles.assetPreview}>
+          {isRaw ? (
+            <div className={styles.rawPlaceholder} aria-label={`Raw asset ${asset.id}`}>
+              <FileIcon aria-hidden />
+              <span className={styles.rawFormat}>{asset.format?.toUpperCase() ?? "RAW"}</span>
+            </div>
+          ) : isVideo ? (
+            <div className={styles.videoPlaceholder} aria-label={`Video asset ${asset.id}`}>
+              <VideoIcon aria-hidden />
+              <span className={styles.videoLabel}>Video preview unavailable</span>
+            </div>
+          ) : (
+            <div className={styles.imagePlaceholder} aria-label={`Image asset ${asset.id}`}>
+              <ImageIcon aria-hidden />
+              <span className={styles.imageLabel}>Preview unavailable</span>
+            </div>
+          )}
+        </div>
+        <div className={styles.assetMeta}>
+          <p className={styles.assetId}>{asset.id.slice(0, 8)}…</p>
+          <p className={styles.assetDimensions}>
+            {asset.width && asset.height ? `${asset.width}×${asset.height}` : "—"}
+          </p>
+          <p className={styles.assetFormat}>{asset.format ?? "—"}</p>
+        </div>
+      </article>
+    );
+  }
+
+  return (
+    <article className={styles.assetCard} role="listitem">
+      <div className={styles.assetPreview}>
+        <img
+          className={styles.assetMedia}
+          src={previewUrl}
+          alt=""
+          loading="lazy"
+          width={asset.width ?? undefined}
+          height={asset.height ?? undefined}
+        />
+        <div className={styles.assetOverlay}>
+          <span className={styles.assetStatus}>{asset.status}</span>
+          {asset.dna_score !== null && (
+            <span className={styles.assetDnaScore}>DNA {asset.dna_score}</span>
+          )}
+        </div>
+      </div>
+      <div className={styles.assetMeta}>
+        <p className={styles.assetId}>{asset.id.slice(0, 8)}…</p>
+        <p className={styles.assetDimensions}>
+          {asset.width && asset.height ? `${asset.width}×${asset.height}` : "—"}
+        </p>
+        <p className={styles.assetFormat}>{asset.format ?? "—"}</p>
+      </div>
+    </article>
   );
 }

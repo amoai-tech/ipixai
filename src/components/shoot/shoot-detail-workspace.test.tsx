@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 vi.mock("./shoot-detail.module.css", () => ({
   default: new Proxy({}, { get: (_, key) => String(key) }),
@@ -86,11 +86,18 @@ const DETAIL: ShootDetail = {
 };
 
 describe("ShootDetailWorkspace", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
   it("renders the shoot name, status chip, and brand subheading", () => {
     render(<ShootDetailWorkspace detail={DETAIL} />);
     expect(screen.getByText("Beach Editorial")).toBeDefined();
-    // "Active" also appears in hidden tab panels (shot/deliverable chips) —
-    // the header chip is the first match.
     expect(screen.getAllByText("Active").length).toBeGreaterThan(0);
     expect(screen.getByText(/Brand Alpha/)).toBeDefined();
   });
@@ -138,12 +145,48 @@ describe("ShootDetailWorkspace", () => {
     expect(screen.getByText("Captured")).toBeDefined();
   });
 
-  it("renders the assets tab as count + placeholder note, never raw URLs", () => {
+  it("renders the assets tab with canonical V2 assets and fetches secure preview", async () => {
+    const mockSignedUrl = "https://res.cloudinary.com/demo/image/upload/v123/signed-preview.jpg";
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ url: mockSignedUrl, assetId: "55555555-5555-4555-8555-555555555555", preview: "masonry", version: 1, publicId: "cld:asset:1" }),
+    } as Response);
+
     render(<ShootDetailWorkspace detail={DETAIL} />);
-    screen.getByRole("tab", { name: "Assets" }).click();
+    fireEvent.click(screen.getByRole("tab", { name: "Assets" }));
+
     expect(screen.getByText("1 asset")).toBeDefined();
-    expect(screen.getByText(/IPI-1112/)).toBeDefined();
-    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.getByTestId("shoot-tab-assets")).toBeDefined();
+
+    // Wait for preview to load and verify signed Cloudinary URL is rendered
+    await waitFor(() => {
+      const img = screen.getByAltText("");
+      expect(img).toBeDefined();
+      expect(img.getAttribute("src")).toBe(mockSignedUrl);
+    });
+
+    // Verify the preview API was called with correct params
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/assets/55555555-5555-4555-8555-555555555555/preview?preview=masonry"
+    );
+  });
+
+  it("renders placeholder when preview API fails", async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error("network error"));
+
+    render(<ShootDetailWorkspace detail={DETAIL} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Assets" }));
+
+    // Should show placeholder state, not broken image
+    await waitFor(() => {
+      const placeholder = screen.getByText("Preview unavailable");
+      expect(placeholder).toBeDefined();
+    });
+
+    // Stored asset.url should never be used as secure preview
+    // The placeholder uses a div with ImageIcon, not an img element
+    const imgs = screen.queryAllByRole("img");
+    expect(imgs.length).toBe(0);
   });
 
   it("renders the team tab with crew rows", () => {
