@@ -11,6 +11,7 @@ import {
 } from "@/lib/cloudinary/direct-upload";
 
 const MAX_FILES_PER_BATCH = 10;
+const IMAGE_MIME_PREFIX = "image/";
 
 type UploadStatus = "uploading" | "processing" | "failed";
 
@@ -79,12 +80,14 @@ export function ShootAssetUploader({ brandId, shootId }: Props) {
 
   function addFiles(files: FileList | File[]) {
     const selected = Array.from(files);
-    const accepted = selected.slice(0, MAX_FILES_PER_BATCH);
-    setBatchError(
-      selected.length > MAX_FILES_PER_BATCH
-        ? `Only the first ${MAX_FILES_PER_BATCH} files were added.`
-        : null,
-    );
+    const images = selected.filter((file) => file.type.startsWith(IMAGE_MIME_PREFIX));
+    const accepted = images.slice(0, MAX_FILES_PER_BATCH);
+    const messages: string[] = [];
+    if (images.length !== selected.length) messages.push("Only image files can be uploaded.");
+    if (images.length > MAX_FILES_PER_BATCH) {
+      messages.push(`Only the first ${MAX_FILES_PER_BATCH} image files were added.`);
+    }
+    setBatchError(messages.length ? messages.join(" ") : null);
     const additions = accepted.map((file) => ({
       id: nextId.current++,
       file,

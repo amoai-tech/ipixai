@@ -198,6 +198,20 @@ describe("IPI-1116 · CLD-UPLOAD-001 direct signed upload contract", () => {
     expect(uploadCount).toBe(3);
   });
 
+  it("rejects non-image files before requesting a signature", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ShootAssetUploader brandId={BRAND_ID} shootId={SHOOT_ID} />);
+    fireEvent.change(screen.getByLabelText("Upload image files"), {
+      target: { files: [new File(["text"], "notes.txt", { type: "text/plain" })] },
+    });
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Only image files can be uploaded.");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Upload queue")).toBeNull();
+  });
+
   it("accepts no more than ten files in one batch", async () => {
     let signerRequests = 0;
     let providerRequests = 0;
