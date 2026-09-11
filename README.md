@@ -53,7 +53,7 @@ A guard refuses to start if that port is already listening. `npm run build` also
 ## Running a Channel
 
 `channel-host.mts` mounts the same agent as an Intelligence Channel
-(Slack, Teams). It requires `INTELLIGENCE_API_KEY` and a declared Channel in
+(Slack, Teams). It requires `CPK_INTELLIGENCE_API_KEY` and a declared Channel in
 `.copilotkit/channels.json` — set both up with `copilotkit init` or
 `copilotkit channels add`, which write that file and the credentials your
 `.env` needs, then:
@@ -117,8 +117,43 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## CopilotKit Intelligence & Threads (Optional)
 
 CopilotKit Intelligence adds durable thread history and cross-session memory to
-your agent. It requires a `COPILOTKIT_LICENSE_TOKEN` and a running local
-Intelligence stack (Docker Desktop + a local Intelligence repo checkout).
+your agent. Two deployment modes exist — pick one per environment, don't mix
+their credentials.
+
+### Managed (recommended — what this starter's deployed environments use)
+
+Hosted by CopilotKit; no local Docker stack. Provision the project key with
+the CopilotKit CLI:
+
+```bash
+npx copilotkit project select --project <your-project>
+```
+
+This writes `CPK_INTELLIGENCE_API_KEY` into `.env` (gitignored). The runtime
+(`src/app/api/copilotkit/[[...slug]]/route.ts`) and the Channel host
+(`channel-host.mts`) both read `CPK_INTELLIGENCE_API_KEY` (`COPILOTKIT_API_KEY`
+is the accepted alias) and switch into Intelligence mode automatically when it
+is set — no `COPILOTKIT_LICENSE_TOKEN` needed. `COPILOTKIT_LICENSE_TOKEN` is a
+**separate, offline/self-hosted-only** credential; do not set it for managed
+mode, and never reuse a `ck_pub_...` Cloud public key as its value — that
+combination previously produced `Invalid CopilotKit license token` even with a
+valid project key.
+
+Then start the dev server as usual (`npm run dev:ui`). Verify with:
+
+```bash
+curl -s http://localhost:3000/api/copilotkit/info | jq '.mode, .licenseStatus'
+# "intelligence"
+# "valid"
+```
+
+### Self-hosted (Docker, alternative)
+
+Runs your own local Intelligence stack instead of the managed platform.
+Requires Docker Desktop, a local Intelligence repo checkout, and
+`COPILOTKIT_LICENSE_TOKEN` (self-hosted licensing — a different credential
+family from the managed `CPK_INTELLIGENCE_API_KEY` above; the two modes are
+not interchangeable and should not both be configured at once).
 
 ### Prerequisites
 

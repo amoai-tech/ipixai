@@ -132,7 +132,9 @@ function mockOrgAThreadAccess() {
 
 describe("IPI-1009 intelligence tenant safety", () => {
   const previousLicense = process.env.COPILOTKIT_LICENSE_TOKEN;
-  const previousIntelligence = process.env.INTELLIGENCE_API_KEY;
+  // IPI-1191 · COPILOT-INTEL-001 — route.ts reads CPK_INTELLIGENCE_API_KEY
+  // (COPILOTKIT_API_KEY alias), not the stale INTELLIGENCE_API_KEY name.
+  const previousIntelligence = process.env.CPK_INTELLIGENCE_API_KEY;
 
   afterEach(() => {
     memberships.rows = [];
@@ -144,16 +146,16 @@ describe("IPI-1009 intelligence tenant safety", () => {
       process.env.COPILOTKIT_LICENSE_TOKEN = previousLicense;
     }
     if (previousIntelligence === undefined) {
-      delete process.env.INTELLIGENCE_API_KEY;
+      delete process.env.CPK_INTELLIGENCE_API_KEY;
     } else {
-      process.env.INTELLIGENCE_API_KEY = previousIntelligence;
+      process.env.CPK_INTELLIGENCE_API_KEY = previousIntelligence;
     }
     vi.restoreAllMocks();
   });
 
   function enableIntelligence() {
     process.env.COPILOTKIT_LICENSE_TOKEN = "test-license-token";
-    process.env.INTELLIGENCE_API_KEY = "test-intelligence-key";
+    process.env.CPK_INTELLIGENCE_API_KEY = "test-intelligence-key";
   }
 
   it("encodes Intelligence identity as org+user, not JWT user id", () => {

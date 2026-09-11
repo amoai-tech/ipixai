@@ -26,25 +26,36 @@ import {
 } from "@copilotkit/runtime/v2";
 import { createDefaultChannel, resolveChannelName } from "./channels.mjs";
 
-/** Reads a required env var, or exits naming the one that is missing. */
-function required(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    console.error(`[channel] missing required env var: ${name}`);
-    process.exit(1);
-  }
-  return value;
-}
-
 async function main(): Promise<void> {
   const channelName = resolveChannelName();
+
+  // IPI-1191 · COPILOT-INTEL-001 — same credential resolution as
+  // src/app/api/copilotkit/[[...slug]]/route.ts: CPK_INTELLIGENCE_API_KEY is
+  // the official managed-Intelligence project key (COPILOTKIT_API_KEY is the
+  // accepted alias). INTELLIGENCE_API_KEY was never a real CopilotKit name.
+  const intelligenceKey =
+    process.env.CPK_INTELLIGENCE_API_KEY?.trim() ||
+    process.env.COPILOTKIT_API_KEY?.trim();
+  if (!intelligenceKey) {
+    console.error(
+      "[channel] missing required env var: CPK_INTELLIGENCE_API_KEY (or COPILOTKIT_API_KEY)",
+    );
+    process.exit(1);
+  }
+  // CopilotKit docs: override apiUrl/wsUrl together only (self-hosted target).
+  if (Boolean(process.env.INTELLIGENCE_API_URL) !== Boolean(process.env.INTELLIGENCE_GATEWAY_WS_URL)) {
+    console.warn(
+      "[channel] INTELLIGENCE_API_URL and INTELLIGENCE_GATEWAY_WS_URL " +
+        "should be set together (or neither) — one is set without the other.",
+    );
+  }
 
   const runtime = new CopilotRuntime({
     // The Channel supplies its own agent, so no runtime-hosted agents are needed.
     agents: {},
     channels: [createDefaultChannel(channelName)],
     intelligence: new CopilotKitIntelligence({
-      apiKey: required("INTELLIGENCE_API_KEY"),
+      apiKey: intelligenceKey,
       ...(process.env.INTELLIGENCE_API_URL
         ? { apiUrl: process.env.INTELLIGENCE_API_URL }
         : {}),

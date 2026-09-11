@@ -213,6 +213,15 @@ async function handleCopilot(request: Request) {
     process.env.CPK_INTELLIGENCE_API_KEY?.trim() ||
     process.env.COPILOTKIT_API_KEY?.trim() ||
     undefined;
+  // CopilotKit docs: override apiUrl/wsUrl together only (self-hosted target).
+  // A one-sided override splits the REST and realtime planes across managed
+  // and self-hosted backends, which is never a valid configuration.
+  if (Boolean(process.env.INTELLIGENCE_API_URL) !== Boolean(process.env.INTELLIGENCE_GATEWAY_WS_URL)) {
+    console.warn(
+      "[copilotkit] INTELLIGENCE_API_URL and INTELLIGENCE_GATEWAY_WS_URL " +
+        "should be set together (or neither) — one is set without the other.",
+    );
+  }
   // Official CopilotKit: Intelligence mode auto-wires IntelligenceAgentRunner.
   // Do not pass TenantAbortRunner together with intelligence (type/runtime conflict).
   // License-only (Preview today) keeps the SSE persist runner.
