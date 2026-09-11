@@ -6,7 +6,7 @@ How to detect the framework in use and where Testomatio IDs live in each.
 
 | Framework    | Filename patterns                                         | Imports                              | Test syntax                              |
 | ------------ | --------------------------------------------------------- | ------------------------------------ | ---------------------------------------- |
-| Playwright   | `*.spec.ts`, `*.spec.js`, `*.test.ts`                     | `@playwright/test`                   | `test(...)`, `test.describe(...)`        |
+| Playwright   | `e2e/**/*.spec.ts`, `*.spec.js`                           | `@playwright/test`                   | `test(...)`, `test.describe(...)`        |
 | Cypress      | `*.cy.js`, `*.cy.ts`                                      | `cypress`                            | `describe(...)`, `it(...)`, `context(...)` |
 | WebdriverIO  | `*.test.js`, `*.e2e.js`                                   | `@wdio/cli`, `webdriverio`           | `describe(...)`, `it(...)`               |
 | Puppeteer    | `*.test.js`                                               | `puppeteer`                          | `describe(...)`, `it(...)`               |
@@ -45,16 +45,16 @@ If tests do not yet contain `@S` / `@T` markers, run `check-tests` with the matc
 
 ```bash
 # Playwright
-npx check-tests@latest Playwright "**/*{.,_}{test,spec}.{js,ts}" --update-ids
+npx check-tests@0.21.0 Playwright "e2e/**/*.spec.ts" --typescript --update-ids
 
 # Cypress
-npx check-tests@latest Cypress "**/*.cy.{js,ts}" --update-ids
+npx check-tests@0.21.0 Cypress "**/*.cy.{js,ts}" --update-ids
 
 # CodeceptJS
-npx check-tests@latest CodeceptJS "**/*_test.js" --update-ids
+npx check-tests@0.21.0 CodeceptJS "**/*_test.js" --update-ids
 
 # WebdriverIO
-npx check-tests@latest WebdriverIO "**/*.{test,e2e}.js" --update-ids
+npx check-tests@0.21.0 WebdriverIO "**/*.{test,e2e}.js" --update-ids
 ```
 
 `check-tests` rewrites the test files in place, inserting the IDs assigned by Testomat.io. Commit the changes before running `qa-test-code-coverage`.

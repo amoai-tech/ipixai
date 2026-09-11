@@ -47,8 +47,10 @@ If there is no code access, fall back to the API schema (OpenAPI/Swagger, GraphQ
 - How to authenticate: which env vars hold tokens or credentials.
 - Which account/tenant/workspace to seed into, or whether to create a fresh one.
 
-Pick the seeding channel in this order: existing seed mechanism → app console/code → new small script -> REST API -> MCP .
-For local environments data can be seeded through the backend.
+Before any write or verification query, require explicit approval for the target environment, tenant/workspace, and test user. Verify the user-scoped access token/JWT belongs to that approved user and that the normal application/RLS path resolves to the approved tenant. Fail closed when tenant scope is missing or ambiguous. Do not use a service-role/admin bypass for tenant-scoped QA seeding.
+
+Only after those checks pass, pick the seeding channel in this order: existing seed mechanism → app console/code → new small script → REST API → MCP.
+For local environments, seed through the normal authenticated backend path.
 
 
 ### Step 3: Propose categories and ask for the count
@@ -61,7 +63,7 @@ For local environments data can be seeded through the backend.
 
 ### Step 4: Generate the dataset
 
-- Use realistic values: names, emails, addresses, and amounts that look like production data; unique where the schema requires it.
+- Use realistic non-contact values for business fields and amounts. For identities/contact fields, use synthetic non-routable values (for example reserved `example.test` addresses) and keep them unique where the schema requires it. Disable, sandbox, or redirect outbound email/SMS/webhooks and other side effects before seeding.
 - Use faker/lorem ipsum generators when available
 - Order records so prerequisites come first (parents before children, referenced records before referencing ones).
 - Apply the run marker to every record.

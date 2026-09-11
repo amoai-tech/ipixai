@@ -16,6 +16,8 @@ This skill analyzes an entire test suite to identify duplicate tests, semantic o
 - Analyze the entire test suite for consolidation opportunities;
 - Group findings by type and confidence level;
 - Present a summary of the proposed changes and request user approval;
+- Before applying a merge/removal, choose the canonical Testomat `@S...` / `@T...` IDs to retain; never silently create a new identity for an existing test;
+- Update `coverage.tests.yml` and related local references so retired IDs resolve to the canonical IDs, and include a retired→canonical mapping in the change summary;
 - Apply the approved refactorings;
 - Re-analyze the updated test suite to identify newly exposed consolidation opportunities;
 - Repeat until no additional consolidation opportunities with a confidence level greater than 80% remain.

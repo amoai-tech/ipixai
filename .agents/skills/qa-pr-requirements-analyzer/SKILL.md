@@ -143,7 +143,7 @@ Summary rules:
 | Description | File |
 |-------------|------|
 | Filled example of the output summary | [summary-example.md](./references/summary-example.md) |
-| `.testeiya/` directory convention | `../scan-automation-project/SKILL.md` |
+| `.testeiya/` directory convention | `repository-native Graphify + direct project inspection` |
 | Code-focused PR analysis (companion skill) | `../pull-request-diff-analyzer/SKILL.md` |
 | Downstream: generate test cases from requirements | `../qa-write-test-cases/SKILL.md` |
 | Downstream: sync generated cases to Testomat.io | `../sync-test-cases-with-tms/SKILL.md` |

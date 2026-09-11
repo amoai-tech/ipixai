@@ -21,7 +21,8 @@ Set up access to Testomat.io via MCP and run QA analysis workflows: run analysis
 
 ## MCP Tools
 
-- Test: `tests_list`, `tests_get`, `tests_search`
+- Test: `tests_list`, `tests_get`, `tests_search`, `tests_create`, `tests_update`, `tests_issues_link`
+- Project/system: `project_info`, `system_ping`
 - Test Plan: `plans_list`, `plans_get`, `plans_search`
 - Run: `runs_list`, `runs_get`, `runs_search`
 - Testrun (results within a run): `testruns_list`, `testruns_get`
@@ -175,7 +176,7 @@ Goal: set, change, or remove labels and tags on tests — for example, update a 
 
 1. Call `labels_list` (or `project_info`) to read the exact label values that exist in the project, including the full `key:value` form of scoped labels. Do not guess label strings.
 2. Optionally find the tests to update with `tests_list` + TQL: `label == 'regression:yes'`.
-3. Update with `tests_update` (or `tests_create`) using the `link` array — one `{ action, type, value }` entry per change. To change a value (e.g. `regression:no` → `regression:yes`), send a `remove` and an `add` in the same call. The same shape works for `tag`, `custom_field`, `milestone`, `issue`, and `jira`.
+3. Update selected existing tests with `tests_update` using the `link` array — one `{ action, type, value }` entry per change. To change a value (e.g. `regression:no` → `regression:yes`), send a `remove` and an `add` in the same call. The same shape works for `tag`, `custom_field`, `milestone`, `issue`, and `jira`. Use `tests_create` only when intentionally creating a new test.
 
 Link format and a full swap example: [MCP Setup Reference](./references/MCP_SETUP.md).
 

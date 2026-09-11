@@ -15,7 +15,7 @@ The config, the knowledge files, and the generated tests all land in the repo, s
 
 **To run Explorbot without installing it into the project, this is the wrong skill** — [[explorbot-fundamentals]] covers that: `npx`, a provider, no project files.
 
-**Scope ends when `npx explorbot navigate <path>` exits `0`** — exploring and testing belong to [[explorbot-fundamentals]].
+**Scope ends when `npx explorbot@0.4.6 navigate <path>` exits `0`** — exploring and testing belong to [[explorbot-fundamentals]].
 
 ## 1. Requirements
 
@@ -25,12 +25,22 @@ The config, the knowledge files, and the generated tests all land in the repo, s
 
 ## 2. Install
 
+Ask before changing package module semantics. Then use one path:
+
 ```bash
+# User approved ESM conversion
 npm pkg set type=module
-npm i explorbot --save
-npx playwright install chromium     # ~/.cache/ms-playwright, once per machine
-npx explorbot init                  # writes explorbot.config.js, .env, output/
+npm i explorbot@0.4.6 --save-exact
+npm exec --no -- playwright install chromium
+npx explorbot@0.4.6 init
+
+# User declined ESM conversion
+npm i explorbot@0.4.6 --save-exact
+# Create explorbot.config.mjs, then initialize against it:
+npx explorbot@0.4.6 init --config-path explorbot.config.mjs
 ```
+
+Do not change `type` in an existing package without explicit approval.
 
 ## 3. Provider
 
@@ -55,26 +65,28 @@ Walk the rungs in order. Stop at the first failure, fix it, resume.
 
 1. `curl -sS -o /dev/null -w "%{http_code}\n" <url>` — `000` is DNS/VPN/wrong host, `5xx` is the app itself, `200` skips to rung 3.
 2. `curl -sIL -o /dev/null -w "%{url_effective}\n" <url>` after a `3xx`/`401`/`403`. A login-looking final URL means credentials are needed: do rung 4 first.
-3. `npx explorbot navigate <path> --session` — exit `0` ends setup. `--session` saves cookies to `output/session.json`. On exit `1`, read `output/explorbot.log`: an auth wall sends you to rung 4, anything else is a wrong path or a broken page.
+3. Session data contains authentication cookies. Prefer an explicit file outside the repository, for example:
+   `SESSION_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/explorbot/session.json"; mkdir -p "$(dirname "$SESSION_FILE")"; npx explorbot@0.4.6 navigate <path> --session "$SESSION_FILE"`.
+   Exit `0` ends setup. If repository-local `output/session.json` is unavoidable, confirm it is ignored before the run, exclude it from handoff data, and delete it before handoff. On exit `1`, read `output/explorbot.log`: an auth wall sends you to rung 4; anything else is a wrong path or broken page.
 4. Teach auth, knowledge first, values second:
 
    ```bash
-   npx explorbot knows /login      # reuse existing variable names if auth knowledge exists
-   npx explorbot learn "/login" 'Sign in with ${env.APP_USER} / ${env.APP_PASSWORD}'
+   npx explorbot@0.4.6 knows /login      # reuse existing variable names if auth knowledge exists
+   npx explorbot@0.4.6 learn "/login" 'Sign in with ${env.APP_USER} / ${env.APP_PASSWORD}'
    ```
 
    Name only the credentials — no selectors or DOM hints; the Navigator finds the fields. Then have the user add the two variables to `.env`, verify with `grep`, and repeat rung 3. Ask for a test account on a non-production environment.
 
    Still failing on auth: add one sentence to the knowledge with `learn` (real form URL, SSO, second factor), never a rewrite.
 
-`npx explorbot context <path>` prints headings, matched knowledge, and interactive elements with no AI calls — use it to debug a rung for free.
+`npx explorbot@0.4.6 context <path>` prints headings, matched knowledge, and interactive elements with no AI calls — use it to debug a rung for free.
 
 ## 6. Handoff
 
 Report what the project now has: `explorbot.config.js`, `.env` (gitignored), `knowledge/`, `output/` with a saved session. Then hand off to [[explorbot-fundamentals]] with a first command:
 
 ```bash
-npx explorbot explore /<crud-page> --max-tests 10
+npx explorbot@0.4.6 explore /<crud-page> --max-tests 10
 ```
 
 ## Anti-patterns

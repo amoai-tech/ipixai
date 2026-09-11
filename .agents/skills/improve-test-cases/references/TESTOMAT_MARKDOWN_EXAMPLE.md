@@ -27,6 +27,7 @@ Verify that a guest user can view all critical UI elements on the Home page.
 
 <!-- test
 id: @Ts37c7xxx
+type: manual
 priority: normal
 tags: smoke
 labels: Manual
@@ -45,6 +46,7 @@ Navigate to application base URL. Verify that the browser tab displays the corre
 
 <!-- test
 id: @T693f9xxx
+type: manual
 priority: normal
 tags: smoke
 labels: Manual

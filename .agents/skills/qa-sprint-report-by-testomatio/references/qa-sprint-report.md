@@ -51,9 +51,9 @@ The **QA Sprint Progress Summary Report** provides a structured, end-of-cycle vi
 | **TOTAL** | | **[N]** | **`[N]`** | **`[N]`** | **`[N]`** | **`[N]`** | **`[XX]%`** | **Overall Pass Rate:** `[XX%]` |
 
 > **Status Key:**
-> ✅ **Completed (All Tests Passed):** 100% test execution completed with zero critical defects.
-> 🟡 **In Progress:** Validations are actively running or includes in-progress cases; no major technical hurdles encountered (🟡 >51% pass = In Progress).
-> 🔴 **Blocked:** Discovered failure, issues (🔴<50% pass or blocked).
+> ✅ **Completed (All Tests Passed):** 100% passed with no failed or blocked cases.
+> 🟡 **In Progress:** 50%–99% passed and no failed or blocked cases requiring precedence.
+> 🔴 **Blocked:** 0%–49% passed, **or any blocked/failed case that makes the sprint unsafe to sign off**. Blocked/failed-case status takes precedence over pass-rate classification.
 
 ---
 
@@ -77,6 +77,14 @@ The **QA Sprint Progress Summary Report** provides a structured, end-of-cycle vi
 | `[BUG-001]` | `[Short descriptive bug title]` | 🔴 Critical | `[PROJ-XXX]` |
 | `[BUG-002]` | `[Short descriptive bug title]` | 🟠 Major | `[PROJ-XXX]` |
 | *— No bugs registered this week —* | | |
+
+---
+
+## 🧪 7. Remaining QA Work & Blockers
+
+- **Remaining validation:** [tests / suites / tickets still needing execution]
+- **Blocking issues:** [blocking failures, environment issues, or `None`]
+- **Next QA action:** [single highest-priority action before sign-off]
 
 ---
 

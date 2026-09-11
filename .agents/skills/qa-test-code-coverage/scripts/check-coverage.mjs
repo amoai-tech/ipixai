@@ -4,7 +4,7 @@
 // `js-yaml` does the YAML parsing; this script just checks the result.
 // Run it from the project root and pipe the parsed file in:
 //
-//   npx js-yaml coverage.tests.yml | node check-coverage.mjs
+//   npx js-yaml@5.4.1 coverage.tests.yml | node check-coverage.mjs
 //
 // (`npx js-yaml` prints JSON, and fails loudly if the YAML is malformed,
 // so a broken file never reaches this script.)
@@ -18,7 +18,7 @@ import { existsSync, readFileSync } from 'node:fs';
 
 const map = JSON.parse(readFileSync(0, 'utf8')); // fd 0 = stdin
 if (!map || typeof map !== 'object' || Array.isArray(map)) {
-  console.error('expected a JSON object of "path": [ids] — pipe `npx js-yaml <file>` into me');
+  console.error('expected a JSON object of "path": [ids] — pipe `npx js-yaml@5.4.1 <file>` into me');
   process.exit(1);
 }
 
@@ -31,8 +31,12 @@ for (const [key, value] of Object.entries(map)) {
   list.forEach((id) => ids.add(String(id)));
 
   if (key.startsWith('tag:')) continue;                     // tag selector, not a path
-  const base = key.replace(/[\/\\][^\/\\]*[*?[\]].*$/, ''); // a glob → its non-glob prefix
-  if (base && !existsSync(base)) { console.log('missing:', key); problems++; }
+  const magicIndex = key.search(/[*?[\]]/);
+  const rawPrefix = magicIndex === -1 ? key : key.slice(0, magicIndex);
+  const base = magicIndex === -1
+    ? key
+    : rawPrefix.replace(/[\/\\][^\/\\]*$/, '') || '.';
+  if (!existsSync(base)) { console.log('missing:', key); problems++; }
 }
 
 console.log('\nidentifiers:', [...ids].sort().join(', ') || '(none)');

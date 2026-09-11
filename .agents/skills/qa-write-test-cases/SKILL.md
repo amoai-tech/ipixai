@@ -15,7 +15,7 @@ References:
 
 ## Prerequisites
 
-- Project structure checked (source code, e2e tests, test cases) via the /scan-automation-project skill.
+- Project structure checked (source code, e2e tests, test cases) via Graphify plus direct manifest/config/test-file inspection.
 - Existing Testomat.io tests pulled via the /sync-test-cases-with-tms skill.
 - PLAN mode enabled, if available, for the interview steps.
 

@@ -15,7 +15,7 @@ description: A strategic advisor for QA, quality, testing, and automation proces
 
 1. **Auto-detect** by scanning the codebase and checking existing MCP tools.
 
-Run `scan-automation-project` to detect languages, frameworks, and existing manual/automated tests/cases.
+Run Graphify first (when available), then inspect manifests, test configs, and test files to detect languages, frameworks, and existing manual/automated tests/cases.
 
 2. **Interview** the user — interactively, in rounds.
 
@@ -43,7 +43,7 @@ Topics to cover across the rounds:
 - **Problems/issues** — ask to describe the current problems/issues.
 - **Goals** — biggest pain point, what success looks like.
 
-Store gathered context to markdown file `.testeiya/TESTING.md` and check if this file exists. If it exists, append to it. If it does not exist, create it.
+Store only a **sanitized summary** of gathered context in `.testeiya/TESTING.md`. Remove tokens, passwords, secrets, credential-bearing URLs, private CI values, session data, and other sensitive content before writing. If the file exists, append the sanitized summary; otherwise create it.
 
 3. **Summarize** and get approval from the user.
 

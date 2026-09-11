@@ -67,7 +67,7 @@ gh pr diff {PR_NUMBER}
 Get PR details:
 
 ```bash
-gh pr view {PR_NUMBER} --json title,body,comments,reviews,issues
+gh pr view {PR_NUMBER} --json title,body,comments,reviews,closingIssuesReferences
 ```
 
 Extract testing-relevant info:
@@ -85,9 +85,9 @@ Detect PR type:
 - Fix — bug fixes, patches, hotfixes (check commits for "fix", "bug", "hotfix").
 - Refactor — code restructure without behavior change.
 
-### Optional: scan-automation-project
+### Optional: broader project inspection
 
-**Do not run `scan-automation-project` by default.** Run it only when extra project context adds clear value before writing acceptance criteria.
+**Do not run direct project inspection (Graphify + manifests/configs/test files) by default.** Run it only when extra project context adds clear value before writing acceptance criteria.
 
 Run it if:
 - The PR introduces new functionality or a significant feature change.

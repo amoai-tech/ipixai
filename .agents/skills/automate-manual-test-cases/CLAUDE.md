@@ -33,19 +33,19 @@ Rules:
 
 ## PostHook
 
-After the skill completes, run the generated `$TEST_FILE` with the project's test framework and confirm it passes:
+After the skill completes, collect **every generated test file path** listed in the final summary and run each file with the project's test framework. Confirm every generated file passes; never verify only the first output when several files were generated:
 
 ```bash
 # Playwright case
-npx playwright test "$TEST_FILE"
+npm exec --no -- playwright test "<generated-test-file>"
 # or
-./node_modules/.bin/playwright test "$TEST_FILE"
+./node_modules/.bin/playwright test "<generated-test-file>"
 
 # CodeceptJS case
-npx codeceptjs run "$TEST_FILE"
+npm exec --no -- codeceptjs run "<generated-test-file>"
 
 # Cypress case
-npx cypress run --spec "$TEST_FILE"
+npm exec --no -- cypress run --spec "<generated-test-file>"
 ```
 
 ## Files

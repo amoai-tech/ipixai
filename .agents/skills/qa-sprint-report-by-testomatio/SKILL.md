@@ -34,8 +34,9 @@ The user may identify the sprint in one of these ways (in priority order):
 - **Resolve sprint first.** Never assume a sprint name maps directly to a run ID without verification.
 - **Hide unavailable sections.** If analytics (Section 8) is not available, omit it entirely rather than leaving placeholder text.
 - **One blank line between actions.** In any generated code or CLI snippets.
-- **Use TQL for filtering.** Always prefer `tql` filters over client-side filtering when calling `runs_list`, `tests_list`, `testruns_list`.
+- **Use each MCP tool's supported filter contract.** Prefer `tql` where that tool supports it (for example `runs_list` / `tests_list`). For `testruns_list`, use the established `run_id` + `filter_status` parameters; do not invent a TQL expression.
 - **HTML is the default output.** Generate `.html` first; only offer `.md` if the user explicitly asks for it or their initial prompt includes a request to save as `.md`.
+- **Safe output names.** Derive `SafeSprintName` by removing path separators, `..` traversal segments, and control characters. Resolve the final HTML/Markdown path and verify it remains inside the selected output directory before writing.
 
 ---
 
@@ -49,11 +50,11 @@ Each report section maps to specific MCP tools. See the full section structure a
 
 | Action | MCP Tool | Key Parameters |
 |--------|----------|----------------|
-| Find sprint milestone | `milestones_list` | `type="Sprint"`, `status="active"` |
+| Find sprint milestone | `milestones_list` | `type="Sprint"`; search active **and closed** milestones for the requested sprint |
 | List runs for sprint | `runs_list` | `tql`: `milestone == '{id}'` |
 | Get run details | `runs_get` | `run_id` |
 | Get test results | `testruns_list` | `run_id`, `filter_status` |
-| Get suite tests | `tests_list` | `suite_id`, `per_page=100` |
+| Get suite tests | `tests_list` | `suite_id`, `per_page=100`, paginate `page=1..N` until the next page is empty |
 | Check analytics availability | `system_ping` | (Enterprise flag in response) |
 | Get test health analytics | `analytics_tests` | `kind`, `days`, `from`, `to` |
 | Get stats analytics | `analytics_stats` | `kind`, `from`, `to` |
@@ -97,7 +98,8 @@ The time range is required for:
 
 1. `runs_list(tql="milestone == '{id}'")` — all runs for the sprint milestone
 2. For each run, call `runs_get` to get status, counts, environments
-3. `testruns_list(run_id, filter_status)` — get passed/failed/skipped per run
+3. `testruns_list(run_id, filter_status)` — get passed/failed/skipped per run; use only these supported parameters for test-run filtering
+4. When suite-level test inventory is needed, call `tests_list(suite_id, per_page=100, page=1)` and keep incrementing `page` until a page returns no additional tests. Calculate totals and coverage only after all pages are collected.
 
 ### Step 4: Build Report Sections
 
@@ -111,7 +113,7 @@ Iterate sections 1–9 of the template, populating each with MCP data. Apply rul
 
 Write the filled report to:
 ```
-{user-specified-path}/QA_Sprint_Progress_Report_{SprintName}_{YYYY-MM-DD}.html
+{user-specified-path}/QA_Sprint_Progress_Report_{SafeSprintName}_{YYYY-MM-DD}.html
 ```
 
 If no path specified, save to current working directory.
@@ -131,7 +133,7 @@ Would you like to also export it as a `.md` file?
 **If user picks option 1:**
 1. Convert the HTML content to Markdown format.
 1. Generate ".md" markdown format report using template from the references - [qa-sprint-report.md](./references/qa-sprint-report.md).
-2. Save as `QA_Sprint_Progress_Report_{SprintName}_{YYYY-MM-DD}.md` in the **same directory** as the HTML file.
+2. Save as `QA_Sprint_Progress_Report_{SafeSprintName}_{YYYY-MM-DD}.md` in the **same directory** as the HTML file.
 
 **If user picks option 2:**
 - Confirm the `.html` path and end the workflow.

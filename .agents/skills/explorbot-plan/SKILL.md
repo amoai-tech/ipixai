@@ -99,8 +99,8 @@ Save it under the run's `output/plans/` only when the user wants it alongside ge
 Run it (index: `1`, `1,3`, `1-5`, or `*` for all):
 
 ```bash
-npx explorbot test checkout-plan.md '*'
-EXPLORBOT_URL=https://app.example.com npx explorbot test checkout-plan.md '*'
+npx explorbot@0.4.6 test checkout-plan.md '*'
+EXPLORBOT_URL=https://app.example.com npx explorbot@0.4.6 test checkout-plan.md '*'
 ```
 
 `test` takes no URL argument: it uses `web.url` from a project config, and needs `EXPLORBOT_URL`

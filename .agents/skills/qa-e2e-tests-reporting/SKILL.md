@@ -176,22 +176,22 @@ Docs: [Testomat.io Import Overview](https://docs.testomat.io/project/import-expo
 Use the `check-tests` CLI:
 
 ```bash
-npx check-tests@latest <framework> "<glob-pattern>" [options]
+npx check-tests@0.21.0 <framework> "<glob-pattern>" [options]
 ```
 
 | Framework   | Example |
 |-------------|---------|
-| Playwright  | `npx check-tests@latest Playwright "tests/**/*.spec.js"` |
-| CodeceptJS  | `npx check-tests@latest CodeceptJS "tests/**_test.js"` |
-| Cypress     | `npx check-tests@latest cypress "cypress/e2e/**/*.js"` |
-| Jest        | `npx check-tests@latest Jest "tests/**/*.test.js"` |
-| Mocha       | `npx check-tests@latest mocha "test/**/*_test.js"` |
-| WebdriverIO | `npx check-tests@latest webdriverio "test/**/*.js"` |
+| Playwright  | `npx check-tests@0.21.0 Playwright "tests/**/*.spec.js"` |
+| CodeceptJS  | `npx check-tests@0.21.0 CodeceptJS "tests/**_test.js"` |
+| Cypress     | `npx check-tests@0.21.0 cypress "cypress/e2e/**/*.js"` |
+| Jest        | `npx check-tests@0.21.0 Jest "tests/**/*.test.js"` |
+| Mocha       | `npx check-tests@0.21.0 mocha "test/**/*_test.js"` |
+| WebdriverIO | `npx check-tests@0.21.0 webdriverio "test/**/*.js"` |
 
 Options:
 
-- `--typescript` — for TypeScript projects: `npx check-tests@latest Playwright "tests/**/*.spec.ts" --typescript`
-- `--update-ids` — sync and auto-assign test IDs in source code: `npx check-tests@latest CodeceptJS "tests/**_test.js" --update-ids`
+- `--typescript` — for TypeScript projects: `npx check-tests@0.21.0 Playwright "tests/**/*.spec.ts" --typescript`
+- `--update-ids` — sync and auto-assign test IDs in source code: `npx check-tests@0.21.0 CodeceptJS "tests/**_test.js" --update-ids`
 
 ### Python
 
@@ -216,8 +216,9 @@ Use the `testomatio.jar` CLI. Re-run after every test execution.
 ```bash
 cd <project-root>
 
-export TESTOMATIO=tstmt_xxxxx && \
-curl -L -O https://github.com/testomatio/java-check-tests/releases/latest/download/testomatio.jar && \
+export TESTOMATIO=tstmt_xxxxx
+curl -fL -o testomatio.jar https://github.com/testomatio/java-check-tests/releases/download/v.0.1.14/testomatio.jar
+printf '%s  %s\n' 'f9887707f44f51411cef4be0b6e6715353a92b65f1e21b8a5e939d3b65d8ab37' 'testomatio.jar' | sha256sum -c -
 java -jar testomatio.jar sync
 ```
 
@@ -231,17 +232,17 @@ Commands:
 
 For stacks without a native reporter, generate a JUnit XML report, then import it.
 
-- NUnit (C#): `dotnet test --logger:"trx;LogFileName=results.xml"` — convert to JUnit XML if needed.
+- NUnit (C#): generate an NUnit/JUnit-compatible XML report using the project's configured NUnit/JUnit logger (raw TRX is not JUnit XML), then import that XML with `npx --package=@testomatio/reporter@2.16.0 report-xml "report.xml" --lang="c#"`.
 - PHPUnit (PHP): `./vendor/bin/phpunit --log-junit=results.xml`
 - RSpec (Ruby): `rspec --format json --out results.json` — then convert to JUnit XML.
 
-Import to Testomat.io:
+Import XML to Testomat.io with the current reporter package; choose the supported language for the source project:
 
 ```bash
-npx check-tests@latest junit "path/to/results.xml"
+npx --package=@testomatio/reporter@2.16.0 report-xml "path/to/results.xml" --lang="c#"
 
 # Multiple XML files
-npx check-tests@latest junit "results/*.xml"
+npx --package=@testomatio/reporter@2.16.0 report-xml "results/*.xml" --lang="c#"
 ```
 
 ## Step 5: Verify Setup
@@ -314,7 +315,7 @@ S3_REGION=us-west-1
 # Optional: for non-AWS providers (DigitalOcean, Minio, Cloudflare R2, GCS)
 S3_ENDPOINT=https://your-endpoint-url
 
-# Optional: private access mode (recommended)
+# Required safe default: vendor default is public
 TESTOMATIO_PRIVATE_ARTIFACTS=1
 ```
 

@@ -56,7 +56,7 @@ A coverage map maps source files/globs to test identifiers; the reporter filters
 - **Never execute the reporter while authoring — the deliverable is committed CI config.** Two approved exceptions: the Testomat.io CI profile check (Step 2) and the battle-test (Step 6).
 - **Only touch CI config files** — never source or test files.
 - Diagrams gate the dialogue: flows diagram before the first question, selected-flow diagram approved before wiring (Step 3).
-- Discovery first — delegate to `scan-automation-project` before writing anything.
+- Discovery first — delegate to direct project inspection (Graphify + manifests/configs/test files) before writing anything.
 - Never guess a Testomat.io CI profile name — pick from a list (Testomat.io MCP) confirmed by the user, or ask. Never wire one that has not been proven to launch.
 - Say "Testomat.io CI profile" in full, never bare "profile"; every question option explains itself in plain words.
 - Avoid presenting the project's full test inventory as the run scope; never print full test lists.
@@ -74,7 +74,7 @@ A coverage map maps source files/globs to test identifiers; the reporter filters
 
 ### Step 1 — Discover
 
-- Delegate to `scan-automation-project`: are there manual `.test.md` cases, which e2e framework exists (unit/integration don't count), do automated tests live in this repo or elsewhere.
+- Delegate to direct project inspection (Graphify + manifests/configs/test files): are there manual `.test.md` cases, which e2e framework exists (unit/integration don't count), do automated tests live in this repo or elsewhere.
 - The result fixes the project kind — manual, automated, or mixed — and with it which flows apply.
 - Investigate the CI with `setup-ci-automation`: which CI system runs the project, what workflows exist, and which of them deploy — to which environments.
 - Locate the coverage map (default `coverage.tests.yml`). Missing → propose creating it and delegate to `qa-test-code-coverage`.
@@ -94,7 +94,7 @@ Automated tests found — ❓ choose the execution mode. Each option in the ques
 | Cross-repo dispatch             | the e2e suite lives in another repo and no Testomat.io CI profile covers it                                   |
 
 - Remote chosen → identify the Testomat.io CI profile, never guess it: Testomat.io MCP connected → fetch the list, present it, ❓ ask the user to choose (profiles differ by workflow and job names); no MCP → ❓ ask for the exact profile name; none exists yet → creating one in Testomat.io (Settings → CI) is a prerequisite.
-- **Then prove that profile launches before wiring anything around it.** ❓ Ask approval — it executes the full suite. Run `npx @testomatio/reporter run --remote <profile-name>` unfiltered, then check on the CI that a job actually started. Exit code 0 only means Testomat.io accepted the dispatch; a profile aimed at the wrong workflow, job, or branch fails silently. Nothing started → fix in Settings → CI and repeat.
+- **Then prove that profile launches before wiring anything around it.** ❓ Ask approval — it executes the full suite. Run `npx @testomatio/reporter@2.16.0 run --remote <profile-name>` unfiltered, then check on the CI that a job actually started. Exit code 0 only means Testomat.io accepted the dispatch; a profile aimed at the wrong workflow, job, or branch fails silently. Nothing started → fix in Settings → CI and repeat.
 - No e2e suite anywhere → wire only the manual flow; never fabricate an e2e job.
 
 And for every kind:
@@ -183,8 +183,8 @@ The user picks cross-repo dispatch from the mode table: the same job creates the
 No `coverage*.yml` found → explain nothing can be filtered without a map; delegate to `qa-test-code-coverage`; wire CI only after the map exists.
 
 **Example 4 — manual-only project**
-`scan-automation-project` finds `.test.md` cases and no e2e framework → the flows diagram shows only the manual branch; no execution-mode question asked. The job resolves the PR and creates the run, complete at creation — testers start on Testomat.io against the deployed change. Explain that launching needs an e2e suite first.
+direct project inspection (Graphify + manifests/configs/test files) finds `.test.md` cases and no e2e framework → the flows diagram shows only the manual branch; no execution-mode question asked. The job resolves the PR and creates the run, complete at creation — testers start on Testomat.io against the deployed change. Explain that launching needs an e2e suite first.
 
 ## Related skills
 
-`setup-ci-automation` (CI investigation, authoring rules, secrets, PR delivery), `run-tests-with-testomatio-reporter` (the reporter commands every job executes), `qa-test-code-coverage` (creates the coverage map this skill consumes), `scan-automation-project` (mandatory discovery), `qa-e2e-tests-reporting` (install the reporter if the project has no Testomat.io integration yet), `sync-test-cases-with-tms` (manual cases not yet in Testomat.io).
+`setup-ci-automation` (CI investigation, authoring rules, secrets, PR delivery), `run-tests-with-testomatio-reporter` (the reporter commands every job executes), `qa-test-code-coverage` (creates the coverage map this skill consumes), direct project inspection (Graphify + manifests/configs/test files) (mandatory discovery), `qa-e2e-tests-reporting` (install the reporter if the project has no Testomat.io integration yet), `sync-test-cases-with-tms` (manual cases not yet in Testomat.io).

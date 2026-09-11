@@ -35,7 +35,7 @@ metadata:
 A run created with `start` executes nothing: manual cases are pending immediately; an automated part stays scheduled until launched. `--format id` prints only the run id to stdout (banner and logs go to stderr), so capture is clean:
 
 ```bash
-RUN_ID=$(npx @testomatio/reporter start --kind manual --format id)
+RUN_ID=$(npx @testomatio/reporter@2.16.0 start --kind manual --format id)
 ```
 
 ## What goes into the run
@@ -59,7 +59,7 @@ Without a filter, nothing is scoped:
 | Jira ticket                | `"testomatio:jira-ticket=<ticket-id>"`       |
 
 - The value must match exactly — the tag name, plan id, label, or ticket as stored in the project.
-- Works with every test framework whose runner accepts `--grep` (Playwright, CodeceptJS, Cypress, etc.) — the filter resolves to a grep pattern the runner consumes.
+- Works directly with runners that accept `--grep` (for example Playwright and CodeceptJS). Cypress is different: configure `@cypress/grep`, then pass the resolved pattern through Cypress `--env` (for example `npx cypress run --env '{"grep":"<pattern>","grepFilterSpecs":true,"grepOmitFiltered":true}'`). Do not pass generic `--grep` to Cypress.
 
 ### Filter by changed source files (`coverage:`)
 
@@ -84,7 +84,7 @@ This is how "run only the tests affected by a code change" works — and it need
 `--filter-list` resolves a filter and prints the matching test IDs — nothing executes, no run is created. `--format` picks the encoding: `ids` (comma-separated, default), `grep` (alternation pattern), `json`, `newline`. Exit code 0 when at least one test matched, 1 when nothing did — scripts can branch on it:
 
 ```bash
-GREP=$(npx @testomatio/reporter run --filter-list "coverage:file=<coverage-map>" --format grep)
+GREP=$(npx @testomatio/reporter@2.16.0 run --filter-list "coverage:file=<coverage-map>" --format grep)
 [ -n "$GREP" ] && npx playwright test --grep "$GREP"
 ```
 
@@ -110,7 +110,7 @@ Cannot be combined with `--remote`.
 `--remote <profile-name>` asks Testomat.io to dispatch a **Testomat.io CI profile** — a CI workflow configuration saved on the project (Settings → CI) — instead of executing tests locally. Testomat.io triggers that workflow, and its results report back into the run:
 
 ```bash
-TESTOMATIO_RUN=$RUN_ID npx @testomatio/reporter run --remote <profile-name> \
+TESTOMATIO_RUN=$RUN_ID npx @testomatio/reporter@2.16.0 run --remote <profile-name> \
   --filter "coverage:file=<coverage-map>,diff=<git-ref>"
 ```
 
@@ -132,7 +132,7 @@ Profiles differ by workflow, job names, and parameters — never guess one. When
 Wrap the runner and results report into the run as they come. Without a filter the whole suite runs; with one, the filter generates the grep the runner consumes:
 
 ```bash
-TESTOMATIO_RUN=$RUN_ID npx @testomatio/reporter run "<runner command>" \
+TESTOMATIO_RUN=$RUN_ID npx @testomatio/reporter@2.16.0 run "<runner command>" \
   --filter "testomatio:tag-name=<tag>"
 ```
 

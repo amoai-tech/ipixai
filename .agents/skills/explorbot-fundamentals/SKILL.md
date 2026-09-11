@@ -14,8 +14,8 @@ Explorbot is an autonomous AI web-testing CLI. It drives its own browser through
 **Answer command and flag questions from the installed CLI, never from memory.**
 
 ```bash
-npx explorbot --help                  # commands, and the EXPLORBOT_* variables
-npx explorbot <command> --help        # flags for one command
+npx explorbot@0.4.6 --help                  # commands, and the EXPLORBOT_* variables
+npx explorbot@0.4.6 <command> --help        # flags for one command
 ```
 
 ## Running it with nothing installed
@@ -23,8 +23,8 @@ npx explorbot <command> --help        # flags for one command
 Explorbot needs no project install: `npx` plus a provider is enough, and nothing is written into the working directory. Reach for this when the user wants to try Explorbot, or is pointing it at an app that has no repo here.
 
 ```bash
-npx explorbot init --global --provider <name>          # once per machine, key in ~/.explorbot/.env
-npx explorbot explore https://app.example.com/login --max-tests 3
+npx explorbot@0.4.6 init --global --provider <name>          # once per machine, key in ~/.explorbot/.env
+npx explorbot@0.4.6 explore https://app.example.com/login --max-tests 3
 ```
 
 Details, including the per-command `EXPLORBOT_*` form for CI: [references/no-install.md](references/no-install.md).
@@ -55,14 +55,14 @@ Explorbot writes into the project directory when the run used a project `explorb
 
 A target is either **absolute** — starting with `http://` or `https://` — or a **relative path** starting with `/`. Anything else is ambiguous and not a valid target.
 
-A relative path needs a site to resolve against: `web.url` from a project config, or `EXPLORBOT_URL`. Without either, pass the absolute URL. Commands that take no target at all — `test`, `learn`, `knows`, `experience`, `compact` — read the same two sources. `npx explorbot sites` lists what has been explored so far.
+A relative path needs a site to resolve against: `web.url` from a project config, or `EXPLORBOT_URL`. Without either, pass the absolute URL. Commands that take no target at all — `test`, `learn`, `knows`, `experience`, `compact` — read the same two sources. `npx explorbot@0.4.6 sites` lists what has been explored so far.
 
 ## Cheap before expensive
 
-- `npx explorbot context <url>` — headings, matched knowledge, interactive elements. No AI calls.
-- `npx explorbot shell <url> '<codecept command>'` — run one command and exit.
-- `npx explorbot knows <url>` — what knowledge matches a page.
-- `npx explorbot navigate <url> --session` — reachability, and it saves the session.
+- `npx explorbot@0.4.6 context <url>` — headings, matched knowledge, interactive elements. No AI calls.
+- `npx explorbot@0.4.6 shell <url> '<codecept command>'` — run one command and exit.
+- `npx explorbot@0.4.6 knows <url>` — what knowledge matches a page.
+- `npx explorbot@0.4.6 navigate <url> --session` — reachability, and it saves the session.
 
 ## Rules
 

@@ -9,7 +9,7 @@ Optimize for **scanning** by eyes: the user should understand each item and what
 1. **One idea per line.** Use short sentences/paragraphs.
 2. **Label lines with emoji markers** (see template). The eye navigates by emoji, not by reading.
 3. **Divider between items**: put a horizontal rule of 50 `-` characters between every pair of items, with a blank line above and below it. Items must never touch each other.
-4. **Number items with emoji digits** 1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ and make the title a bold heading.
+4. **Number items with emoji digits** 1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ and use the `###` heading style shown in the template.
 5. **Max 5 items.** 3-5 items by default, offer "more on request".
 6. **Action** (skill or human action)
 7. **Keep lines under ~100 characters.** One sentence per labeled line — no compound multi-clause sentences.

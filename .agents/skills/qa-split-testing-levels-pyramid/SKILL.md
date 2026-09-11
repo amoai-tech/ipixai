@@ -26,14 +26,14 @@ Other testing layers a project may have instead: component, functional, contract
 
 ## Workflow
 
-1. Inventory existing tests with the `scan-automation-project` skill.
+1. Run Graphify first (when available), then inventory existing tests directly from project manifests, test configs, and test files.
 2. Detect the project's testing layers and the kinds of tests inside them.
 3. Assign each scenario to the lowest layer that catches its failure, and to a kind within it.
 4. Recommend a coverage split per layer and kind.
 
 ## Rules
 
-- Do not recommend manual verification for scenarios already covered by automated tests.
+- Omit manual verification only when evidence shows automation covers the **same risk**. Functional automation alone does not replace accessibility/screen-reader, exploratory, visual, or cross-browser checks. UI/chat changes must preserve keyboard and screen-reader behavior.
 - Explain why a scenario cannot sit at a lower layer when assigning it upward.
 - A kind never covers another kind of the same layer: `e2e web` does not cover `e2e api`.
 - Generalize existing automated scenarios; expand only when the user asks.

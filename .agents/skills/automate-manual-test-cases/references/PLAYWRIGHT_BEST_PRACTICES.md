@@ -73,7 +73,7 @@ Playwright supports both API and UI interactions via `request`.
 
 ## Anti-Patterns (Avoid)
 
-- Never embed test data directly in test logic — prefer centralized test data (JSON, factories, or generators).
+- Inline test data is fine when it is local to one test and improves readability. When data is reused or shared across tests, centralize it in JSON, factories, fixtures, or generators.
 - Never share state between tests — each test is isolated.
 - Never ignore flaky tests — fix immediately with proper waits.
 - Never use arbitrary `sleep()` — use explicit waits instead.

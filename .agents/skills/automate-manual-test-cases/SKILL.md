@@ -166,8 +166,9 @@ See [POM Best Practices](./references/POM_BEST_PRACTICES.md).
 ### 4.1 Execute Test
 
 **Run only the generated test, never the full suite:**
-- Playwright: `npx playwright test path/to/spec.ts`
-- CodeceptJS: `npx codeceptjs run path/to/test.js`
+- Playwright: `npm exec --no -- playwright test path/to/spec.ts`
+- CodeceptJS: `npm exec --no -- codeceptjs run path/to/test.js` (requires CodeceptJS installed in the target repository)
+- Cypress: `npm exec --no -- cypress run --spec path/to/test.cy.ts` (requires Cypress installed in the target repository)
 
 If it passes => go to Step 5. If it fails => heal (4.2).
 

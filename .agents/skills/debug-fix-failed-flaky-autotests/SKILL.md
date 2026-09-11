@@ -61,7 +61,7 @@ Re-run the test:
 
 ```bash
 npx playwright test path/to/test.spec.ts
-npx codeceptjs run path/to/test.js
+npm exec --no -- codeceptjs run path/to/test.js
 ```
 
 Test is stable when:

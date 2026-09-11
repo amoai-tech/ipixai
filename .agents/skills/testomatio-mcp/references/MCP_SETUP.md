@@ -5,10 +5,10 @@ Short reference extracted from the Testomat.io MCP server documentation.
 ## Installation
 
 ```bash
-npm install -g @testomatio/mcp@latest
+npm install -g @testomatio/mcp@2.2.1
 ```
 
-For enterprise subscriptions, install `@testomatio/mcp-enterprise@latest` instead (includes analytics).
+For enterprise subscriptions, install `@testomatio/mcp-enterprise@2.2.1` instead (includes analytics).
 
 ## Server Startup
 
@@ -31,6 +31,8 @@ export TESTOMATIO_BASE_URL=https://beta.testomat.io
 
 ## AI Agent Configurations
 
+Before using any **project-level** MCP config below, verify that config file is gitignored before inserting a token. If it is not ignored, use the equivalent global config location or a secret store instead. Never commit or share a token-bearing config.
+
 ### OpenCode
 
 File: `opencode.json` (project root or `~/.config/opencode/opencode.json`)
@@ -44,7 +46,7 @@ File: `opencode.json` (project root or `~/.config/opencode/opencode.json`)
       "command": [
         "npx",
         "-y",
-        "@testomatio/mcp@latest",
+        "@testomatio/mcp@2.2.1",
         "--token",
         "<TOKEN>",
         "--project",
@@ -72,7 +74,7 @@ File:
       "command": "npx",
       "args": [
         "-y",
-        "@testomatio/mcp@latest",
+        "@testomatio/mcp@2.2.1",
         "--token",
         "<TOKEN>",
         "--project",
@@ -98,7 +100,7 @@ File: `.cursor/mcp.json` (project root or `~/.cursor/mcp.json`)
       "command": "npx",
       "args": [
         "-y",
-        "@testomatio/mcp@latest",
+        "@testomatio/mcp@2.2.1",
         "--token",
         "<TOKEN>",
         "--project",
@@ -113,6 +115,8 @@ File: `.cursor/mcp.json` (project root or `~/.cursor/mcp.json`)
 ```
 
 ## Credentials
+
+Treat the project token like a password. Prefer global MCP configuration or a secret store. Before placing a token in any project-level config, verify that config file is gitignored; otherwise do not save the token there. Never commit or share a token-bearing MCP config.
 
 - **Project Token**: Get from Testomat.io at **Settings → Project → Project Reporting API key**.
 - **Project ID**: Found in the project URL: `https://app.testomat.io/projects/<project_id>`.

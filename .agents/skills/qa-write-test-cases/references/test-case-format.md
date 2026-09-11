@@ -358,30 +358,6 @@ Test description
 | Value1 | Value2 |
 ```
 
-### Multiple suites in one file
+### Multiple suites
 
-```markdown
-<!-- suite
-id: @S12345678
--->
-
-# Suite One
-
-Description for suite one
-
-<!-- test
-id: @Ta1b2c3d4
--->
-
-# Test One
-
-Description
-
-<!-- suite
-id: @S98765432
--->
-
-# Suite Two
-
-Description for suite two
-```
+Use **one suite per Markdown file**. When several suites are needed, create one file for each suite; do not place a second `<!-- suite ... -->` block in the same file.

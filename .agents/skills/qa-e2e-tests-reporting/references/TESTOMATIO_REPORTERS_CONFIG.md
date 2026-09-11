@@ -85,7 +85,7 @@ exports.config = {
 };
 ```
 
-**Run:** `npx @testomatio/reporter run 'npx wdio wdio.conf.js'`
+**Run:** `npx @testomatio/reporter@2.16.0 run 'npx wdio wdio.conf.js'`
 
 ### Jest
 
@@ -99,20 +99,20 @@ reporters: ['default', ['@testomatio/reporter/jest', { apiKey: process.env.TESTO
 ## Import Tests to TMS
 
 ```bash
-npx check-tests <framework> "<glob-pattern>"
+npx check-tests@0.21.0 <framework> "<glob-pattern>"
 ```
 
 Examples:
 ```bash
-npx check-tests playwright "tests/**/*.spec.js"
-npx check-tests playwright "tests/**/*.spec.ts" --typescript --update-ids
-npx check-tests jest "tests/**/*.test.js" --require-ids
-npx check-tests mocha "test/**/*_test.js"
-npx check-tests codeceptjs "tests/**_test.js"
+npx check-tests@0.21.0 playwright "tests/**/*.spec.js"
+npx check-tests@0.21.0 playwright "tests/**/*.spec.ts" --typescript --update-ids
+npx check-tests@0.21.0 jest "tests/**/*.test.js" --require-ids
+npx check-tests@0.21.0 mocha "test/**/*_test.js"
+npx check-tests@0.21.0 codeceptjs "tests/**_test.js"
 ```
 
 Example using the `TESTOMATIO` token in the exec command:
 ```bash
 # Not recommended, but can be used for testing
-TESTOMATIO=tstmt_xxx npx check-tests playwright "tests/**/*.spec.js"
+TESTOMATIO=tstmt_xxx npx check-tests@0.21.0 playwright "tests/**/*.spec.js"
 ```

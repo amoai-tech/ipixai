@@ -14,7 +14,7 @@ Set S3 credentials via environment variables:
 | `S3_REGION` | Bucket region | Yes |
 | `S3_ENDPOINT` | Custom S3 provider endpoint | For non-AWS |
 | `S3_FORCE_PATH_STYLE` | Enable force path style | For Minio |
-| `TESTOMATIO_PRIVATE_ARTIFACTS=1` | Private access mode | No (default: public) |
+| `TESTOMATIO_PRIVATE_ARTIFACTS=1` | Private access mode | **Required by this skill** (vendor default is public) |
 
 ## Providers
 

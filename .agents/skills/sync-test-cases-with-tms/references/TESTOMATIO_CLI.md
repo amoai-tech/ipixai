@@ -12,13 +12,13 @@ Invoke `check-tests` through `npx` so users automatically pick up the newest pub
 
 ```bash
 # First invocation in the agent session — forces resolve of latest
-npx check-tests@latest <command>
+npx check-tests@0.21.0 <command>
 
-# Subsequent invocations in the same session could be used without @latest
-npx check-tests <command>
+# Use the same exact version for every invocation in the session
+npx check-tests@0.21.0 <command>
 ```
 
-Do not install `check-tests` as a project dependency. The first call (with `@latest` version specified) refreshes the npx cache; next calls in the same session reuse it without an extra registry round-trip. A new agent session re-triggers the `@latest` check so users use the latest version over time.
+Do not use a mutable `@latest` selector in automation. This skill pins `check-tests@0.21.0`; update that version only after reviewing a newer release.
 
 ---
 
@@ -38,7 +38,7 @@ The tool supports loading environment variables from `.env` files using dotenv.
 
 ### Configuration File
 
-Save credentials to `.env` file:
+Save credentials to `.env` only after verifying `.env` is gitignored (`git check-ignore -q .env`). If it is not ignored, use an environment variable or secret store instead:
 
 ```env
 TESTOMATIO=tstmt_xxxxx
@@ -76,23 +76,23 @@ TESTOMATIO_URL=https://app.testomat.io
 Retrieve the latest test scenarios from Testomat.io and save them as Markdown files locally.
 
 ```bash
-npx check-tests pull [options]
+npx check-tests@0.21.0 pull [options]
 ```
 
 **Examples:**
 
 ```bash
 # Export tests to current directory
-npx check-tests pull
+npx check-tests@0.21.0 pull
 
 # Export tests to manual-tests folder
-npx check-tests pull -d manual-tests
+npx check-tests@0.21.0 pull -d manual-tests
 
 # Keep source structure
-npx check-tests pull -d manual-tests --keep-structure
+npx check-tests@0.21.0 pull -d manual-tests --keep-structure
 
 # Pull specific suites only
-npx check-tests pull --suite-ids "@S12345678,@S87654321"
+npx check-tests@0.21.0 pull --suite-ids "@S12345678,@S87654321"
 ```
 
 ### Push
@@ -100,7 +100,7 @@ npx check-tests pull --suite-ids "@S12345678,@S87654321"
 Send local Markdown test updates to Testomat.io. (Equivalent to `check-tests manual <files> --update-ids`.)
 
 ```bash
-npx check-tests push [options]
+npx check-tests@0.21.0 push [options]
 ```
 
 `--files` (alias `-f`) accepts file paths, glob patterns, or a mix; defaults to `**/*.test.md`. Paths resolve relative to `--dir`. Quote globs.
@@ -111,19 +111,19 @@ npx check-tests push [options]
 
 ```bash
 # Default glob (**/*.test.md)
-npx check-tests push
+npx check-tests@0.21.0 push
 
 # Specific files
-npx check-tests push -f docs/login.test.md docs/checkout.test.md
+npx check-tests@0.21.0 push -f docs/login.test.md docs/checkout.test.md
 
 # Glob (quoted)
-npx check-tests push --files "manual-tests/**/*.test.md"
+npx check-tests@0.21.0 push --files "manual-tests/**/*.test.md"
 
 # Multiple globs
-npx check-tests push -f "smoke/**/*.test.md" "regression/**/*.test.md"
+npx check-tests@0.21.0 push -f "smoke/**/*.test.md" "regression/**/*.test.md"
 
 # With labels
-TESTOMATIO_LABELS=smoke,updated npx check-tests push
+TESTOMATIO_LABELS=smoke,updated npx check-tests@0.21.0 push
 ```
 
 ---
@@ -132,9 +132,9 @@ TESTOMATIO_LABELS=smoke,updated npx check-tests push
 
 | Action          | Command                                                        |
 | --------------- | -------------------------------------------------------------- |
-| Pull tests      | `npx check-tests pull -d <dir>`                                |
-| Push files      | `npx check-tests push --files <file1.test.md> <file2.test.md>` |
-| Push glob       | `npx check-tests push --files "<dir>/**/*.test.md"`            |
-| Push directory  | `npx check-tests push -d <dir>` (glob: `**/*.test.md`)         |
-| With labels     | `TESTOMATIO_LABELS=smoke npx check-tests push`                 |
-| Keep structure  | `npx check-tests pull --keep-structure`                        |
+| Pull tests      | `npx check-tests@0.21.0 pull -d <dir>`                                |
+| Push files      | `npx check-tests@0.21.0 push --files <file1.test.md> <file2.test.md>` |
+| Push glob       | `npx check-tests@0.21.0 push --files "<dir>/**/*.test.md"`            |
+| Push directory  | `npx check-tests@0.21.0 push -d <dir>` (glob: `**/*.test.md`)         |
+| With labels     | `TESTOMATIO_LABELS=smoke npx check-tests@0.21.0 push`                 |
+| Keep structure  | `npx check-tests@0.21.0 pull --keep-structure`                        |

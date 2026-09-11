@@ -21,7 +21,7 @@ Analyze the project's tests — manual markdown cases and automated e2e tests �
 - **Never modify a source or test file.**
 - Never pull or clone tests into a tracked folder — only into the gitignored `.testeiya/`.
 - **Everything in the coverage file must come from this project:** file keys from its source tree, identifiers from the Step 2 inventory. Never copy a path or ID from this skill's docs — they are placeholders.
-- **No ad-hoc scripts, no parsers, never Python.** File reads and `grep` only; the single exception is the bundled checker (Step 5); beyond that a one-line `node -e '…'` is the limit.
+- **No ad-hoc parser implementations; never Python for this workflow.** File reads and `grep` are preferred. The required Step 5 pipeline (`npx js-yaml@5.4.1 ... | node .../check-coverage.mjs`) is explicitly allowed; beyond that, a one-line `node -e '…'` is the limit.
 - **Be proactive — never stop at a representative sample.** A few entries per domain is a failed run. Keep mapping without asking permission to continue until the completion criterion in Step 4 is met.
 - Stop if you cannot write the output file, or no tests are found and the user declines every option in Step 1.
 
@@ -29,14 +29,14 @@ Analyze the project's tests — manual markdown cases and automated e2e tests �
 
 ### Step 1: Discover the project
 
-- Run the `scan-automation-project` skill to inventory the project. Use its output as the source of truth — do not duplicate the scan.
+- Run Graphify first (when the repo graph exists), then inventory the project directly from manifests, test configs, and test files. Treat that inventory as the source of truth.
 - Capture from its result:
   - Manual Tests — the `.test.md` files and their suite/test titles.
   - Automated Tests — the e2e test files and framework(s). See [E2E Frameworks](./references/E2E_FRAMEWORKS.md) if the scan is ambiguous.
   - Project Overview — languages, frameworks, complexity (drives the subagent split in Step 4).
 - Map whatever exists: both kinds go into one coverage file; a single kind is fine too.
 - ❓ If the scan finds no tests at all (it checks the `.testeiya/` cache too), ask the user:
-  1. Pull manual cases from Testomat.io — have `sync-test-cases-with-tms` pull into the cache: `npx check-tests pull -d .testeiya/manual-tests`, add `.testeiya/` to `.gitignore` if missing, re-run the scan.
+  1. Pull manual cases from Testomat.io — have `sync-test-cases-with-tms` pull into the cache: `npx check-tests@0.21.0 pull -d .testeiya/manual-tests`, add `.testeiya/` to `.gitignore` if missing, re-run the scan.
   2. Clone the automated tests repo: `git clone <url> .testeiya/e2e-tests`, add `.testeiya/` to `.gitignore` if missing, re-run the scan.
   3. Point to a directory the scan missed, then re-run the scan there.
   4. Stop.
@@ -67,7 +67,7 @@ grep -rhoE '@[A-Za-z0-9_-]+' <dir> | sort -u    # every @token, tags included
 Missing IDs mean the tests were never synced with Testomat.io — the reporter cannot select them:
 
 - ❓ Manual files without IDs: ask whether to push them first via `sync-test-cases-with-tms`, or skip those files.
-- Automated tests without IDs in most files: stop and instruct the user to run `npx check-tests@latest <Framework> "<glob>" --update-ids` first (per-framework commands: [E2E Frameworks](./references/E2E_FRAMEWORKS.md)).
+- Automated tests without IDs in most files: stop and instruct the user to run `npx check-tests@0.21.0 <Framework> "<glob>" --update-ids` first (per-framework commands: [E2E Frameworks](./references/E2E_FRAMEWORKS.md)).
 
 ### Step 3: Plan the coverage map by domain
 
@@ -95,6 +95,7 @@ Scale the passes to the project — codebase size and suite count from Step 1:
 - Small codebase and few suites — run both passes in this session.
 - Large codebase or dozens of suites — spawn subagents in parallel: one per domain area for the code→tests pass, then one per batch of still-unmapped suites for the tests→code pass. Give each subagent:
   - its slice — one area (its suites and source folders), or a batch of suites;
+  - a mandatory Graphify preflight for the assigned area before broad file reading (`graphify query "<focused dependency/path question>"` when the repo graph exists);
   - the full test inventory from Step 2 — subagents must not re-extract it;
   - the mapping rules below and the [Coverage File Format](./references/COVERAGE_FILE_FORMAT.md);
   - the instruction to return a YAML fragment for its slice only.
@@ -124,7 +125,7 @@ YAML grammar: [Coverage File Format](./references/COVERAGE_FILE_FORMAT.md).
 - Check it with the bundled checker. It ships in this skill's `scripts/` directory (next to this SKILL.md), not in the project — resolve its path from the skill location:
 
 ```bash
-npx js-yaml coverage.tests.yml | node <path-to-this-skill>/scripts/check-coverage.mjs
+npx js-yaml@5.4.1 coverage.tests.yml | node <path-to-this-skill>/scripts/check-coverage.mjs
 ```
 
 - The checker flags keys missing on disk and empty entries, and prints every identifier referenced — cross-check them against the Step 2 inventory; only you know which are real.
@@ -144,11 +145,11 @@ Tell the user how to use the file with `@testomatio/reporter`:
 
 ```bash
 # Automated tests — the project's runner command must be passed in
-npx @testomatio/reporter run "npx playwright test" \
+npx @testomatio/reporter@2.16.0 run "npx playwright test" \
   --filter "coverage:file=coverage.tests.yml,diff=main"
 
 # Manual tests — creates a pending run with only the affected cases
-npx @testomatio/reporter run --kind manual \
+npx @testomatio/reporter@2.16.0 run --kind manual \
   --filter "coverage:file=coverage.tests.yml,diff=main"
 ```
 

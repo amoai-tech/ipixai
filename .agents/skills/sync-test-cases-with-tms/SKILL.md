@@ -22,15 +22,15 @@ Use when the user wants to:
 
 ## Setup
 
-- Check for the `TESTOMATIO` token: skill input -> `.env` in project root -> ask the user.
-- Save the token to `.env`: `TESTOMATIO=tstmt_xxxxx`.
+- Check for the `TESTOMATIO` token: skill input → environment → a **gitignored** `.env` in project root → ask the user.
+- Before saving a token to `.env`, verify `.env` is ignored with `git check-ignore -q .env`. If it is not ignored, do not write the token there; use an environment variable or secret store instead.
 - If the user has no key: get it in Testomat.io under **Settings → Project → Project Reporting API key** (`https://app.testomat.io/projects/<project-id>/settings/project`).
 
 ## Running the CLI
 
 - Run `check-tests` via `npx`. Do not install it as a project dependency.
-- **The first `check-tests` call in the session must be `npx check-tests@latest …`** to resolve the latest version. All later calls in the same session use plain `npx check-tests …`.
-- **Use only options documented here, in [TESTOMATIO_CLI.md](./references/TESTOMATIO_CLI.md), or listed by `npx check-tests --help`. Do not invent options** (e.g. `--pattern`, `--force`).
+- **The first `check-tests` call in the session must be `npx check-tests@0.21.0 …`** to resolve the latest version. All later calls in the same session use plain `npx check-tests@0.21.0 …`.
+- **Use only options documented here, in [TESTOMATIO_CLI.md](./references/TESTOMATIO_CLI.md), or listed by `npx check-tests@0.21.0 --help`. Do not invent options** (e.g. `--pattern`, `--force`).
 
 ## Pull
 
@@ -41,32 +41,29 @@ Directory selection — if the `testDir` input is provided or the user passes `-
 - End-to-end testing project: pull to the `manual-tests` directory.
 - Any other case: pull to `.testeiya/manual-tests` (ensure `.testeiya/` exists and is gitignored).
 
-Cache-folder rules:
-- Default pull target is the gitignored cache `.testeiya/manual-tests/`. Add `.testeiya/` to the project `.gitignore` if it is not there yet.
-- **Pulled cases must never land in a tracked folder** (`manual-tests/`, etc.) — that pollutes the repo.
-- Being gitignored does not block editing the files or pushing them back.
-- If the repo already keeps its `*.test.md` files in a tracked folder, don't pull — work with them in place, or pass `-d <that folder>` for an in-place refresh.
-- This matches `scan-automation-project`, which pulls the *code* into `.testeiya/code/` when it runs inside a manual-tests repo.
+Directory rules:
+- If the repository already manages `*.test.md` files in a tracked test directory, use that existing directory and allow `pull -d <that folder>` for an in-place refresh.
+- Otherwise use the gitignored cache `.testeiya/manual-tests/`; add `.testeiya/` to `.gitignore` if needed.
+- Do not introduce a **new** tracked test destination implicitly. Ask before creating one.
 
 ```bash
-npx check-tests pull -d .testeiya/manual-tests
+npx check-tests@0.21.0 pull -d .testeiya/manual-tests
 ```
 
-- To pull only specific suites (user names a suite or gives suite IDs): `npx check-tests pull --suite-ids "@S12345678,@S87654321"`.
+- To pull only specific suites (user names a suite or gives suite IDs): `npx check-tests@0.21.0 pull --suite-ids "@S12345678,@S87654321"`.
 - More pull options: [TESTOMATIO_CLI.md](./references/TESTOMATIO_CLI.md).
 
 ## Push
 
-Uploads local Markdown tests to Testomat.io.
+Uploads local `*.test.md` tests to Testomat.io.
 
-Pre-push file filtering — push only test case files, never project docs or requirements:
-- Include files matching `*.test.md`, or Markdown files with valid `<!-- test ... -->` blocks.
-- Ignore all other Markdown (`README.md`, `CHANGELOG.md`, documentation).
-- If test cases live alongside other files, copy or move the test files into `.testeiya/manual-tests/` first.
+Before pushing edits, pull the latest Testomat.io version into the same managed directory, compare it with the local files, and confirm there are no unresolved conflicts. Do not upload over newer remote changes.
+
+Pre-push file filtering — push only `*.test.md` test case files, never project docs or requirements. Ignore all other Markdown (`README.md`, `CHANGELOG.md`, documentation).
 
 Pre-push validation:
 1. At least one `*.test.md` file exists.
-2. Each file contains a valid test block:
+2. Every selected `*.test.md` file contains a valid test block:
 
 ```md
 <!-- test
@@ -82,10 +79,10 @@ labels: ...
 
 ```bash
 # Specific files (preferred when known)
-npx check-tests push --files login.test.md checkout.test.md
+npx check-tests@0.21.0 push --files login.test.md checkout.test.md
 
 # Testeiya cache folder
-npx check-tests push -d .testeiya/manual-tests
+npx check-tests@0.21.0 push -d .testeiya/manual-tests
 ```
 
 - **When the files to push are known** (e.g. just produced by `qa-write-test-cases` / `improve-test-cases`), **pass them explicitly via `--files`** (alias `-f`). Without `--files` the CLI falls back to the default glob `**/*.test.md`, which may pick up unrelated files.

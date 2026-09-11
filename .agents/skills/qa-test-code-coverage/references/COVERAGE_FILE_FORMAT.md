@@ -31,7 +31,7 @@ describe('<suite title> @S1a2b3c4d', () => {
 });
 ```
 
-They are populated by `npx check-tests <Framework> "<glob>" --update-ids` after the tests are imported into Testomat.io.
+They are populated by `npx check-tests@0.21.0 <Framework> "<glob>" --update-ids` after the tests are imported into Testomat.io.
 
 ## File keys
 
@@ -68,22 +68,22 @@ For automated tests the runner command **must** be the first positional argument
 
 ```bash
 # Playwright
-npx @testomatio/reporter run "npx playwright test" \
+npx @testomatio/reporter@2.16.0 run "npx playwright test" \
   --filter "coverage:file=coverage.tests.yml,diff=main"
 
 # Cypress
-npx @testomatio/reporter run "npx cypress run" \
+npx @testomatio/reporter@2.16.0 run "npx cypress run" \
   --filter "coverage:file=coverage.tests.yml,diff=main"
 
 # WebdriverIO / Mocha / Jest / CodeceptJS — pass the corresponding runner command
-npx @testomatio/reporter run "npx codeceptjs run" \
+npx @testomatio/reporter@2.16.0 run "npx codeceptjs run" \
   --filter "coverage:file=coverage.tests.yml,diff=main"
 ```
 
 For manual tests pass `--kind manual` instead of a runner — the reporter creates a pending run in Testomat.io with only the affected cases:
 
 ```bash
-npx @testomatio/reporter run --kind manual \
+npx @testomatio/reporter@2.16.0 run --kind manual \
   --filter "coverage:file=coverage.tests.yml,diff=main"
 ```
 
@@ -112,7 +112,7 @@ jobs:
         env:
           TESTOMATIO: ${{ secrets.TESTOMATIO }}
         run: |
-          npx @testomatio/reporter run "npx playwright test" \
+          npx @testomatio/reporter@2.16.0 run "npx playwright test" \
             --filter "coverage:file=coverage.tests.yml,diff=origin/main"
 ```
 
@@ -121,7 +121,7 @@ jobs:
 One command — no parser of your own. Run it with the project root as working directory (file keys resolve against it), but the checker itself lives in the skill's `scripts/` directory, not in the project:
 
 ```bash
-npx js-yaml coverage.tests.yml | node <path-to-this-skill>/scripts/check-coverage.mjs
+npx js-yaml@5.4.1 coverage.tests.yml | node <path-to-this-skill>/scripts/check-coverage.mjs
 ```
 
 `npx js-yaml` parses the YAML (it fails loudly on a malformed file, so a broken one never reaches the script). `check-coverage.mjs` (~25 lines, zero deps) reads that parsed map on stdin, flags any key whose path is missing on disk, flags any key with no identifiers, lists every `@S…` / `@T…` / tag the file references, and exits non-zero on a problem.

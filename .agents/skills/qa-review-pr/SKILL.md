@@ -26,7 +26,7 @@ Gather intent with the `qa-pr-requirements-analyzer` skill first.
 - Use high-level business domain specific terms and not low level coding details
 - If needed mention class names, file names, but never get into deeper internal details
 - Explain risks and ambiguities from terms of persona using the software. Do not put coding terms in it.
-- Try to resolve ambiguities based on your code and requirements understanding
+- Do not resolve ambiguities by inference. Every conclusion needs explicit evidence from requirements, code, tests, or runtime proof. If evidence is unavailable, write `NOT VERIFIED` and state exactly what evidence is missing.
 - You can use bold and italics to emphasize points important for reviewer to take decision
 - Reply with **Only requested section named exactly they are provided provided**. No prephrase, no conclusions, only session.
 - Prefer simple wording and short sentences.

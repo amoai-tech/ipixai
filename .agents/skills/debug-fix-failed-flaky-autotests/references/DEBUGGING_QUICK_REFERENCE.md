@@ -98,9 +98,9 @@ expect(text).toBe('Hello World');
 - Run single file: `npx playwright test path/to/test.spec.ts`
 
 **CodeceptJS:**
-- Steps mode: `npx codeceptjs run --steps`
-- Verbose: `npx codeceptjs run --verbose`
-- Single file: `npx codeceptjs run path/to/test.js`
+- Steps mode: `npm exec --no -- codeceptjs run --steps`
+- Verbose: `npm exec --no -- codeceptjs run --verbose`
+- Single file: `npm exec --no -- codeceptjs run path/to/test.js`
 
 ---
 

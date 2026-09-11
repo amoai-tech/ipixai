@@ -11,7 +11,7 @@ Orchestrates the test case lifecycle by routing requests to specialized skills a
 
 | Skill                                | Purpose                                                                           |
 | ------------------------------------ | --------------------------------------------------------------------------------- |
-| `scan-automation-project`            | Scan source code to inventory languages, frameworks, and existing tests           |
+| direct project inspection (Graphify + manifests/configs/test files)            | Scan source code to inventory languages, frameworks, and existing tests           |
 | `pull-request-diff-analyzer`         | Analyze a PR/branch diff to detect features/fixes and extract acceptance criteria |
 | `qa-explain-behavior`                | Explain what the product does — features, flows, permissions, edge cases, gaps    |
 | `qa-thinking`                        | Analyze a feature as QA — edge cases, negative flows, abuses, risk scenarios      |
@@ -20,7 +20,7 @@ Orchestrates the test case lifecycle by routing requests to specialized skills a
 | `qa-requirement-reviewer`            | Review requirements for ambiguity, gaps, and testability                          |
 | `qa-write-test-cases`                | Generate new test cases and checklists from requirements                          |
 | `improve-test-cases`                 | Improve existing test cases quality                                               |
-| `detect-duplicate-test-cases`        | Find duplicate, near-duplicate, and overlapping test cases                        |
+| `qa-automation-test-consolidation`        | Find duplicate, near-duplicate, and overlapping test cases                        |
 | `sync-test-cases-with-tms`           | Upload/pull test cases to/from Testomat.io TMS                                    |
 | `qa-e2e-tests-reporting`             | Add Testomat.io reporter to your automation project                               |
 | `automate-manual-test-cases`         | Convert manual test cases into automated test scripts (write new autotests)       |
@@ -53,7 +53,7 @@ After generation fully completed, suggest next actions:
 1. ⬆️ Upload generated test cases to Testomat.io (with `sync-test-cases-with-tms` skill)
 2. 🔧 Add Testomat.io reporter to your automation project (with `qa-e2e-tests-reporting` skill)
 3. 🤖 Automate the new test cases into autotests (with `automate-manual-test-cases` skill)
-4. 🧹 Check for duplicate/overlapping cases (with `detect-duplicate-test-cases` skill)
+4. 🧹 Check for duplicate/overlapping cases (with `qa-automation-test-consolidation` skill)
 5. 🎭 Generate specific test cases using `qa-write-test-cases` skill and role name
 ```
 
@@ -104,7 +104,7 @@ Use `improve-test-cases` skill to proceed with test case improvement
 =>
 After improvement step fully completed, suggest next actions:
 1. ⬆️ Upload updated test cases to Testomat.io (with `sync-test-cases-with-tms` skill)
-2. 🧹 Check for duplicate/overlapping cases (with `detect-duplicate-test-cases` skill)
+2. 🧹 Check for duplicate/overlapping cases (with `qa-automation-test-consolidation` skill)
 ```
 
 ### Duplicate Detection Flow
@@ -112,7 +112,7 @@ After improvement step fully completed, suggest next actions:
 ```
 User: asks to find duplicates, overlapping or redundant test cases
 =>
-Use `detect-duplicate-test-cases` skill to identify exact, near-duplicate and subset cases
+Use `qa-automation-test-consolidation` skill to identify exact, near-duplicate and subset cases
 =>
 After detection fully completed, suggest next actions:
 1. ✏️ Improve/merge the surviving test cases (with `improve-test-cases` skill)

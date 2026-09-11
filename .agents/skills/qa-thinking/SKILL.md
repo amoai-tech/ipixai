@@ -26,12 +26,11 @@ When the feature's current behavior is unclear, establish it with the `qa-explai
 ## Output
 
 Only requested section named exactly the way we provide
-Information in section written as numbered lists
+Information in every requested section is written as a numbered list.
 
 Requested sections:
 
-
-- Section `👷 Must be aknowledged`: brief summary in bullet points. Potential correlation with other areas. Potential risks
+- Section `👷 Must be acknowledged`: brief summary. Potential correlation with other areas. Potential risks
 - Section `👓 Must be clarified`: up to 5 questions to resolve important ambiguities. Start each with "What if".
 - Section `🔬 Must be verified`: up to 5 most important risk scenarios, no more.
 - Prefer simple wording and short sentences.
