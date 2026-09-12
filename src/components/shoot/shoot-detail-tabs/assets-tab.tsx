@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ImageIcon, VideoIcon, FileIcon } from "lucide-react";
+import { ImageIcon, VideoIcon, FileIcon, RotateCcw } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import type { ShootDetail } from "@/lib/shoot/get-shoot-detail";
@@ -52,6 +52,7 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!isImage) {
@@ -59,26 +60,38 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
       setError(true);
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     async function fetchPreview() {
       try {
-        const res = await fetch(`/api/assets/${asset.id}/preview?preview=${previewKind}`);
+        const res = await fetch(`/api/assets/${asset.id}/preview?preview=${previewKind}`, {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error("preview failed");
         const data = await res.json();
-        if (!cancelled && data.url) {
+        if (typeof data.url === "string" && data.url.length > 0) {
           setPreviewUrl(data.url);
-        } else if (!cancelled) {
+        } else {
           setError(true);
         }
-      } catch {
-        if (!cancelled) setError(true);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
+        setError(true);
       } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
     }
     fetchPreview();
-    return () => { cancelled = true; };
-  }, [asset.id, isImage]);
+    return () => { controller.abort(); };
+  }, [asset.id, isImage, attempt]);
+
+  const handleRetry = () => {
+    setError(false);
+    setPreviewUrl(null);
+    setLoading(true);
+    setAttempt((a) => a + 1);
+  };
 
   if (loading) {
     return (
@@ -115,6 +128,14 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
             <div className={styles.imagePlaceholder} aria-label={`Image asset ${asset.id}`}>
               <ImageIcon aria-hidden />
               <span className={styles.imageLabel}>Preview unavailable</span>
+              <button
+                type="button"
+                className={styles.retryButton}
+                onClick={handleRetry}
+                aria-label="Retry loading preview"
+              >
+                <RotateCcw aria-hidden />
+              </button>
             </div>
           )}
         </div>

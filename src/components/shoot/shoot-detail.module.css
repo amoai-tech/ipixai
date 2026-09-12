@@ -300,8 +300,8 @@
   letter-spacing: 0.04em;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
+  background: var(--color-badge-surface);
+  color: var(--color-badge-text);
   border: 1px solid var(--color-border-subtle);
 }
 
@@ -311,8 +311,8 @@
   font-weight: 600;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  background: var(--color-approved-bg);
-  color: var(--color-dna-high);
+  background: var(--color-badge-surface);
+  color: var(--color-badge-text);
 }
 
 .assetMeta {
@@ -359,6 +359,15 @@
   100% { background-position: -200% 0; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .loadingPlaceholder {
+    animation: none;
+  }
+  .assetCard:hover .assetMedia {
+    transform: none;
+  }
+}
+
 .videoPlaceholder,
 .imagePlaceholder {
   display: flex;
@@ -376,4 +385,37 @@
 .imageLabel {
   font-size: 0.75rem;
   font-weight: 500;
+}
+
+.retryButton {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.retryButton:hover {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.retryButton:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+
+.retryButton svg {
+  width: 14px;
+  height: 14px;
 }

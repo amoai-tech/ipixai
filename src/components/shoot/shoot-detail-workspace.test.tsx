@@ -85,6 +85,36 @@ const DETAIL: ShootDetail = {
   activity: [],
 };
 
+const DETAIL_WITH_VIDEO: ShootDetail = {
+  ...DETAIL,
+  assets: [
+    {
+      id: "55555555-5555-4555-8555-555555555555",
+      url: null,
+      cloudinary_id: "cld:asset:1",
+      format: "jpg",
+      resource_type: "image",
+      width: 4000,
+      height: 3000,
+      dna_score: null,
+      status: "ready",
+      created_at: "2026-09-03T10:00:00.000Z",
+    },
+    {
+      id: "66666666-6666-4666-8666-666666666666",
+      url: null,
+      cloudinary_id: "cld:asset:2",
+      format: "mp4",
+      resource_type: "video",
+      width: 1920,
+      height: 1080,
+      dna_score: null,
+      status: "ready",
+      created_at: "2026-09-03T11:00:00.000Z",
+    },
+  ],
+};
+
 describe("ShootDetailWorkspace", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
@@ -165,9 +195,10 @@ describe("ShootDetailWorkspace", () => {
       expect(img.getAttribute("src")).toBe(mockSignedUrl);
     });
 
-    // Verify the preview API was called with correct params
+    // Verify the preview API was called with correct params (including AbortSignal)
     expect(fetch).toHaveBeenCalledWith(
-      "/api/assets/55555555-5555-4555-8555-555555555555/preview?preview=masonry"
+      "/api/assets/55555555-5555-4555-8555-555555555555/preview?preview=masonry",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
   });
 
@@ -185,8 +216,8 @@ describe("ShootDetailWorkspace", () => {
 
     // Stored asset.url should never be used as secure preview
     // The placeholder uses a div with ImageIcon, not an img element
-    const imgs = screen.queryAllByRole("img");
-    expect(imgs.length).toBe(0);
+    const img = screen.queryByAltText("");
+    expect(img).toBeNull();
   });
 
   it("falls back to placeholder when signed Cloudinary URL fails to load", async () => {
@@ -216,8 +247,35 @@ describe("ShootDetailWorkspace", () => {
     });
 
     // Broken image should no longer be presented as successful preview
-    const imgs = screen.queryAllByRole("img");
-    expect(imgs.length).toBe(0);
+    const img = screen.queryByAltText("");
+    expect(img).toBeNull();
+  });
+
+  it("renders video asset with 'Video preview unavailable' and does not call preview API", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ url: "https://res.cloudinary.com/demo/image/upload/v123/signed-preview.jpg", assetId: "55555555-5555-4555-8555-555555555555", preview: "masonry", version: 1, publicId: "cld:asset:1" }),
+    } as Response);
+
+    render(<ShootDetailWorkspace detail={DETAIL_WITH_VIDEO} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Assets" }));
+
+    // Wait for image preview to load
+    await waitFor(() => {
+      const img = screen.getByAltText("");
+      expect(img).toBeDefined();
+    });
+
+    // Verify fetch was called only once (for the image asset, not the video)
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/assets/55555555-5555-4555-8555-555555555555/preview?preview=masonry",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
+
+    // Video asset should show "Video preview unavailable" placeholder
+    const videoPlaceholder = screen.getByText("Video preview unavailable");
+    expect(videoPlaceholder).toBeDefined();
   });
 
   it("renders the team tab with crew rows", () => {
