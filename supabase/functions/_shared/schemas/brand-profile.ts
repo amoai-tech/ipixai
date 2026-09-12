@@ -1,9 +1,5 @@
 import { Type } from "npm:@google/genai@2.8.0";
 
-import brandProfileStrictJsonSchemaDoc from "./brand-profile.schema.json" with {
-  type: "json",
-};
-
 /** Brand DNA contract version (IPI-834). */
 export const BRAND_PROFILE_SCHEMA_VERSION = 2 as const;
 
@@ -129,9 +125,6 @@ export const brandProfileResponseSchema = {
     "scores",
   ],
 };
-
-/** Groq strict JSON Schema (`additionalProperties: false`, all fields required). */
-export const brandProfileStrictJsonSchema = brandProfileStrictJsonSchemaDoc;
 
 export type BrandClaimEvidence = {
   sourceUrl: string;
