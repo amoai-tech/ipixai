@@ -1,0 +1,112 @@
+-- IPI-1093 · BRAND-INTEL-001 — DB write-boundary: only the approval RPC may
+-- promote governed Brand DNA truth (blocker #2 from the 2026-09-11 audit).
+--
+-- Verified against current repo + live Supabase (nvdlhrodvevgwdsneplk) before
+-- writing this migration, not assumed from audit prose:
+--
+-- RLS protects ROWS, not COLUMNS. `brands_update_org` (20260624000000) lets
+-- any authenticated org member UPDATE any column of a brand row in their
+-- org -- including governed truth: ai_profile, approved_profile_at,
+-- approved_profile_version, approved_draft_hash, approved_by. brand_scores
+-- similarly has editor+/creator-scoped INSERT/UPDATE/DELETE RLS policies
+-- (20260627130000 / 140000 / 150000 / 160000) with no matching column
+-- restriction, so an editor can write brand_scores rows directly, bypassing
+-- approve_brand_intelligence_draft entirely. Neither table has ever had an
+-- explicit GRANT UPDATE in this migration chain -- the privilege comes from
+-- Supabase's default `authenticated`/`anon` table grants, which is exactly
+-- why it survived every RLS-only pass.
+--
+-- Audited every current write path (repo, not memory) before deciding what
+-- to revoke:
+--   - Mastra workflow (src/mastra/workflows/brand-intelligence.ts) writes
+--     brands.intake_status / ai_profile_draft via createServiceRoleClient()
+--     -- service_role, unaffected by revoking `authenticated`.
+--   - brand-intelligence / start-brand-crawl / firecrawl-webhook Edge
+--     functions write brands.intake_status / ai_profile_draft via the
+--     service-role Supabase client (supabase/functions/_shared/supabase-client.ts)
+--     -- also unaffected. Confirmed on the exact live v542/v516/v515 source
+--     reconciled into supabase/functions/ in this same task: none of the
+--     three writes ai_profile or any approved_* column directly.
+--   - materialize_onboarding_session (SECURITY INVOKER, 20260802081000)
+--     INSERTs into public.brands as `authenticated` -- needs INSERT, never
+--     UPDATE (confirmed reading the current function body: one insert, no
+--     update, on public.brands).
+--   - approve_brand_intelligence_draft / reject_brand_intelligence_draft
+--     (SECURITY DEFINER, 20260909000000) are the ONLY writers of
+--     ai_profile / approved_profile_at / approved_profile_version /
+--     approved_draft_hash / approved_by / brand_scores -- they run as the
+--     function owner, unaffected by revoking `authenticated`'s table grants.
+--   - grepped src/, supabase/functions/, and e2e/ for every `.from("brands")`
+--     / `.from("brand_scores")` call: no app code anywhere performs a direct
+--     authenticated UPDATE of public.brands, or a direct authenticated
+--     INSERT/UPDATE/DELETE of public.brand_scores.
+--
+-- Column-level grants (Supabase's column-level-security guidance) were
+-- considered and rejected as unnecessary complexity here: `authenticated`
+-- has ZERO legitimate direct UPDATE use on brands today and ZERO legitimate
+-- direct write use on brand_scores today, so a full REVOKE UPDATE / REVOKE
+-- INSERT,UPDATE,DELETE is both the smallest diff and strictly tighter than
+-- a column allow-list. If a future ordinary-field edit (e.g. rename brand)
+-- needs direct authenticated UPDATE, add
+-- `grant update (name, brand_url) on public.brands to authenticated` in a
+-- reviewed follow-up migration -- do not restore the broad grant.
+--
+-- brands INSERT/SELECT/DELETE and brand_scores SELECT are untouched (all
+-- have real, verified callers or are out of scope for this blocker --
+-- brands_delete_org already limits DELETE to org owners and no direct-write
+-- bypass concern applies to it).
+--
+-- Rollback:
+--   grant update on public.brands to authenticated;
+--   revoke insert (id, name, org_id, user_id, brand_url) on public.brands from authenticated;
+--   grant insert on public.brands to authenticated;
+--   grant insert, update, delete on public.brand_scores to authenticated;
+--   -- then re-run 20260627140000 / 20260627150000 / 20260627160000 to
+--   -- recreate brand_scores_insert_via_brand / _delete_via_brand /
+--   -- _update_via_brand (dropped below; those files' CREATE POLICY bodies
+--   -- are the exact rollback source, not reproduced here).
+
+-- ---------------------------------------------------------------------------
+-- 1. brands: remove the table-level UPDATE grant that let brands_update_org
+--    (a row filter, not a column filter) govern writes to approval-owned
+--    columns. INSERT is untouched (materialize_onboarding_session needs it).
+-- ---------------------------------------------------------------------------
+revoke update on public.brands from authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 2. brand_scores: remove the table-level INSERT/UPDATE/DELETE grants that
+--    let editor+/creator write scores directly. SELECT is untouched. The
+--    three write policies become dead weight once the grant is gone --
+--    drop them so the policy list doesn't keep advertising write access
+--    that grants no longer allow (a stale permissive-looking policy invites
+--    a future "just re-grant it" fix instead of routing through the RPC).
+-- ---------------------------------------------------------------------------
+revoke insert, update, delete on public.brand_scores from authenticated;
+
+drop policy if exists "brand_scores_insert_via_brand" on public.brand_scores;
+drop policy if exists "brand_scores_update_via_brand" on public.brand_scores;
+drop policy if exists "brand_scores_delete_via_brand" on public.brand_scores;
+
+-- ---------------------------------------------------------------------------
+-- 3. brands: INSERT is still needed -- materialize_onboarding_session
+--    (SECURITY INVOKER, 20260802081000) runs its `insert into public.brands`
+--    as the calling `authenticated` role -- but the existing table-level
+--    grant was never column-scoped. Caught adversarially while verifying
+--    this exact migration: with only the INSERT-vs-UPDATE distinction above,
+--    an authenticated org member could INSERT a brand row with ai_profile /
+--    approved_profile_at / approved_profile_version / approved_draft_hash /
+--    approved_by pre-populated -- fabricating "approved" truth for a brand
+--    that never went through crawl -> draft -> review -> approve, which is
+--    the exact bypass this whole migration exists to close, just via INSERT
+--    instead of UPDATE.
+--
+--    Column-level INSERT privilege restricts which columns a caller's
+--    INSERT statement may list explicitly; every other column falls back to
+--    its DEFAULT (or NULL for nullable columns without one) -- exactly the
+--    safe just-created state (ai_profile defaults to '{}', intake_status to
+--    'brand_created', the approved_* columns to NULL). The column list
+--    matches materialize_onboarding_session's own insert statement exactly:
+--    id, name, org_id, user_id, brand_url.
+-- ---------------------------------------------------------------------------
+revoke insert on public.brands from authenticated;
+grant insert (id, name, org_id, user_id, brand_url) on public.brands to authenticated;

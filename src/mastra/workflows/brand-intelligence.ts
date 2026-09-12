@@ -332,7 +332,6 @@ const extractProfile = createStep({
           brandId,
           url: brand.brand_url,
           crawlResultId: crawlId,
-          draft_mode: true,
         }),
         signal: AbortSignal.timeout(120_000),
       });

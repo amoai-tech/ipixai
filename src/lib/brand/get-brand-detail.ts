@@ -61,6 +61,51 @@ function safeExtractDraftScores(value: unknown): BrandDraftScore[] {
   }
 }
 
+/**
+ * IPI-1093 · BRAND-INTEL-001 blocker #4 — Mastra's `saveDraftAndWait` step is
+ * the sole owner of "ready for review": it attaches `_workflow_run_id` to
+ * `ai_profile_draft` AFTER the `brand-intelligence` Edge function's own
+ * write. `brandProfileSchema` is `.passthrough()`, so a draft captured in
+ * that window parses successfully with no run id yet — reviewable-looking,
+ * but `approve_brand_intelligence_draft` requires a verified
+ * `_workflow_run_id` and would reject it as `INVALID_DRAFT`. A malformed
+ * draft (not this case) must still parse to `null` and surface as
+ * parse_error, not disappear — so this only asks "does the schema-valid
+ * draft carry a run id", never called on a draft that already failed
+ * `safeParseProfile`.
+ */
+function hasWorkflowRunId(parsedDraft: BrandProfile): boolean {
+  const runId = (parsedDraft as unknown as Record<string, unknown>)._workflow_run_id;
+  return typeof runId === "string" && runId !== "";
+}
+
+/**
+ * PR review finding — a narrower window than the one above: Mastra writes
+ * the run id into `ai_profile_draft` (write A) BEFORE it sets
+ * `intake_status = 'draft_ready'` (write B) and THEN calls `suspend()` — so
+ * for the few ms between A and B, `_workflow_run_id` is already present but
+ * the workflow run is still executing, not actually suspended yet.
+ * `approve_brand_intelligence_draft` would technically accept a draft read
+ * in that window (the run id check alone passes), but the operator would be
+ * approving a run the workflow itself doesn't yet consider ready to be
+ * resumed. Requiring `intake_status === 'draft_ready'` too closes that gap.
+ *
+ * Safe to combine with the separately-read `brand` row despite that read
+ * happening in an independent query from the draft snapshot: `intake_status`
+ * is read FIRST, the draft snapshot SECOND (sequential, not concurrent), and
+ * Mastra's write order is run-id-then-draft_ready — so if this read already
+ * observes 'draft_ready', the draft snapshot read that follows is
+ * guaranteed to be at least as fresh and will already carry the run id. A
+ * stale 'scores_complete' read just means "still running" for one extra
+ * poll, never a false "review".
+ */
+function isReviewReady(
+  parsedDraft: BrandProfile,
+  intakeStatus: Database["public"]["Enums"]["brand_intake_status"],
+): boolean {
+  return hasWorkflowRunId(parsedDraft) && intakeStatus === "draft_ready";
+}
+
 export async function loadBrandDetail(
   supabase: SupabaseClient<Database>,
   brandId: string,
@@ -80,7 +125,15 @@ export async function loadBrandDetail(
   if (snapshotError) return { status: "error" };
 
   const rawDraft = (snapshot as { draft: unknown; hash: string | null } | null)?.draft ?? null;
-  const draftHash = (snapshot as { draft: unknown; hash: string | null } | null)?.hash ?? null;
+  const rawDraftHash = (snapshot as { draft: unknown; hash: string | null } | null)?.hash ?? null;
+
+  const parsedDraft = rawDraft ? safeParseProfile(rawDraft) : null;
+  // See isReviewReady's doc comment: only a schema-valid draft that is
+  // missing its run id OR not yet marked draft_ready counts as "pending
+  // provenance" — a malformed draft (parsedDraft === null) keeps its
+  // existing parse_error behavior.
+  const pendingProvenance =
+    parsedDraft !== null && !isReviewReady(parsedDraft, brand.intake_status);
 
   return {
     status: "found",
@@ -92,9 +145,9 @@ export async function loadBrandDetail(
       intakeStatus: brand.intake_status,
       approvedProfile: safeParseProfile(brand.ai_profile),
       approvedProfileAt: brand.approved_profile_at,
-      draft: rawDraft ? safeParseProfile(rawDraft) : null,
-      draftScores: rawDraft ? safeExtractDraftScores(rawDraft) : [],
-      draftHash,
+      draft: pendingProvenance ? null : parsedDraft,
+      draftScores: pendingProvenance ? [] : rawDraft ? safeExtractDraftScores(rawDraft) : [],
+      draftHash: pendingProvenance ? null : rawDraftHash,
     },
   };
 }
