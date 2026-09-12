@@ -62,7 +62,15 @@ export async function POST(request: Request) {
 
   let body: { runId?: string; crawlId?: string; failed?: boolean; error?: string };
   try {
-    body = JSON.parse(rawBody) as { runId?: string; crawlId?: string; failed?: boolean; error?: string };
+    const parsed: unknown = JSON.parse(rawBody);
+    // PR review finding: `JSON.parse("null")` (or a bare number/string/
+    // array) succeeds without throwing, so it reached `body.runId` below
+    // unguarded — an uncaught TypeError on null/undefined property access,
+    // a 500 instead of the intended clean 400.
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return Response.json({ ok: false, error: { code: "invalid_input", message: "runId is required" } }, { status: 400 });
+    }
+    body = parsed as { runId?: string; crawlId?: string; failed?: boolean; error?: string };
   } catch {
     return Response.json({ ok: true, outcome: "noop_invalid_json" }, { status: 200 });
   }
