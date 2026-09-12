@@ -189,6 +189,37 @@ describe("ShootDetailWorkspace", () => {
     expect(imgs.length).toBe(0);
   });
 
+  it("falls back to placeholder when signed Cloudinary URL fails to load", async () => {
+    const mockSignedUrl = "https://res.cloudinary.com/demo/image/upload/v123/signed-preview.jpg";
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ url: mockSignedUrl, assetId: "55555555-5555-4555-8555-555555555555", preview: "masonry", version: 1, publicId: "cld:asset:1" }),
+    } as Response);
+
+    render(<ShootDetailWorkspace detail={DETAIL} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Assets" }));
+
+    // Wait for preview to load and verify signed Cloudinary URL is rendered
+    await waitFor(() => {
+      const img = screen.getByAltText("");
+      expect(img).toBeDefined();
+      expect(img.getAttribute("src")).toBe(mockSignedUrl);
+    });
+
+    // Simulate image load failure (e.g., Cloudinary returns 404)
+    fireEvent.error(screen.getByAltText(""));
+
+    // Should fall back to "Preview unavailable" placeholder
+    await waitFor(() => {
+      const placeholder = screen.getByText("Preview unavailable");
+      expect(placeholder).toBeDefined();
+    });
+
+    // Broken image should no longer be presented as successful preview
+    const imgs = screen.queryAllByRole("img");
+    expect(imgs.length).toBe(0);
+  });
+
   it("renders the team tab with crew rows", () => {
     render(<ShootDetailWorkspace detail={DETAIL} />);
     screen.getByRole("tab", { name: "Team" }).click();

@@ -46,13 +46,19 @@ export function AssetsTab({ detail }: { detail: ShootDetail }) {
 function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
   const isVideo = asset.resource_type === "video";
   const isRaw = asset.resource_type === "raw";
-  const previewKind = isVideo ? "review" : "masonry";
+  const isImage = asset.resource_type === "image";
+  const previewKind = "masonry";
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    if (!isImage) {
+      setLoading(false);
+      setError(true);
+      return;
+    }
     let cancelled = false;
     async function fetchPreview() {
       try {
@@ -72,7 +78,7 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
     }
     fetchPreview();
     return () => { cancelled = true; };
-  }, [asset.id, previewKind]);
+  }, [asset.id]);
 
   if (loading) {
     return (
@@ -133,6 +139,7 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
           loading="lazy"
           width={asset.width ?? undefined}
           height={asset.height ?? undefined}
+          onError={() => setError(true)}
         />
         <div className={styles.assetOverlay}>
           {asset.status && <span className={styles.assetStatus}>{asset.status}</span>}
