@@ -12,7 +12,7 @@
 
 export type AiProvider = "gemini" | "groq";
 
-export type StructuredGenerationScope = "default" | "bi" | "dna";
+export type StructuredGenerationScope = "default" | "bi";
 
 export type StructuredGenerationOptions = {
   systemPrompt: string;

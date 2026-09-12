@@ -39,8 +39,13 @@ export function resolveBiProviderFromEnv(env: {
   biUseGemini?: string;
   biProvider?: string;
 }): "gemini" {
+  // An explicit scoped BI_PROVIDER wins outright — including over a
+  // non-Gemini global AI_PROVIDER used by other paths (e.g. DNA on Groq).
+  // Only fall through to the legacy BI_USE_GEMINI/AI_PROVIDER checks when
+  // BI_PROVIDER itself is unset.
   const explicit = (env.biProvider ?? "").trim().toLowerCase();
-  if (explicit && explicit !== "gemini") {
+  if (explicit === "gemini") return "gemini";
+  if (explicit) {
     throw new Error(
       `BI_PROVIDER="${explicit}" is invalid — Groq/Cloudflare Workers AI support was removed; only gemini is wired.`,
     );

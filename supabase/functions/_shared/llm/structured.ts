@@ -136,11 +136,10 @@ export function resolveStructuredProviderFromEnv(env: {
       biProvider: env.biProvider,
     });
   }
-  if (scope === "dna") {
-    throw new Error(
-      'Structured scope "dna" is not wired in this module; audit-asset-dna owns its provider path separately.',
-    );
-  }
+  // NOTE: "dna" is intentionally not a StructuredGenerationScope value.
+  // audit-asset-dna is a separately deployed Edge Function with its own
+  // provider path (allowlist.ts resolveDnaProviderFromEnv) and never calls
+  // into this module.
   const provider = (env.aiProvider ?? "gemini").trim().toLowerCase();
   if (provider === "gemini") return provider;
   throw new Error(
