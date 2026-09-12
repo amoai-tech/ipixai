@@ -94,6 +94,10 @@
   --color-text-disabled:  var(--primitive-grey-300);     /* #D1D5DB — disabled */
   --color-text-inverse:   var(--primitive-white);        /* #FFFFFF — on dark bg */
 
+  /* --- Badges --- */
+  --color-badge-surface:  var(--primitive-white);        /* #FFFFFF — opaque over media */
+  --color-badge-text:     var(--primitive-ink-900);      /* #111111 — 18.88:1 on white */
+
   /* --- Primary action (black — the default button) --- */
   --color-action:         var(--primitive-ink-900);      /* #111111 — primary fill */
   --color-action-hover:   var(--primitive-ink-800);      /* #2A2A2A — primary hover */
