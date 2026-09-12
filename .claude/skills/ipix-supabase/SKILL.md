@@ -7,11 +7,12 @@ description: >
   into one skill with on-demand references. Use for ANY Supabase work
   in this repo. NOT for Mercur commerce tables or legacy Medellín/FashionOS edge functions.
 version: "1.5.0"
-paths:
-  - "supabase/**"
-  - "**/*.sql"
-  - "src/lib/supabase*"
-  - "docs/mastra/supabase-mastra.md"
+metadata:
+  paths:
+    - "supabase/**"
+    - "**/*.sql"
+    - "src/lib/supabase*"
+    - "docs/mastra/supabase-mastra.md"
 ---
 
 # ipix-supabase — Supabase hub
@@ -53,6 +54,8 @@ Single entry point for Supabase work on **iPixai** (same live project as Lumina:
 | [`secrets.md`](references/edge-functions/secrets.md) | `supabase secrets set/list`, default env vars | Adding API keys or sensitive config |
 | [`testing.md`](references/edge-functions/testing.md) | `Deno.test` — HTTP, auth, DB test patterns | Writing or debugging function tests |
 | [`ai-models.md`](references/edge-functions/ai-models.md) | Supabase AI API — embeddings, LLM inference | Adding AI/embedding calls inside a function |
+
+**`brand-intelligence`'s dependency closure reaches outside `supabase/` entirely:** `_shared/llm/allowlist.ts` imports `../../../../config/groq-models.json`, resolving to `config/groq-models.json` at the **repo root** — a generated SSOT shared with the Next.js app, not a file under `supabase/functions/`. Easy to miss if you're only looking inside `supabase/functions/_shared/`; the CLI's own import resolution won't miss it, another reason to deploy via CLI (see "MCP / CLI trust" above) rather than hand-listing files.
 
 ### Routing decision tree
 
@@ -99,6 +102,8 @@ Old operator repo (read-only reference): `/home/sk/ipix/supabase/`
 3. **`npm run supabase:verify-rls`** after every RLS change when the script exists; also run the affected targeted SQL tests. Do not hard-code a check count because the suite evolves.
 4. Cursor **`user-supabase` MCP** may show legacy Medellín/FashionOS objects — **ignore** unless MCP is confirmed on `nvdlhrodvevgwdsneplk`.
 5. Never treat plugin/CLI permission errors as permission to change production manually; change verification method or escalate.
+6. **To deploy an Edge Function, use the CLI: `supabase functions deploy <name> --project-ref nvdlhrodvevgwdsneplk`** from the exact reviewed/merged source already checked out locally. Do **not** hand-bundle a function's files through the MCP `deploy_edge_function` tool — that tool takes an inline file array, which means manually resolving the function's entire relative-import dependency closure yourself (every `_shared/` file it touches, transitively) and re-typing each file's content into the call. It's slow, and one missed or mistyped file produces a silent runtime bug instead of a bundle error. The CLI resolves imports itself from the real files on disk. (IPI-1093 post-merge deploy, 2026-09-12 — the MCP path took ~20 tool calls and a manual dependency-closure script for one function; the CLI took one command.)
+7. **Large MCP reads can blow past tool output limits.** `get_edge_function` on a function with a wide dependency tree (e.g. `brand-intelligence`, which pulls in the whole `_shared/llm/` provider-abstraction layer) returns 100KB+ and gets truncated/saved-to-file. Prefer `supabase functions list` or reading the local source directly; reach for `get_edge_function` only when you specifically need to diff *deployed* bytecode against local source.
 
 ---
 
@@ -142,6 +147,12 @@ Do **not** `cd /home/sk/ipix` from this repo. This repository now owns `supabase
 3. Prove migrations locally with `supabase start` + `supabase db reset --local` (or the exact CI equivalent).
 4. Use the plugin/linked project only for read-only comparison, Advisors, and post-deploy verification unless an explicitly approved migration/recovery workflow owns the write.
 5. Never use Dashboard SQL editor, manual `db push --linked`, `migration repair`, or `db reset --linked` as the normal development path.
+
+### Local Docker stack identity (`project_id`)
+
+`supabase/config.toml`'s `project_id` names the local Docker Compose stack — it is **not** cosmetic. This repo runs many concurrent git worktrees, and `supabase init` auto-sets `project_id` to whatever directory it's run in. If a worktree-generated `config.toml` (with that worktree's own `project_id`) ever gets merged into `main`, every future checkout of `main` — including the primary `~/ipixai` clone — inherits it, and now shares/races over the *same* container set as that worktree instead of getting its own independent stack (confirmed live: PR amoai-tech/ipixai#131, `project_id` had leaked in from `wt-ipi-1162-sb-mig-003`, producing a `supabase start` failure that looked like a random container-startup race but was really two checkouts fighting over one Docker project).
+
+Before trusting `supabase start`/`status` output in an unfamiliar checkout: confirm `project_id` in `supabase/config.toml` actually matches *this* directory (normally `"ipixai"`). If it names a worktree or branch you don't recognize, `git blame` that line before debugging further — the fix is a one-line `project_id` change, not a Docker investigation. Note that even with correct, distinct `project_id`s, two stacks still can't run *concurrently* on the same host — the local ports (`54321`–`54324` etc.) are fixed in `config.toml`, so only one Supabase stack owns them at a time; `supabase stop` the other checkout's stack before starting this one.
 
 ### New migrations
 
@@ -301,6 +312,19 @@ Legacy FashionOS `storage` buckets and shoot-scoped RLS remain — extend with b
 - [ ] No service role or Gemini key in client bundle.
 - [ ] Edge function CORS + JWT/custom-auth contract documented and tested.
 - [ ] Exact-head CI is green; after deploy, applicable live state is verified read-only.
+
+---
+
+## Post-merge Edge Function deploy checklist
+
+The pre-ship checklist above covers *before merge*. Once a PR touching `supabase/functions/**` merges, deploying it to production needs its own proof — a merge alone does not update the live Edge Functions (they're deployed separately from the DB migration path). Sequence proven on IPI-1093 · BRAND-INTEL-001 (PR #128, 2026-09-12):
+
+- [ ] Confirm the exact merge commit is an ancestor of `origin/main`, and the working tree has zero diff against it for every path being deployed (function dirs + `_shared/` + any repo-root config the function imports, e.g. `config/groq-models.json`).
+- [ ] Record each function's pre-deploy `version`/`status` via `list_edge_functions` (or `supabase functions list`) *before* deploying — this is the only way to prove the version actually advanced afterward.
+- [ ] Deploy via CLI (`supabase functions deploy <name> --project-ref <ref>`), one function at a time.
+- [ ] Re-run `list_edge_functions` — confirm each deployed function's `version` is strictly greater than its pre-deploy value and `status` is `ACTIVE`. Confirm `verify_jwt` didn't silently flip (the CLI preserves it, but check).
+- [ ] Grep the *local* source you just deployed for the specific fix/behavior markers the PR claimed (e.g. a renamed status literal, a new `AbortSignal.timeout`, an auth check) — a version bump only proves *something* deployed, not that the *right* thing did.
+- [ ] Re-run `get_advisors` (security) and diff against the pre-deploy baseline — a deploy should introduce zero new findings; anything new is either a false read or a real regression, not something to wave through.
 
 ---
 
