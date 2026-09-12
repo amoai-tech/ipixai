@@ -1,35 +1,53 @@
 # Known issues
 
-## `Skill(skill: "ipix-supabase")` returns "Unknown skill"
+## `/ipix-supabase` / `Skill(skill: "ipix-supabase")` returned "Unknown skill" / "Unknown command"
 
-Confirmed reproducible as of 2026-07-02, tested before and after the fixes below — still
-fails. This is documentation for whoever re-investigates next, not something to re-derive
-from scratch.
+**Root cause found and fixed (PR #132, 2026-09-12).** Earlier notes in this file (through
+2026-07-02) said the cause could not be determined and that direct skill loading remained
+broken with no fix available. That conclusion is now stale — superseded by the finding below.
 
-**Ruled out (not the cause):**
+**Cause:** an upstream Claude Code bug, not anything specific to this skill. Claude Code has a
+reproduced bug where a skill's frontmatter containing a **top-level `paths` key** makes that
+skill undiscoverable — `/ipix-supabase` returns `Unknown command`, and `Skill(skill:
+"ipix-supabase")` returns `Unknown skill`. Tracked upstream at
+[anthropics/claude-code#49835](https://github.com/anthropics/claude-code/issues/49835)
+("Skill with paths frontmatter is completely undiscoverable"), labeled `bug`, `has repro`,
+`area:skills`, `reproduced`.
 
-- Frontmatter/format defect — byte-identical structure to working skills like `ipix`/
-  `nextjs-16`, valid UTF-8, no BOM.
-- Size or file-count — `copilotkit` is larger in every dimension (102 files/1MB vs. 90
-  files/700K) and registers fine.
-- Duplicate nested `name:` frontmatter — one real duplicate existed (`postgres.md` and
-  `references/postgres-best-practices.md` both declared `supabase-postgres-best-practices`,
-  fixed by renaming the latter to `-detail`) but duplicates are common across many working
-  skill trees (`code-reviewer` ×5, `vercel-react-best-practices` ×2, etc.), not unique to
-  this one, and fixing it didn't change the outcome.
-- `skills-lock.json` — a separate provenance ledger, not the live registry. Most working
-  skills (`mastra`, `nextjs-16`, `pr-workflow`) aren't in it either.
-- Plugin-name collision with the installed `supabase` plugin
-  (`~/.claude/plugins/cache/claude-plugins-official/supabase`) — considered and refuted.
-  That plugin's actual skill names are `supabase` / `supabase-postgres-best-practices`,
-  neither of which string-matches `ipix-supabase` exactly. A same-shaped control case
-  (`cloudinary`, also plugin-shadowed but under different exact names — `cloudinary-docs`/
-  `cloudinary-transformations`) registers fine.
+`paths` itself is legitimate Agent Skills frontmatter (Anthropic introduced it for
+path-scoped skill activation) — the bug is Claude Code's discovery step choking on it, not
+`paths` being an invalid field. Don't describe this as a schema error; it's a discovery bug
+with a known workaround.
 
-**Conclusion:** no further diagnosis is possible without harness-internal visibility this
-session doesn't have. Don't attempt a speculative rename to "fix" this — a rename into the
-plugin's own namespace (e.g. bare `supabase`) would create a real collision where none
-currently exists, and no evidence suggests renaming helps at all.
+**Verified workaround:** move `paths` out from the top level into `metadata.paths`. Confirmed
+on **installed Claude Code 2.1.268**, isolated A/B test from clean checkouts so the working
+tree wasn't touched:
 
-**Fallback in force:** `Read` `SKILL.md` and the relevant `references/**` file directly
-instead of relying on `Skill()` to resolve this hub.
+```text
+current main (top-level `paths`):
+  /ipix-supabase → Unknown command: /ipix-supabase
+
+PR #132 head (paths under `metadata`):
+  /ipix-supabase → skill resolves and begins execution
+```
+
+**Important — `metadata.paths` is a workaround, not proven path-scoped activation.** Moving
+`paths` under `metadata` fixes discovery because the problematic top-level field is gone, not
+because `metadata.paths` is known to implement path-scoped activation. A repo-wide search
+found no iPix code or Claude Code behavior that reads `metadata.paths` for activation
+purposes. Treat it as informational metadata only unless a future Anthropic doc/runtime
+change proves otherwise. Since this skill's own description already says "use for ANY
+Supabase work in this repo," path scoping isn't load-bearing for correctness here either way.
+
+**How to re-test after a Claude Code upgrade:** once anthropics/claude-code#49835 is closed
+upstream, re-run the same A/B check (top-level `paths` vs. `metadata.paths`) on the new
+version before restoring top-level `paths` or relying on `metadata.paths` for real path
+scoping. Until then, leave `paths` under `metadata` as-is.
+
+**Fallback (defensive only, not the primary path):** if `/ipix-supabase` or
+`Skill(skill: "ipix-supabase")` ever regresses again — a future Claude Code change, a
+frontmatter edit that reintroduces a top-level `paths`, etc. — reading `SKILL.md` and the
+relevant `references/**` file directly still works and unblocks the immediate task. But that
+is a stopgap for that moment, not evidence that direct skill loading is broken in general;
+re-diagnose via the A/B method above rather than assuming the fallback is required going
+forward.

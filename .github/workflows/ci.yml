@@ -542,4 +542,12 @@ jobs:
           # schema from the full replay.
           psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/tests/security/ipi1093-brand-db-write-boundary.sql
+
+          # IPI-1093 · BRAND-INTEL-001 (external audit finding) — the
+          # queued-crawl claim in start-brand-crawl/handler.ts needs two
+          # genuinely concurrent database sessions to prove, which the
+          # single-connection `psql -f file.sql` pattern above can't express.
+          # Shell script, not SQL: seeds a real queued/unclaimed crawl row
+          # and asserts exactly one of two simultaneous claim attempts wins.
+          bash supabase/tests/security/ipi1093-brand-crawl-claim-concurrency.sh
       - run: supabase stop

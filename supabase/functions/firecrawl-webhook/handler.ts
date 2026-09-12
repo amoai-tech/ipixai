@@ -462,6 +462,10 @@ export async function handleFirecrawlWebhook(req: Request): Promise<Response> {
             const { appUrl, resumeSecret } = await requireWorkflowResumeConfig(
               workflowRunId,
             );
+            // PR review finding — no bounded timeout: a stalled app endpoint
+            // would leave this terminal webhook's claim stuck in
+            // "processing" indefinitely (Firecrawl's retry only fires on a
+            // non-2xx response, never on "still waiting").
             const res = await fetch(
               `${appUrl}/api/workflows/brand-intelligence/resume`,
               {
@@ -471,6 +475,7 @@ export async function handleFirecrawlWebhook(req: Request): Promise<Response> {
                   "X-Internal-Secret": resumeSecret,
                 },
                 body: JSON.stringify({ runId: workflowRunId, crawlId }),
+                signal: AbortSignal.timeout(30_000),
               },
             );
             if (!res.ok) {
@@ -539,6 +544,11 @@ export async function handleFirecrawlWebhook(req: Request): Promise<Response> {
             const { appUrl, resumeSecret } = await requireWorkflowResumeConfig(
               failWorkflowRunId,
             );
+            // PR review finding — same bounded-timeout reasoning as the
+            // crawl.completed branch above. An abort here throws (not a
+            // response), so it falls through to withTerminalClaim's normal
+            // catch/retry path rather than through isExpectedFailedCrawlResume,
+            // which only ever sees a real, completed non-ok response.
             const res = await fetch(
               `${appUrl}/api/workflows/brand-intelligence/resume`,
               {
@@ -553,6 +563,7 @@ export async function handleFirecrawlWebhook(req: Request): Promise<Response> {
                   failed: true,
                   error: errorMessage,
                 }),
+                signal: AbortSignal.timeout(30_000),
               },
             );
             if (!res.ok) {

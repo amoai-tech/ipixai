@@ -212,16 +212,27 @@ export async function handleStartBrandCrawl(req: Request): Promise<Response> {
     let crawlRowId: string;
 
     if (existing?.job_status === "queued" && !existing.firecrawl_job_id) {
-      // PR review finding: two concurrent calls (double-click, retry) could
-      // both read this same queued/no-job-id row from `existing` above and
-      // both proceed to firecrawlStartCrawl below, creating two remote
-      // Firecrawl jobs for one row — whichever firecrawl_job_id update ran
-      // last would win, silently orphaning the other job. Condition the
-      // claim on the row still being queued+unclaimed at write time (CAS),
-      // same pattern as the INSERT branch's own 23505-race handling below.
+      // PR review finding, round 2 (external audit) — the first CAS attempt
+      // here was still broken: it added `.eq("job_status","queued")` to the
+      // WHERE clause but never wrote to `job_status` itself, so the
+      // predicate stayed true after a winner committed. Postgres re-checks
+      // an UPDATE's WHERE clause against the latest committed row version
+      // when a concurrent writer was blocked on the same row (read-committed
+      // semantics) — proved this empirically with two real concurrent
+      // sessions against local Postgres: the loser's identical UPDATE also
+      // matched and returned a row. Setting job_status to "running" (not
+      // just checking it) as part of THIS SAME statement is what actually
+      // invalidates the predicate for anyone still queued behind the lock —
+      // verified the same way: the second session's UPDATE then matches
+      // zero rows. "running" (not a new "claiming" status) is safe to set
+      // before firecrawl_job_id exists: findActiveCrawl already treats
+      // "running" as active regardless of firecrawl_job_id, and the
+      // Firecrawl-failure catch block below already recovers to "failed"
+      // if the subsequent call never succeeds.
       const { data: claimed, error: resetErr } = await admin
         .from("brand_crawls")
         .update({
+          job_status: "running",
           source_url: sourceUrl,
           request_id: requestId,
           started_at: new Date().toISOString(),

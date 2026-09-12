@@ -69,12 +69,22 @@ function requireApiKey(): string {
   return key;
 }
 
+const FIRECRAWL_FETCH_TIMEOUT_MS = 30_000;
+
+// PR review finding — this had no bounded timeout at all. Confirmed this is
+// the active crawl path (start-brand-crawl calls firecrawlStartCrawl on
+// every Brand analysis, regardless of which LLM provider generates the
+// profile text) — not the dormant Groq/Cloudflare provider debt it was
+// first, incorrectly, grouped with. A stalled Firecrawl call would hold the
+// Edge invocation open indefinitely with no recovery. Preserves a
+// caller-supplied signal (none currently exist) rather than overriding it.
 async function firecrawlFetch(
   path: string,
   init: RequestInit,
 ): Promise<Response> {
   const res = await fetch(`${FIRECRAWL_BASE}${path}`, {
     ...init,
+    signal: init.signal ?? AbortSignal.timeout(FIRECRAWL_FETCH_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${requireApiKey()}`,
       "Content-Type": "application/json",
