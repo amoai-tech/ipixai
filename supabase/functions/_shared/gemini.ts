@@ -32,17 +32,32 @@ function normalizeThinkingLevel(level: "high" | "low"): "HIGH" | "LOW" {
   return level === "high" ? "HIGH" : "LOW";
 }
 
-export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`Gemini timeout after ${ms}ms`)),
-      ms,
-    );
-  });
-  return Promise.race([promise, timeout]).finally(() => {
-    if (timer !== undefined) clearTimeout(timer);
-  });
+/**
+ * PR review finding — the previous Promise.race implementation stopped
+ * *waiting* on timeout but never cancelled the underlying Gemini request;
+ * the HTTP call kept running server-side after the caller gave up. Verified
+ * against the exact pinned `npm:@google/genai@2.8.0` tag (not guessed):
+ * `GenerateContentConfig.abortSignal?: AbortSignal` is a real field, passed
+ * through to the request. Takes a factory (not an already-started promise)
+ * because the signal must be wired into `config.abortSignal` before
+ * `generateContent` is called, not after.
+ *
+ * Google's own doc comment on that field: "AbortSignal is a client-only
+ * operation... will not cancel the request in the service. You will still
+ * be charged usage." So this still doesn't reduce Gemini-side cost/billing
+ * for an aborted call — it bounds how long *this* function waits and frees
+ * its own resources immediately, which is the actual reliability goal here.
+ */
+export function withTimeout<T>(
+  makeRequest: (signal: AbortSignal) => Promise<T>,
+  ms: number,
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(new Error(`Gemini timeout after ${ms}ms`)),
+    ms,
+  );
+  return makeRequest(controller.signal).finally(() => clearTimeout(timer));
 }
 
 type GeminiTool =
@@ -85,11 +100,12 @@ export async function generateStructuredContent(
   }
 
   const response = await withTimeout(
-    ai.models.generateContent({
-      model,
-      contents: options.contents,
-      config,
-    }),
+    (signal) =>
+      ai.models.generateContent({
+        model,
+        contents: options.contents,
+        config: { ...config, abortSignal: signal },
+      }),
     options.timeoutMs ?? 45_000,
   );
 
@@ -114,14 +130,16 @@ export async function generateContextPass(
   const ai = new GoogleGenAI({ apiKey: options.apiKey });
 
   const response = await withTimeout(
-    ai.models.generateContent({
-      model,
-      contents: options.contents,
-      config: {
-        tools: [{ urlContext: {} }, { googleSearch: {} }],
-        temperature: 0.2,
-      },
-    }),
+    (signal) =>
+      ai.models.generateContent({
+        model,
+        contents: options.contents,
+        config: {
+          tools: [{ urlContext: {} }, { googleSearch: {} }],
+          temperature: 0.2,
+          abortSignal: signal,
+        },
+      }),
     options.timeoutMs ?? 45_000,
   );
 
