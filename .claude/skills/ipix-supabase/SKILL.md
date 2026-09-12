@@ -323,8 +323,13 @@ The pre-ship checklist above covers *before merge*. Once a PR touching `supabase
 - [ ] Record each function's pre-deploy `version`/`status` via `list_edge_functions` (or `supabase functions list`) *before* deploying — this is the only way to prove the version actually advanced afterward.
 - [ ] Deploy via CLI (`supabase functions deploy <name> --project-ref <ref>`), one function at a time.
 - [ ] Re-run `list_edge_functions` — confirm each deployed function's `version` is strictly greater than its pre-deploy value and `status` is `ACTIVE`. Confirm `verify_jwt` didn't silently flip (the CLI preserves it, but check).
-- [ ] Grep the *local* source you just deployed for the specific fix/behavior markers the PR claimed (e.g. a renamed status literal, a new `AbortSignal.timeout`, an auth check) — a version bump only proves *something* deployed, not that the *right* thing did.
-- [ ] Re-run `get_advisors` (security) and diff against the pre-deploy baseline — a deploy should introduce zero new findings; anything new is either a false read or a real regression, not something to wave through.
+- [ ] **Don't stop at grepping local source — that proves the checkout, not the deployed artifact.** A version bump proves *something* deployed; it doesn't prove the *right* bytes did. Use one of:
+  - `supabase functions download <name> --project-ref <ref>` into a scratch directory and diff it against the exact reviewed/merged source you deployed from, or
+  - `get_edge_function` (Supabase MCP, read-only) to inspect the deployed source directly when downloading isn't convenient, or
+  - when neither is practical, a targeted runtime/behavior check that only the new code path can produce (see next step) — but treat that as weaker evidence of *artifact identity* than a source diff.
+- [ ] Run a targeted authenticated/runtime smoke against the live function that exercises the specific fix/behavior the PR claimed (e.g. the exact request shape that used to fail) — this proves *behavior*, which a version bump or source diff alone does not.
+- [ ] Re-run `get_advisors` (security) and diff against the pre-deploy baseline — a deploy should introduce zero new findings; anything new is either a false read or a real regression, not something to wave through. Advisors prove security/performance posture, not Edge source identity — they don't substitute for the source-diff/runtime-smoke steps above.
+- [ ] Check function logs (`query_logs` or CLI `functions logs`) for unexpected provider/config/schema errors after the smoke request.
 
 ---
 
