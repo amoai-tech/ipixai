@@ -78,7 +78,7 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
     }
     fetchPreview();
     return () => { cancelled = true; };
-  }, [asset.id]);
+  }, [asset.id, isImage]);
 
   if (loading) {
     return (
