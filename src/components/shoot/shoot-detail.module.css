@@ -363,7 +363,9 @@
   .loadingPlaceholder {
     animation: none;
   }
+  .assetMedia,
   .assetCard:hover .assetMedia {
+    transition: none;
     transform: none;
   }
 }

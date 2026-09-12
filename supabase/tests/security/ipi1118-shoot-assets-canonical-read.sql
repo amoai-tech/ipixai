@@ -67,9 +67,12 @@ begin
     (asset_b1, brand_b, shoot_b, 'https://cld.example.com/b1.jpg', 'image', 'ready', 90, 'cld_b1', 5000, 4000, now() - interval '2 days');
 
   -- Legacy asset with only shoot_id (not v2_shoot_id) — must NOT appear in V2 read
-  insert into public.assets (id, brand_id, url, asset_type, status, dna_score, cloudinary_public_id, width, height, created_at)
+  -- Need a shoot in public.shoots for the legacy shoot_id FK
+  insert into public.shoots (id, designer_id, shoot_type, fashion_category, style_type, estimated_quote, looks_count, status)
+  values (shoot_a, user_a_owner, 'photography', 'fashion', 'editorial', 1000, 10, 'draft');
+  insert into public.assets (id, brand_id, shoot_id, v2_shoot_id, url, asset_type, status, dna_score, cloudinary_public_id, width, height, created_at)
   values
-    (asset_legacy, brand_a, 'https://cld.example.com/legacy.jpg', 'image', 'ready', 60, 'cld_legacy', 1000, 1000, now() - interval '3 days');
+    (asset_legacy, brand_a, shoot_a, null, 'https://cld.example.com/legacy.jpg', 'image', 'ready', 60, 'cld_legacy', 1000, 1000, now() - interval '3 days');
 
   -- Cloudinary mirrors for canonical assets
   insert into public.cloudinary_assets (id, asset_id, public_id, secure_url, resource_type, delivery_type, version, format, width, height, status, approval, moderation_status)
