@@ -54,4 +54,19 @@ describe("Playwright E2E harness hardening", () => {
       expect(pkg.scripts[script]).not.toContain("chromium-ai-smoke");
     }
   });
+
+  it("gives Playwright time to flush reports before the CI hard timeout", () => {
+    const source = readFileSync(path.resolve(process.cwd(), "playwright.config.ts"), "utf8");
+    expect(source).toContain("globalTimeout: process.env.CI ? 12 * 60_000 : undefined");
+  });
+
+  it("does not use networkidle to decide whether Recent Work previews are ready", () => {
+    const source = readFileSync(
+      path.resolve(process.cwd(), "e2e/dash-main-002-populated-command-center.spec.ts"),
+      "utf8",
+    );
+    expect(source).not.toContain('waitForLoadState("networkidle")');
+    expect(source).toContain("preview request or placeholder must settle");
+  });
+
 });
