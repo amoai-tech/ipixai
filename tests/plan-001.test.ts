@@ -10,6 +10,9 @@ const supabaseMock = vi.hoisted(() => ({
   available: true,
   rows: [] as unknown[],
   error: null as null | { message: string },
+  // Every mutating/RPC call the composed plan makes against the mocked
+  // client, in order — the zero-write test below asserts this stays empty.
+  mutatingCalls: [] as string[],
 }));
 vi.mock("../src/lib/supabase/server", () => ({
   createClient: async () => {
@@ -20,9 +23,17 @@ vi.mock("../src/lib/supabase/server", () => ({
         const chain = {
           select: () => chain,
           limit: () => chain,
+          insert: (...args: unknown[]) => { supabaseMock.mutatingCalls.push("insert"); return chain; },
+          update: (...args: unknown[]) => { supabaseMock.mutatingCalls.push("update"); return chain; },
+          upsert: (...args: unknown[]) => { supabaseMock.mutatingCalls.push("upsert"); return chain; },
+          delete: (...args: unknown[]) => { supabaseMock.mutatingCalls.push("delete"); return chain; },
           then: (resolve: (v: typeof result) => unknown) => Promise.resolve(result).then(resolve),
         };
         return chain;
+      },
+      rpc: (...args: unknown[]) => {
+        supabaseMock.mutatingCalls.push("rpc");
+        return Promise.resolve({ data: null, error: null });
       },
     };
   },
@@ -31,9 +42,12 @@ afterEach(() => {
   supabaseMock.available = true;
   supabaseMock.rows = [];
   supabaseMock.error = null;
+  supabaseMock.mutatingCalls = [];
+  vi.restoreAllMocks();
 });
 
 import { loadTrustedShotReferences } from "../src/lib/shoot/shot-type-references";
+import { recommendShootType } from "../src/mastra/tools/planning";
 import {
   composeShootPlan,
   composeShootPlanTool,
@@ -108,11 +122,10 @@ describe("loadTrustedShotReferences", () => {
     expect(await loadTrustedShotReferences()).toEqual([]);
   });
 
-  it("silently drops a malformed row instead of passing a broken reference downstream", async () => {
+  it("fails closed — returns an empty array, not partial data — when even one row is malformed", async () => {
     supabaseMock.rows = [REF_PDP_FLAT_LAY, MALFORMED_ROW];
     const refs = await loadTrustedShotReferences();
-    expect(refs).toHaveLength(1);
-    expect(refs[0]?.id).toBe("ref-1");
+    expect(refs).toEqual([]);
   });
 });
 
@@ -153,9 +166,9 @@ describe("composeShootPlan", () => {
     );
     expect(plan.objective).toEqual({ status: "confirmed", value: "Launch the SS27 dress line on Shopify", source: "operator" });
     expect(plan.location.status).toBe("confirmed");
-    // still never supplied -> still needs_input, not silently defaulted
-    expect(plan.talent.status).toBe("needs_input");
-    expect(plan.talent.value).toBeUndefined();
+    // still never supplied -> still needs_input, not silently defaulted, and
+    // the strict discriminated union carries no stray value/source at all.
+    expect(plan.talent).toEqual({ status: "needs_input" });
   });
 
   it("empty trusted-reference data produces an explicit gap, never a fabricated shot list", async () => {
@@ -191,6 +204,18 @@ describe("composeShootPlan", () => {
     expect(plan.budgetResult.status).toBe("needs_input");
     expect(plan.budgetResult.missingInputs).toEqual(expect.arrayContaining(["crewCount", "studioType"]));
     expect(plan.status).toBe("needs_input");
+  });
+
+  it("propagates a rejected nested tool execute() as a rejection, not a swallowed or invented plan", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY];
+    vi.spyOn(recommendShootType, "execute").mockRejectedValueOnce(new Error("boom"));
+    await expect(composeShootPlan(baseInput())).rejects.toThrow("boom");
+  });
+
+  it("performs zero insert/update/upsert/delete/rpc calls on the mocked Supabase client for a full composition — including through reachable helpers like loadChannelSpecs/loadTrustedShotReferences", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY];
+    await composeShootPlan(baseInput());
+    expect(supabaseMock.mutatingCalls).toEqual([]);
   });
 
   it("never produces an application-domain write — the compose module never imports or calls a write tool/mutating Supabase method", () => {

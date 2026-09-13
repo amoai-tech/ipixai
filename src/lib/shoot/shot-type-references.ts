@@ -26,6 +26,14 @@ import type { TrustedReferenceShotType } from "./shot-list-from-references";
  * rather than throwing or fabricating rows — an empty result is the correct
  * "reference gap" signal composeShootPlan surfaces as an explicit
  * missing-input, never invented shot references.
+ *
+ * Fail closed on partial corruption too: if even one row is malformed, the
+ * whole read is treated as a reference gap (empty array) instead of silently
+ * building a plan from the surviving valid rows. A malformed row means the
+ * live table's shape can no longer be trusted for this read, so composing a
+ * "complete" plan from whatever happened to parse would hide that gap rather
+ * than surface it — same fail-closed intent as an RLS denial or a network
+ * error above, just triggered by row-shape corruption instead.
  */
 export async function loadTrustedShotReferences(): Promise<TrustedReferenceShotType[]> {
   try {
@@ -38,18 +46,21 @@ export async function loadTrustedShotReferences(): Promise<TrustedReferenceShotT
       .limit(MAX_TRUSTED_REFERENCES);
     if (error || !data?.length) return [];
 
-    return data.flatMap((row): TrustedReferenceShotType[] => {
-      if (!row.id || !row.angle || !row.description || !Array.isArray(row.channel_fit)) return [];
-      return [
-        {
-          id: row.id,
-          angle: row.angle,
-          description: row.description,
-          channelFit: row.channel_fit,
-          background: row.background ?? null,
-        },
-      ];
-    });
+    const references: TrustedReferenceShotType[] = [];
+    for (const row of data) {
+      if (!row.id || !row.angle || !row.description || !Array.isArray(row.channel_fit)) {
+        console.warn("[shot-type-references] malformed row in shot_type_references_view — failing closed (reference gap, not partial data)");
+        return [];
+      }
+      references.push({
+        id: row.id,
+        angle: row.angle,
+        description: row.description,
+        channelFit: row.channel_fit,
+        background: row.background ?? null,
+      });
+    }
+    return references;
   } catch (err) {
     console.warn("[shot-type-references] loadTrustedShotReferences failed, returning empty (reference gap, not invented):", err);
     return [];

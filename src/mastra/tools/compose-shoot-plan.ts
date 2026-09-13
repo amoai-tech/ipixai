@@ -62,8 +62,8 @@ const ComposeShootPlanInputSchema = z.object({
   crew: z.string().max(MAX_TEXT_LENGTH).optional(),
   studio: z.string().max(MAX_TEXT_LENGTH).optional(),
   equipment: z.string().max(MAX_TEXT_LENGTH).optional(),
-  scheduleStartDate: z.string().optional(),
-  scheduleEndDate: z.string().optional(),
+  scheduleStartDate: z.string().max(MAX_TEXT_LENGTH).optional(),
+  scheduleEndDate: z.string().max(MAX_TEXT_LENGTH).optional(),
   scheduleNotes: z.string().max(MAX_TEXT_LENGTH).optional(),
   campaignContext: z.string().max(MAX_TEXT_LENGTH).optional(),
   risks: z.array(z.string().max(MAX_TEXT_LENGTH)).max(50).optional(),
@@ -175,8 +175,12 @@ export async function composeShootPlan(input: ComposeShootPlanInput): Promise<Sh
   const crew = input.crew ? confirmedField(input.crew) : needsInputField<string>();
   const studio = input.studio ? confirmedField(input.studio) : needsInputField<string>();
   const equipment = input.equipment ? confirmedField(input.equipment) : needsInputField<string>();
+  // A schedule is only "confirmed" once both dates are known — notes alone
+  // (or a single date) is a real partial input, but reporting it as
+  // confirmed would let the overall plan claim "complete" while the
+  // schedule is actually still missing a required date.
   const schedule =
-    input.scheduleStartDate || input.scheduleEndDate || input.scheduleNotes
+    input.scheduleStartDate && input.scheduleEndDate
       ? confirmedField({
           startDate: input.scheduleStartDate,
           endDate: input.scheduleEndDate,

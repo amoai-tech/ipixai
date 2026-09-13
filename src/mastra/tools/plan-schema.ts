@@ -4,6 +4,8 @@ import {
   PlanDeliverablesOutputSchema,
   GenerateShotListDraftOutputSchema,
   EstimateShootBudgetOutputSchema,
+  ChannelSchema,
+  MAX_CHANNELS_INPUT,
   MAX_TEXT_LENGTH,
 } from "./planning";
 import { AssumptionSchema } from "./planning-types";
@@ -25,13 +27,16 @@ export const PlanFieldStatusSchema = z.enum(["confirmed", "assumed", "needs_inpu
 export type PlanFieldStatus = z.infer<typeof PlanFieldStatusSchema>;
 
 function planField<T extends z.ZodTypeAny>(valueSchema: T) {
-  return z.object({
-    status: PlanFieldStatusSchema,
-    value: valueSchema.optional(),
-    source: z.string().optional(),
-  });
+  return z.discriminatedUnion("status", [
+    z.object({ status: z.literal("confirmed"), value: valueSchema, source: z.string() }),
+    z.object({ status: z.literal("assumed"), value: valueSchema, source: z.string() }),
+    z.object({ status: z.literal("needs_input") }).strict(),
+  ]);
 }
-export type PlanField<T> = { status: PlanFieldStatus; value?: T; source?: string };
+export type PlanField<T> =
+  | { status: "confirmed"; value: T; source: string }
+  | { status: "assumed"; value: T; source: string }
+  | { status: "needs_input" };
 
 export function confirmedField<T>(value: T, source = "operator"): PlanField<T> {
   return { status: "confirmed", value, source };
@@ -52,7 +57,7 @@ const ScheduleSchema = z.object({
 export const ShootPlanSchema = z.object({
   // Verified, always-known inputs to the plan (required to call
   // composeShootPlan at all — never a fabrication risk).
-  channels: z.array(z.string()).min(1),
+  channels: z.array(ChannelSchema).min(1).max(MAX_CHANNELS_INPUT),
 
   // Sections owned by IPI-1049 · TOOL-001 — embedded whole, unmodified.
   shootTypeResult: RecommendShootTypeOutputSchema,
