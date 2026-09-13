@@ -69,6 +69,14 @@ describe("Playwright E2E harness hardening", () => {
     expect(source).toContain("preview request or placeholder must settle");
   });
 
+  it("keeps production-only smoke tests out of the deterministic chromium project", () => {
+    const source = readFileSync(path.resolve(process.cwd(), "playwright.config.ts"), "utf8");
+    const start = source.indexOf('name: "chromium"');
+    const end = source.indexOf('name: "chromium-ai-smoke"', start);
+    const chromiumProject = source.slice(start, end);
+    expect(chromiumProject).toContain('/production-smoke\\.spec\\.ts/');
+  });
+
   it("gives AI smoke a CI hard timeout above Playwright globalTimeout", () => {
     const source = readFileSync(path.resolve(process.cwd(), ".github/workflows/ci.yml"), "utf8");
     const start = source.indexOf("  playwright-ai-smoke:");

@@ -77,7 +77,11 @@ export default defineConfig({
       // (see below) so `npm run e2e` — the deterministic suite the required
       // playwright-e2e CI job runs — never depends on hosted AI-provider
       // availability. Run them explicitly via `npm run e2e:ai-smoke`.
-      testIgnore: [/planner-journey\.spec\.ts/, /copilot-intelligence-isolation\.spec\.ts/],
+      testIgnore: [
+        /production-smoke\.spec\.ts/,
+        /planner-journey\.spec\.ts/,
+        /copilot-intelligence-isolation\.spec\.ts/,
+      ],
     },
     {
       name: "chromium-ai-smoke",
