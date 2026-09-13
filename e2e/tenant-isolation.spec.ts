@@ -1,11 +1,11 @@
+import path from "node:path";
 import { test, expect, type Browser, type Page } from "@playwright/test";
 
-import { createCleanContext } from "./support/context";
-import { signInWithCredentials } from "./support/login";
+import { contextForSavedRole } from "./support/login";
 import { getOwnOrgId, supabaseForPage } from "./support/tenant-supabase";
 
-// Org B signs in with a raw password in this file; do not persist secret-bearing artifacts.
-test.use({ trace: "off", screenshot: "off" });
+const orgBFile = path.resolve(__dirname, "../playwright/.auth/org-b.json");
+
 test.setTimeout(60_000);
 
 /**
@@ -22,29 +22,18 @@ const otherOrgBrandNames = [
 ];
 
 /**
- * Org B has no saved storageState — it's only needed by this one test, so
- * it authenticates fresh here (https://playwright.dev/docs/auth#multiple-signed-in-roles)
- * instead of running as a project dependency for every browser project.
- * Missing credentials throw (fail closed), matching signInAsE2ETestOperator:
- * this is a security proof, not a test to silently skip.
+ * Org B's storageState is cached once by the "setup" project's dependency
+ * chain (see auth.setup.ts) instead of authenticating fresh in this file —
+ * this is a security proof, not a login-UX test, so a real hosted sign-in
+ * here bought nothing but an extra login. Missing credentials still fail
+ * closed (missing cache file throws), matching the prior contract.
  */
 async function signInOrgB(browser: Browser): Promise<{ page: Page; close: () => Promise<void> }> {
-  const email = process.env.E2E_TEST_EMAIL_ORG_B;
-  const password = process.env.E2E_TEST_PASSWORD_ORG_B;
-  if (!email || !password) {
-    throw new Error(
-      "E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B are missing — set them in .env.test",
-    );
-  }
-  // Every secondary test user must start from a fully logged-out browser so
-  // it never inherits Org A's Supabase session. browser.newContext() defaults
-  // to the project's own `use` options (Org A storageState under
-  // chromium/mobile-chromium); createCleanContext overrides to the explicit
-  // empty logged-out state (see e2e/support/context.ts).
-  const context = await createCleanContext(browser);
-  const page = await context.newPage();
-  await signInWithCredentials(page, email, password);
-  return { page, close: () => context.close() };
+  return contextForSavedRole(
+    browser,
+    orgBFile,
+    "Missing playwright/.auth/org-b.json — set E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B in .env.test",
+  );
 }
 
 /** Read-only negative check: RLS must return zero rows, not leak another

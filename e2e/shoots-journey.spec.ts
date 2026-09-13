@@ -1,6 +1,10 @@
+import path from "node:path";
 import { test, expect, type Browser } from "@playwright/test";
 
-import { signInIsolatedContext } from "./support/login";
+import { contextForSavedRole } from "./support/login";
+
+const shootsFile = path.resolve(__dirname, "../playwright/.auth/shoots.json");
+const orgBFile = path.resolve(__dirname, "../playwright/.auth/org-b.json");
 
 // IPI-1067 · SHOOT-001 — browser proof for the shoots browse + detail routes.
 //
@@ -18,20 +22,18 @@ const NAV_TIMEOUT_MS = 30_000;
 const TEST_TIMEOUT_MS = NAV_TIMEOUT_MS + 15_000;
 
 async function signInOrgA(browser: Browser) {
-  return signInIsolatedContext(
+  return contextForSavedRole(
     browser,
-    process.env.E2E_TEST_EMAIL_SHOOTS,
-    process.env.E2E_TEST_PASSWORD_SHOOTS,
-    "E2E_TEST_EMAIL_SHOOTS / E2E_TEST_PASSWORD_SHOOTS are missing — set them in .env.test",
+    shootsFile,
+    "Missing playwright/.auth/shoots.json — set E2E_TEST_EMAIL_SHOOTS / E2E_TEST_PASSWORD_SHOOTS in .env.test",
   );
 }
 
 async function signInOrgB(browser: Browser) {
-  return signInIsolatedContext(
+  return contextForSavedRole(
     browser,
-    process.env.E2E_TEST_EMAIL_ORG_B,
-    process.env.E2E_TEST_PASSWORD_ORG_B,
-    "E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B are missing — set them in .env.test",
+    orgBFile,
+    "Missing playwright/.auth/org-b.json — set E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B in .env.test",
   );
 }
 
