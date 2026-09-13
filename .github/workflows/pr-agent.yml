@@ -33,6 +33,7 @@ jobs:
           github_action_config.auto_improve: "false"
           github_action_config.pr_actions: '["opened", "reopened", "ready_for_review", "synchronize"]'
           config.restricted_mode: "true"
+          config.output_run_details: "true"
           config.repo_context_files: '["AGENTS.md", "docs/pr-review-guidelines.md"]'
           config.repo_context_from_default_branch: "true"
           config.repo_context_max_lines: "500"
@@ -43,6 +44,6 @@ jobs:
           pr_reviewer.require_merge_recommendation: "true"
           pr_reviewer.require_priority_files: "true"
           pr_reviewer.persistent_comment: "true"
-          pr_reviewer.persistent_finding_state: "true"
+          pr_reviewer.persistent_finding_state: "false"
           pr_reviewer.num_max_findings: "6"
           pr_reviewer.enable_large_pr_chunking: "false"

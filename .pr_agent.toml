@@ -6,6 +6,7 @@ repo_context_files = ["AGENTS.md", "docs/pr-review-guidelines.md"]
 repo_context_from_default_branch = true
 repo_context_max_lines = 500
 restricted_mode = true
+output_run_details = true
 
 [skills]
 enabled = false
@@ -19,7 +20,7 @@ require_risk_assessment = true
 require_merge_recommendation = true
 require_priority_files = true
 persistent_comment = true
-persistent_finding_state = true
+persistent_finding_state = false
 num_max_findings = 6
 enable_large_pr_chunking = false
 extra_instructions = """
