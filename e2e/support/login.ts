@@ -58,7 +58,14 @@ async function submitPasswordSignIn(page: Page, signIn: Locator) {
     }));
 
   await signIn.click();
-  return Promise.race([appNavigation, requestFailure, httpError]);
+  try {
+    return await Promise.race([appNavigation, requestFailure, httpError]);
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") {
+      return { kind: "timeout" as const };
+    }
+    throw error;
+  }
 }
 
 /** Shared real UI login for setup, login-journey, and tenant isolation. */
@@ -79,6 +86,9 @@ export async function signInWithCredentials(
   try {
     const first = await submitPasswordSignIn(page, signIn);
     if (first.kind === "success") return;
+    if (first.kind === "timeout") {
+      throw new Error(`Sign-in timed out after ${SIGN_IN_TIMEOUT_MS}ms waiting for Supabase Auth`);
+    }
 
     if (first.kind === "http-error") {
       throw new Error(`Sign-in request returned HTTP ${first.status}: ${first.body}`);
@@ -92,6 +102,11 @@ export async function signInWithCredentials(
     // HTTP/auth failures are never retried or hidden.
     const second = await submitPasswordSignIn(page, signIn);
     if (second.kind === "success") return;
+    if (second.kind === "timeout") {
+      throw new Error(
+        `Sign-in timed out after ${SIGN_IN_TIMEOUT_MS}ms waiting for Supabase Auth after network retry`,
+      );
+    }
     if (second.kind === "http-error") {
       throw new Error(`Sign-in request returned HTTP ${second.status} after network retry: ${second.body}`);
     }

@@ -1,3 +1,4 @@
+import { rm } from "node:fs/promises";
 import path from "node:path";
 import { test as setup } from "@playwright/test";
 
@@ -41,7 +42,11 @@ setup("authenticate as the E2E test operator", async ({ page }) => {
 setup("authenticate as Org B (secondary tenant-isolation role)", async ({ page }) => {
   const email = process.env.E2E_TEST_EMAIL_ORG_B;
   const password = process.env.E2E_TEST_PASSWORD_ORG_B;
-  setup.skip(!email || !password, "E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B not set");
+  await rm(orgBFile, { force: true });
+  setup.skip(
+    !email || !password,
+    "E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B are missing or empty — set them in .env.test",
+  );
   await signInWithCredentials(page, email!, password!);
   await page.context().storageState({ path: orgBFile });
 });
@@ -49,7 +54,11 @@ setup("authenticate as Org B (secondary tenant-isolation role)", async ({ page }
 setup("authenticate as the Shoots QA operator (populated org)", async ({ page }) => {
   const email = process.env.E2E_TEST_EMAIL_SHOOTS;
   const password = process.env.E2E_TEST_PASSWORD_SHOOTS;
-  setup.skip(!email || !password, "E2E_TEST_EMAIL_SHOOTS / E2E_TEST_PASSWORD_SHOOTS not set");
+  await rm(shootsFile, { force: true });
+  setup.skip(
+    !email || !password,
+    "E2E_TEST_EMAIL_SHOOTS / E2E_TEST_PASSWORD_SHOOTS are missing or empty — set them in .env.test",
+  );
   await signInWithCredentials(page, email!, password!);
   await page.context().storageState({ path: shootsFile });
 });
