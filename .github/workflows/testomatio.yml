@@ -1,5 +1,7 @@
 name: Testomat E2E
 
+# Intentionally dispatch-only: Testomat.io triggers this workflow via
+# workflow_dispatch. Normal push/PR verification remains in ci.yml.
 on:
   workflow_dispatch:
     inputs:
@@ -12,16 +14,11 @@ on:
         required: false
         default: ""
       testomatio:
-        description: "Testomat.io project reporting token"
-        required: false
-        default: ""
+        description: "Testomat.io project reporting token (required for reporting)"
+        required: true
 
 permissions:
   contents: read
-
-concurrency:
-  group: testomatio-e2e-${{ github.ref }}
-  cancel-in-progress: false
 
 jobs:
   playwright:
@@ -61,18 +58,13 @@ jobs:
           PLAYWRIGHT_BROWSERS_PATH: "0"
           GREP: ${{ inputs.grep }}
         run: |
-          if [ -n "$GREP" ]; then
-            npx @testomatio/reporter@2.16.0 run \
-              "npx playwright test --grep \"$GREP\""
-          else
-            npx @testomatio/reporter@2.16.0 run \
-              "npx playwright test"
-          fi
+          npx @testomatio/reporter@2.16.0 run \
+            "node .github/scripts/run-testomatio-playwright.mjs"
 
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: testomatio-playwright-report
+          name: playwright-report
           path: |
             playwright-report/
             test-results/
