@@ -125,6 +125,19 @@ describe("IPI-1114 Cloudinary V2 reconciliation", () => {
     expect(mirrors[0]?.trustedV2).toBe(false);
   });
 
+  it("trusts a restored V2 asset when the immutable asset has a prior trusted upload and the current version is a trusted overwrite", () => {
+    const mirrors = buildDbMirrors(
+      [{ asset_id: "db-1", cloudinary_asset_id: "cld-1", version: 8, status: "ready", metadata: { source: "cloudinary_webhook", org_id: "org-1" } }],
+      [
+        { cloudinary_asset_id: "cld-1", version: 7, kind: "upload", metadata: { source: "cloudinary_webhook" } },
+        { cloudinary_asset_id: "cld-1", version: 7, kind: "deleted", metadata: { source: "cloudinary_webhook" } },
+        { cloudinary_asset_id: "cld-1", version: 8, kind: "overwrite", metadata: { source: "cloudinary_webhook" } },
+      ],
+    );
+    expect(mirrors[0]?.trustedV2).toBe(true);
+    expect(classify([provider({ version: 8 })], mirrors).records[0]?.classification).toBe("ok");
+  });
+
   it("uses the Admin result for the same immutable ID/version despite endpoint-specific fields", async () => {
     const report = await runReconciliation({
       listActiveV2: async () => [provider({ bytes: 42, backup: false, placeholder: false })],
