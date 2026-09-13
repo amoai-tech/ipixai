@@ -1,6 +1,9 @@
+import path from "node:path";
 import { test, expect, type Page } from "@playwright/test";
 
-import { signInIsolatedContext } from "./support/login";
+import { contextForSavedRole } from "./support/login";
+
+const orgBFile = path.resolve(__dirname, "../playwright/.auth/org-b.json");
 
 /**
  * IPI-1191 · COPILOT-INTEL-001 — live proof that CopilotKit Intelligence
@@ -73,13 +76,12 @@ test(
     ).toBeTruthy();
     const orgAThreadId = orgAThread!.id;
 
-    // Org B: fresh, fully logged-out context — never inherits Org A's
-    // Supabase session (see signInIsolatedContext).
-    const { page: orgBPage, close: closeOrgB } = await signInIsolatedContext(
+    // Org B: cached storageState from a separate session — never inherits
+    // Org A's Supabase session (see contextForSavedRole).
+    const { page: orgBPage, close: closeOrgB } = await contextForSavedRole(
       browser,
-      process.env.E2E_TEST_EMAIL_ORG_B,
-      process.env.E2E_TEST_PASSWORD_ORG_B,
-      "E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B are missing — set them in .env.test",
+      orgBFile,
+      "Missing playwright/.auth/org-b.json — set E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B in .env.test",
     );
     try {
       const orgBThreads = await fetchIntelligenceThreads(orgBPage);

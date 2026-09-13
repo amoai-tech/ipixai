@@ -1,7 +1,11 @@
+import path from "node:path";
 import { test, expect, type Browser, type Page } from "@playwright/test";
 
-import { signInIsolatedContext } from "./support/login";
+import { contextForSavedRole } from "./support/login";
 import { getOwnOrgId, supabaseForPage } from "./support/tenant-supabase";
+
+const userFile = path.resolve(__dirname, "../playwright/.auth/user.json");
+const orgBFile = path.resolve(__dirname, "../playwright/.auth/org-b.json");
 
 // IPI-1068 · BRAND-001 — browser proof for the /app/brands browse route.
 //
@@ -23,20 +27,18 @@ const NAV_TIMEOUT_MS = 30_000;
 const TEST_TIMEOUT_MS = NAV_TIMEOUT_MS + 15_000;
 
 async function signInOrgA(browser: Browser) {
-  return signInIsolatedContext(
+  return contextForSavedRole(
     browser,
-    process.env.E2E_TEST_EMAIL,
-    process.env.E2E_TEST_PASSWORD,
-    "E2E_TEST_EMAIL / E2E_TEST_PASSWORD are missing — set them in .env.test",
+    userFile,
+    "Missing playwright/.auth/user.json — the setup project's primary-account login didn't run",
   );
 }
 
 async function signInOrgB(browser: Browser) {
-  return signInIsolatedContext(
+  return contextForSavedRole(
     browser,
-    process.env.E2E_TEST_EMAIL_ORG_B,
-    process.env.E2E_TEST_PASSWORD_ORG_B,
-    "E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B are missing — set them in .env.test",
+    orgBFile,
+    "Missing playwright/.auth/org-b.json — set E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B in .env.test",
   );
 }
 

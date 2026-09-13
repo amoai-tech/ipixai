@@ -1,6 +1,9 @@
+import path from "node:path";
 import { test, expect, type Browser, type Page, type TestInfo } from "@playwright/test";
 
-import { signInIsolatedContext } from "./support/login";
+import { contextForSavedRole } from "./support/login";
+
+const shootsFile = path.resolve(__dirname, "../playwright/.auth/shoots.json");
 
 // IPI-1149 · DASH-MAIN-002 — Finish and Certify the Portfolio-First Command
 // Center in iPix V2
@@ -30,11 +33,10 @@ const TEST_TIMEOUT_MS = NAV_TIMEOUT_MS + 30_000;
 const IGNORABLE_SERVER_REPLAY = /dashboard\.loadRecentWorkPreviews: candidate preview threw/;
 
 async function signInPopulatedOrg(browser: Browser): Promise<{ page: Page; close: () => Promise<void> }> {
-  return signInIsolatedContext(
+  return contextForSavedRole(
     browser,
-    process.env.E2E_TEST_EMAIL_SHOOTS,
-    process.env.E2E_TEST_PASSWORD_SHOOTS,
-    "E2E_TEST_EMAIL_SHOOTS / E2E_TEST_PASSWORD_SHOOTS are missing — set them in .env.test",
+    shootsFile,
+    "Missing playwright/.auth/shoots.json — set E2E_TEST_EMAIL_SHOOTS / E2E_TEST_PASSWORD_SHOOTS in .env.test",
   );
 }
 
@@ -150,9 +152,19 @@ test.describe("populated Command Center (authenticated, real org data) @S4a09cc5
       await page.goto("/app");
       const shootList = page.getByTestId("command-center-shoot-list");
       await expect(shootList).toBeVisible();
-      // Let any in-flight authorized-preview image requests settle before
-      // deciding whether one was configured at all.
-      await page.waitForLoadState("networkidle").catch(() => {});
+      const recentTiles = shootList.locator('a[href^="/app/shoots/"]');
+      await expect(recentTiles.first()).toBeVisible();
+
+      // Wait only for the user-visible preview state we care about, not for
+      // every background request in iPix to stop. A preview request or placeholder must settle
+      // before deciding whether this fixture exercised the Cloudinary path.
+      const previewImages = shootList.locator("img");
+      await expect
+        .poll(async () => cloudinaryResponses.length > 0 || (await previewImages.count()) === 0, {
+          message: "preview request or placeholder must settle before assertion",
+          timeout: 5_000,
+        })
+        .toBe(true);
 
       if (cloudinaryResponses.length === 0) {
         // Honest, not a failure: no shoot in this fixture currently has an
