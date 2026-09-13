@@ -1,6 +1,6 @@
 {
   "nodeModulesDir": "none",
   "tasks": {
-    "test": "deno test --allow-env functions/**/*.test.ts"
+    "test": "deno test --frozen --allow-env functions/**/*.test.ts"
   }
 }
