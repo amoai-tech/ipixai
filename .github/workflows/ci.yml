@@ -73,15 +73,9 @@ jobs:
       - run: npm ci
       - run: PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium
       - run: npm run e2e
-      - if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: playwright-report
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 7
-          if-no-files-found: ignore
+      # This repository is public and these tests reuse real authenticated
+      # Supabase sessions. Keep traces/reports runner-local instead of
+      # publishing reusable session/network data as public CI artifacts.
 
   # Live hosted-AI smoke — deliberately NOT a required merge check (see
   # playwright-e2e above). planner-journey.spec.ts and
@@ -91,10 +85,12 @@ jobs:
   # with usable quota — every other job keeps the "placeholder" literal
   # since nothing else calls OpenAI for real. The key is scoped to only the
   # `npm run e2e:ai-smoke` step (least privilege) — checkout/setup-node/
-  # npm ci/browser install/artifact upload never see it.
+  # npm ci/browser install never see it.
   playwright-ai-smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Must remain above Playwright's 12-minute globalTimeout so Playwright
+    # can shut down cleanly and flush reporters before GitHub kills the job.
+    timeout-minutes: 15
     env:
       COPILOTKIT_TELEMETRY_DISABLED: "true"
       E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
@@ -116,15 +112,8 @@ jobs:
       - run: npm run e2e:ai-smoke
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      - if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: playwright-ai-smoke-report
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 7
-          if-no-files-found: ignore
+      # No Playwright artifact upload in this public repository: the run is
+      # authenticated and may contain sensitive session/network trace data.
 
   # Standing guard for IPI-897 planner default ACLs. Files are required on this
   # branch — missing migration/test fails the job instead of skipping.

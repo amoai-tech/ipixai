@@ -69,4 +69,18 @@ describe("Playwright E2E harness hardening", () => {
     expect(source).toContain("preview request or placeholder must settle");
   });
 
+  it("gives AI smoke a CI hard timeout above Playwright globalTimeout", () => {
+    const source = readFileSync(path.resolve(process.cwd(), ".github/workflows/ci.yml"), "utf8");
+    const start = source.indexOf("  playwright-ai-smoke:");
+    const end = source.indexOf("\n  planner-default-acl:", start);
+    const aiJob = source.slice(start, end);
+    expect(aiJob).toContain("timeout-minutes: 15");
+  });
+
+  it("does not upload authenticated Playwright reports from public CI", () => {
+    const source = readFileSync(path.resolve(process.cwd(), ".github/workflows/ci.yml"), "utf8");
+    expect(source).not.toContain("name: playwright-report");
+    expect(source).not.toContain("name: playwright-ai-smoke-report");
+  });
+
 });
