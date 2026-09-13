@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { MAX_TRUSTED_REFERENCES } from "@/mastra/tools/planning";
+import { MAX_TRUSTED_REFERENCES, TrustedReferenceShotTypeSchema } from "@/mastra/tools/planning";
 import type { TrustedReferenceShotType } from "./shot-list-from-references";
 
 /**
@@ -48,17 +48,24 @@ export async function loadTrustedShotReferences(): Promise<TrustedReferenceShotT
 
     const references: TrustedReferenceShotType[] = [];
     for (const row of data) {
-      if (!row.id || !row.angle || !row.description || !Array.isArray(row.channel_fit)) {
-        console.warn("[shot-type-references] malformed row in shot_type_references_view — failing closed (reference gap, not partial data)");
-        return [];
-      }
-      references.push({
+      // Reuse the exact Zod schema generateShotListDraft itself validates
+      // trustedReferenceShotTypes against (planning.ts) instead of a
+      // hand-rolled truthiness check — this catches wrong-shaped fields
+      // (e.g. a non-string channel_fit entry, a non-string background)
+      // that a bare `Array.isArray()`/truthiness check would miss, not just
+      // missing fields.
+      const parsed = TrustedReferenceShotTypeSchema.safeParse({
         id: row.id,
         angle: row.angle,
         description: row.description,
         channelFit: row.channel_fit,
         background: row.background ?? null,
       });
+      if (!parsed.success) {
+        console.warn("[shot-type-references] malformed row in shot_type_references_view — failing closed (reference gap, not partial data)");
+        return [];
+      }
+      references.push(parsed.data);
     }
     return references;
   } catch (err) {

@@ -297,7 +297,7 @@ const SelectedDeliverableSchema = z.object({
   quantity: z.number().int().positive().max(MAX_DELIVERABLE_QUANTITY),
 });
 
-const TrustedReferenceShotTypeSchema = z.object({
+export const TrustedReferenceShotTypeSchema = z.object({
   id: z.string(),
   angle: z.string(),
   description: z.string().max(MAX_TEXT_LENGTH),

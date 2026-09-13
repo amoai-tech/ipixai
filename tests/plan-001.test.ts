@@ -127,6 +127,21 @@ describe("loadTrustedShotReferences", () => {
     const refs = await loadTrustedShotReferences();
     expect(refs).toEqual([]);
   });
+
+  it("fails closed on a wrong-typed field, not just a missing one — non-string id", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY, { ...REF_IG_LIFESTYLE, id: 42 }];
+    expect(await loadTrustedShotReferences()).toEqual([]);
+  });
+
+  it("fails closed on a wrong-typed field — a non-string entry inside channel_fit", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY, { ...REF_IG_LIFESTYLE, channel_fit: ["instagram_feed", 7] }];
+    expect(await loadTrustedShotReferences()).toEqual([]);
+  });
+
+  it("fails closed on a wrong-typed field — a non-string, non-null background", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY, { ...REF_IG_LIFESTYLE, background: {} }];
+    expect(await loadTrustedShotReferences()).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------
