@@ -1,6 +1,6 @@
 ---
 name: ipix-wireframe
-description: Use when planning, auditing, redesigning, or specifying iPix screens, user journeys, wireframes, prototypes, Figma handoffs, Mermaid flows, responsive layouts, or AI/HITL interactions before implementation.
+description: Use when planning, auditing, redesigning, or specifying implementation-ready iPix screens, user journeys, wireframes, prototypes, Figma handoffs, Mermaid flows, responsive layouts, or AI/HITL interactions before implementation.
 metadata:
   priority: 6
   pathPatterns:
@@ -68,45 +68,9 @@ Use this skill for:
 Do not use it as a replacement for `tasks`, `nextjs-developer`, `copilotkit`, `mastra`, `ipix-supabase`, `cloudinary`, or `task-verifier`. Route to those skills when implementation reaches their layer. `design-to-production` is intentionally not part of current iPixai; do not reference it as an available skill.
 
 
-## Current iPix tech stack — verify before each task
+## Tech stack and tool routing
 
-Read `package.json` and current repo state before relying on versions. Current product layers are:
-
-| Layer | Technology | Wireframe concern |
-|---|---|---|
-| App/UI | Next.js + React | routes, server/client boundaries, layout, states |
-| AI UI | CopilotKit + AG-UI | context, streaming, generative UI, approvals |
-| Agent runtime | Mastra | agents, tools, workflows, suspend/resume |
-| Durable truth | Supabase/Postgres | fields, RLS, RPCs, tenant-safe writes |
-| Media | Cloudinary | real asset slots, uploads, transforms |
-| QA | Vitest + Playwright | contract tests, user journeys, traces |
-| Design | Figma + approved DC HTML | fidelity, components, annotations |
-| Diagrams | Mermaid | journey, sequence, state, ownership, failure paths |
-| Delivery | GitHub + Linear | PR evidence, CI, task status, post-merge proof |
-
-## Skills, MCPs, CLIs, and tools
-
-Use only what the task actually needs.
-
-| Need | Use | Why |
-|---|---|---|
-| Task execution / PR / post-merge | `tasks` | canonical iPix lifecycle |
-| Dependency/path discovery | `graphify` + Graphify CLI | fastest current-state map before broad reading |
-| Wireframe contract | `ipix-wireframe` | this workflow |
-| Diagrams | `mermaid-diagrams` | reasoning + defect discovery |
-| Next.js UI | `nextjs-developer` | current App Router contract |
-| React performance | `vercel-react-best-practices` | client/render/bundle decisions |
-| Data/RLS/RPC | `ipix-supabase` | schema and authorization truth |
-| Agent UI | `copilotkit` | AG-UI, context, generative UI, HITL |
-| Agents/workflows | `mastra` | tools, memory, workflow authority |
-| Media | `cloudinary` | image/video ownership and delivery |
-| Independent Done proof | `task-verifier` | challenge unproven claims |
-| GitHub state/actions | GitHub connector or `gh` | PR, reviews, CI, exact-head evidence |
-| Figma artifact | Figma connector | inspect/create design artifacts when needed |
-| Current vendor docs | Context7 + official docs | fast current API lookup; verify load-bearing claims from official/version-specific sources |
-| Local repo/runtime | Remote Desktop Commander | inspect code, run commands, verify files |
-
-If Linear/Supabase MCPs are connected, use them for the relevant task, but repository/runtime truth and authorization rules still win.
+Verify `package.json` and current repo state before relying on versions. Load only the domain skills/tools the screen actually touches. See `references/contracts.md` for the current stack and routing matrix.
 
 ## Source-of-truth order
 
@@ -224,85 +188,16 @@ Current approved design references live under:
 
 ## 4. CONTRACT — make the wireframe buildable
 
-Every implementation wireframe must include these contracts.
+Every implementation wireframe must make these items explicit:
+- component reuse: Reuse / Adapt / Create / Defer;
+- data source of truth + empty/missing state + write path;
+- relevant UI and recovery states;
+- AI/HITL authority and approval path;
+- desktop/tablet/mobile behavior;
+- accessibility semantics, focus, labels, validation, and announcements;
+- P0–P3 information priority when space tradeoffs matter.
 
-### A. Component reuse map
-
-Search before creating.
-
-| Wireframe block | Existing React target | Decision | Notes |
-|---|---|---|---|
-| | | Reuse / Adapt / Create / Defer | |
-
-Search components, hooks, CSS, utilities, routes, RPCs/views, and design-system primitives.
-
-### B. Data contract
-
-| Zone | Source of truth | Missing/empty state | Write path |
-|---|---|---|---|
-| | | | |
-
-Rules:
-- No fake business values when the source can be null.
-- Do not duplicate mutable truth just to satisfy a wireframe.
-- Cloudinary owns media bytes/transforms; Supabase owns iPix business metadata; commerce systems own commerce facts where specified.
-- Existing route wiring is preserved unless the Prove step shows it is wrong.
-
-### C. State matrix
-
-Cover relevant states: initial, loading, populated, selected, editing, empty, no-results, error+retry, unavailable access, offline/interrupted, AI streaming, awaiting approval, rejected, committing, and success.
-
-### D. AI / HITL contract
-
-Use explicit annotations in AI-native wireframes:
-
-`[AI READS]` → context the agent may inspect
-`[AI PROPOSES]` → draft/recommendation only
-`[HUMAN EDITS]` → operator may change proposal
-`[HUMAN APPROVES]` → explicit decision gate
-`[SYSTEM WRITES]` → approved durable mutation
-
-For consequential actions, show this sequence:
-
-`AI proposes → human reviews/edits → human approves → approved action executes → system records result`.
-
-Do not design silent AI publishing, payments, destructive actions, tenant-critical mutation, or direct durable writes when approval is appropriate.
-
-For CopilotKit/Mastra work, identify:
-- What page state is visible to the agent.
-- Which output appears in the right rail vs center workspace.
-- Streaming/progress states.
-- Approval card surface.
-- Reject/edit/retry behavior.
-- Resume/commit success state.
-
-### E. Responsive contract
-
-Specify behavior, not just screenshots.
-
-Minimum checkpoints:
-- Desktop: 1440px.
-- Tablet: about 1024px.
-- Mobile: 390px.
-
-Define what stays visible, collapses, becomes a drawer/sheet, stacks, scrolls, or moves to bottom navigation. Never assume desktop simply shrinks.
-
-### F. Accessibility contract
-
-Annotate before high fidelity:
-- Heading hierarchy and landmark regions.
-- Button vs link semantics.
-- Keyboard order and focus behavior.
-- Form labels and validation placement.
-- Dialog/sheet focus management.
-- Screen-reader names for icon controls.
-- Live announcements for AI/loading/status updates when needed.
-- Image alt purpose: informative vs decorative.
-
-### G. Information priority
-
-Use priority markers when space or mobile tradeoffs matter:
-`P0` task-critical · `P1` important · `P2` supporting · `P3` optional/advanced.
+Use `references/contracts.md` for the detailed tables and rules. Use `references/ai-hitl.md` for consequential AI flows.
 
 ## 5. IMPLEMENT — hand off the smallest safe change
 
@@ -353,123 +248,40 @@ AI example:
 
 For an approved DC/Figma target, also perform visual comparison at the required desktop/mobile widths.
 
-## Wireframe red-flag audit
+## Ready gate
 
-Before calling a wireframe Ready, confirm:
-- User goal is obvious quickly.
-- Every primary CTA has a defined result.
-- AI authority and human authority are visibly separated.
-- Sensitive/destructive actions have an appropriate confirmation gate.
-- No fake business data is assumed.
-- Every dynamic block has a source of truth.
-- Loading, empty, error, and recovery states are represented.
-- Tenant/org context is not treated as a browser-authority shortcut.
-- Existing components were checked before creating new ones.
-- Mobile interaction is realistic, not a scaled desktop screenshot.
-- Keyboard navigation is possible.
-- QA can derive deterministic tests from the spec.
+Before calling a wireframe Ready, perform the forensic checks in `references/verification.md`. Any security, tenant, destructive-write, unsupported-tool, or approval-integrity blocker means **BLOCKED regardless of score**.
 
-If any required item fails, the wireframe is not Ready.
+## Implementation lifecycle ownership
 
+`ipix-wireframe` stops at a buildable, testable UI contract. It does not duplicate the repository lifecycle.
 
-## Forensic audit — mandatory before Ready
+**REQUIRED SUB-SKILL:** use `tasks` for implementation execution, PR creation, exact-head CI, pre-merge gates, post-merge proof, and Linear Done.
 
-Act like a forensic auditor. Do not assume the requested screen, gap, component, or data contract is correct.
+Use `references/verification.md` when deriving UI-specific acceptance criteria, Playwright scenarios, visual comparison, responsive checks, or AI/HITL verification from a wireframe.
 
-Check for:
-- stale route/design/task assumptions;
-- duplicate components or a second source of truth;
-- fields shown in UI that current data cannot supply;
-- missing loading/empty/error/retry states;
-- browser-controlled org/tenant authority;
-- AI writes without exact human approval;
-- approval detached from the exact proposal/revision;
-- duplicate retry/resume side effects;
-- inaccessible controls, broken focus, or mobile-only dead ends;
-- unsupported skill/tool references;
-- existing PR/worktree collisions;
-- acceptance criteria with no observable test/readback.
+Use `references/ai-hitl.md` when the screen includes CopilotKit/Mastra proposals, approvals, retries, resume/commit behavior, or consequential writes.
 
-For each finding record: **error/red flag → impact → evidence → smallest fix → verification**. A blocker cannot be overridden by a high score.
+Use `references/contracts.md` when the screen needs a detailed component/data/state/responsive/accessibility contract.
 
-## Readiness score
+## Canonical output template
 
-When useful, grade each area `/100`: Current-state proof · User journey · Reuse · Data correctness · States/recovery · AI/HITL safety · Responsive · Accessibility · Testability. Mark scores **provisional** when evidence is incomplete.
+```text
+# <Screen / Flow>
+## Goal
+## Prove
+## Journey
+## Wireframe
+## Reuse map
+## Data + states
+## AI/HITL
+## Responsive + accessibility
+## Risks / blockers
+## Acceptance criteria
+## Verification scenarios
+```
 
-- `90–100`: Ready only if no blocker remains.
-- `80–89`: Conditional; fix named gaps before implementation/merge.
-- `<80`: Not ready.
-- Any security, tenant, destructive-write, or approval blocker: **BLOCKED regardless of score**.
-
-## Definition of Ready
-
-- [ ] Goal and persona are explicit.
-- [ ] Prove table is complete.
-- [ ] Current route/data/component state was inspected.
-- [ ] Existing wireframe/DC/Figma reference was checked.
-- [ ] User journey is defined.
-- [ ] Component reuse map is complete.
-- [ ] Data and state contracts are complete.
-- [ ] AI/HITL contract is explicit where applicable.
-- [ ] Responsive and accessibility behavior are defined.
-- [ ] Acceptance criteria and test scenarios exist.
-
-
-## Pre-merge production-ready checklist
-
-Before merging an implementation derived from the wireframe:
-- [ ] exact-head diff matches approved scope; no unrelated files;
-- [ ] targeted tests for changed behavior pass;
-- [ ] `npm test` when relevant;
-- [ ] `npm run typecheck` passes;
-- [ ] `npm run build` when risk/CI requires it and dev ports are free;
-- [ ] Playwright real user journey passes when UI behavior changed;
-- [ ] responsive checks cover desktop/tablet/mobile contract;
-- [ ] keyboard/focus/accessibility behavior is verified;
-- [ ] AI rejection writes nothing and approval commits once when HITL applies;
-- [ ] tenant isolation proof exists when org-scoped data is touched;
-- [ ] visual comparison exists when DC/Figma is the approved target;
-- [ ] CI is green and review threads are resolved;
-- [ ] residual risks and rollback/recovery are documented.
-
-Playwright tests should prefer user-facing locators (`getByRole`, labels/text where appropriate), web-first assertions, and traces on first retry rather than brittle CSS/XPath or fixed sleeps.
-
-## Post-merge actions
-
-After merge:
-1. Verify the exact `main` commit contains the intended change.
-2. Re-run the cheapest decisive tests against `main`.
-3. Run the real authenticated user journey/preview when the task changes user-visible behavior.
-4. Confirm logs/network/write readback for the final state when applicable.
-5. Recheck tenant isolation/HITL side effects for high-risk changes.
-6. Update Linear/evidence only after observable proof passes.
-7. If post-merge proof fails, reopen/follow up immediately; merged is not the same as Done.
-
-## Official and reference links
-
-Use these only when relevant; installed source/types and current repo/runtime evidence outrank generic docs.
-
-- Agent Skills specification: https://github.com/agentskills/agentskills
-- Anthropic skill creator: https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md
-- Figma developer handoff: https://help.figma.com/hc/en-us/articles/360040521453-Optimize-design-files-for-developer-handoff
-- Figma component/accessibility guidance: https://help.figma.com/hc/en-us/articles/39747637290263-Components-collection-Tips-for-component-management
-- Mermaid docs: https://mermaid.js.org/intro/
-- Mermaid flowcharts: https://mermaid.js.org/syntax/flowchart.html
-- Mermaid sequence diagrams: https://mermaid.js.org/syntax/sequenceDiagram.html
-- Mermaid state diagrams: https://mermaid.js.org/syntax/stateDiagram.html
-- Mermaid user journeys: https://mermaid.js.org/syntax/userJourney.html
-- Playwright best practices: https://playwright.dev/docs/best-practices
-- Playwright locators: https://playwright.dev/docs/locators
-- Playwright assertions: https://playwright.dev/docs/test-assertions
-- Playwright trace viewer: https://playwright.dev/docs/trace-viewer
-- GitHub reviewable PR guidance: https://docs.github.com/en/pull-requests/concepts/helping-others-review-your-changes
-- GitHub PR standardization: https://docs.github.com/en/pull-requests/reference/managing-and-standardizing-pull-requests
-- Linear issue templates: https://linear.app/docs/issue-templates
-- Community wireframe spec reference: https://www.skills.sh/owl-listener/designer-skills/wireframe-spec
-- Community sketch reference: https://www.skills.sh/nexu-io/open-design/wireframe-sketch
-- Technical wireframe reference: https://www.skills.sh/mengto/skills/technical-wireframe-info-layout
-- Figma low-fi reference: https://www.figma.com/community/file/829375674987486138/low-fi-wireframe-template
-- Figma high-fi reference: https://www.figma.com/community/file/966471912164196917/high-fidelity-wireframes
+Keep sections concise. Add Mermaid only when it exposes a meaningful relationship, decision, state, trust boundary, or failure/recovery path. Add Figma/DC only when fidelity or collaboration requires it.
 
 ## Required output package
 
