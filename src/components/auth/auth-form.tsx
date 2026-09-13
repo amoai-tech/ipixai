@@ -100,8 +100,8 @@ export function AuthForm({ mode, next }: { mode: AuthFormMode; next: string | nu
         options: { redirectTo: callback.toString() },
       });
       if (error) setError("Sign in failed");
-    } catch {
-      setError("Sign in failed");
+    } catch (error) {
+      setError(getAuthSubmitErrorMessage(error, mode));
     } finally {
       setSubmitting(false);
       submittedRef.current = false;

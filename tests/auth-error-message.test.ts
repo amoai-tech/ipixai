@@ -10,6 +10,9 @@ describe("getAuthSubmitErrorMessage", () => {
     expect(getAuthSubmitErrorMessage(error, "signin")).toBe(
       "Sign in is temporarily unavailable. Please try again shortly.",
     );
+    expect(getAuthSubmitErrorMessage(error, "signup")).toBe(
+      "Sign up is temporarily unavailable. Please try again shortly.",
+    );
   });
 
   it("keeps ordinary sign-in failures generic", () => {
