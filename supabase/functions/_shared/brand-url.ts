@@ -3,8 +3,7 @@
  *
  * One rule, two runtimes: Supabase Edge (Deno) imports this file directly;
  * `app/src/lib/brand/brand-url.ssot.ts` is a byte-identical generated mirror
- * because Next.js/Turbopack cannot resolve modules outside the `app/` root
- * (same constraint that made `config/groq-models.json` a generated SSOT).
+ * because Next.js/Turbopack cannot resolve modules outside the `app/` root.
  *
  * Edit THIS file only, then mirror into the app tree:
  *   `cp supabase/functions/_shared/brand-url.ts app/src/lib/brand/brand-url.ssot.ts`

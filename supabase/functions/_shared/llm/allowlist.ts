@@ -1,37 +1,3 @@
-import type { GroqModelsConfig } from "./types.ts";
-
-import groqModelsJson from "../../../../config/groq-models.json" with {
-  type: "json",
-};
-
-export const groqModelsConfig = groqModelsJson as GroqModelsConfig;
-
-const MODEL_BY_ID = new Map(
-  groqModelsConfig.models.map((entry) => [entry.id, entry] as const),
-);
-
-export function getGroqModelEntry(modelId: string) {
-  return MODEL_BY_ID.get(modelId);
-}
-
-export function resolveGroqModelId(
-  tier: keyof GroqModelsConfig["defaults"] = "default",
-): string {
-  const envKey = groqModelsConfig.envMapping[tier];
-  const fromEnv = envKey ? Deno.env.get(envKey)?.trim() : "";
-  const fallback = groqModelsConfig.defaults[tier]?.trim() ?? "";
-  const modelId = fromEnv || fallback;
-  if (!modelId) {
-    throw new Error(`No Groq model configured for tier "${tier}".`);
-  }
-  if (!MODEL_BY_ID.has(modelId)) {
-    throw new Error(
-      `Groq model "${modelId}" is not in config/groq-models.json allowlist.`,
-    );
-  }
-  return modelId;
-}
-
 export function resolveAiProvider(): "gemini" | "groq" | "openai" {
   const raw = (Deno.env.get("AI_PROVIDER") ?? "gemini").trim().toLowerCase();
   if (raw === "gemini" || raw === "groq" || raw === "openai") return raw;
@@ -62,28 +28,40 @@ function parseBiDnaAiProvider(raw: string | undefined): "gemini" | "groq" {
   );
 }
 
+/**
+ * Brand intelligence: Gemini only (IPI-1093 — Groq/Cloudflare Workers AI
+ * support removed, unused; see the removal commit for the audit). An
+ * explicit BI_PROVIDER or AI_PROVIDER naming a different provider now fails
+ * closed instead of silently routing to a client that no longer exists.
+ */
 export function resolveBiProviderFromEnv(env: {
   aiProvider?: string;
   biUseGemini?: string;
   biProvider?: string;
-}): "gemini" | "groq" | "workers-ai" {
-  // BI_PROVIDER is a scoped override for this call site only — it never
-  // touches the global AI_PROVIDER, so DNA and other structured-generation
-  // flows are unaffected by a brand-intelligence provider change (IPI-741).
+}): "gemini" {
+  // An explicit scoped BI_PROVIDER wins outright — including over a
+  // non-Gemini global AI_PROVIDER used by other paths (e.g. DNA on Groq).
+  // Only fall through to the legacy BI_USE_GEMINI/AI_PROVIDER checks when
+  // BI_PROVIDER itself is unset.
   const explicit = (env.biProvider ?? "").trim().toLowerCase();
-  if (explicit === "cloudflare" || explicit === "workers-ai") return "workers-ai";
-  if (explicit === "gemini" || explicit === "groq") return explicit;
+  if (explicit === "gemini") return "gemini";
   if (explicit) {
     throw new Error(
-      `BI_PROVIDER="${explicit}" is invalid (expected cloudflare | gemini | groq).`,
+      `BI_PROVIDER="${explicit}" is invalid — Groq/Cloudflare Workers AI support was removed; only gemini is wired.`,
     );
   }
   if (isEnvTruthyValue(env.biUseGemini)) return "gemini";
-  return parseBiDnaAiProvider(env.aiProvider);
+  const aiProvider = (env.aiProvider ?? "gemini").trim().toLowerCase();
+  if (aiProvider && aiProvider !== "gemini") {
+    throw new Error(
+      `AI_PROVIDER="${aiProvider}" is invalid for brand intelligence — Groq/Cloudflare Workers AI support was removed; only gemini is wired.`,
+    );
+  }
+  return "gemini";
 }
 
-/** Brand intelligence: BI_PROVIDER overrides everything; else BI_USE_GEMINI=1 forces Gemini; else AI_PROVIDER. */
-export function resolveBiProvider(): "gemini" | "groq" | "workers-ai" {
+/** Brand intelligence: BI_PROVIDER/BI_USE_GEMINI/AI_PROVIDER must all name gemini or be unset. */
+export function resolveBiProvider(): "gemini" {
   return resolveBiProviderFromEnv({
     aiProvider: Deno.env.get("AI_PROVIDER"),
     biUseGemini: Deno.env.get("BI_USE_GEMINI"),
@@ -91,19 +69,14 @@ export function resolveBiProvider(): "gemini" | "groq" | "workers-ai" {
   });
 }
 
-/** Workers AI model called through the ipix-prod AI Gateway (IPI-741). */
-export function resolveCloudflareModel(): string {
-  return (
-    Deno.env.get("CLOUDFLARE_AI_MODEL")?.trim() ||
-    "@cf/meta/llama-4-scout-17b-16e-instruct"
-  );
-}
-
-/** ipix-prod (or override) — the named AI Gateway this account routes Workers AI through. */
-export function resolveCloudflareGatewayId(): string {
-  return Deno.env.get("CLOUDFLARE_AI_GATEWAY_ID")?.trim() || "ipix-prod";
-}
-
+/**
+ * DNA vision provider selection — unrelated to brand-intelligence (this is
+ * for the separate, not-yet-reconciled-into-this-repo audit-asset-dna
+ * function) and intentionally left untouched by the IPI-1093 Groq/Cloudflare
+ * removal: defaults to Gemini today, but its "groq" branch is still the
+ * intended eventual production choice pending a golden eval, not dead code
+ * to remove alongside brand-intelligence's.
+ */
 export function resolveDnaProviderFromEnv(env: {
   aiProvider?: string;
   dnaUseGemini?: string;
