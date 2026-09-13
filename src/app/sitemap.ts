@@ -12,18 +12,13 @@ import { canonicalUrl } from "@/lib/site";
 // No `lastModified` field: these are static marketing routes with no real
 // content-mtime source, and stamping `new Date()` would fake freshness on
 // every build (Lumina did this; IPI-1063 explicitly drops it).
+//
+// No `changeFrequency`/`priority` either: Google's sitemap docs say it
+// ignores both (https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap),
+// so the differentiated weekly/1.0 vs monthly/0.8 values Lumina set were
+// dead weight carried over from the COPY+CLEAN, not a real signal to anyone
+// that reads this sitemap.
 export default function sitemap(): MetadataRoute.Sitemap {
-  const home: MetadataRoute.Sitemap[number] = {
-    url: canonicalUrl("/"),
-    changeFrequency: "weekly",
-    priority: 1,
-  };
-
-  const services: MetadataRoute.Sitemap[number][] = SERVICES.map(({ href }) => ({
-    url: canonicalUrl(href),
-    changeFrequency: "monthly",
-    priority: 0.8,
-  }));
-
-  return [home, ...services];
+  const urls = [canonicalUrl("/"), ...SERVICES.map(({ href }) => canonicalUrl(href))];
+  return urls.map((url) => ({ url }));
 }
