@@ -32,7 +32,7 @@ export default function ShopifyPage() {
         },
         {
           title: "Mobile-First Crops",
-          desc: "Crops and framing planned for how the majority of storefront traffic actually views your store.",
+          desc: "Crops and framing planned for how your storefront is actually viewed — desktop, tablet, and mobile alike.",
         },
         {
           title: "Editorial & Lookbook",

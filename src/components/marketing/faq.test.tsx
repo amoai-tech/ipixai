@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import { Faq } from "./faq";
 
@@ -32,12 +33,31 @@ describe("Faq (IPI-1060)", () => {
     expect(screen.getByText("Answer one.")).toBeTruthy();
   });
 
-  it("is keyboard-operable: Enter toggles the native button", () => {
+  // jsdom doesn't run a native <button>'s real-browser "Enter/Space triggers
+  // click" activation for synthetic events (confirmed: a raw
+  // fireEvent.keyDown never fires a click here) — user-event implements
+  // that translation itself, so this is a real keyboard-activation proof,
+  // not a relabeled click test.
+  it("is keyboard-operable: Enter activates the focused button", async () => {
+    const user = userEvent.setup();
     render(<Faq items={items} />);
     const button = screen.getByRole("button", { name: /question two/i });
     button.focus();
-    fireEvent.click(button); // native <button> activates on Enter/Space; jsdom click simulates that activation
+    await user.keyboard("{Enter}");
     expect(button.getAttribute("aria-expanded")).toBe("true");
+    const panelId = button.getAttribute("aria-controls") as string;
+    expect(document.getElementById(panelId)?.hidden).toBe(false);
+  });
+
+  it("is keyboard-operable: Space activates the focused button", async () => {
+    const user = userEvent.setup();
+    render(<Faq items={items} />);
+    const button = screen.getByRole("button", { name: /question two/i });
+    button.focus();
+    await user.keyboard(" ");
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+    const panelId = button.getAttribute("aria-controls") as string;
+    expect(document.getElementById(panelId)?.hidden).toBe(false);
   });
 
   it("closes again on a second click", () => {
