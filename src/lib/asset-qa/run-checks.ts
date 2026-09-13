@@ -360,7 +360,8 @@ export function computeChannelResult(
   let overallStatus: QAFindingStatus = "pass";
   if (statuses.includes("fail")) overallStatus = "fail";
   else if (statuses.includes("warn")) overallStatus = "warn";
-  else if (statuses.every((s) => s === "unknown")) overallStatus = "unknown";
+  else if (statuses.includes("unknown")) overallStatus = "unknown";
+  else if (statuses.every((s) => s === "pass")) overallStatus = "pass";
 
   const passCount = findings.filter((f) => f.status === "pass").length;
   const warnCount = findings.filter((f) => f.status === "warn").length;

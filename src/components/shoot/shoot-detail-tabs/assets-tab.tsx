@@ -307,6 +307,10 @@ function QAFindingsPanel({
   const [result, setResult] = useState<QAAssetResult | null>(initialResult);
   const [expandedChannels, setExpandedChannels] = useState<Set<string>>(new Set());
 
+  useEffect(() => {
+    setResult(initialResult);
+  }, [initialResult]);
+
   const handleRunQA = async () => {
     await onRunQA();
   };
