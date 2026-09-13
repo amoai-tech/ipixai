@@ -34,7 +34,12 @@ afterEach(() => {
 });
 
 import { loadTrustedShotReferences } from "../src/lib/shoot/shot-type-references";
-import { composeShootPlan, composeShootPlanTool, type ComposeShootPlanInput } from "../src/mastra/tools/compose-shoot-plan";
+import {
+  composeShootPlan,
+  composeShootPlanTool,
+  ComposeShootPlanInputSchema,
+  type ComposeShootPlanInput,
+} from "../src/mastra/tools/compose-shoot-plan";
 import { ShootPlanSchema } from "../src/mastra/tools/plan-schema";
 import { productionPlannerAgent } from "../src/mastra/agents";
 
@@ -201,12 +206,12 @@ describe("composeShootPlan", () => {
 
   it("rejects an oversized channels array at the schema boundary instead of silently truncating", () => {
     const tooMany = Array.from({ length: 51 }, () => "shopify");
-    const result = composeShootPlanTool.inputSchema.safeParse({ channels: tooMany });
+    const result = ComposeShootPlanInputSchema.safeParse({ channels: tooMany });
     expect(result.success).toBe(false);
   });
 
   it("rejects an empty channels array — channels is the one truly required input", () => {
-    const result = composeShootPlanTool.inputSchema.safeParse({ channels: [] });
+    const result = ComposeShootPlanInputSchema.safeParse({ channels: [] });
     expect(result.success).toBe(false);
   });
 });

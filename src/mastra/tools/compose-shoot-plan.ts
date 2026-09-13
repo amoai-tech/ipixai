@@ -69,6 +69,10 @@ const ComposeShootPlanInputSchema = z.object({
   risks: z.array(z.string().max(MAX_TEXT_LENGTH)).max(50).optional(),
 });
 export type ComposeShootPlanInput = z.infer<typeof ComposeShootPlanInputSchema>;
+// Exported for tests: createTool wraps inputSchema as a StandardSchemaWithJSON
+// (no .safeParse()) — the raw Zod schema is what test-level bounds checks
+// need direct access to.
+export { ComposeShootPlanInputSchema };
 
 /** Structurally required for createTool but never used as authority — every
  *  execute() below is a plain synchronous-composition function; `{} as never`
