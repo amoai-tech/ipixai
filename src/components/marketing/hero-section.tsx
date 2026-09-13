@@ -1,9 +1,11 @@
+import Image from "next/image";
 import Link from "next/link";
 import { AnimatedSection } from "./animated-section";
 
-// Home hero: split copy/visual, two CTAs. Visual is a neutral gradient
-// placeholder until MEDIA-001 supplies approved imagery — no invented
-// provenance. "Get Started" is an acquisition CTA — it targets /signup
+// Home hero: split copy/visual, two CTAs. Visual is the approved MEDIA-001
+// hero image (amoai-tech/luminaai public/images, same-org provenance) — this
+// is the page's LCP element, so it loads eager/preload rather than lazily.
+// "Get Started" is an acquisition CTA — it targets /signup
 // (IPI-1157 · AUTH-UX-001), not sign-in-only /login.
 export function HeroSection() {
   return (
@@ -43,13 +45,13 @@ export function HeroSection() {
           </AnimatedSection>
 
           <AnimatedSection className="relative h-[500px] lg:h-[600px]">
-            <div
-              className="h-full w-full"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--mk-surface-warm) 0%, var(--mk-accent) 45%, var(--mk-primary) 100%)",
-              }}
-              aria-hidden="true"
+            <Image
+              src="/images/hero-product.jpg"
+              alt="iPix-produced product photography"
+              fill
+              preload
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              className="object-cover"
             />
           </AnimatedSection>
         </div>

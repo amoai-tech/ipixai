@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   alternates: { canonical: URL },
-  openGraph: { title: TITLE, description: DESCRIPTION, url: URL },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: URL, images: ["/images/ecommerce-hero.jpg"] },
 };
 
 export default function EcommercePhotographyPage() {
@@ -21,6 +21,7 @@ export default function EcommercePhotographyPage() {
       title="Catalog Photography,"
       titleAccent="Built for Every Channel"
       description="Plan hero, detail, and lifestyle imagery for your product catalog — including specialty products that need close, precise work — with a shot list built for how each channel actually uses images."
+      heroImage={{ src: "/images/ecommerce-hero.jpg", alt: "iPix e-commerce catalog photography" }}
       useCases={[
         {
           title: "Hero & Catalog Shots",

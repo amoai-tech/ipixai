@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   alternates: { canonical: URL },
-  openGraph: { title: TITLE, description: DESCRIPTION, url: URL },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: URL, images: ["/images/shopify-hero.jpg"] },
 };
 
 export default function ShopifyPage() {
@@ -21,6 +21,7 @@ export default function ShopifyPage() {
       title="Storefront Photography,"
       titleAccent="Planned for Shopify"
       description="Plan collection, product, and detail imagery sized and cropped for how shoppers actually browse your Shopify storefront — on desktop and on mobile."
+      heroImage={{ src: "/images/shopify-hero.jpg", alt: "iPix Shopify storefront photography" }}
       useCases={[
         {
           title: "Collection & Category Imagery",

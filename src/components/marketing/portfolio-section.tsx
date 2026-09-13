@@ -1,16 +1,17 @@
+import Image from "next/image";
 import { AnimatedSection } from "./animated-section";
 
-// Portfolio grid — 6-tile span grid. Tiles use neutral gradient placeholders
-// until MEDIA-001 supplies approved, provenance-verified imagery. No invented
-// portfolio provenance.
+// Portfolio grid — 6-tile span grid. Images are the approved MEDIA-001 set
+// (amoai-tech/luminaai public/images, same-org provenance). None of these
+// tiles is the page LCP element (the hero image is), so they load lazily.
 const items = [
-  { label: "Fashion", span: "row-span-2", tone: "var(--mk-primary)" },
-  { label: "Watches", span: "", tone: "var(--mk-accent)" },
-  { label: "Jewellery", span: "", tone: "var(--mk-ink)" },
-  { label: "Product", span: "col-span-2", tone: "var(--mk-primary)" },
-  { label: "eCommerce", span: "", tone: "var(--mk-accent)" },
-  { label: "Still Life", span: "", tone: "var(--mk-ink)" },
-];
+  { label: "Fashion", span: "row-span-2", src: "/images/portfolio-fashion.jpg" },
+  { label: "Watches", span: "", src: "/images/portfolio-watch.jpg" },
+  { label: "Jewellery", span: "", src: "/images/portfolio-jewellery.jpg" },
+  { label: "Product", span: "col-span-2", src: "/images/portfolio-product.jpg" },
+  { label: "eCommerce", span: "", src: "/images/portfolio-ecommerce.jpg" },
+  { label: "Still Life", span: "", src: "/images/portfolio-stilllife.jpg" },
+] as const;
 
 export function PortfolioSection() {
   return (
@@ -26,14 +27,14 @@ export function PortfolioSection() {
         <div className="grid grid-cols-2 gap-1 lg:grid-cols-4">
           {items.map((item) => (
             <div key={item.label} className={`group relative min-h-[250px] overflow-hidden ${item.span}`}>
-              <div
-                className="absolute inset-0 transition-transform duration-700 group-hover:scale-105"
-                style={{
-                  background: `linear-gradient(135deg, ${item.tone} 0%, var(--mk-surface-warm) 100%)`,
-                }}
-                aria-hidden="true"
+              <Image
+                src={item.src}
+                alt={`${item.label} photography by iPix`}
+                fill
+                sizes="(min-width: 1024px) 25vw, 50vw"
+                className="object-cover transition-transform duration-700 group-hover:scale-105"
               />
-              <div className="absolute inset-0 flex items-end bg-black/0 p-6 transition-colors duration-500 group-hover:bg-black/30">
+              <div className="absolute inset-0 flex items-end bg-black/10 p-6 transition-colors duration-500 group-hover:bg-black/30">
                 <span className="text-sm font-medium uppercase tracking-wide text-white">
                   {item.label}
                 </span>

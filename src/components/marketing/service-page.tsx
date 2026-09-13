@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { AnimatedSection } from "./animated-section";
 import { CTASection } from "./cta-section";
@@ -9,15 +10,23 @@ export interface ServiceUseCase {
   desc: string;
 }
 
+export interface ServiceHeroImage {
+  src: string;
+  alt: string;
+}
+
 // Shared body for the 5 canonical /services/* pages (IPI-1060). Each page
-// supplies only its own copy/use-cases/FAQ — hero shape, workflow strip, and
-// CTA stay identical so the Brand → Plan → Book → Produce → Deliver story
-// reads the same across every channel.
+// supplies only its own copy/use-cases/FAQ/heroImage — hero shape, workflow
+// strip, and CTA stay identical so the Brand → Plan → Book → Produce →
+// Deliver story reads the same across every channel. heroImage is the
+// approved MEDIA-001 visual (amoai-tech/luminaai public/images, same-org
+// provenance); it is below the fold on every page so it loads lazily.
 export function ServicePage({
   eyebrow,
   title,
   titleAccent,
   description,
+  heroImage,
   useCases,
   faq,
 }: {
@@ -25,6 +34,7 @@ export function ServicePage({
   title: string;
   titleAccent: string;
   description: string;
+  heroImage: ServiceHeroImage;
   useCases: readonly ServiceUseCase[];
   faq: readonly FaqItem[];
 }) {
@@ -54,6 +64,18 @@ export function ServicePage({
           </AnimatedSection>
         </div>
       </section>
+
+      <div className="mx-auto mb-24 w-full max-w-6xl px-6 lg:mb-32 lg:px-12">
+        <div className="relative aspect-[21/9] w-full overflow-hidden">
+          <Image
+            src={heroImage.src}
+            alt={heroImage.alt}
+            fill
+            sizes="(min-width: 1024px) 1152px, 100vw"
+            className="object-cover"
+          />
+        </div>
+      </div>
 
       <section className="py-24 lg:py-32" style={{ background: "var(--mk-surface)" }}>
         <div className="mx-auto max-w-7xl px-6 lg:px-12">

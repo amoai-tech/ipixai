@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   alternates: { canonical: URL },
-  openGraph: { title: TITLE, description: DESCRIPTION, url: URL },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: URL, images: ["/images/amazon-hero.jpg"] },
 };
 
 export default function AmazonPage() {
@@ -21,6 +21,7 @@ export default function AmazonPage() {
       title="Listing Photography,"
       titleAccent="Planned for Amazon"
       description="iPix plans your Amazon listing shoot — main image, detail shots, lifestyle context, and A+ Content — with the primary image planned to Amazon's aspect-ratio, format, and background requirements before the shoot, not after."
+      heroImage={{ src: "/images/amazon-hero.jpg", alt: "iPix Amazon listing photography" }}
       useCases={[
         {
           title: "Main Image",
