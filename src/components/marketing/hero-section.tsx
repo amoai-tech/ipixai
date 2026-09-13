@@ -1,10 +1,20 @@
+import Image from "next/image";
 import Link from "next/link";
 import { AnimatedSection } from "./animated-section";
 
-// Home hero: split copy/visual, two CTAs. Visual is a neutral gradient
-// placeholder until MEDIA-001 supplies approved imagery — no invented
-// provenance. "Get Started" is an acquisition CTA — it targets /signup
+// Home hero: split copy/visual, two CTAs. This is the page's LCP element, so
+// it loads eager/preload rather than lazily.
+// "Get Started" is an acquisition CTA — it targets /signup
 // (IPI-1157 · AUTH-UX-001), not sign-in-only /login.
+//
+// PROVENANCE: UNVERIFIED (IPI-1064 · MARKETING-MEDIA-001 PR #141 audit) —
+// hero-product.jpg was introduced into amoai-tech/luminaai by a Lovable
+// AI-scaffolding commit (29833eed, trailer X-Lovable-Edit-ID), not a
+// commissioned iPix shoot. Same-org repo custody proves the file was stored
+// here, not who created it or that iPix holds a commercial license. Do not
+// reintroduce an "iPix-produced" ownership claim (in this comment or the
+// image's alt text) until an actual license record is found — see the PR
+// for the full audit and the human decision this is blocked on.
 export function HeroSection() {
   return (
     <section className="relative flex min-h-screen items-center pt-20">
@@ -43,13 +53,13 @@ export function HeroSection() {
           </AnimatedSection>
 
           <AnimatedSection className="relative h-[500px] lg:h-[600px]">
-            <div
-              className="h-full w-full"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--mk-surface-warm) 0%, var(--mk-accent) 45%, var(--mk-primary) 100%)",
-              }}
-              aria-hidden="true"
+            <Image
+              src="/images/hero-product.jpg"
+              alt="Product photography"
+              fill
+              preload
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              className="object-cover"
             />
           </AnimatedSection>
         </div>
