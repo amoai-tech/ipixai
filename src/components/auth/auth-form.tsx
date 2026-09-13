@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
 
+import { getAuthSubmitErrorMessage } from "./auth-error-message";
 import styles from "./auth-form.module.css";
 
 // Google OAuth is shown only when the provider is configured for the target
@@ -75,8 +76,8 @@ export function AuthForm({ mode, next }: { mode: AuthFormMode; next: string | nu
       }
       router.push(destination);
       router.refresh();
-    } catch {
-      setError(mode === "signup" ? "Sign up failed" : "Sign in failed");
+    } catch (error) {
+      setError(getAuthSubmitErrorMessage(error, mode));
     } finally {
       setSubmitting(false);
       submittedRef.current = false;
@@ -99,8 +100,8 @@ export function AuthForm({ mode, next }: { mode: AuthFormMode; next: string | nu
         options: { redirectTo: callback.toString() },
       });
       if (error) setError("Sign in failed");
-    } catch {
-      setError("Sign in failed");
+    } catch (error) {
+      setError(getAuthSubmitErrorMessage(error, mode));
     } finally {
       setSubmitting(false);
       submittedRef.current = false;
