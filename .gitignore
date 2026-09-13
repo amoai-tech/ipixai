@@ -61,3 +61,5 @@ graphify-out/cache/
 # Local Mastra/CopilotKit reference clones (see github/mastra/mastra-repos.md)
 /github/mastra/clones/
 supabase/.temp/
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
