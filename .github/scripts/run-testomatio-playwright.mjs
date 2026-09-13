@@ -10,6 +10,11 @@ const child = spawn("npx", args, {
   env: process.env,
 });
 
+child.on("error", (error) => {
+  console.error("Failed to start Playwright:", error.message);
+  process.exit(1);
+});
+
 child.on("exit", (code, signal) => {
   if (signal) process.kill(process.pid, signal);
   process.exit(code ?? 1);
