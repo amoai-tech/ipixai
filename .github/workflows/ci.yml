@@ -586,3 +586,32 @@ jobs:
           # and asserts exactly one of two simultaneous claim attempts wins.
           bash supabase/tests/security/ipi1093-brand-crawl-claim-concurrency.sh
       - run: supabase stop
+
+  # IPI-1205 · SB-EDGE-CI-001 — native Deno regression tests + frozen
+  # typecheck for Supabase Edge Functions. Vitest's `include` (see
+  # vitest.config.ts) never discovers `supabase/functions/**/*.test.ts`, so
+  # Deno.test cases such as allowlist.test.ts previously ran manually only;
+  # this job is what actually gates them in CI. Isolated from build/replay:
+  # pure Deno unit tests + typecheck, no Node/Postgres/Supabase stack needed.
+  edge-deno:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: "2.9.2"
+      - working-directory: supabase
+        run: deno ci
+      - working-directory: supabase
+        run: deno task test
+      - working-directory: supabase
+        run: >
+          deno check --frozen
+          functions/brand-intelligence/index.ts
+          functions/start-brand-crawl/index.ts
+          functions/firecrawl-webhook/index.ts
