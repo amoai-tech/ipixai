@@ -46,4 +46,5 @@ jobs:
           pr_reviewer.persistent_comment: "true"
           pr_reviewer.persistent_finding_state: "false"
           pr_reviewer.num_max_findings: "6"
-          pr_reviewer.enable_large_pr_chunking: "false"
+          pr_reviewer.enable_large_pr_chunking: "true"
+          pr_reviewer.max_number_of_calls: "3"

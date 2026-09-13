@@ -22,7 +22,8 @@ require_priority_files = true
 persistent_comment = true
 persistent_finding_state = false
 num_max_findings = 6
-enable_large_pr_chunking = false
+enable_large_pr_chunking = true
+max_number_of_calls = 3
 extra_instructions = """
 Prioritize correctness, tenant/authorization safety, data integrity, consequential AI/HITL safety, regression risk, and missing deterministic proof.
 Do not publish style-only findings as material issues. A numeric score never overrides a security, tenant-isolation, data-loss, payment, publishing, or approval-integrity blocker.
