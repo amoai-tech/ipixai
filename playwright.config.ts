@@ -40,6 +40,9 @@ export default defineConfig({
   // Production smoke has its own guarded config and must never run as part of
   // the normal localhost/Preview certification suite.
   testIgnore: /production-smoke\.spec\.ts/,
+  // End cleanly before the 15-minute GitHub Actions hard stop so reporters
+  // and traces have time to flush instead of being killed mid-write.
+  globalTimeout: process.env.CI ? 12 * 60_000 : undefined,
   // The canonical suite shares one real Org A account and one Next dev server.
   // Keep it deterministic locally and in CI; opt into parallelism only for
   // future tests with isolated accounts/backend state.
@@ -68,6 +71,21 @@ export default defineConfig({
     },
     {
       name: "chromium",
+      use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/user.json" },
+      dependencies: ["setup"],
+      // Real, paid OpenAI calls live in their own "chromium-ai-smoke" project
+      // (see below) so `npm run e2e` — the deterministic suite the required
+      // playwright-e2e CI job runs — never depends on hosted AI-provider
+      // availability. Run them explicitly via `npm run e2e:ai-smoke`.
+      testIgnore: [
+        /production-smoke\.spec\.ts/,
+        /planner-journey\.spec\.ts/,
+        /copilot-intelligence-isolation\.spec\.ts/,
+      ],
+    },
+    {
+      name: "chromium-ai-smoke",
+      testMatch: [/planner-journey\.spec\.ts/, /copilot-intelligence-isolation\.spec\.ts/],
       use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/user.json" },
       dependencies: ["setup"],
     },
