@@ -16,6 +16,14 @@ test.describe("service pages: signed-out route + CTA proof", () => {
     test(`${service.href} returns 200 and "Start Planning" reaches /signup`, async ({ page }) => {
       const response = await page.goto(service.href);
       expect(response?.status(), `${service.href} did not return 200`).toBe(200);
+      // page.goto() returns the *final* response after following any
+      // redirects — a 200 alone doesn't prove the route didn't redirect
+      // somewhere else that also happens to return 200. Assert we're still
+      // on the requested route before trusting anything rendered on it.
+      expect(
+        new URL(page.url()).pathname,
+        `${service.href} did not stay on its own route (redirected to ${page.url()})`,
+      ).toBe(service.href);
 
       // Hero and the shared CTASection both render a "Start Planning" link;
       // either one reaching /signup proves the CTA, so the first is enough.
