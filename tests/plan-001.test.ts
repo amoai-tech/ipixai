@@ -149,6 +149,18 @@ describe("composeShootPlan", () => {
     expect(plan.missingInputs).toContain("objective");
   });
 
+  it("an operator-supplied shootType is authoritative — it overrides a disagreeing recommendation instead of the plan carrying two conflicting shoot types", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY];
+    // channels + default "ecommerce product listing" brief clearly recommend
+    // ecommerce_pdp; the operator explicitly asks for something else.
+    const plan = await composeShootPlan(baseInput({ channels: ["shopify"], shootType: "packshot" }));
+    expect(plan.shootTypeResult.status).toBe("ok");
+    expect(plan.shootTypeResult.shootType).toBe("packshot");
+    expect(plan.shootTypeResult.warnings.join(" ")).toMatch(
+      /operator-specified shootType "packshot" overrides the recommender's independent suggestion "ecommerce_pdp"/i,
+    );
+  });
+
   it("every shot in the composed plan keeps a referenceId that traces to an actually-loaded trusted reference — never invented", async () => {
     supabaseMock.rows = [REF_PDP_FLAT_LAY];
     const plan = await composeShootPlan(baseInput());

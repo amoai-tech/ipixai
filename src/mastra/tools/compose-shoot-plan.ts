@@ -104,7 +104,24 @@ export async function composeShootPlan(input: ComposeShootPlanInput): Promise<Sh
     ),
   );
 
-  const effectiveShootType = input.shootType ?? (shootTypeResult.status === "ok" ? shootTypeResult.shootType : undefined);
+  // The operator's explicit shootType is authoritative — it's what
+  // deliverables/shots/budget are actually computed against below, so the
+  // embedded shootTypeResult must agree instead of silently disagreeing
+  // with its own recommendation. Overriding here (rather than skipping the
+  // recommend call) keeps the original recommendation visible as a warning.
+  if (input.shootType) {
+    const recommended = shootTypeResult.shootType;
+    shootTypeResult.status = "ok";
+    shootTypeResult.shootType = input.shootType;
+    if (recommended && recommended !== input.shootType) {
+      shootTypeResult.warnings = [
+        ...shootTypeResult.warnings,
+        `Operator-specified shootType "${input.shootType}" overrides the recommender's independent suggestion "${recommended}".`,
+      ];
+    }
+  }
+
+  const effectiveShootType = shootTypeResult.status === "ok" ? shootTypeResult.shootType : undefined;
 
   const deliverablesResult = await run<PlanDeliverablesOutput>(
     planDeliverables.execute!(
