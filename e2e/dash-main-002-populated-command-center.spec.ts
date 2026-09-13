@@ -1,6 +1,9 @@
+import path from "node:path";
 import { test, expect, type Browser, type Page, type TestInfo } from "@playwright/test";
 
-import { signInIsolatedContext } from "./support/login";
+import { contextForSavedRole } from "./support/login";
+
+const shootsFile = path.resolve(__dirname, "../playwright/.auth/shoots.json");
 
 // IPI-1149 · DASH-MAIN-002 — Finish and Certify the Portfolio-First Command
 // Center in iPix V2
@@ -30,11 +33,10 @@ const TEST_TIMEOUT_MS = NAV_TIMEOUT_MS + 30_000;
 const IGNORABLE_SERVER_REPLAY = /dashboard\.loadRecentWorkPreviews: candidate preview threw/;
 
 async function signInPopulatedOrg(browser: Browser): Promise<{ page: Page; close: () => Promise<void> }> {
-  return signInIsolatedContext(
+  return contextForSavedRole(
     browser,
-    process.env.E2E_TEST_EMAIL_SHOOTS,
-    process.env.E2E_TEST_PASSWORD_SHOOTS,
-    "E2E_TEST_EMAIL_SHOOTS / E2E_TEST_PASSWORD_SHOOTS are missing — set them in .env.test",
+    shootsFile,
+    "Missing playwright/.auth/shoots.json — set E2E_TEST_EMAIL_SHOOTS / E2E_TEST_PASSWORD_SHOOTS in .env.test",
   );
 }
 

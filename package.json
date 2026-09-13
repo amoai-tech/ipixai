@@ -18,7 +18,8 @@
     "test": "vitest run",
     "test:design": "vitest run src/components/ui/empty-state.test.tsx src/components/ui/error-state.test.tsx src/components/ui/entity-list.test.tsx src/components/ui/status-chip.test.tsx",
     "channel": "tsx --tsconfig tsconfig.channel.json channel-host.mts",
-    "e2e": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test",
+    "e2e": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --project=chromium --project=mobile-chromium",
+    "e2e:ai-smoke": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --project=chromium-ai-smoke",
     "e2e:ui": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --ui",
     "e2e:headed": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --headed",
     "e2e:debug": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --debug",
@@ -61,7 +62,7 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^20",

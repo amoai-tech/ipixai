@@ -70,6 +70,17 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/user.json" },
       dependencies: ["setup"],
+      // Real, paid OpenAI calls live in their own "chromium-ai-smoke" project
+      // (see below) so `npm run e2e` — the deterministic suite the required
+      // playwright-e2e CI job runs — never depends on hosted AI-provider
+      // availability. Run them explicitly via `npm run e2e:ai-smoke`.
+      testIgnore: [/planner-journey\.spec\.ts/, /copilot-intelligence-isolation\.spec\.ts/],
+    },
+    {
+      name: "chromium-ai-smoke",
+      testMatch: [/planner-journey\.spec\.ts/, /copilot-intelligence-isolation\.spec\.ts/],
+      use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/user.json" },
+      dependencies: ["setup"],
     },
     {
       name: "mobile-chromium",

@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import type { Browser, Locator, Page, Request } from "@playwright/test";
 
 import { gotoPageWithRetry } from "./context";
@@ -41,9 +42,23 @@ async function submitPasswordSignIn(page: Page, signIn: Locator) {
       kind: "request-failed" as const,
       errorText: request.failure()?.errorText ?? "unknown network failure",
     }));
+  // A rejected Supabase login (bad credentials, rate-limited, etc.) completes
+  // fine at the network level — it's a real HTTP response, not a
+  // `requestfailed` event — so without this it fell through to the 30s
+  // appNavigation timeout and reported a useless "sign-in timed out" instead
+  // of the actual 400/401/429 cause.
+  const httpError = page
+    .waitForResponse((response) => isAuthTokenRequest(response.request()) && !response.ok(), {
+      timeout: SIGN_IN_TIMEOUT_MS,
+    })
+    .then(async (response) => ({
+      kind: "http-error" as const,
+      status: response.status(),
+      body: await response.text().catch(() => "<unreadable body>"),
+    }));
 
   await signIn.click();
-  return Promise.race([appNavigation, requestFailure]);
+  return Promise.race([appNavigation, requestFailure, httpError]);
 }
 
 /** Shared real UI login for setup, login-journey, and tenant isolation. */
@@ -65,6 +80,10 @@ export async function signInWithCredentials(
     const first = await submitPasswordSignIn(page, signIn);
     if (first.kind === "success") return;
 
+    if (first.kind === "http-error") {
+      throw new Error(`Sign-in request returned HTTP ${first.status}: ${first.body}`);
+    }
+
     if (!first.errorText.includes("ERR_NETWORK_CHANGED")) {
       throw new Error(`Sign-in request failed: ${first.errorText}`);
     }
@@ -73,6 +92,9 @@ export async function signInWithCredentials(
     // HTTP/auth failures are never retried or hidden.
     const second = await submitPasswordSignIn(page, signIn);
     if (second.kind === "success") return;
+    if (second.kind === "http-error") {
+      throw new Error(`Sign-in request returned HTTP ${second.status} after network retry: ${second.body}`);
+    }
     throw new Error(`Sign-in request failed after network retry: ${second.errorText}`);
   } catch (error) {
     // Keep failure snapshots/error-context from retaining the raw password.
@@ -92,25 +114,26 @@ export async function signInAsE2ETestOperator(page: Page): Promise<void> {
 }
 
 /**
- * Shared "second account" sign-in: opens a fresh logged-out browser context
- * (so this session never inherits the project's default storageState),
- * signs in with the given credentials, and returns the page plus a cleanup
- * callback. Every spec that needs a dedicated non-default account — the
- * Shoots-journey populated org, DASH-MAIN-002's populated Command Center
- * proof, tenant-isolation's Org B — used to duplicate this same
- * context+signIn+close body; this is the one copy.
+ * Secondary-role context from a cached storageState file written once by a
+ * project-dependency setup test (see auth.setup.ts's Org B / Shoots setup)
+ * instead of a fresh real hosted login. Every spec that needs a dedicated
+ * non-default account — brands/shoots journeys, DASH-MAIN-002, tenant/
+ * copilot isolation — used to sign in fresh per spec file (up to 8 real
+ * hosted logins per full suite run); caching moves that cost to "once per
+ * role, per full suite run" (https://playwright.dev/docs/auth#multiple-signed-in-roles).
+ * Fails closed with `missingCredentialsMessage` when the file doesn't exist
+ * (the corresponding setup test skips, rather than fails, when its
+ * credentials are unset) — same contract `signInIsolatedContext` had.
  */
-export async function signInIsolatedContext(
+export async function contextForSavedRole(
   browser: Browser,
-  email: string | undefined,
-  password: string | undefined,
+  storageStatePath: string,
   missingCredentialsMessage: string,
 ): Promise<{ page: Page; close: () => Promise<void> }> {
-  if (!email || !password) {
+  if (!existsSync(storageStatePath)) {
     throw new Error(missingCredentialsMessage);
   }
-  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  const context = await browser.newContext({ storageState: storageStatePath });
   const page = await context.newPage();
-  await signInWithCredentials(page, email, password);
   return { page, close: () => context.close() };
 }
