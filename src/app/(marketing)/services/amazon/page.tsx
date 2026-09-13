@@ -4,7 +4,7 @@ import { ServicePage } from "@/components/marketing/service-page";
 
 const TITLE = "Amazon Listing Photography — iPix";
 const DESCRIPTION =
-  "Plan main, detail, lifestyle, and A+ Content imagery for Amazon listings with iPix — built to Amazon's current image requirements.";
+  "Plan main, detail, lifestyle, and A+ Content imagery for Amazon listings with iPix — main image planned to Amazon's aspect-ratio, format, and background requirements.";
 const URL = canonicalUrl("/services/amazon");
 
 export const metadata: Metadata = {
@@ -20,11 +20,11 @@ export default function AmazonPage() {
       eyebrow="Amazon Photography"
       title="Listing Photography,"
       titleAccent="Planned for Amazon"
-      description="iPix plans your Amazon listing shoot — main image, detail shots, lifestyle context, and A+ Content — checked against Amazon's current image requirements before the shoot, not after."
+      description="iPix plans your Amazon listing shoot — main image, detail shots, lifestyle context, and A+ Content — with the primary image planned to Amazon's aspect-ratio, format, and background requirements before the shoot, not after."
       useCases={[
         {
           title: "Main Image",
-          desc: "The primary listing image, planned to Amazon's current main-image requirements.",
+          desc: "The primary listing image, planned to Amazon's required aspect ratio, file format, and pure-white background.",
         },
         {
           title: "Detail & Feature Shots",
@@ -43,7 +43,7 @@ export default function AmazonPage() {
         {
           question: "Does iPix follow Amazon's image requirements?",
           answer:
-            "The shoot plan is checked against Amazon's current listing image guidelines before the shoot. Requirements change over time, so always confirm the latest spec for your category on Seller Central.",
+            "The main image is planned to Amazon's required aspect ratio, file format, and pure-white background. Detail, lifestyle, and A+ shots follow common listing practice rather than a live Amazon feed — requirements change over time and vary by category, so always confirm your category's current full spec on Seller Central before publishing.",
         },
         {
           question: "Can one shoot cover main, detail, and A+ images?",
