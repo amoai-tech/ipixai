@@ -1,9 +1,12 @@
 import Image from "next/image";
 import { AnimatedSection } from "./animated-section";
 
-// Portfolio grid — 6-tile span grid. Images are the approved MEDIA-001 set
-// (amoai-tech/luminaai public/images, same-org provenance). None of these
-// tiles is the page LCP element (the hero image is), so they load lazily.
+// Portfolio grid — 6-tile span grid. None of these tiles is the page LCP
+// element (the hero image is), so they load lazily.
+//
+// PROVENANCE: UNVERIFIED — see hero-section.tsx's provenance note. These 6
+// files share the same Lovable-scaffolding origin (commit 29833eed); do not
+// claim iPix ownership in alt text/comments without an actual license record.
 const items = [
   { label: "Fashion", span: "row-span-2", src: "/images/portfolio-fashion.jpg" },
   { label: "Watches", span: "", src: "/images/portfolio-watch.jpg" },
@@ -29,7 +32,7 @@ export function PortfolioSection() {
             <div key={item.label} className={`group relative min-h-[250px] overflow-hidden ${item.span}`}>
               <Image
                 src={item.src}
-                alt={`${item.label} photography by iPix`}
+                alt={`${item.label} photography`}
                 fill
                 sizes="(min-width: 1024px) 25vw, 50vw"
                 className="object-cover transition-transform duration-700 group-hover:scale-105"

@@ -18,9 +18,12 @@ export interface ServiceHeroImage {
 // Shared body for the 5 canonical /services/* pages (IPI-1060). Each page
 // supplies only its own copy/use-cases/FAQ/heroImage — hero shape, workflow
 // strip, and CTA stay identical so the Brand → Plan → Book → Produce →
-// Deliver story reads the same across every channel. heroImage is the
-// approved MEDIA-001 visual (amoai-tech/luminaai public/images, same-org
-// provenance); it is below the fold on every page so it loads lazily.
+// Deliver story reads the same across every channel. heroImage is below the
+// fold on every page so it loads lazily.
+//
+// PROVENANCE: UNVERIFIED — see hero-section.tsx's provenance note. Every
+// heroImage passed in here shares the same Lovable-scaffolding origin; keep
+// each page's alt text content-descriptive, not an ownership claim.
 export function ServicePage({
   eyebrow,
   title,

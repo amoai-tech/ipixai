@@ -21,7 +21,7 @@ export default function InstagramPage() {
       title="Campaign Photography,"
       titleAccent="Planned for Every Format"
       description="Plan a shoot that produces stills and short-form content for feed posts, Stories, Reels, and Instagram Shop — one plan, multiple deliverables, all on-brand."
-      heroImage={{ src: "/images/instagram-hero.jpg", alt: "iPix Instagram campaign photography" }}
+      heroImage={{ src: "/images/instagram-hero.jpg", alt: "Instagram campaign photography" }}
       useCases={[
         {
           title: "Feed & Carousel Stills",

@@ -21,7 +21,7 @@ export default function FashionPhotographyPage() {
       title="Editorial Photography,"
       titleAccent="Planned Like a Production"
       description="iPix plans your fashion shoot — on-model, ghost, flat lay, and detail shots — with a shot list built from your brand, so every image comes back on-brand and ready to deliver."
-      heroImage={{ src: "/images/fashion-hero.jpg", alt: "iPix fashion photography" }}
+      heroImage={{ src: "/images/fashion-hero.jpg", alt: "Fashion editorial photography" }}
       useCases={[
         {
           title: "On-Model Editorial",
