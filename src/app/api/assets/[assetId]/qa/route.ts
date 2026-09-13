@@ -40,19 +40,37 @@ export async function POST(
 
   let body: { channels?: string[]; shootId?: string } = {};
   try {
-    body = await request.json();
+    const parsed = await request.json();
+    if (parsed !== null && typeof parsed === "object") {
+      body = parsed;
+    }
   } catch {
-    // Body is optional
+    return jsonError(400, "bad_request", "invalid_json");
   }
 
+  // Validate body fields
   const { channels, shootId } = body;
 
+  if (channels !== undefined) {
+    if (!Array.isArray(channels) || channels.some((c) => typeof c !== "string" || c.length === 0 || c.length > 100)) {
+      return jsonError(400, "bad_request", "channels must be array of non-empty strings");
+    }
+  }
+
+  if (shootId !== undefined && (typeof shootId !== "string" || shootId.length === 0)) {
+    return jsonError(400, "bad_request", "shootId must be non-empty string");
+  }
+
   // Verify operator has access to this asset's org
-  const { data: asset } = await supabase
+  const { data: asset, error: assetError } = await supabase
     .from("assets")
     .select("id, brands(org_id)")
     .eq("id", assetId)
     .maybeSingle();
+
+  if (assetError) {
+    return membershipLookupFailedResponse();
+  }
 
   if (!asset) {
     return jsonError(404, "not_found", "asset_not_found");
@@ -63,12 +81,16 @@ export async function POST(
     return jsonError(409, "conflict", "asset_missing_brand");
   }
 
-  const { data: membership } = await supabase
+  const { data: membership, error: membershipError } = await supabase
     .from("org_members")
     .select("org_id")
     .eq("org_id", brand.org_id)
     .eq("user_id", operator.id)
     .maybeSingle();
+
+  if (membershipError) {
+    return membershipLookupFailedResponse();
+  }
 
   if (!membership) {
     return jsonError(403, "forbidden", "foreign_org");

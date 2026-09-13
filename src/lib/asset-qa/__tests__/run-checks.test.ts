@@ -272,7 +272,7 @@ describe("computeChannelResult", () => {
     ];
     const result = computeChannelResult("instagram_feed", mockSpec, findings);
     expect(result.overallStatus).toBe("unknown");
-    expect(result.score).toBe(0);
+    expect(result.score).toBeNull();
   });
 
   it("includes spec provenance in result", () => {

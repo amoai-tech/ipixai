@@ -20,7 +20,7 @@ export interface QAChannelResult {
   lastVerifiedAt: string | null;
   findings: QAFinding[];
   overallStatus: QAFindingStatus;
-  score: number;
+  score: number | null;
 }
 
 export interface QAAssetResult {
@@ -55,7 +55,7 @@ export interface ChannelSpecFull {
   aspectRatioW: number | null;
   aspectRatioH: number | null;
   aspectRatioLabel: string | null;
-  acceptedFormats: string[];
+  acceptedFormats: string[] | null;
   maxFileSizeMb: number | null;
   recommendedColorMode: string | null;
   safeZoneTopPx: number | null;

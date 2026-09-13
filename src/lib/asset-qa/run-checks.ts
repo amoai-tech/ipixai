@@ -120,21 +120,34 @@ const matches = aspectRatiosMatch(asset.width, asset.height, specRatio.w, specRa
   }
 
   const assetFormatUpper = asset.format.toUpperCase();
-  const acceptedFormatsUpper = spec.acceptedFormats.map((f) => f.toUpperCase());
-  const formatSupported = acceptedFormatsUpper.includes(assetFormatUpper);
+  if (!spec.acceptedFormats || spec.acceptedFormats.length === 0) {
+    findings.push(
+      makeFinding(
+        "spec_missing",
+        "unknown",
+        "warning",
+        `Channel "${channel}" spec missing accepted formats`,
+        { acceptedFormats: spec.acceptedFormats },
+        "Add accepted formats to channel spec in Supabase",
+      ),
+    );
+  } else {
+    const acceptedFormatsUpper = spec.acceptedFormats.map((f) => f.toUpperCase());
+    const formatSupported = acceptedFormatsUpper.includes(assetFormatUpper);
 
-  findings.push(
-    makeFinding(
-      formatSupported ? "format_supported" : "format_unsupported",
-      formatSupported ? "pass" : "fail",
-      formatSupported ? "info" : "error",
-      formatSupported
-        ? `Format ${asset.format} is supported for ${channel}`
-        : `Format ${asset.format} is not in accepted formats: ${spec.acceptedFormats.join(", ")}`,
-      { assetFormat: asset.format, acceptedFormats: spec.acceptedFormats },
-      formatSupported ? undefined : "Convert to supported format or update spec",
-    ),
-  );
+    findings.push(
+      makeFinding(
+        formatSupported ? "format_supported" : "format_unsupported",
+        formatSupported ? "pass" : "fail",
+        formatSupported ? "info" : "error",
+        formatSupported
+          ? `Format ${asset.format} is supported for ${channel}`
+          : `Format ${asset.format} is not in accepted formats: ${spec.acceptedFormats.join(", ")}`,
+        { assetFormat: asset.format, acceptedFormats: spec.acceptedFormats },
+        formatSupported ? undefined : "Convert to supported format or update spec",
+      ),
+    );
+  }
 
   if (spec.maxFileSizeMb !== null && spec.maxFileSizeMb > 0) {
     const assetSizeMb = asset.bytes / (1024 * 1024);
@@ -188,15 +201,77 @@ const matches = aspectRatiosMatch(asset.width, asset.height, specRatio.w, specRa
 
   if (hasSafeZones) {
     if (asset.coordinates && Object.keys(asset.coordinates).length > 0) {
-      findings.push(
-        makeFinding(
-          "safe_zone_ok",
-          "pass",
-          "info",
-          "Safe zones defined and coordinates available for verification",
-          { safeZones: { top: spec.safeZoneTopPx, bottom: spec.safeZoneBottomPx, left: spec.safeZoneLeftPx, right: spec.safeZoneRightPx } },
-        ),
-      );
+      // Try to find subject/text bounds in coordinates
+      let subjectBounds: { x: number; y: number; w: number; h: number } | null = null;
+      for (const [, value] of Object.entries(asset.coordinates)) {
+        if (value && typeof value === "object" && "x" in value && "y" in value && "w" in value && "h" in value) {
+          const v = value as { x: number; y: number; w: number; h: number };
+          subjectBounds = v;
+          break;
+        }
+      }
+
+      if (subjectBounds) {
+        const { x, y, w, h } = subjectBounds;
+        const subjectLeft = x;
+        const subjectRight = x + w;
+        const subjectTop = y;
+        const subjectBottom = y + h;
+
+        let safeZoneViolation = false;
+        const violations: string[] = [];
+
+        if (spec.safeZoneLeftPx !== null && subjectLeft < spec.safeZoneLeftPx) {
+          safeZoneViolation = true;
+          violations.push(`left edge ${subjectLeft} < safe zone left ${spec.safeZoneLeftPx}`);
+        }
+        if (spec.safeZoneRightPx !== null && subjectRight > spec.safeZoneRightPx) {
+          safeZoneViolation = true;
+          violations.push(`right edge ${subjectRight} > safe zone right ${spec.safeZoneRightPx}`);
+        }
+        if (spec.safeZoneTopPx !== null && subjectTop < spec.safeZoneTopPx) {
+          safeZoneViolation = true;
+          violations.push(`top edge ${subjectTop} < safe zone top ${spec.safeZoneTopPx}`);
+        }
+        if (spec.safeZoneBottomPx !== null && subjectBottom > spec.safeZoneBottomPx) {
+          safeZoneViolation = true;
+          violations.push(`bottom edge ${subjectBottom} > safe zone bottom ${spec.safeZoneBottomPx}`);
+        }
+
+        if (safeZoneViolation) {
+          findings.push(
+            makeFinding(
+              "safe_zone_violation",
+              "fail",
+              "error",
+              `Subject extends outside safe zone: ${violations.join("; ")}`,
+              { subjectBounds, safeZones: { top: spec.safeZoneTopPx, bottom: spec.safeZoneBottomPx, left: spec.safeZoneLeftPx, right: spec.safeZoneRightPx }, violations },
+              "Re-shoot or crop to keep subject within safe zones",
+            ),
+          );
+        } else {
+          findings.push(
+            makeFinding(
+              "safe_zone_ok",
+              "pass",
+              "info",
+              "Subject within safe zone boundaries",
+              { subjectBounds, safeZones: { top: spec.safeZoneTopPx, bottom: spec.safeZoneBottomPx, left: spec.safeZoneLeftPx, right: spec.safeZoneRightPx } },
+            ),
+          );
+        }
+      } else {
+        findings.push(
+          makeFinding(
+            "safe_zone_unknown",
+            "unknown",
+            "warning",
+            "Safe zones defined but no recognizable subject/text bounds in coordinates",
+            { safeZones: { top: spec.safeZoneTopPx, bottom: spec.safeZoneBottomPx, left: spec.safeZoneLeftPx, right: spec.safeZoneRightPx } },
+            "Manual review required: verify subject/text within safe zones",
+          ),
+        );
+      }
     } else {
       findings.push(
         makeFinding(
@@ -367,7 +442,7 @@ export function computeChannelResult(
   const warnCount = findings.filter((f) => f.status === "warn").length;
   const failCount = findings.filter((f) => f.status === "fail").length;
   const totalScored = passCount + warnCount + failCount;
-  const score = totalScored > 0 ? Math.round((passCount + warnCount * 0.5) / totalScored * 100) : 0;
+  const score = totalScored > 0 ? Math.round((passCount + warnCount * 0.5) / totalScored * 100) : null;
 
   return {
     channel,

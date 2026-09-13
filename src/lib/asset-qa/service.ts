@@ -91,12 +91,40 @@ async function getAssetAndShoot(input: QAServiceInput): Promise<{
   let shoot: ShootRow | null = null;
   const shootId = input.shootId ?? typedAsset.v2_shoot_id;
   if (shootId) {
+    // Validate shoot belongs to the asset's org to prevent tenant bypass
     const { data: shootData } = await supabase
       .from("shoots")
-      .select("id, target_channels, deliverable_aspect_ratio, deliverable_format")
+      .select("id, target_channels, deliverable_aspect_ratio, deliverable_format, brand_id")
       .eq("id", shootId)
       .maybeSingle();
-    shoot = shootData as ShootRow | null;
+
+    if (shootData) {
+      const typedShootData = shootData as unknown as { brand_id: string | null };
+      if (typedShootData.brand_id) {
+        const { data: shootBrand } = await supabase
+          .from("brands")
+          .select("org_id")
+          .eq("id", typedShootData.brand_id)
+          .maybeSingle();
+
+        if (shootBrand?.org_id === input.orgId) {
+          shoot = shootData as unknown as ShootRow | null;
+        } else {
+          // Shoot belongs to different org - ignore provided shootId, fall back to asset's shoot
+          console.warn(`[asset-qa] Provided shootId ${shootId} belongs to different org, ignoring`);
+        }
+      }
+    }
+  }
+
+  // Fall back to asset's v2_shoot_id if no valid shoot found
+  if (!shoot && typedAsset.v2_shoot_id) {
+    const { data: fallbackShoot } = await supabase
+      .from("shoots")
+      .select("id, target_channels, deliverable_aspect_ratio, deliverable_format")
+      .eq("id", typedAsset.v2_shoot_id)
+      .maybeSingle();
+    shoot = fallbackShoot as ShootRow | null;
   }
 
   const { data: mirror } = await supabase
@@ -178,6 +206,15 @@ function buildCloudinaryAssetMetadataFromMirror(
   };
 }
 
+function getMissingMirrorFields(mirror: { width: number | null; height: number | null; format: string | null; bytes: number | null }): string[] {
+  const missing: string[] = [];
+  if (mirror.width === null) missing.push("width");
+  if (mirror.height === null) missing.push("height");
+  if (mirror.format === null) missing.push("format");
+  if (mirror.bytes === null) missing.push("bytes");
+  return missing;
+}
+
 export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult> {
   const data = await getAssetAndShoot(input);
   if (!data) {
@@ -218,7 +255,22 @@ export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult
     version,
   );
 
+  // Version drift check: verify Cloudinary returned version matches mirror version
+  if (cloudinaryMetadata && cloudinaryMetadata.version !== version) {
+    console.warn(`[asset-qa] Version drift detected: mirror version ${version}, Cloudinary returned ${cloudinaryMetadata.version}`);
+    return { ok: false, reason: "version_drift", status: 409 };
+  }
+
   const assetMetadata = cloudinaryMetadata ?? buildCloudinaryAssetMetadataFromMirror(cloudinaryMirror);
+
+  // Check for missing mirror fields when Cloudinary metadata unavailable
+  if (!cloudinaryMetadata) {
+    const missingFields = getMissingMirrorFields(cloudinaryMirror);
+    if (missingFields.length > 0) {
+      // Add missing_metadata finding to each channel result later
+      (assetMetadata as CloudinaryAssetMetadata & { _missingMirrorFields?: string[] })._missingMirrorFields = missingFields;
+    }
+  }
 
   const channelResults: QAChannelResult[] = [];
 
@@ -250,6 +302,19 @@ export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult
 
     const deliverableReq = deliverableRequirements.get(channel);
     let findings = runDeterministicChecks(assetMetadata, spec, channel);
+
+    // Add missing_metadata finding if mirror fields were missing
+    const missingFields = (assetMetadata as CloudinaryAssetMetadata & { _missingMirrorFields?: string[] })._missingMirrorFields;
+    if (missingFields && missingFields.length > 0) {
+      findings.push({
+        code: "missing_metadata",
+        status: "unknown",
+        severity: "warning",
+        message: `Cloudinary mirror missing required fields: ${missingFields.join(", ")}`,
+        evidence: { missingFields },
+        recommendedAction: "Re-run Cloudinary webhook sync or re-upload asset",
+      });
+    }
 
     if (deliverableReq?.aspectRatio) {
       const assetRatio = aspectRatioToString(assetMetadata.width, assetMetadata.height);
@@ -290,10 +355,12 @@ export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult
   let overallStatus: QAAssetResult["overallStatus"] = "pass";
   if (allStatuses.includes("fail")) overallStatus = "fail";
   else if (allStatuses.includes("warn")) overallStatus = "warn";
-  else if (allStatuses.every((s) => s === "unknown")) overallStatus = "unknown";
+  else if (allStatuses.includes("unknown")) overallStatus = "unknown";
+  else if (allStatuses.every((s) => s === "pass")) overallStatus = "pass";
 
-  const totalScore = channelResults.reduce((sum, c) => sum + c.score, 0);
-  const overallScore = channelResults.length > 0 ? Math.round(totalScore / channelResults.length) : 0;
+  const scoredChannels = channelResults.filter((c) => c.score !== null);
+  const totalScore = scoredChannels.reduce((sum, c) => sum + (c.score ?? 0), 0);
+  const overallScore = scoredChannels.length > 0 ? Math.round(totalScore / scoredChannels.length) : 0;
 
   const result: QAAssetResult = {
     assetId: asset!.id,

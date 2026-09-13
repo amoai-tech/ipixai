@@ -62,14 +62,54 @@ export async function loadChannelSpecsForQA(
 
     for (const rule of rules) {
       const channel = rule.condition_value as string;
-      if ((rule.platform_slugs?.length ?? 0) > 1 || (rule.image_type_slugs?.length ?? 0) > 1) {
-        console.warn(
-          `[asset-qa] rule for "${channel}" has multiple platform/image-type candidates; using only the first`,
-        );
+      const platformSlugs = rule.platform_slugs ?? [];
+      const imageTypeSlugs = rule.image_type_slugs ?? [];
+
+      if (platformSlugs.length === 0 || imageTypeSlugs.length === 0) continue;
+
+      // If multiple candidates, return ambiguity finding instead of picking first
+      if (platformSlugs.length > 1 || imageTypeSlugs.length > 1) {
+        specs.set(channel, {
+          platformId: "ambiguous",
+          platformSlug: "ambiguous",
+          platformName: "Ambiguous",
+          imageTypeId: "ambiguous",
+          imageTypeSlug: "ambiguous",
+          imageTypeName: "Ambiguous",
+          widthPx: 0,
+          heightPx: 0,
+          minWidthPx: null,
+          minHeightPx: null,
+          maxWidthPx: null,
+          maxHeightPx: null,
+          aspectRatioW: null,
+          aspectRatioH: null,
+          aspectRatioLabel: null,
+          acceptedFormats: [],
+          maxFileSizeMb: null,
+          recommendedColorMode: null,
+          safeZoneTopPx: null,
+          safeZoneBottomPx: null,
+          safeZoneLeftPx: null,
+          safeZoneRightPx: null,
+          backgroundRequired: null,
+          productFillMinPct: null,
+          specConfidence: null,
+          organic: false,
+          paid: false,
+          shoppingSupport: false,
+          mobileNotes: null,
+          desktopNotes: null,
+          cropNotes: null,
+          bestUseCases: null,
+          sourceUrl: null,
+          lastVerifiedAt: null,
+        });
+        continue;
       }
-      const platformSlug = rule.platform_slugs?.[0];
-      const imageTypeSlug = rule.image_type_slugs?.[0];
-      if (!platformSlug || !imageTypeSlug) continue;
+
+      const platformSlug = platformSlugs[0];
+      const imageTypeSlug = imageTypeSlugs[0];
 
       const platform = platformBySlug.get(platformSlug);
       const imageType = imageTypeBySlug.get(imageTypeSlug);
@@ -94,7 +134,7 @@ export async function loadChannelSpecsForQA(
         aspectRatioW: spec.aspect_ratio_w ?? null,
         aspectRatioH: spec.aspect_ratio_h ?? null,
         aspectRatioLabel: spec.aspect_ratio_label ?? null,
-        acceptedFormats: spec.accepted_formats ?? [],
+        acceptedFormats: spec.accepted_formats ?? null,
         maxFileSizeMb: spec.max_file_size_mb ?? null,
         recommendedColorMode: spec.recommended_color_mode ?? null,
         safeZoneTopPx: spec.safe_zone_top_px ?? null,
