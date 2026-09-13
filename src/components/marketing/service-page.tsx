@@ -74,7 +74,11 @@ export function ServicePage({
             src={heroImage.src}
             alt={heroImage.alt}
             fill
-            sizes="(min-width: 1024px) 1152px, 100vw"
+            // Container is max-w-6xl (1152px) with px-6 (24px/side) below lg,
+            // lg:px-12 (48px/side) at lg+ — the rendered width is the
+            // padded content box, not the raw 1152px cap (a CodeRabbit
+            // finding on PR #141, confirmed against this exact markup).
+            sizes="(min-width: 1152px) 1056px, (min-width: 1024px) calc(100vw - 96px), calc(100vw - 48px)"
             className="object-cover"
           />
         </div>

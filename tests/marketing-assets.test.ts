@@ -7,8 +7,11 @@ import { describe, expect, it } from "vitest";
 // (home components + the 5 canonical /services/* pages from IPI-1060),
 // extracts every `/images/*` reference, and asserts each one resolves under
 // `public/images`. Legacy counted a 9-service, ~30+ asset set; the current
-// iPix repo intentionally ships a smaller, provenance-verified set — do not
-// reinstate the old counts.
+// iPix repo intentionally ships a smaller, provenance-UNVERIFIED set (see
+// hero-section.tsx's provenance note — these 12 files trace to Lovable
+// AI-scaffolding commits, not a commissioned iPix shoot) — do not reinstate
+// the old counts, and do not describe this set as "verified" until an
+// actual license record exists.
 const ROOT = resolve(__dirname, "..");
 const IMAGES_DIR = resolve(ROOT, "public/images");
 

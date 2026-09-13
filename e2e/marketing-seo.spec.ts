@@ -81,7 +81,18 @@ test.describe("SEO contract: real HTTP routes", () => {
       const response = await page.goto(route);
       expect(response?.status(), `${route} should be publicly reachable`).toBe(200);
       const canonical = await page.locator('link[rel="canonical"]').getAttribute("href");
-      expect(canonical, `${route} canonical should match its own sitemap URL`).toBe(`https://www.ipix.co${route}`);
+      // Compare through URL parsing, not raw string equality: Next's dev
+      // server (this suite's target — see playwright.config.ts's `dev:e2e`)
+      // renders the root path's canonical as "https://www.ipix.co" while a
+      // production build renders "https://www.ipix.co/" — confirmed on both
+      // directly, and production (the actual observable outcome) already
+      // carries the trailing slash. `new URL(...).toString()` normalizes
+      // both to the same value, since it's the same URL either way.
+      expect(canonical, `${route} canonical should resolve`).toBeTruthy();
+      expect(
+        new URL(canonical as string).toString(),
+        `${route} canonical should match its own sitemap URL`,
+      ).toBe(new URL(`https://www.ipix.co${route}`).toString());
     }
   });
 });
