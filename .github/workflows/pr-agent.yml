@@ -1,0 +1,50 @@
+name: PR Agent
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, ready_for_review, synchronize]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: pr-agent-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Review pull request
+        uses: docker://pragent/pr-agent@sha256:548b760b81ab4b3f729182428695ccc1194bbf87528c2b1e2b2b07e5223af7b6
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          github_action_config.auto_review: "true"
+          github_action_config.auto_describe: "false"
+          github_action_config.auto_improve: "false"
+          github_action_config.pr_actions: '["opened", "reopened", "ready_for_review", "synchronize"]'
+          config.restricted_mode: "true"
+          config.output_run_details: "true"
+          config.repo_context_files: '["AGENTS.md", "docs/pr-review-guidelines.md"]'
+          config.repo_context_from_default_branch: "true"
+          config.repo_context_max_lines: "500"
+          skills.enabled: "false"
+          pr_reviewer.require_score_review: "true"
+          pr_reviewer.require_ticket_analysis_review: "false"
+          pr_reviewer.require_risk_assessment: "true"
+          pr_reviewer.require_merge_recommendation: "true"
+          pr_reviewer.require_priority_files: "true"
+          pr_reviewer.persistent_comment: "true"
+          pr_reviewer.persistent_finding_state: "false"
+          pr_reviewer.num_max_findings: "6"
+          pr_reviewer.enable_large_pr_chunking: "true"
+          pr_reviewer.max_number_of_calls: "3"
