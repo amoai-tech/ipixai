@@ -188,7 +188,12 @@ export function buildDbMirrors(rows: DbRow[], events: EventRow[]): DbMirror[] {
     const isWebhookMirror = metadataValue(row.metadata, "source") === "cloudinary_webhook" && metadataValue(row.metadata, "org_id") !== null;
     const sameIdEvents = events.filter((event) => event.cloudinary_asset_id === row.cloudinary_asset_id);
     const hasWebhookUpload = sameIdEvents.some((event) =>
-      event.kind === "upload" && event.version === row.version && metadataValue(event.metadata, "source") === "cloudinary_webhook",
+      event.kind === "upload" && metadataValue(event.metadata, "source") === "cloudinary_webhook",
+    );
+    const hasTrustedCurrentVersion = sameIdEvents.some((event) =>
+      (event.kind === "upload" || event.kind === "overwrite") &&
+      event.version === row.version &&
+      metadataValue(event.metadata, "source") === "cloudinary_webhook",
     );
     const hasMatchingDeleteEvent = sameIdEvents.some((event) =>
       event.kind === "deleted" && event.version === row.version && metadataValue(event.metadata, "source") === "cloudinary_webhook",
@@ -198,7 +203,7 @@ export function buildDbMirrors(rows: DbRow[], events: EventRow[]): DbMirror[] {
       cloudinaryAssetId: row.cloudinary_asset_id,
       version: row.version,
       status: row.status,
-      trustedV2: isWebhookMirror && hasWebhookUpload,
+      trustedV2: isWebhookMirror && hasWebhookUpload && hasTrustedCurrentVersion,
       hasMatchingDeleteEvent,
     };
   });
