@@ -1,0 +1,72 @@
+name: Testomat E2E
+
+# Intentionally dispatch-only: Testomat.io triggers this workflow via
+# workflow_dispatch. Normal push/PR verification remains in ci.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: "Playwright grep pattern supplied by Testomat.io"
+        required: false
+        default: ""
+      run:
+        description: "Existing Testomat.io run ID"
+        required: false
+        default: ""
+      testomatio:
+        description: "Testomat.io project reporting token (required for reporting)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      COPILOTKIT_TELEMETRY_DISABLED: "true"
+      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      E2E_TEST_EMAIL_ORG_B: ${{ secrets.E2E_TEST_EMAIL_ORG_B }}
+      E2E_TEST_PASSWORD_ORG_B: ${{ secrets.E2E_TEST_PASSWORD_ORG_B }}
+      E2E_TEST_EMAIL_SHOOTS: ${{ secrets.E2E_TEST_EMAIL_SHOOTS }}
+      E2E_TEST_PASSWORD_SHOOTS: ${{ secrets.E2E_TEST_PASSWORD_SHOOTS }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - run: PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium
+
+      - name: Run Playwright and report to Testomat.io
+        env:
+          TESTOMATIO: ${{ inputs.testomatio }}
+          TESTOMATIO_RUN: ${{ inputs.run }}
+          TESTOMATIO_TITLE: "GitHub Actions · ${{ github.ref_name }}"
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PLAYWRIGHT_BROWSERS_PATH: "0"
+          GREP: ${{ inputs.grep }}
+        run: |
+          npx @testomatio/reporter@2.16.0 run \
+            "node .github/scripts/run-testomatio-playwright.mjs"
+
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore
