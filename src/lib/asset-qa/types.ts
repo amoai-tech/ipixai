@@ -9,6 +9,7 @@ export interface QAFinding {
   message: string;
   evidence?: Record<string, unknown>;
   recommendedAction?: string;
+  isAdvisory?: boolean;
 }
 
 export interface QAChannelResult {

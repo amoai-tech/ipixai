@@ -425,7 +425,7 @@ export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult
     }
 
     const qualityFindings = runCloudinaryQualityChecks(assetMetadata);
-    const advisoryFindings = qualityFindings.map((f) => ({ ...f, _advisory: true }));
+    const advisoryFindings = qualityFindings.map((f) => ({ ...f, isAdvisory: true }));
     findings = [...findings, ...advisoryFindings];
 
     channelResults.push(computeChannelResult(channel, effectiveSpec, findings));

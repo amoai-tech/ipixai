@@ -1,6 +1,5 @@
 import { getVerifiedOperatorForRequest } from "@/lib/auth/copilot-hooks";
 import {
-  forbiddenResponse,
   membershipLookupFailedResponse,
   unauthorizedResponse,
 } from "@/lib/auth/unauthorized";

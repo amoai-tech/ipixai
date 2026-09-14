@@ -45,7 +45,7 @@ export function AssetsTab({ detail }: { detail: ShootDetail }) {
       <p className={styles.sectionTitle}>{formatCountLabel(count, "asset")}</p>
       <div className={styles.assetGrid} role="list" aria-label="Shoot assets">
         {detail.assets.map((asset) => (
-          <AssetCard key={asset.id} asset={asset} shootId={detail.shoot.id} />
+          <AssetCard key={asset.id} asset={asset} />
         ))}
       </div>
       <ShootAssetUploader brandId={detail.shoot.brand_id} shootId={detail.shoot.id} />
@@ -53,7 +53,7 @@ export function AssetsTab({ detail }: { detail: ShootDetail }) {
   );
 }
 
-function AssetCard({ asset, shootId }: { asset: ShootDetail["assets"][0]; shootId: string }) {
+function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
   const isVideo = asset.resource_type === "video";
   const isRaw = asset.resource_type === "raw";
   const isImage = asset.resource_type === "image";
@@ -107,7 +107,7 @@ function AssetCard({ asset, shootId }: { asset: ShootDetail["assets"][0]; shootI
     setAttempt((a) => a + 1);
   };
 
-  const runQA = async () => {
+const runQA = async () => {
     setQaLoading(true);
     setQaError(null);
     try {
@@ -127,6 +127,10 @@ function AssetCard({ asset, shootId }: { asset: ShootDetail["assets"][0]; shootI
     } finally {
       setQaLoading(false);
     }
+  };
+
+  const handleRunQA = () => {
+    runQA();
   };
 
   if (loading) {
@@ -215,7 +219,7 @@ function AssetCard({ asset, shootId }: { asset: ShootDetail["assets"][0]; shootI
       <div className="mt-3 pt-3 border-t border-gray-200">
         <button
           type="button"
-          onClick={() => setShowQA(!showQA)}
+          onClick={() => { setShowQA(!showQA); }}
           className="w-full py-2 px-3 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
         >
           {showQA ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}

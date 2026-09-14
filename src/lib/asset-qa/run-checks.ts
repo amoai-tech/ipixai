@@ -470,8 +470,8 @@ export function computeChannelResult(
   findings: QAFinding[],
 ): QAChannelResult {
   // Separate required (deterministic) findings from advisory (provider) findings
-  const requiredFindings = findings.filter((f) => !(f as any)._advisory);
-  const advisoryFindings = findings.filter((f) => (f as any)._advisory);
+  const requiredFindings = findings.filter((f) => !f.isAdvisory);
+  const advisoryFindings = findings.filter((f) => f.isAdvisory);
 
   const requiredStatuses = requiredFindings.map((f) => f.status);
   let overallStatus: QAFindingStatus = "pass";
