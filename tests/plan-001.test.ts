@@ -281,3 +281,64 @@ describe("composeShootPlan tool registration", () => {
     expect(tool.outputSchema).toBeTruthy();
   });
 });
+
+// ---------------------------------------------------------------------------
+// AG-UI/CopilotKit handoff — the exact ShootPlan survives the wire boundary
+// ---------------------------------------------------------------------------
+//
+// The installed @ag-ui/mastra adapter (node_modules/@ag-ui/mastra) emits a
+// tool's result as a TOOL_CALL_RESULT event whose `content` field is
+// `JSON.stringify(result)` (see its onToolResultPart handler) — there is no
+// custom encoding, binary framing, or lossy remapping in between. That JSON
+// round-trip is therefore the actual wire boundary this task's "no lossy
+// reconstruction" requirement is about. This test exercises it directly with
+// a maximally-populated ShootPlan (every PlanField confirmed, real shots,
+// budget, assumptions) rather than relying only on the separate, generic
+// "every tool has schemas" proof in mastra-registry-contract.test.ts.
+describe("composeShootPlan AG-UI/CopilotKit wire handoff", () => {
+  it("survives the exact JSON.stringify/parse round-trip @ag-ui/mastra performs on a tool result, unchanged and still schema-valid", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY, REF_IG_LIFESTYLE];
+    const plan = await composeShootPlan(
+      baseInput({
+        channels: ["shopify", "instagram_feed"],
+        objective: "Launch the SS27 dress line",
+        mediaType: "photo",
+        location: "Studio A, downtown",
+        lighting: "Softbox, 5600K",
+        setBackground: "Seamless white",
+        talent: "In-house model roster",
+        crew: "2 photographers, 1 stylist",
+        studio: "iPix Studio A",
+        equipment: "Canon R5, 85mm prime",
+        scheduleStartDate: "2027-03-01",
+        scheduleEndDate: "2027-03-03",
+        scheduleNotes: "Golden hour exteriors on day 2",
+        campaignContext: "SS27 launch campaign, approved creative direction v3",
+      }),
+    );
+
+    // The exact operation @ag-ui/mastra's onToolResultPart performs:
+    // `content: JSON.stringify(e.result)` — decoded back on the client side.
+    const wireContent = JSON.stringify(plan);
+    const received = JSON.parse(wireContent);
+
+    expect(received).toEqual(plan);
+    // Every provenance/identity detail this task requires to survive:
+    expect(received.objective).toEqual({ status: "confirmed", value: "Launch the SS27 dress line", source: "operator" });
+    expect(received.schedule).toEqual({
+      status: "confirmed",
+      value: { startDate: "2027-03-01", endDate: "2027-03-03", notes: "Golden hour exteriors on day 2" },
+      source: "operator",
+    });
+    expect(received.referencesUsed.length).toBeGreaterThan(0);
+    for (const ref of received.referencesUsed) {
+      expect(typeof ref.id).toBe("string");
+      expect(typeof ref.angle).toBe("string");
+    }
+    // The round-tripped object must still validate against the exact same
+    // schema the tool's outputSchema is bound to — proving no field silently
+    // became schema-invalid (e.g. an undefined dropped by JSON.stringify)
+    // across the boundary.
+    expect(() => ShootPlanSchema.parse(received)).not.toThrow();
+  });
+});

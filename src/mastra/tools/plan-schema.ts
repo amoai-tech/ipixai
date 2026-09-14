@@ -54,6 +54,17 @@ const ScheduleSchema = z.object({
   notes: z.string().max(MAX_TEXT_LENGTH).optional(),
 });
 
+// A *confirmed* schedule specifically must carry both dates — notes alone
+// (or one date) is a real partial input, not a confirmed schedule. This is
+// enforced here, at the schema itself, as a second, independent layer on
+// top of compose-shoot-plan.ts's own call-site check (which already never
+// constructs a confirmed schedule without both dates) — so the invariant
+// holds even if a schedule is ever constructed a different way in future.
+const ConfirmedScheduleSchema = ScheduleSchema.refine(
+  (schedule) => Boolean(schedule.startDate && schedule.endDate),
+  { message: "A confirmed schedule requires both startDate and endDate" },
+);
+
 export const ShootPlanSchema = z.object({
   // Verified, always-known inputs to the plan (required to call
   // composeShootPlan at all — never a fabrication risk).
@@ -79,7 +90,7 @@ export const ShootPlanSchema = z.object({
   crew: planField(z.string().max(MAX_TEXT_LENGTH)),
   studio: planField(z.string().max(MAX_TEXT_LENGTH)),
   equipment: planField(z.string().max(MAX_TEXT_LENGTH)),
-  schedule: planField(ScheduleSchema),
+  schedule: planField(ConfirmedScheduleSchema),
   campaignContext: planField(z.string().max(MAX_TEXT_LENGTH)),
 
   // Roll-ups across every section above — one place to check "is this plan
