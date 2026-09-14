@@ -49,6 +49,7 @@ export function runDeterministicChecks(
 ): QAFinding[] {
   const findings: QAFinding[] = [];
 
+  // Aspect ratio check
   if (!spec.aspectRatioLabel) {
     findings.push(
       makeFinding(
@@ -63,19 +64,19 @@ export function runDeterministicChecks(
   } else {
     const specRatio = parseAspectRatio(spec.aspectRatioLabel);
     if (specRatio) {
-const matches = aspectRatiosMatch(asset.width, asset.height, specRatio.w, specRatio.h);
-    findings.push(
-      makeFinding(
-        matches ? "aspect_ratio_valid" : "aspect_ratio_mismatch",
-        matches ? "pass" : "fail",
-        matches ? "info" : "error",
-        matches
-          ? `Aspect ratio ${asset.width}:${asset.height} matches spec ${spec.aspectRatioLabel}`
-          : `Aspect ratio ${asset.width}:${asset.height} does not match spec ${spec.aspectRatioLabel}`,
-        { assetAspectRatio: `${asset.width}:${asset.height}`, specAspectRatio: spec.aspectRatioLabel },
-        matches ? undefined : "Re-shoot or crop to match required aspect ratio",
-      ),
-    );
+      const matches = aspectRatiosMatch(asset.width, asset.height, specRatio.w, specRatio.h);
+      findings.push(
+        makeFinding(
+          matches ? "aspect_ratio_valid" : "aspect_ratio_mismatch",
+          matches ? "pass" : "fail",
+          matches ? "info" : "error",
+          matches
+            ? `Aspect ratio ${asset.width}:${asset.height} matches spec ${spec.aspectRatioLabel}`
+            : `Aspect ratio ${asset.width}:${asset.height} does not match spec ${spec.aspectRatioLabel}`,
+          { assetAspectRatio: `${asset.width}:${asset.height}`, specAspectRatio: spec.aspectRatioLabel },
+          matches ? undefined : "Re-shoot or crop to match required aspect ratio",
+        ),
+      );
     } else {
       findings.push(
         makeFinding(
@@ -90,11 +91,17 @@ const matches = aspectRatiosMatch(asset.width, asset.height, specRatio.w, specRa
     }
   }
 
+  // Resolution check: use canonical width/height as fallback minimums when explicit mins absent
   if (spec.widthPx && spec.heightPx) {
-    const meetsMinWidth = !spec.minWidthPx || asset.width >= spec.minWidthPx;
-    const meetsMinHeight = !spec.minHeightPx || asset.height >= spec.minHeightPx;
-    const meetsMaxWidth = !spec.maxWidthPx || asset.width <= spec.maxWidthPx;
-    const meetsMaxHeight = !spec.maxHeightPx || asset.height <= spec.maxHeightPx;
+    const effectiveMinWidth = spec.minWidthPx ?? spec.widthPx;
+    const effectiveMinHeight = spec.minHeightPx ?? spec.heightPx;
+    const effectiveMaxWidth = spec.maxWidthPx ?? null;
+    const effectiveMaxHeight = spec.maxHeightPx ?? null;
+
+    const meetsMinWidth = asset.width >= effectiveMinWidth;
+    const meetsMinHeight = asset.height >= effectiveMinHeight;
+    const meetsMaxWidth = effectiveMaxWidth === null || asset.width <= effectiveMaxWidth;
+    const meetsMaxHeight = effectiveMaxHeight === null || asset.height <= effectiveMaxHeight;
 
     const resolutionOk = meetsMinWidth && meetsMinHeight && meetsMaxWidth && meetsMaxHeight;
 
@@ -104,21 +111,22 @@ const matches = aspectRatiosMatch(asset.width, asset.height, specRatio.w, specRa
         resolutionOk ? "pass" : "fail",
         resolutionOk ? "info" : "error",
         resolutionOk
-          ? `Resolution ${asset.width}×${asset.height} meets spec requirements`
-          : `Resolution ${asset.width}×${asset.height} does not meet spec (min: ${spec.minWidthPx ?? "any"}×${spec.minHeightPx ?? "any"}, max: ${spec.maxWidthPx ?? "any"}×${spec.maxHeightPx ?? "any"})`,
+          ? `Resolution ${asset.width}×${asset.height} meets spec requirements (min: ${effectiveMinWidth}×${effectiveMinHeight})`
+          : `Resolution ${asset.width}×${asset.height} does not meet spec (min: ${effectiveMinWidth}×${effectiveMinHeight}${effectiveMaxWidth ? `, max: ${effectiveMaxWidth}×${effectiveMaxHeight}` : ""})`,
         {
           assetWidth: asset.width,
           assetHeight: asset.height,
-          specMinWidth: spec.minWidthPx,
-          specMinHeight: spec.minHeightPx,
-          specMaxWidth: spec.maxWidthPx,
-          specMaxHeight: spec.maxHeightPx,
+          specMinWidth: effectiveMinWidth,
+          specMinHeight: effectiveMinHeight,
+          specMaxWidth: effectiveMaxWidth,
+          specMaxHeight: effectiveMaxHeight,
         },
         resolutionOk ? undefined : "Re-shoot at higher resolution or check spec limits",
       ),
     );
   }
 
+  // Format check
   const assetFormatUpper = asset.format.toUpperCase();
   if (!spec.acceptedFormats || spec.acceptedFormats.length === 0) {
     findings.push(
@@ -149,6 +157,7 @@ const matches = aspectRatiosMatch(asset.width, asset.height, specRatio.w, specRa
     );
   }
 
+  // File size check
   if (spec.maxFileSizeMb !== null && spec.maxFileSizeMb > 0) {
     const assetSizeMb = asset.bytes / (1024 * 1024);
     const sizeOk = assetSizeMb <= spec.maxFileSizeMb;
@@ -167,6 +176,7 @@ const matches = aspectRatiosMatch(asset.width, asset.height, specRatio.w, specRa
     );
   }
 
+  // Background requirement
   if (spec.backgroundRequired) {
     findings.push(
       makeFinding(
@@ -180,6 +190,7 @@ const matches = aspectRatiosMatch(asset.width, asset.height, specRatio.w, specRa
     );
   }
 
+  // Product fill requirement
   if (spec.productFillMinPct !== null && spec.productFillMinPct > 0) {
     findings.push(
       makeFinding(
@@ -193,6 +204,7 @@ const matches = aspectRatiosMatch(asset.width, asset.height, specRatio.w, specRa
     );
   }
 
+  // Safe zone check: treat right/bottom as margins (insets from edges)
   const hasSafeZones =
     spec.safeZoneTopPx !== null ||
     spec.safeZoneBottomPx !== null ||
@@ -218,24 +230,30 @@ const matches = aspectRatiosMatch(asset.width, asset.height, specRatio.w, specRa
         const subjectTop = y;
         const subjectBottom = y + h;
 
+        // Compute safe zone boundaries: top/left are absolute, right/bottom are margins from edges
+        const safeLeft = spec.safeZoneLeftPx ?? 0;
+        const safeRight = spec.safeZoneRightPx !== null ? asset.width - spec.safeZoneRightPx : asset.width;
+        const safeTop = spec.safeZoneTopPx ?? 0;
+        const safeBottom = spec.safeZoneBottomPx !== null ? asset.height - spec.safeZoneBottomPx : asset.height;
+
         let safeZoneViolation = false;
         const violations: string[] = [];
 
-        if (spec.safeZoneLeftPx !== null && subjectLeft < spec.safeZoneLeftPx) {
+        if (subjectLeft < safeLeft) {
           safeZoneViolation = true;
-          violations.push(`left edge ${subjectLeft} < safe zone left ${spec.safeZoneLeftPx}`);
+          violations.push(`left edge ${subjectLeft} < safe zone left ${safeLeft}`);
         }
-        if (spec.safeZoneRightPx !== null && subjectRight > spec.safeZoneRightPx) {
+        if (subjectRight > safeRight) {
           safeZoneViolation = true;
-          violations.push(`right edge ${subjectRight} > safe zone right ${spec.safeZoneRightPx}`);
+          violations.push(`right edge ${subjectRight} > safe zone right ${safeRight}`);
         }
-        if (spec.safeZoneTopPx !== null && subjectTop < spec.safeZoneTopPx) {
+        if (subjectTop < safeTop) {
           safeZoneViolation = true;
-          violations.push(`top edge ${subjectTop} < safe zone top ${spec.safeZoneTopPx}`);
+          violations.push(`top edge ${subjectTop} < safe zone top ${safeTop}`);
         }
-        if (spec.safeZoneBottomPx !== null && subjectBottom > spec.safeZoneBottomPx) {
+        if (subjectBottom > safeBottom) {
           safeZoneViolation = true;
-          violations.push(`bottom edge ${subjectBottom} > safe zone bottom ${spec.safeZoneBottomPx}`);
+          violations.push(`bottom edge ${subjectBottom} > safe zone bottom ${safeBottom}`);
         }
 
         if (safeZoneViolation) {
@@ -245,7 +263,7 @@ const matches = aspectRatiosMatch(asset.width, asset.height, specRatio.w, specRa
               "fail",
               "error",
               `Subject extends outside safe zone: ${violations.join("; ")}`,
-              { subjectBounds, safeZones: { top: spec.safeZoneTopPx, bottom: spec.safeZoneBottomPx, left: spec.safeZoneLeftPx, right: spec.safeZoneRightPx }, violations },
+              { subjectBounds, safeZones: { top: safeTop, bottom: safeBottom, left: safeLeft, right: safeRight }, violations },
               "Re-shoot or crop to keep subject within safe zones",
             ),
           );
@@ -256,7 +274,7 @@ const matches = aspectRatiosMatch(asset.width, asset.height, specRatio.w, specRa
               "pass",
               "info",
               "Subject within safe zone boundaries",
-              { subjectBounds, safeZones: { top: spec.safeZoneTopPx, bottom: spec.safeZoneBottomPx, left: spec.safeZoneLeftPx, right: spec.safeZoneRightPx } },
+              { subjectBounds, safeZones: { top: safeTop, bottom: safeBottom, left: safeLeft, right: safeRight } },
             ),
           );
         }
@@ -286,6 +304,7 @@ const matches = aspectRatiosMatch(asset.width, asset.height, specRatio.w, specRa
     }
   }
 
+  // Spec provenance checks
   if (spec.specConfidence === "community") {
     findings.push(
       makeFinding(
@@ -295,6 +314,30 @@ const matches = aspectRatiosMatch(asset.width, asset.height, specRatio.w, specRa
         `Spec confidence is "community" — not officially verified`,
         { specConfidence: spec.specConfidence, sourceUrl: spec.sourceUrl },
         "Verify spec against official platform documentation",
+      ),
+    );
+  } else if (spec.specConfidence === "estimated" || spec.specConfidence === null) {
+    findings.push(
+      makeFinding(
+        "spec_confidence_low",
+        "warn",
+        "warning",
+        `Spec confidence is "${spec.specConfidence ?? "missing"}" — not officially verified`,
+        { specConfidence: spec.specConfidence, sourceUrl: spec.sourceUrl },
+        "Verify spec against official platform documentation",
+      ),
+    );
+  }
+
+  if (!spec.sourceUrl) {
+    findings.push(
+      makeFinding(
+        "spec_missing",
+        "unknown",
+        "warning",
+        `Channel "${channel}" spec missing source URL`,
+        { sourceUrl: spec.sourceUrl },
+        "Add source URL to channel spec in Supabase",
       ),
     );
   }
@@ -315,6 +358,17 @@ const matches = aspectRatiosMatch(asset.width, asset.height, specRatio.w, specRa
         ),
       );
     }
+  } else {
+    findings.push(
+      makeFinding(
+        "spec_missing",
+        "unknown",
+        "warning",
+        `Channel "${channel}" spec missing verification timestamp`,
+        { lastVerifiedAt: spec.lastVerifiedAt },
+        "Add last_verified_at to channel spec in Supabase",
+      ),
+    );
   }
 
   return findings;
@@ -431,16 +485,21 @@ export function computeChannelResult(
   spec: ChannelSpecFull,
   findings: QAFinding[],
 ): QAChannelResult {
-  const statuses = findings.map((f) => f.status);
-  let overallStatus: QAFindingStatus = "pass";
-  if (statuses.includes("fail")) overallStatus = "fail";
-  else if (statuses.includes("warn")) overallStatus = "warn";
-  else if (statuses.includes("unknown")) overallStatus = "unknown";
-  else if (statuses.every((s) => s === "pass")) overallStatus = "pass";
+  // Separate required (deterministic) findings from advisory (provider) findings
+  const requiredFindings = findings.filter((f) => !(f as any)._advisory);
+  const advisoryFindings = findings.filter((f) => (f as any)._advisory);
 
-  const passCount = findings.filter((f) => f.status === "pass").length;
-  const warnCount = findings.filter((f) => f.status === "warn").length;
-  const failCount = findings.filter((f) => f.status === "fail").length;
+  const requiredStatuses = requiredFindings.map((f) => f.status);
+  let overallStatus: QAFindingStatus = "pass";
+  if (requiredStatuses.includes("fail")) overallStatus = "fail";
+  else if (requiredStatuses.includes("warn")) overallStatus = "warn";
+  else if (requiredStatuses.includes("unknown")) overallStatus = "unknown";
+  else if (requiredStatuses.every((s) => s === "pass")) overallStatus = "pass";
+
+  // Score only based on required findings; advisory findings don't affect score
+  const passCount = requiredFindings.filter((f) => f.status === "pass").length;
+  const warnCount = requiredFindings.filter((f) => f.status === "warn").length;
+  const failCount = requiredFindings.filter((f) => f.status === "fail").length;
   const totalScored = passCount + warnCount + failCount;
   const score = totalScored > 0 ? Math.round((passCount + warnCount * 0.5) / totalScored * 100) : null;
 

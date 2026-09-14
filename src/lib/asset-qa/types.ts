@@ -34,7 +34,7 @@ export interface QAAssetResult {
   aspectRatio: string;
   channels: QAChannelResult[];
   overallStatus: QAFindingStatus;
-  overallScore: number;
+  overallScore: number | null;
   checkedAt: string;
   checkerVersion: string;
 }
@@ -156,7 +156,8 @@ export type QAFindingCode =
   | "transform_available"
   | "spec_missing"
   | "spec_stale"
-  | "spec_confidence_low";
+  | "spec_confidence_low"
+  | "provider_enrichment_unavailable";
 
 export const QA_FINDING_CODES = {
   ASPECT_RATIO_MISMATCH: "aspect_ratio_mismatch" as QAFindingCode,
@@ -187,4 +188,5 @@ export const QA_FINDING_CODES = {
   SPEC_MISSING: "spec_missing" as QAFindingCode,
   SPEC_STALE: "spec_stale" as QAFindingCode,
   SPEC_CONFIDENCE_LOW: "spec_confidence_low" as QAFindingCode,
+  PROVIDER_ENRICHMENT_UNAVAILABLE: "provider_enrichment_unavailable" as QAFindingCode,
 } as const;

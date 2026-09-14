@@ -23,7 +23,7 @@ function jsonError(
 /**
  * IPI-1138 · ASSET-QA-001 — Asset Quality & Channel Readiness Check
  * POST /api/assets/[assetId]/qa
- * Body: { channels?: string[], shootId?: string }
+ * Body: {} (empty - shootId and channels are derived from asset/shoot)
  * Returns structured QA findings for the exact asset version.
  */
 export async function POST(
@@ -37,29 +37,6 @@ export async function POST(
   if (!supabase) return unauthorizedResponse();
 
   const { assetId } = await context.params;
-
-  let body: { channels?: string[]; shootId?: string } = {};
-  try {
-    const parsed = await request.json();
-    if (parsed !== null && typeof parsed === "object") {
-      body = parsed;
-    }
-  } catch {
-    return jsonError(400, "bad_request", "invalid_json");
-  }
-
-  // Validate body fields
-  const { channels, shootId } = body;
-
-  if (channels !== undefined) {
-    if (!Array.isArray(channels) || channels.some((c) => typeof c !== "string" || c.length === 0 || c.length > 100)) {
-      return jsonError(400, "bad_request", "channels must be array of non-empty strings");
-    }
-  }
-
-  if (shootId !== undefined && (typeof shootId !== "string" || shootId.length === 0)) {
-    return jsonError(400, "bad_request", "shootId must be non-empty string");
-  }
 
   // Verify operator has access to this asset's org
   const { data: asset, error: assetError } = await supabase
@@ -99,8 +76,6 @@ export async function POST(
   const result = await runAssetQA({
     assetId,
     orgId: brand.org_id,
-    shootId,
-    channels,
   });
 
   if (!result.ok) {

@@ -22,14 +22,42 @@ export async function loadChannelSpecsForQA(
 
     if (rulesError || !rules?.length) return specs;
 
-    const platformSlugs = [...new Set(rules.flatMap((r) => r.platform_slugs ?? []))];
-    const imageTypeSlugs = [...new Set(rules.flatMap((r) => r.image_type_slugs ?? []))];
-    if (!platformSlugs.length || !imageTypeSlugs.length) return specs;
+    // Group all candidates by channel to detect ambiguity across ALL rules
+    const channelCandidates = new Map<string, { platformSlug: string; imageTypeSlug: string }[]>();
+
+    for (const rule of rules) {
+      const channel = rule.condition_value as string;
+      const platformSlugs = rule.platform_slugs ?? [];
+      const imageTypeSlugs = rule.image_type_slugs ?? [];
+
+      if (platformSlugs.length === 0 || imageTypeSlugs.length === 0) continue;
+
+      // Cartesian product of platform_slugs × image_type_slugs for this rule
+      for (const platformSlug of platformSlugs) {
+        for (const imageTypeSlug of imageTypeSlugs) {
+          const candidates = channelCandidates.get(channel) ?? [];
+          candidates.push({ platformSlug, imageTypeSlug });
+          channelCandidates.set(channel, candidates);
+        }
+      }
+    }
+
+    // Collect all unique platform/image-type slugs needed
+    const allPlatformSlugs = new Set<string>();
+    const allImageTypeSlugs = new Set<string>();
+    for (const candidates of channelCandidates.values()) {
+      for (const c of candidates) {
+        allPlatformSlugs.add(c.platformSlug);
+        allImageTypeSlugs.add(c.imageTypeSlug);
+      }
+    }
+
+    if (!allPlatformSlugs.size || !allImageTypeSlugs.size) return specs;
 
     const [{ data: platforms, error: platformsError }, { data: imageTypes, error: imageTypesError }] =
       await Promise.all([
-        supabase.from("platforms").select("id, slug, name").in("slug", platformSlugs),
-        supabase.from("image_type_defs").select("id, slug, name").in("slug", imageTypeSlugs),
+        supabase.from("platforms").select("id, slug, name").in("slug", [...allPlatformSlugs]),
+        supabase.from("image_type_defs").select("id, slug, name").in("slug", [...allImageTypeSlugs]),
       ]);
 
     if (platformsError || imageTypesError || !platforms?.length || !imageTypes?.length) return specs;
@@ -60,15 +88,28 @@ export async function loadChannelSpecsForQA(
       specRows.map((row) => [`${row.platform_id}:${row.image_type_id}`, row]),
     );
 
-    for (const rule of rules) {
-      const channel = rule.condition_value as string;
-      const platformSlugs = rule.platform_slugs ?? [];
-      const imageTypeSlugs = rule.image_type_slugs ?? [];
+    // Now resolve each channel: if exactly one candidate pair has a spec, use it; otherwise ambiguous
+    for (const [channel, candidates] of channelCandidates.entries()) {
+const validCandidates: { platformSlug: string; imageTypeSlug: string; spec: any; platform: any; imageType: any }[] = [];
 
-      if (platformSlugs.length === 0 || imageTypeSlugs.length === 0) continue;
+      for (const { platformSlug, imageTypeSlug } of candidates) {
+        const platform = platformBySlug.get(platformSlug);
+        const imageType = imageTypeBySlug.get(imageTypeSlug);
+        if (!platform || !imageType) continue;
 
-      // If multiple candidates, return ambiguity finding instead of picking first
-      if (platformSlugs.length > 1 || imageTypeSlugs.length > 1) {
+        const spec = specByPair.get(`${platform.id}:${imageType.id}`);
+        if (!spec) continue;
+
+        validCandidates.push({ platformSlug, imageTypeSlug, spec, platform, imageType });
+      }
+
+      if (validCandidates.length === 0) {
+        // No valid spec found for any candidate
+        continue;
+      }
+
+      if (validCandidates.length > 1) {
+        // Ambiguous: multiple valid platform/image-type pairs for this channel
         specs.set(channel, {
           platformId: "ambiguous",
           platformSlug: "ambiguous",
@@ -85,7 +126,7 @@ export async function loadChannelSpecsForQA(
           aspectRatioW: null,
           aspectRatioH: null,
           aspectRatioLabel: null,
-          acceptedFormats: [],
+          acceptedFormats: null,
           maxFileSizeMb: null,
           recommendedColorMode: null,
           safeZoneTopPx: null,
@@ -108,22 +149,15 @@ export async function loadChannelSpecsForQA(
         continue;
       }
 
-      const platformSlug = platformSlugs[0];
-      const imageTypeSlug = imageTypeSlugs[0];
-
-      const platform = platformBySlug.get(platformSlug);
-      const imageType = imageTypeBySlug.get(imageTypeSlug);
-      if (!platform || !imageType) continue;
-
-      const spec = specByPair.get(`${platform.id}:${imageType.id}`);
-      if (!spec) continue;
+      // Exactly one valid candidate
+      const { spec, platform, imageType } = validCandidates[0];
 
       specs.set(channel, {
         platformId: platform.id,
-        platformSlug,
+        platformSlug: platform.slug,
         platformName: platform.name,
         imageTypeId: imageType.id,
-        imageTypeSlug,
+        imageTypeSlug: imageType.slug,
         imageTypeName: imageType.name,
         widthPx: spec.width_px,
         heightPx: spec.height_px,
