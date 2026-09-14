@@ -100,7 +100,7 @@ describe("IPI-1042 runtime family", () => {
     expect(libsql.version).toBe("1.22.2");
     expect(client.version).toBe("1.42.4");
     expect(cli.version).toBe("1.27.2");
-    expect(agui.version).toBe("1.1.2");
+    expect(agui.version).toBe("1.1.4");
     expect(copilot.version).toBe("1.68.1");
 
     const peer = pg.peerDependencies?.["@mastra/core"];
