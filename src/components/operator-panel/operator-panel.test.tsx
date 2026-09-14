@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { plannerThreadStorageKey } from "@/mastra/thread-types";
 
 type MqListener = (event: MediaQueryListEvent) => void;
 
@@ -57,11 +59,26 @@ vi.mock("./operator-panel.module.css", () => ({
 // which this repo's plain-node Vitest config (no CSS transform) can't load.
 // Stubbed here rather than adding a project-wide CSS plugin for one test —
 // these tests assert OperatorPanel's own shell/nav/rail behavior, not
-// CopilotKit's internals.
+// CopilotKit's internals. threadId and the welcome label are surfaced via
+// data attributes, not visible children: the real CopilotChat never
+// displays labels.welcomeMessageText once threadId is explicit (IPI-1217 —
+// see operator-panel.tsx's isNewThread comment), and PlannerChatDock now
+// renders that copy itself in a real, visible paragraph — a stub that also
+// echoed the label as text would double-render it and mask that gate.
 vi.mock("@copilotkit/react-core/v2", () => ({
   CopilotKit: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  CopilotChat: ({ labels }: { labels?: { welcomeMessageText?: string } }) => (
-    <div data-testid="copilot-chat-stub">{labels?.welcomeMessageText}</div>
+  CopilotChat: ({
+    labels,
+    threadId,
+  }: {
+    labels?: { welcomeMessageText?: string };
+    threadId?: string;
+  }) => (
+    <div
+      data-testid="copilot-chat-stub"
+      data-thread-id={threadId}
+      data-welcome-message={labels?.welcomeMessageText}
+    />
   ),
 }));
 
@@ -89,10 +106,33 @@ import { OperatorPanel } from "./operator-panel";
 import { navItemIsActive, OPERATOR_NAV } from "./nav";
 import { ReportWorkspaceStats } from "./workspace-stats";
 
-afterEach(() => cleanup());
+const DEFAULT_RESOURCE_ID = "org-1";
+
+/** IPI-1217: PlannerChatDock now bootstraps a thread via
+ *  GET /api/planner/threads before mounting CopilotChat — every test needs
+ *  this mocked or the dock sticks on "Loading conversation…" forever. */
+function mockThreadsFetch(
+  impl: (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => Response | Promise<Response> = () =>
+    new Response(JSON.stringify({ resourceId: DEFAULT_RESOURCE_ID, threads: [] }), { status: 200 }),
+) {
+  vi.stubGlobal("fetch", vi.fn(impl));
+}
+
+beforeEach(() => {
+  mockThreadsFetch();
+  window.localStorage.clear();
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe("OperatorPanel", () => {
-  it("renders children, destinations, and the intelligence rail slot", () => {
+  it("renders children, destinations, and the intelligence rail slot", async () => {
     render(
       <OperatorPanel>
         <p>Workspace body</p>
@@ -103,7 +143,7 @@ describe("OperatorPanel", () => {
     expect(screen.getByTestId("intelligence-rail")).toBeDefined();
     // Persistent CopilotKit chat dock — center workspace, not the rail.
     expect(screen.getByTestId("operator-chat-dock")).toBeDefined();
-    expect(screen.getByTestId("copilot-chat-stub")).toBeDefined();
+    await waitFor(() => expect(screen.getByTestId("copilot-chat-stub")).toBeDefined());
     const plannerLinks = screen.getAllByRole("link", { name: "Open Planner" });
     expect(plannerLinks.length).toBeGreaterThan(0);
     expect(plannerLinks.every((link) => link.getAttribute("href") === "/planner")).toBe(true);
@@ -172,16 +212,20 @@ describe("OperatorPanel", () => {
     ).toBeDefined();
   });
 
-  it("chat welcome stays generic with no real workspace stats", () => {
+  it("chat welcome stays generic with no real workspace stats", async () => {
     render(
       <OperatorPanel>
         <p>Body</p>
       </OperatorPanel>,
     );
-    expect(screen.getByTestId("copilot-chat-stub").textContent).toBe("Ask a question to get started.");
+    await waitFor(() =>
+      expect(screen.getByTestId("copilot-chat-stub").getAttribute("data-welcome-message")).toBe(
+        "Ask a question to get started.",
+      ),
+    );
   });
 
-  it("chat welcome and rail name the real brand and its own recent shoot when populated", () => {
+  it("chat welcome and rail name the real brand and its own recent shoot when populated", async () => {
     render(
       <OperatorPanel>
         <ReportWorkspaceStats
@@ -193,8 +237,10 @@ describe("OperatorPanel", () => {
         />
       </OperatorPanel>,
     );
-    expect(screen.getByTestId("copilot-chat-stub").textContent).toBe(
-      "You're working with Maaji. Portfolio: 3 brands · 12 shoots. Ask about recent production or your next shoot.",
+    await waitFor(() =>
+      expect(screen.getByTestId("copilot-chat-stub").getAttribute("data-welcome-message")).toBe(
+        "You're working with Maaji. Portfolio: 3 brands · 12 shoots. Ask about recent production or your next shoot.",
+      ),
     );
     const rail = screen.getByTestId("intelligence-rail");
     expect(within(rail).getByTestId("intelligence-brand-context").textContent).toBe(
@@ -205,14 +251,16 @@ describe("OperatorPanel", () => {
     );
   });
 
-  it("never fabricates a recent-shoot line when the brand has none", () => {
+  it("never fabricates a recent-shoot line when the brand has none", async () => {
     render(
       <OperatorPanel>
         <ReportWorkspaceStats brandCount={1} shootCount={0} brandName="Acme" />
       </OperatorPanel>,
     );
-    expect(screen.getByTestId("copilot-chat-stub").textContent).toBe(
-      "You're working with Acme. Portfolio: 1 brand · 0 shoots. Ask about recent production or your next shoot.",
+    await waitFor(() =>
+      expect(screen.getByTestId("copilot-chat-stub").getAttribute("data-welcome-message")).toBe(
+        "You're working with Acme. Portfolio: 1 brand · 0 shoots. Ask about recent production or your next shoot.",
+      ),
     );
     expect(screen.queryByTestId("intelligence-recent-shoot")).toBeNull();
   });
@@ -232,14 +280,16 @@ describe("OperatorPanel", () => {
     expect(within(rail).queryByTestId("intelligence-recent-shoot")).toBeNull();
   });
 
-  it("chat welcome and rail stay honest for a zero-brand org — no guessed brand", () => {
+  it("chat welcome and rail stay honest for a zero-brand org — no guessed brand", async () => {
     render(
       <OperatorPanel>
         <ReportWorkspaceStats brandCount={0} shootCount={0} />
       </OperatorPanel>,
     );
-    expect(screen.getByTestId("copilot-chat-stub").textContent).toBe(
-      "Start by creating a brand or planning your first shoot.",
+    await waitFor(() =>
+      expect(screen.getByTestId("copilot-chat-stub").getAttribute("data-welcome-message")).toBe(
+        "Start by creating a brand or planning your first shoot.",
+      ),
     );
     const rail = screen.getByTestId("intelligence-rail");
     expect(within(rail).queryByTestId("intelligence-brand-context")).toBeNull();
@@ -294,6 +344,161 @@ describe("OperatorPanel", () => {
 
     unmount();
     expect(mq.hasListener()).toBe(false);
+  });
+});
+
+describe("PlannerChatDock thread bootstrap (IPI-1217)", () => {
+  it("shows the loading state before the bootstrap resolves, then mounts chat", async () => {
+    let resolveFetch!: (response: Response) => void;
+    mockThreadsFetch(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+
+    render(
+      <OperatorPanel>
+        <p>Body</p>
+      </OperatorPanel>,
+    );
+
+    expect(screen.getByText("Loading conversation…")).toBeDefined();
+    expect(screen.queryByTestId("copilot-chat-stub")).toBeNull();
+
+    resolveFetch(
+      new Response(JSON.stringify({ resourceId: DEFAULT_RESOURCE_ID, threads: [] }), { status: 200 }),
+    );
+
+    await waitFor(() => expect(screen.getByTestId("copilot-chat-stub")).toBeDefined());
+  });
+
+  it("reuses a stored thread the authenticated resource actually owns", async () => {
+    window.localStorage.setItem(plannerThreadStorageKey(DEFAULT_RESOURCE_ID), "thread-owned");
+    mockThreadsFetch(
+      () =>
+        new Response(
+          JSON.stringify({
+            resourceId: DEFAULT_RESOURCE_ID,
+            threads: [{ id: "thread-owned", title: "t", createdAt: "x", updatedAt: "x" }],
+          }),
+          { status: 200 },
+        ),
+    );
+
+    render(
+      <OperatorPanel>
+        <p>Body</p>
+      </OperatorPanel>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("copilot-chat-stub").getAttribute("data-thread-id")).toBe("thread-owned"),
+    );
+    // Resuming a real existing conversation must never show a "welcome"
+    // banner above it — see the isNewThread test below for the contrast.
+    expect(screen.queryByText("Ask a question to get started.")).toBeNull();
+  });
+
+  it("shows the portfolio welcome copy above the chat only for a genuinely new thread", async () => {
+    // IPI-1217 regression: giving CopilotChat an explicit threadId also
+    // disables its own built-in welcome screen (react-core/v2's
+    // hasExplicitThreadId gate — confirmed live, see IPI-1217), which would
+    // otherwise silently drop IPI-1149's portfolio-aware welcome copy for
+    // every /app conversation, not just resumed ones. mockThreadsFetch's
+    // default `threads: []` guarantees resolvePlannerThreadId falls through
+    // to crypto.randomUUID() — a thread that cannot have prior messages.
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={0} shootCount={0} />
+      </OperatorPanel>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText("Start by creating a brand or planning your first shoot.")).toBeDefined(),
+    );
+    // Exactly one copy of the welcome text — our own banner, not a second
+    // one duplicated from CopilotChat's (harmless, unreachable) labels prop.
+    expect(
+      screen.getAllByText("Start by creating a brand or planning your first shoot."),
+    ).toHaveLength(1);
+  });
+
+  it("never reuses a stored thread id the authenticated resource does not own", async () => {
+    // Simulates a stored id from another account/browser profile — the
+    // exact case resolvePlannerThreadId's membership check exists to catch
+    // (thread-types.ts). Falling back to the resource's own first thread
+    // instead of blindly trusting localStorage is the required behavior.
+    window.localStorage.setItem(plannerThreadStorageKey(DEFAULT_RESOURCE_ID), "someone-elses-thread");
+    mockThreadsFetch(
+      () =>
+        new Response(
+          JSON.stringify({
+            resourceId: DEFAULT_RESOURCE_ID,
+            threads: [{ id: "thread-a", title: "t", createdAt: "x", updatedAt: "x" }],
+          }),
+          { status: 200 },
+        ),
+    );
+
+    render(
+      <OperatorPanel>
+        <p>Body</p>
+      </OperatorPanel>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("copilot-chat-stub").getAttribute("data-thread-id")).toBe("thread-a"),
+    );
+  });
+
+  it("renders an honest error state on bootstrap failure, and Retry actually recovers", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("server error", { status: 500 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ resourceId: DEFAULT_RESOURCE_ID, threads: [] }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <OperatorPanel>
+        <p>Body</p>
+      </OperatorPanel>,
+    );
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeDefined());
+    expect(screen.getByText("Could not load conversation.")).toBeDefined();
+    expect(screen.queryByTestId("copilot-chat-stub")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(screen.getByTestId("copilot-chat-stub")).toBeDefined());
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("aborts an in-flight bootstrap request on unmount", async () => {
+    const fetchMock = vi.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { unmount } = render(
+      <OperatorPanel>
+        <p>Body</p>
+      </OperatorPanel>,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+    expect(init?.signal?.aborted).toBe(false);
+
+    unmount();
+
+    expect(init?.signal?.aborted).toBe(true);
   });
 });
 

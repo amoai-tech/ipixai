@@ -12,6 +12,11 @@ import { navItemIsActive, OPERATOR_NAV } from "./nav";
 import styles from "./operator-panel.module.css";
 import { useWorkspaceStats, WorkspaceStatsProvider } from "./workspace-stats";
 import type { WorkspaceStats } from "./workspace-stats";
+import {
+  plannerThreadStorageKey,
+  resolvePlannerThreadId,
+  type PlannerThreadRow,
+} from "@/mastra/thread-types";
 
 // Keep in sync with operator-panel.module.css @media (max-width: 767px)
 const MOBILE_NAV = "(max-width: 767px)";
@@ -114,13 +119,114 @@ function portfolioWelcomeText(pathname: string, stats: WorkspaceStats | null): s
     : `Portfolio: ${portfolio}. Ask about recent production or your next shoot.`;
 }
 
+/**
+ * IPI-1217 · COPILOT-APP-DOCK-002 — resolve the same tenant-scoped persisted
+ * thread `/planner` already uses (see planner-threads-drawer.tsx) before
+ * mounting CopilotChat. Without an explicit threadId here, CopilotChat never
+ * showed a response: the network run completed but the visible chat stayed
+ * empty (proven live, see IPI-1217). This is the same bootstrap contract,
+ * without the thread-list UI — `/app` only needs one stable conversation
+ * identity, not thread management.
+ */
+function usePlannerThreadBootstrap() {
+  const [threadId, setThreadId] = useState<string | null>(null);
+  // True only when the resolved id came from crypto.randomUUID() — i.e. it
+  // wasn't in the resource's own thread list at all, so it's guaranteed to
+  // have zero prior messages. Needed because giving CopilotChat an explicit
+  // threadId (the IPI-1217 fix) also turns off CopilotChat's own built-in
+  // welcome screen (react-core/v2's hasExplicitThreadId gate) — so the
+  // portfolio-aware welcome copy IPI-1149 shipped has to be rendered here
+  // instead of relying on CopilotChat's labels.welcomeMessageText, which is
+  // now unreachable for any explicitly-threaded chat.
+  const [isNewThread, setIsNewThread] = useState(false);
+  const [threadError, setThreadError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setThreadId(null);
+    setThreadError(false);
+
+    (async () => {
+      try {
+        const response = await fetch("/api/planner/threads", {
+          credentials: "include",
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`GET /api/planner/threads -> ${response.status}`);
+        const body = (await response.json()) as {
+          resourceId?: string;
+          threads?: PlannerThreadRow[];
+        };
+        // Only the resourceId the server actually returns is trusted —
+        // never a client-supplied one — so a stored thread from a previous
+        // account can never be persisted/reused under someone else's key.
+        const resourceId = typeof body.resourceId === "string" ? body.resourceId : "";
+        if (!resourceId) throw new Error("GET /api/planner/threads -> missing resourceId");
+        const rows = body.threads ?? [];
+        const storageKey = plannerThreadStorageKey(resourceId);
+        const stored = window.localStorage.getItem(storageKey);
+        const resolved = resolvePlannerThreadId(rows, stored);
+        window.localStorage.setItem(storageKey, resolved);
+        setIsNewThread(!rows.some((row) => row.id === resolved));
+        setThreadId(resolved);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setThreadError(true);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [retryKey]);
+
+  return { threadId, isNewThread, threadError, retry: () => setRetryKey((n) => n + 1) };
+}
+
 /** Reads WorkspaceStats from inside the provider (OperatorPanel's own body
  *  sits above it in the tree, so it can't call the hook directly) and hands
  *  CopilotChat portfolio-aware welcome copy instead of a static string. */
 function PlannerChatDock({ pathname }: { pathname: string }) {
   const stats = useWorkspaceStats();
+  const { threadId, isNewThread, threadError, retry } = usePlannerThreadBootstrap();
+
+  if (threadError) {
+    return (
+      <div role="alert" style={{ padding: "1rem" }}>
+        <p>Could not load conversation.</p>
+        <Button type="button" variant="outline" size="sm" onClick={retry}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  if (!threadId) {
+    return (
+      <p role="status" style={{ padding: "1rem" }}>
+        Loading conversation…
+      </p>
+    );
+  }
+
+  // CopilotChat's own welcome screen never renders once threadId is
+  // explicit (see hasExplicitThreadId gate above), so the portfolio-aware
+  // copy is rendered here instead, only for a thread that's genuinely new
+  // (isNewThread) — an existing conversation shouldn't show a "welcome"
+  // banner above its real history. labels.welcomeMessageText is kept as a
+  // harmless fallback in case that gate ever changes upstream.
   return (
-    <CopilotChat agentId="default" labels={{ welcomeMessageText: portfolioWelcomeText(pathname, stats) }} />
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      {isNewThread && (
+        <p style={{ padding: "1rem 1rem 0" }}>{portfolioWelcomeText(pathname, stats)}</p>
+      )}
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <CopilotChat
+          agentId="default"
+          threadId={threadId}
+          labels={{ welcomeMessageText: portfolioWelcomeText(pathname, stats) }}
+        />
+      </div>
+    </div>
   );
 }
 

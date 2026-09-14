@@ -152,4 +152,58 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
       timeout: NAV_TIMEOUT_MS,
     });
   });
+
+  // IPI-1217 · COPILOT-APP-DOCK-002 — regression coverage for /app's
+  // embedded chat dock. Proven live (11/11 fresh-context attempts): the
+  // network run completes (RUN_STARTED/RUN_FINISHED) but the visible
+  // CopilotChat stayed at messages.length === 0 forever, because /app never
+  // passed CopilotChat an explicit threadId. This deliberately lives beside
+  // the /planner tests above (not in e2e/dashboard.spec.ts) because it makes
+  // the same real, paid Production Planner call — dashboard.spec.ts is
+  // matched by the default chromium/mobile-chromium projects the required
+  // playwright-e2e CI job runs on every PR, and putting a real LLM call
+  // there would reintroduce the hosted-provider CI dependency this file is
+  // already isolated from (see playwright.config.ts's chromium-ai-smoke
+  // project). No toggle click here, unlike /planner's CopilotSidebar case
+  // above: /app's chat is an inline CopilotChat, always visible once
+  // mounted, not a collapsed popup.
+  test("operator gets a real response from /app's embedded chat, and it survives reload @Tb1e0f4a2", async ({
+    page,
+  }) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
+
+    const runMarker = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const prompt = `Say hello and repeat this marker back to me: [${runMarker}]`;
+
+    await page.goto("/app");
+    await expect(page.getByRole("status", { name: "Loading conversation…" })).toHaveCount(0, {
+      timeout: NAV_TIMEOUT_MS,
+    });
+
+    const textarea = page.getByTestId("copilot-chat-textarea");
+    await textarea.click();
+    await textarea.fill(prompt);
+    await page.getByTestId("copilot-send-button").click();
+
+    // The user's own message must stay visible (not just accepted) and a
+    // real, non-empty assistant response must appear — the exact outcome
+    // that silently failed before this fix, with no console/page error.
+    await expect(page.getByTestId("copilot-user-message").last()).toContainText(runMarker, {
+      timeout: NAV_TIMEOUT_MS,
+    });
+    const assistantMessages = page.getByTestId("copilot-assistant-message");
+    await expect(assistantMessages.last()).not.toHaveText("", {
+      timeout: RESPONSE_TIMEOUT_MS,
+    });
+
+    // Persistence: reload restores the same conversation under the same
+    // resolved thread, matching the /planner precedent above.
+    await page.reload();
+    await expect(page.getByTestId("copilot-user-message").last()).toContainText(runMarker, {
+      timeout: NAV_TIMEOUT_MS,
+    });
+    await expect(page.getByTestId("copilot-assistant-message").last()).not.toHaveText("", {
+      timeout: NAV_TIMEOUT_MS,
+    });
+  });
 });
