@@ -8,8 +8,16 @@ import type { ShootDetail } from "@/lib/shoot/get-shoot-detail";
 import { ShootAssetUploader } from "../shoot-asset-uploader";
 import { formatCountLabel } from "../shoot-detail-format";
 import { QAFindingsPanel } from "../qa-findings-panel";
+import type { QAAssetResult, QAChannelResult, QAFinding } from "@/lib/asset-qa/types";
 
 import styles from "../shoot-detail.module.css";
+
+/**
+ * IPI-1118 · SHOOT-ASSETS-001 — assets tab renders canonical V2 assets
+ * with IPI-1112 secure previews. Asset URLs in the detail payload are
+ * metadata only; the authorized preview route is the delivery boundary.
+ * IPI-1138 · ASSET-QA-001 — adds QA findings panel for asset quality checks.
+ */
 
 /**
  * IPI-1118 · SHOOT-ASSETS-001 — assets tab renders canonical V2 assets
@@ -226,41 +234,4 @@ function AssetCard({ asset, shootId }: { asset: ShootDetail["assets"][0]; shootI
       </div>
     </article>
   );
-}
-
-interface QAAssetResult {
-  assetId: string;
-  cloudinaryAssetId: string | null;
-  version: number;
-  width: number;
-  height: number;
-  format: string;
-  bytes: number;
-  aspectRatio: string;
-  channels: QAChannelResult[];
-  overallStatus: "pass" | "warn" | "fail" | "unknown";
-  overallScore: number | null;
-  checkedAt: string;
-  checkerVersion: string;
-}
-
-interface QAChannelResult {
-  channel: string;
-  platform: string;
-  imageType: string;
-  specConfidence: "official" | "community" | "estimated" | null;
-  sourceUrl: string | null;
-  lastVerifiedAt: string | null;
-  findings: QAFinding[];
-  overallStatus: "pass" | "warn" | "fail" | "unknown";
-  score: number | null;
-}
-
-interface QAFinding {
-  code: string;
-  status: "pass" | "warn" | "fail" | "unknown";
-  severity: "info" | "warning" | "error";
-  message: string;
-  evidence?: Record<string, unknown>;
-  recommendedAction?: string;
 }

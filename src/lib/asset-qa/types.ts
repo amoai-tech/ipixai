@@ -147,9 +147,11 @@ export type QAFindingCode =
   | "quality_focus_low"
   | "quality_focus_ok"
   | "quality_focus_unknown"
+  | "quality_focus_raw"
   | "accessibility_low"
   | "accessibility_ok"
   | "accessibility_unknown"
+  | "accessibility_raw"
   | "duplicate_asset"
   | "missing_metadata"
   | "transform_unavailable"
@@ -178,9 +180,11 @@ export const QA_FINDING_CODES = {
   QUALITY_FOCUS_LOW: "quality_focus_low" as QAFindingCode,
   QUALITY_FOCUS_OK: "quality_focus_ok" as QAFindingCode,
   QUALITY_FOCUS_UNKNOWN: "quality_focus_unknown" as QAFindingCode,
+  QUALITY_FOCUS_RAW: "quality_focus_raw" as QAFindingCode,
   ACCESSIBILITY_LOW: "accessibility_low" as QAFindingCode,
   ACCESSIBILITY_OK: "accessibility_ok" as QAFindingCode,
   ACCESSIBILITY_UNKNOWN: "accessibility_unknown" as QAFindingCode,
+  ACCESSIBILITY_RAW: "accessibility_raw" as QAFindingCode,
   DUPLICATE_ASSET: "duplicate_asset" as QAFindingCode,
   MISSING_METADATA: "missing_metadata" as QAFindingCode,
   TRANSFORM_UNAVAILABLE: "transform_unavailable" as QAFindingCode,

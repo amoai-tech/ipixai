@@ -172,29 +172,22 @@ describe("runDeterministicChecks", () => {
 });
 
 describe("runCloudinaryQualityChecks", () => {
-  it("passes focus check when score is high", () => {
+  it("returns raw focus score as advisory evidence", () => {
     const asset = { ...mockAsset, qualityAnalysis: { focus: 0.8 } };
     const findings = runCloudinaryQualityChecks(asset);
-    const focusFinding = findings.find((f) => f.code === "quality_focus_ok");
+    const focusFinding = findings.find((f) => f.code === "quality_focus_raw");
     expect(focusFinding).toBeDefined();
-    expect(focusFinding?.status).toBe("pass");
+    expect(focusFinding?.status).toBe("unknown");
+    expect(focusFinding?.evidence).toEqual({ focusScore: 0.8 });
   });
 
-  it("warns when focus score is low", () => {
+  it("returns raw focus score for low focus", () => {
     const asset = { ...mockAsset, qualityAnalysis: { focus: 0.2 } };
     const findings = runCloudinaryQualityChecks(asset);
-    const focusFinding = findings.find((f) => f.code === "quality_focus_low");
+    const focusFinding = findings.find((f) => f.code === "quality_focus_raw");
     expect(focusFinding).toBeDefined();
-    expect(focusFinding?.status).toBe("warn");
-  });
-
-  it("warns when focus score is moderate", () => {
-    const asset = { ...mockAsset, qualityAnalysis: { focus: 0.4 } };
-    const findings = runCloudinaryQualityChecks(asset);
-    const focusFinding = findings.find((f) => f.code === "quality_focus_low");
-    expect(focusFinding).toBeDefined();
-    expect(focusFinding?.status).toBe("warn");
-    expect(focusFinding?.severity).toBe("info");
+    expect(focusFinding?.status).toBe("unknown");
+    expect(focusFinding?.evidence).toEqual({ focusScore: 0.2 });
   });
 
   it("returns unknown when quality analysis not available", () => {
@@ -205,20 +198,34 @@ describe("runCloudinaryQualityChecks", () => {
     expect(focusFinding?.status).toBe("unknown");
   });
 
-  it("passes accessibility check when score is high", () => {
-    const asset = { ...mockAsset, accessibilityAnalysis: { colorblindAccessibilityScore: 0.9 } };
+  it("returns raw accessibility score as advisory evidence", () => {
+    const asset = { 
+      ...mockAsset, 
+      accessibilityAnalysis: { 
+        colorblindAccessibilityScore: 0.9,
+        colorblindAccessibilityAnalysis: mockAsset.accessibilityAnalysis?.colorblindAccessibilityAnalysis 
+      } 
+    };
     const findings = runCloudinaryQualityChecks(asset);
-    const a11yFinding = findings.find((f) => f.code === "accessibility_ok");
+    const a11yFinding = findings.find((f) => f.code === "accessibility_raw");
     expect(a11yFinding).toBeDefined();
-    expect(a11yFinding?.status).toBe("pass");
+    expect(a11yFinding?.status).toBe("unknown");
+    expect(a11yFinding?.evidence).toEqual({ accessibilityScore: 0.9, analysis: mockAsset.accessibilityAnalysis?.colorblindAccessibilityAnalysis });
   });
 
-  it("warns when accessibility score is low", () => {
-    const asset = { ...mockAsset, accessibilityAnalysis: { colorblindAccessibilityScore: 0.3 } };
+  it("returns raw accessibility score for low accessibility", () => {
+    const asset = { 
+      ...mockAsset, 
+      accessibilityAnalysis: { 
+        colorblindAccessibilityScore: 0.3,
+        colorblindAccessibilityAnalysis: mockAsset.accessibilityAnalysis?.colorblindAccessibilityAnalysis 
+      } 
+    };
     const findings = runCloudinaryQualityChecks(asset);
-    const a11yFinding = findings.find((f) => f.code === "accessibility_low");
+    const a11yFinding = findings.find((f) => f.code === "accessibility_raw");
     expect(a11yFinding).toBeDefined();
-    expect(a11yFinding?.status).toBe("warn");
+    expect(a11yFinding?.status).toBe("unknown");
+    expect(a11yFinding?.evidence).toEqual({ accessibilityScore: 0.3, analysis: mockAsset.accessibilityAnalysis?.colorblindAccessibilityAnalysis });
   });
 
   it("returns unknown when accessibility analysis not available", () => {

@@ -400,39 +400,16 @@ export function runCloudinaryQualityChecks(
 
   if (asset.qualityAnalysis?.focus !== undefined) {
     const focus = asset.qualityAnalysis.focus;
-    if (focus < 0.3) {
-      findings.push(
-        makeFinding(
-          "quality_focus_low",
-          "warn",
-          "warning",
-          `Focus score ${focus.toFixed(2)} is low (threshold 0.3)`,
-          { focusScore: focus },
-          "Consider re-shooting for better focus",
-        ),
-      );
-    } else if (focus < 0.5) {
-      findings.push(
-        makeFinding(
-          "quality_focus_low",
-          "warn",
-          "info",
-          `Focus score ${focus.toFixed(2)} is moderate (threshold 0.5)`,
-          { focusScore: focus },
-          "Review image sharpness manually",
-        ),
-      );
-    } else {
-      findings.push(
-        makeFinding(
-          "quality_focus_ok",
-          "pass",
-          "info",
-          `Focus score ${focus.toFixed(2)} is good`,
-          { focusScore: focus },
-        ),
-      );
-    }
+    findings.push(
+      makeFinding(
+        "quality_focus_raw",
+        "unknown",
+        "info",
+        `Focus score: ${focus.toFixed(2)} (0-1 scale, higher is sharper)`,
+        { focusScore: focus },
+        "Enable quality_analysis on upload or run Analyze API",
+      ),
+    );
   } else {
     findings.push(
       makeFinding(
@@ -448,28 +425,16 @@ export function runCloudinaryQualityChecks(
 
   if (asset.accessibilityAnalysis?.colorblindAccessibilityScore !== undefined) {
     const score = asset.accessibilityAnalysis.colorblindAccessibilityScore;
-    if (score < 0.5) {
-      findings.push(
-        makeFinding(
-          "accessibility_low",
-          "warn",
-          "warning",
-          `Colorblind accessibility score ${score.toFixed(2)} is low`,
-          { accessibilityScore: score, analysis: asset.accessibilityAnalysis.colorblindAccessibilityAnalysis },
-          "Review color contrast for accessibility",
-        ),
-      );
-    } else {
-      findings.push(
-        makeFinding(
-          "accessibility_ok",
-          "pass",
-          "info",
-          `Colorblind accessibility score ${score.toFixed(2)} is acceptable`,
-          { accessibilityScore: score },
-        ),
-      );
-    }
+    findings.push(
+      makeFinding(
+        "accessibility_raw",
+        "unknown",
+        "info",
+        `Colorblind accessibility score: ${score.toFixed(2)} (0-1 scale)`,
+        { accessibilityScore: score, analysis: asset.accessibilityAnalysis.colorblindAccessibilityAnalysis },
+        "Enable accessibility_analysis on upload or run Analyze API",
+      ),
+    );
   } else {
     findings.push(
       makeFinding(
