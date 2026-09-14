@@ -217,8 +217,13 @@ export function runDeterministicChecks(
       let subjectBounds: { x: number; y: number; w: number; h: number } | null = null;
       for (const [, value] of Object.entries(asset.coordinates)) {
         if (value && typeof value === "object" && "x" in value && "y" in value && "w" in value && "h" in value) {
-          const v = value as { x: number; y: number; w: number; h: number };
-          subjectBounds = v;
+          const v = value as { x: string | number; y: string | number; w: string | number; h: string | number };
+          subjectBounds = {
+            x: Number(v.x),
+            y: Number(v.y),
+            w: Number(v.w),
+            h: Number(v.h),
+          };
           break;
         }
       }
