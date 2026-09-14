@@ -113,8 +113,8 @@ export interface CloudinaryAssetMetadata {
 
 export interface ShootDeliverableRequirement {
   channel: string;
-  requiredAspectRatio?: string;
-  requiredFormat?: string;
+  aspectRatio?: string;
+  acceptedFormats?: string[];
   requiredWidth?: number;
   requiredHeight?: number;
   maxFileSizeMb?: number;

@@ -2,7 +2,7 @@ import "server-only";
 
 import { cloudinary } from "@/lib/cloudinary/config";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { loadChannelSpecsForQA, getShootDeliverableRequirements } from "./load-channel-specs";
+import { loadChannelSpecsForQA } from "./load-channel-specs";
 import { runDeterministicChecks, runCloudinaryQualityChecks, computeChannelResult } from "./run-checks";
 import type {
   QAAssetResult,
@@ -25,14 +25,6 @@ type AssetRow = {
   metadata: Record<string, unknown>;
 };
 
-type ShootRow = {
-  id: string;
-  target_channels: string[] | null;
-  deliverable_aspect_ratio: string | null;
-  deliverable_format: string | null;
-  brand_id: string | null;
-};
-
 type CloudinaryMirrorRow = {
   public_id: string;
   version: number | string | null;
@@ -45,27 +37,53 @@ type CloudinaryMirrorRow = {
   bytes: number | null;
 };
 
-type BrandRow = {
-  org_id: string;
+type ShootDeliverableRow = {
+  id: string;
+  channel: string;
+  format: string | null;
+  aspect_ratio: string | null;
+  origin: string | null;
+  quantity: number | null;
+  status: string | null;
 };
+
+type ShootDetailRpcResult = {
+  shoot: {
+    id: string;
+    target_channels: string[] | null;
+    brand_id: string;
+  } | null;
+  deliverables: ShootDeliverableRow[] | null;
+};
+
+type QAContextResult =
+  | {
+      ok: true;
+      asset: AssetRow;
+      shootId: string;
+      deliverables: ShootDeliverableRequirement[];
+      cloudinaryMirror: CloudinaryMirrorRow;
+    }
+  | {
+      ok: false;
+      reason: string;
+      status: 400 | 403 | 404 | 409 | 500;
+    };
 
 export type QAServiceInput = {
   assetId: string;
   orgId: string;
-  // shootId and channels are NOT accepted from caller - they are derived from asset/shoot
 };
 
 export type QAServiceResult =
   | { ok: true; result: QAAssetResult }
   | { ok: false; reason: string; status: number };
 
-async function getAssetAndShoot(input: QAServiceInput): Promise<{
-  asset: AssetRow | null;
-  shoot: ShootRow | null;
-  cloudinaryMirror: CloudinaryMirrorRow | null;
-} | null> {
+async function loadQAContext(input: QAServiceInput): Promise<QAContextResult> {
   const supabase = createServiceRoleClient();
-  if (!supabase) return null;
+  if (!supabase) {
+    return { ok: false, reason: "supabase_unavailable", status: 500 };
+  }
 
   const { data: asset, error: assetError } = await supabase
     .from("assets")
@@ -73,13 +91,14 @@ async function getAssetAndShoot(input: QAServiceInput): Promise<{
     .eq("id", input.assetId)
     .maybeSingle();
 
-  if (assetError || !asset) return null;
+  if (assetError || !asset) {
+    return { ok: false, reason: "asset_not_found", status: 404 };
+  }
 
   const typedAsset = asset as unknown as AssetRow;
 
-  // MANDATORY: Asset must have brand_id and brand must belong to input org
   if (!typedAsset.brand_id) {
-    return { ok: false, reason: "asset_missing_brand", status: 403 } as any;
+    return { ok: false, reason: "asset_missing_brand", status: 403 };
   }
 
   const { data: brand } = await supabase
@@ -89,42 +108,31 @@ async function getAssetAndShoot(input: QAServiceInput): Promise<{
     .maybeSingle();
 
   if (!brand?.org_id || brand.org_id !== input.orgId) {
-    return { ok: false, reason: "foreign_org", status: 403 } as any;
+    return { ok: false, reason: "foreign_org", status: 403 };
   }
 
-  // MANDATORY: Use asset's v2_shoot_id as the authoritative shoot
-  // Caller-provided shootId is IGNORED - we only use the asset's canonical shoot
   if (!typedAsset.v2_shoot_id) {
-    return { ok: false, reason: "asset_not_linked_to_shoot", status: 409 } as any;
+    return { ok: false, reason: "asset_not_linked_to_shoot", status: 409 };
   }
 
-  const { data: shootData } = await supabase
-    .from("shoots")
-    .select("id, target_channels, deliverable_aspect_ratio, deliverable_format, brand_id")
-    .eq("id", typedAsset.v2_shoot_id)
-    .maybeSingle();
+  const { data: shootDetail, error: shootError } = await supabase
+    .rpc("get_shoot_detail", { p_shoot_id: typedAsset.v2_shoot_id });
 
-  if (!shootData) {
-    return { ok: false, reason: "shoot_not_found", status: 409 } as any;
+  if (shootError || !shootDetail) {
+    return { ok: false, reason: "shoot_not_found", status: 409 };
   }
 
-  // Verify shoot belongs to same org
-  const typedShootData = shootData as unknown as { brand_id: string | null };
-  if (!typedShootData.brand_id) {
-    return { ok: false, reason: "shoot_missing_brand", status: 409 } as any;
+  const typedShootDetail = shootDetail as ShootDetailRpcResult;
+  const shoot = typedShootDetail.shoot;
+  if (!shoot) {
+    return { ok: false, reason: "shoot_not_found", status: 409 };
   }
 
-  const { data: shootBrand } = await supabase
-    .from("brands")
-    .select("org_id")
-    .eq("id", typedShootData.brand_id)
-    .maybeSingle();
-
-  if (!shootBrand?.org_id || shootBrand.org_id !== input.orgId) {
-    return { ok: false, reason: "foreign_org", status: 403 } as any;
+  if (shoot.brand_id !== typedAsset.brand_id) {
+    return { ok: false, reason: "shoot_brand_mismatch", status: 409 };
   }
 
-  const shoot = shootData as unknown as ShootRow;
+  const deliverables = (typedShootDetail.deliverables as ShootDeliverableRow[] | null) ?? [];
 
   const { data: mirror } = await supabase
     .from("cloudinary_assets")
@@ -132,7 +140,30 @@ async function getAssetAndShoot(input: QAServiceInput): Promise<{
     .eq("asset_id", input.assetId)
     .maybeSingle();
 
-  return { asset: typedAsset, shoot, cloudinaryMirror: mirror as CloudinaryMirrorRow | null };
+  if (!mirror) {
+    return { ok: false, reason: "missing_cloudinary_mirror", status: 409 };
+  }
+
+  return {
+    ok: true,
+    asset: typedAsset,
+    shootId: shoot.id,
+    deliverables: deliverables.map((d) => ({
+      channel: d.channel,
+      aspectRatio: d.aspect_ratio ?? undefined,
+      acceptedFormats: d.format ? [d.format.toUpperCase()] : undefined,
+      requiredWidth: undefined,
+      requiredHeight: undefined,
+      maxFileSizeMb: undefined,
+      backgroundRequired: undefined,
+      productFillMinPct: undefined,
+      safeZoneTopPx: undefined,
+      safeZoneBottomPx: undefined,
+      safeZoneLeftPx: undefined,
+      safeZoneRightPx: undefined,
+    })),
+    cloudinaryMirror: mirror as CloudinaryMirrorRow,
+  };
 }
 
 async function getCloudinaryAssetMetadata(
@@ -155,7 +186,6 @@ async function getCloudinaryAssetMetadata(
       max_results: 10,
     });
 
-    // CRITICAL: Verify Cloudinary returned the exact expected asset_id and version
     if (result.asset_id !== cloudinaryAssetId) {
       console.warn(`[asset-qa] Asset ID mismatch: expected ${cloudinaryAssetId}, got ${result.asset_id}`);
       return null;
@@ -224,16 +254,43 @@ function getMissingMirrorFields(mirror: { width: number | null; height: number |
   return missing;
 }
 
-// Build effective spec by merging saved Shoot deliverable (authoritative) with platform spec (recommendation)
+function normalizeDeliverableFormat(format: string | null): { aspectRatio?: string; acceptedFormats?: string[] } {
+  if (!format) return {};
+
+  const trimmed = format.trim();
+  if (!trimmed) return {};
+
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 0) return {};
+
+  const aspectRatio = parts[0];
+  const formatPart = parts.slice(1).join(" ").toUpperCase();
+
+  const ratioParts = aspectRatio.split(":");
+  if (ratioParts.length !== 2) {
+    return { acceptedFormats: formatPart ? [formatPart] : undefined };
+  }
+
+  const w = parseInt(ratioParts[0], 10);
+  const h = parseInt(ratioParts[1], 10);
+  if (isNaN(w) || isNaN(h) || w === 0 || h === 0) {
+    return { acceptedFormats: formatPart ? [formatPart] : undefined };
+  }
+
+  return {
+    aspectRatio: `${w}:${h}`,
+    acceptedFormats: formatPart ? [formatPart] : undefined,
+  };
+}
+
 function buildEffectiveSpec(
   spec: ChannelSpecFull,
-  deliverableReq: { aspectRatio?: string; format?: string } | undefined,
+  deliverableReq: ShootDeliverableRequirement | undefined,
 ): ChannelSpecFull {
   if (!deliverableReq) return spec;
 
   const effectiveSpec = { ...spec };
 
-  // Saved deliverable aspect ratio takes precedence
   if (deliverableReq.aspectRatio) {
     const parts = deliverableReq.aspectRatio.split(":");
     if (parts.length === 2) {
@@ -243,28 +300,24 @@ function buildEffectiveSpec(
         effectiveSpec.aspectRatioLabel = deliverableReq.aspectRatio;
         effectiveSpec.aspectRatioW = w;
         effectiveSpec.aspectRatioH = h;
-        // Use deliverable dimensions as canonical if platform spec doesn't have explicit min
-        if (!effectiveSpec.minWidthPx) effectiveSpec.minWidthPx = w * 100; // scale factor
-        if (!effectiveSpec.minHeightPx) effectiveSpec.minHeightPx = h * 100;
       }
     }
   }
 
-  // Saved deliverable format takes precedence
-  if (deliverableReq.format) {
-    effectiveSpec.acceptedFormats = [deliverableReq.format.toUpperCase()];
+  if (deliverableReq.acceptedFormats && deliverableReq.acceptedFormats.length > 0) {
+    effectiveSpec.acceptedFormats = deliverableReq.acceptedFormats;
   }
 
   return effectiveSpec;
 }
 
 export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult> {
-  const data = await getAssetAndShoot(input);
-  if (!data) {
-    return { ok: false, reason: "asset_not_found", status: 404 };
+  const context = await loadQAContext(input);
+  if (!context.ok) {
+    return context;
   }
 
-  const { asset, shoot, cloudinaryMirror } = data;
+  const { asset, deliverables, cloudinaryMirror } = context;
 
   if (!cloudinaryMirror?.public_id) {
     return { ok: false, reason: "missing_cloudinary_mirror", status: 409 };
@@ -283,13 +336,15 @@ export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult
     return { ok: false, reason: "invalid_cloudinary_version", status: 409 };
   }
 
-  // ONLY use channels from the authoritative shoot - ignore caller-provided channels
-  const channelsToCheck = shoot?.target_channels ?? [];
+  const channelsToCheck = deliverables.map((d) => d.channel);
   if (channelsToCheck.length === 0) {
     return { ok: false, reason: "no_channels_to_check", status: 400 };
   }
 
-  const deliverableRequirements = shoot ? getShootDeliverableRequirements(shoot) : new Map();
+  const deliverableRequirements = new Map<string, ShootDeliverableRequirement>();
+  for (const d of deliverables) {
+    deliverableRequirements.set(d.channel, d);
+  }
 
   const specMap = await loadChannelSpecsForQA(channelsToCheck);
 
@@ -299,12 +354,9 @@ export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult
     version,
   );
 
-  // If Cloudinary metadata unavailable or identity/version mismatch, use mirror metadata
-  // but mark as provider-enrichment-unavailable
   const providerEnrichmentUnavailable = !cloudinaryMetadata;
   const assetMetadata = cloudinaryMetadata ?? buildCloudinaryAssetMetadataFromMirror(cloudinaryMirror);
 
-  // Check for missing mirror fields when Cloudinary metadata unavailable
   if (!cloudinaryMetadata) {
     const missingFields = getMissingMirrorFields(cloudinaryMirror);
     if (missingFields.length > 0) {
@@ -341,13 +393,10 @@ export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult
     }
 
     const deliverableReq = deliverableRequirements.get(channel);
-    
-    // Build effective spec: saved Shoot deliverable is authoritative, platform spec is recommendation
     const effectiveSpec = buildEffectiveSpec(spec, deliverableReq);
-    
+
     let findings = runDeterministicChecks(assetMetadata, effectiveSpec, channel);
 
-    // Add missing_metadata finding if mirror fields were missing
     const missingFields = (assetMetadata as CloudinaryAssetMetadata & { _missingMirrorFields?: string[] })._missingMirrorFields;
     if (missingFields && missingFields.length > 0) {
       findings.push({
@@ -360,7 +409,6 @@ export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult
       });
     }
 
-    // Provider enrichment unavailable finding
     if (providerEnrichmentUnavailable) {
       findings.push({
         code: "provider_enrichment_unavailable",
@@ -372,9 +420,8 @@ export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult
       });
     }
 
-    // Cloudinary quality/accessibility findings are ADVISORY ONLY - do not affect readiness score
     const qualityFindings = runCloudinaryQualityChecks(assetMetadata);
-    const advisoryFindings = qualityFindings.map(f => ({ ...f, _advisory: true }));
+    const advisoryFindings = qualityFindings.map((f) => ({ ...f, _advisory: true }));
     findings = [...findings, ...advisoryFindings];
 
     channelResults.push(computeChannelResult(channel, effectiveSpec, findings));
@@ -392,7 +439,7 @@ export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult
   const overallScore = scoredChannels.length > 0 ? Math.round(totalScore / scoredChannels.length) : null;
 
   const result: QAAssetResult = {
-    assetId: asset!.id,
+    assetId: asset.id,
     cloudinaryAssetId: cloudinaryMirror.cloudinary_asset_id,
     version,
     width: assetMetadata.width,

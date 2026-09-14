@@ -196,18 +196,3 @@ const validCandidates: { platformSlug: string; imageTypeSlug: string; spec: any;
 
   return specs;
 }
-
-export function getShootDeliverableRequirements(
-  shoot: { target_channels?: string[] | null; deliverable_aspect_ratio?: string | null; deliverable_format?: string | null },
-): Map<string, { aspectRatio?: string; format?: string }> {
-  const requirements = new Map<string, { aspectRatio?: string; format?: string }>();
-  if (!shoot.target_channels?.length) return requirements;
-
-  for (const channel of shoot.target_channels) {
-    requirements.set(channel, {
-      aspectRatio: shoot.deliverable_aspect_ratio ?? undefined,
-      format: shoot.deliverable_format ?? undefined,
-    });
-  }
-  return requirements;
-}
