@@ -34,6 +34,7 @@ describe("Production Planner registered tool contract", () => {
     const tools = await productionPlannerAgent.listTools();
     const expected = [
       "approveDraft",
+      "composeShootPlan",
       "estimateShootBudget",
       "generateShotListDraft",
       "planDeliverables",

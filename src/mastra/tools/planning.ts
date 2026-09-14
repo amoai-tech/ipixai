@@ -37,16 +37,18 @@ const CHANNELS = [
   "youtube",
   "website",
 ] as const;
-const ChannelSchema = z.enum(CHANNELS);
+// Exported for IPI-1081 · PLAN-001's composeShootPlan input schema, which
+// needs the identical channel/bounds contract — not a new taxonomy.
+export const ChannelSchema = z.enum(CHANNELS);
 // CHANNELS has only 10 distinct values, but nothing stops a caller from
 // repeating one far past what dedupeChannels needs to see — bound the raw
 // array so validation/dedup never iterates an arbitrarily large duplicate list.
-const MAX_CHANNELS_INPUT = 50;
+export const MAX_CHANNELS_INPUT = 50;
 // A schema-valid request can still carry pathologically long free-text
 // (brief, description, ...) that gets copied into every generated shot or
 // re-concatenated/lowercased on every scoring pass — bound string length
 // alongside array length so both dimensions of "too much input" are closed.
-const MAX_TEXT_LENGTH = 2000;
+export const MAX_TEXT_LENGTH = 2000;
 
 /** De-dupes a validated channel array — a repeated channel is one target, not two. */
 function dedupeChannels(channels: readonly string[]): string[] {
@@ -61,7 +63,7 @@ const REFERENCE_SOURCE = "ipix_reference_v1";
 // Shared with planDeliverables.shootType so an unrecognized/misspelled value
 // fails Zod validation structurally instead of being silently ignored.
 const SHOOT_TYPES = ["ecommerce_pdp", "editorial", "ugc_style", "lookbook", "campaign", "packshot"] as const;
-const ShootTypeSchema = z.enum(SHOOT_TYPES);
+export const ShootTypeSchema = z.enum(SHOOT_TYPES);
 
 // ---------------------------------------------------------------------------
 // 1. recommendShootType
@@ -284,9 +286,9 @@ export const planDeliverables = createTool({
 // constraining legitimate production sizes.
 const MAX_DELIVERABLE_QUANTITY = 500;
 const MAX_SELECTED_DELIVERABLES = 200;
-const MAX_TRUSTED_REFERENCES = 200;
+export const MAX_TRUSTED_REFERENCES = 200;
 const MAX_CHANNEL_FIT = 50;
-const MAX_PRODUCT_NAMES = 50;
+export const MAX_PRODUCT_NAMES = 50;
 
 const SelectedDeliverableSchema = z.object({
   id: z.string().optional(),
@@ -295,7 +297,7 @@ const SelectedDeliverableSchema = z.object({
   quantity: z.number().int().positive().max(MAX_DELIVERABLE_QUANTITY),
 });
 
-const TrustedReferenceShotTypeSchema = z.object({
+export const TrustedReferenceShotTypeSchema = z.object({
   id: z.string(),
   angle: z.string(),
   description: z.string().max(MAX_TEXT_LENGTH),
