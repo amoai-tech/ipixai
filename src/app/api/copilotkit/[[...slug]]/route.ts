@@ -316,14 +316,22 @@ async function handleCopilot(request: Request) {
   return requestToken.run(accessToken ?? "", () => handle(app)(request));
 }
 
-// No maxDuration was set before IPI-1081 · PLAN-001 shipped composeShootPlan —
-// a single turn that chains 4 sequential TOOL-001 calls plus a Supabase read,
-// meaningfully slower than any prior Planner turn. Without an explicit value
-// this route ran at the platform's default serverless timeout, which a live
-// smoke test showed is not enough headroom: the response started (200) but
-// the connection ended with no error and no visible content — the signature
-// of a function killed mid-stream, not an application error.
-export const maxDuration = 60;
+// IPI-1210 · COPILOT-TIMEOUT-001 — a prior fix here set maxDuration=60,
+// theorizing composeShootPlan's multi-tool turns exceeded the platform
+// default. That was wrong and has been reverted. Vercel's documented
+// default for every plan with Fluid Compute — the platform default for
+// new projects, not independently re-verified against this specific
+// project's dashboard setting — is 300s:
+// https://vercel.com/docs/functions/configuring-functions/duration#duration-limits.
+// So the 60s override, at minimum, didn't add headroom over the documented
+// platform default; it cut it by 80%. It also didn't fix the live
+// "no response" symptom either way — Supabase query logs during a failed
+// live attempt showed zero reads against shot_type_references, proving
+// the failure happens before composeShootPlan's tool chain even starts,
+// nowhere near a duration ceiling. Root cause is tracked separately in
+// IPI-1211 · COPILOT-INTELLIGENCE-RELIABILITY-001. Leave this route on
+// the platform default; only add an explicit maxDuration here again if a
+// measured p95/p99 Planner turn is shown to actually need more than 300s.
 
 export const GET = handleCopilot;
 export const POST = handleCopilot;
