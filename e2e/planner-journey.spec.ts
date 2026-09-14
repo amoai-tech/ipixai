@@ -83,25 +83,33 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
     });
   });
 
-  // IPI-1211 · COPILOT-INTELLIGENCE-RELIABILITY-001 — the budget test above
-  // exercises exactly one TOOL-001 call and never covers composeShootPlan
-  // (IPI-1081 · PLAN-001), which chains all 4 TOOL-001 tools plus a Supabase
-  // read in one turn. That untested gap is exactly the shape of the live
-  // "no response" incident (2026-09-14): the operator's real prompt below is
-  // the literal reproduction of that report. This test's only claim is "the
-  // Planner responds at all" — it does not assert a specific plan shape,
-  // since composeShootPlan can legitimately return status "complete" or
-  // "needs_input" depending on what the model decides is missing.
-  test("operator gets a real composeShootPlan response for a multi-tool shoot brief @Td9c2e211", async ({
+  // IPI-1211 · COPILOT-INTELLIGENCE-RELIABILITY-001 — regression coverage
+  // for the 2026-09-14 silent-response incident. The prompt below is the
+  // literal, unparaphrased incident report, and unlike the budget test
+  // above it's shaped to trigger composeShootPlan's multi-tool turn
+  // (IPI-1081 · PLAN-001) — but this test deliberately only verifies the
+  // operator-facing contract: a real authenticated Planner request
+  // produces visible assistant output, and that output survives reload.
+  // It does NOT assert which model/tool path produced the answer —
+  // composeShootPlan can legitimately return "complete" or "needs_input",
+  // or the model may reasonably ask a clarifying question instead of
+  // calling it at all on this exact turn. Asserting a specific tool call
+  // here would make an incident-response regression test depend on a
+  // probabilistic model decision (Mastra's agent owns tool selection, not
+  // the caller); that's a job for composeShootPlan's own tool-level tests,
+  // not this browser/transport-health test.
+  test("operator gets a Planner response for the real shoot-brief regression @Td9c2e211", async ({
     page,
   }) => {
-    // Longer than the budget test's timeout: composeShootPlan chains 4
-    // sequential tool calls plus a Supabase read in one turn.
+    // Longer than the budget test's timeout: this prompt can trigger
+    // composeShootPlan's multi-tool turn, which is slower than a single
+    // tool call.
     const PLAN_RESPONSE_TIMEOUT_MS = 90_000;
     test.setTimeout(PLAN_RESPONSE_TIMEOUT_MS + NAV_TIMEOUT_MS * 3 + 30_000);
 
     const runMarker = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    // The exact prompt from the live incident report — not a paraphrase.
+    // Incident prompt plus a unique marker used to prove this exact
+    // conversation restores after reload.
     const prompt = `Plan a Shopify product shoot for our new linen dress collection. Photos only, launching next month. [${runMarker}]`;
 
     await page.goto("/planner");
