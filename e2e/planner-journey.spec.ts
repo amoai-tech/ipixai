@@ -82,4 +82,74 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
       timeout: NAV_TIMEOUT_MS,
     });
   });
+
+  // IPI-1211 · COPILOT-INTELLIGENCE-RELIABILITY-001 — regression coverage
+  // for the 2026-09-14 silent-response incident. The prompt below is the
+  // literal, unparaphrased incident report, and unlike the budget test
+  // above it's shaped to trigger composeShootPlan's multi-tool turn
+  // (IPI-1081 · PLAN-001) — but this test deliberately only verifies the
+  // operator-facing contract: a real authenticated Planner request
+  // produces visible assistant output, and that output survives reload.
+  // It does NOT assert which model/tool path produced the answer —
+  // composeShootPlan can legitimately return "complete" or "needs_input",
+  // or the model may reasonably ask a clarifying question instead of
+  // calling it at all on this exact turn. Asserting a specific tool call
+  // here would make an incident-response regression test depend on a
+  // probabilistic model decision (Mastra's agent owns tool selection, not
+  // the caller); that's a job for composeShootPlan's own tool-level tests,
+  // not this browser/transport-health test.
+  test("operator gets a Planner response for the real shoot-brief regression @Td9c2e211", async ({
+    page,
+  }) => {
+    // Longer than the budget test's timeout: this prompt can trigger
+    // composeShootPlan's multi-tool turn, which is slower than a single
+    // tool call.
+    const PLAN_RESPONSE_TIMEOUT_MS = 90_000;
+    test.setTimeout(PLAN_RESPONSE_TIMEOUT_MS + NAV_TIMEOUT_MS * 3 + 30_000);
+
+    const runMarker = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // Incident prompt plus a unique marker used to prove this exact
+    // conversation restores after reload.
+    const prompt = `Plan a Shopify product shoot for our new linen dress collection. Photos only, launching next month. [${runMarker}]`;
+
+    await page.goto("/planner");
+    await expect(page.getByText("Loading…")).toHaveCount(0, { timeout: NAV_TIMEOUT_MS });
+    await expect(page.getByRole("status", { name: "Loading conversation…" })).toHaveCount(0, {
+      timeout: NAV_TIMEOUT_MS,
+    });
+
+    await page.getByRole("button", { name: "New" }).click();
+
+    const toggle = page.getByTestId("copilot-chat-toggle");
+    if ((await toggle.getAttribute("aria-pressed")) !== "true") {
+      await toggle.click();
+    }
+
+    const textarea = page.getByTestId("copilot-chat-textarea");
+    await textarea.click();
+    await textarea.fill(prompt);
+    await page.getByTestId("copilot-send-button").click();
+
+    // The entire point of this test: some real assistant response must
+    // appear. The live incident's exact symptom was silence — no response,
+    // no error — after this same prompt, so simply reaching a non-empty
+    // assistant message is the decisive assertion here.
+    const assistantMessages = page.getByTestId("copilot-assistant-message");
+    await expect(assistantMessages.last()).not.toHaveText("", {
+      timeout: PLAN_RESPONSE_TIMEOUT_MS,
+    });
+    const responseText = await assistantMessages.last().innerText();
+    expect(responseText.trim().length, `expected a non-empty plan response, got: "${responseText}"`).toBeGreaterThan(
+      0,
+    );
+
+    // Persistence: same shape of check as the budget test above.
+    await page.reload();
+    await expect(page.getByTestId("copilot-user-message").last()).toContainText(runMarker, {
+      timeout: NAV_TIMEOUT_MS,
+    });
+    await expect(page.getByTestId("copilot-assistant-message").last()).not.toHaveText("", {
+      timeout: NAV_TIMEOUT_MS,
+    });
+  });
 });
