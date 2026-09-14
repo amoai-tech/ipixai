@@ -316,6 +316,15 @@ async function handleCopilot(request: Request) {
   return requestToken.run(accessToken ?? "", () => handle(app)(request));
 }
 
+// No maxDuration was set before IPI-1081 · PLAN-001 shipped composeShootPlan —
+// a single turn that chains 4 sequential TOOL-001 calls plus a Supabase read,
+// meaningfully slower than any prior Planner turn. Without an explicit value
+// this route ran at the platform's default serverless timeout, which a live
+// smoke test showed is not enough headroom: the response started (200) but
+// the connection ended with no error and no visible content — the signature
+// of a function killed mid-stream, not an application error.
+export const maxDuration = 60;
+
 export const GET = handleCopilot;
 export const POST = handleCopilot;
 export const PATCH = handleCopilot;
