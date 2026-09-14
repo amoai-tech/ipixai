@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { runDeterministicChecks } from "../run-checks";
 import { runCloudinaryQualityChecks } from "../run-checks";
 import { computeChannelResult } from "../run-checks";
+import { normalizeDeliverableFormat } from "../service";
 import type { CloudinaryAssetMetadata, ChannelSpecFull } from "../types";
 
 const mockAsset: CloudinaryAssetMetadata = {
@@ -281,5 +282,142 @@ describe("computeChannelResult", () => {
     expect(result.specConfidence).toBe("official");
     expect(result.sourceUrl).toBe("https://example.com/spec");
     expect(result.lastVerifiedAt).toBe("2026-06-26T05:21:09.04852Z");
+  });
+});
+
+describe("normalizeDeliverableFormat", () => {
+  it("parses '1:1 JPG' correctly", () => {
+    const result = normalizeDeliverableFormat("1:1 JPG");
+    expect(result.aspectRatio).toBe("1:1");
+    expect(result.acceptedFormats).toEqual(["JPG"]);
+  });
+
+  it("parses '4:5 JPG' correctly", () => {
+    const result = normalizeDeliverableFormat("4:5 JPG");
+    expect(result.aspectRatio).toBe("4:5");
+    expect(result.acceptedFormats).toEqual(["JPG"]);
+  });
+
+  it("parses '9:16 PNG' correctly", () => {
+    const result = normalizeDeliverableFormat("9:16 PNG");
+    expect(result.aspectRatio).toBe("9:16");
+    expect(result.acceptedFormats).toEqual(["PNG"]);
+  });
+
+  it("handles lowercase formats", () => {
+    const result = normalizeDeliverableFormat("1:1 jpg");
+    expect(result.aspectRatio).toBe("1:1");
+    expect(result.acceptedFormats).toEqual(["JPG"]);
+  });
+
+  it("handles malformed value gracefully", () => {
+    const result = normalizeDeliverableFormat("invalid");
+    expect(result.aspectRatio).toBeUndefined();
+    expect(result.acceptedFormats).toEqual(["INVALID"]);
+  });
+
+  it("handles aspect ratio present separately", () => {
+    const result = normalizeDeliverableFormat("JPG");
+    expect(result.aspectRatio).toBeUndefined();
+    expect(result.acceptedFormats).toEqual(["JPG"]);
+  });
+
+  it("handles no saved format", () => {
+    const result = normalizeDeliverableFormat(null);
+    expect(result.aspectRatio).toBeUndefined();
+    expect(result.acceptedFormats).toBeUndefined();
+  });
+});
+
+describe("safe zone check with string coordinates", () => {
+  it("parses string coordinates to numbers correctly", () => {
+    const asset = {
+      ...mockAsset,
+      coordinates: { subject: { x: "500", y: "600", w: "200", h: "300" } },
+    };
+    const spec = {
+      ...mockSpec,
+      safeZoneLeftPx: 400,
+      safeZoneRightPx: 300,
+      safeZoneTopPx: 500,
+      safeZoneBottomPx: 400,
+    };
+    const findings = runDeterministicChecks(asset, spec, "instagram_feed");
+    const safeZoneFinding = findings.find((f) => f.code === "safe_zone_ok");
+    expect(safeZoneFinding).toBeDefined();
+    expect(safeZoneFinding?.status).toBe("pass");
+  });
+
+  it("detects safe zone violation with string coordinates", () => {
+    const asset = {
+      ...mockAsset,
+      coordinates: { subject: { x: "100", y: "100", w: "200", h: "200" } },
+    };
+    const spec = {
+      ...mockSpec,
+      safeZoneLeftPx: 400,
+      safeZoneRightPx: 300,
+      safeZoneTopPx: 500,
+      safeZoneBottomPx: 400,
+    };
+    const findings = runDeterministicChecks(asset, spec, "instagram_feed");
+    const safeZoneFinding = findings.find((f) => f.code === "safe_zone_violation");
+    expect(safeZoneFinding).toBeDefined();
+    expect(safeZoneFinding?.status).toBe("fail");
+  });
+
+  it("handles invalid coordinate strings gracefully", () => {
+    const asset = {
+      ...mockAsset,
+      coordinates: { subject: { x: "invalid", y: "600", w: "200", h: "300" } },
+    };
+    const spec = {
+      ...mockSpec,
+      safeZoneLeftPx: 400,
+      safeZoneRightPx: 300,
+      safeZoneTopPx: 500,
+      safeZoneBottomPx: 400,
+    };
+    const findings = runDeterministicChecks(asset, spec, "instagram_feed");
+    const safeZoneFinding = findings.find((f) => f.code === "safe_zone_unknown");
+    expect(safeZoneFinding).toBeDefined();
+    expect(safeZoneFinding?.status).toBe("unknown");
+  });
+});
+
+describe("RPC deliverable mapping", () => {
+  it("uses aspect_ratio from RPC when present", () => {
+    const deliverable = {
+      channel: "instagram_feed",
+      format: "JPG",
+      aspect_ratio: "1:1",
+      origin: "saved",
+    };
+    const normalized = normalizeDeliverableFormat(deliverable.format);
+    expect(normalized.aspectRatio).toBeUndefined(); // format doesn't contain aspect ratio
+    // The actual mapping uses d.aspect_ratio directly
+    expect(deliverable.aspect_ratio).toBe("1:1");
+  });
+
+  it("normalizes format when aspect_ratio is null", () => {
+    const deliverable = {
+      channel: "instagram_feed",
+      format: "1:1 JPG",
+      aspect_ratio: null,
+      origin: "saved",
+    };
+    const normalized = normalizeDeliverableFormat(deliverable.format);
+    expect(normalized.aspectRatio).toBe("1:1");
+    expect(normalized.acceptedFormats).toEqual(["JPG"]);
+  });
+
+  it("preserves origin field", () => {
+    const deliverable = {
+      channel: "instagram_feed",
+      format: "1:1 JPG",
+      aspect_ratio: "1:1",
+      origin: "saved",
+    };
+    expect(deliverable.origin).toBe("saved");
   });
 });

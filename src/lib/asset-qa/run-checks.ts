@@ -230,58 +230,72 @@ export function runDeterministicChecks(
 
       if (subjectBounds) {
         const { x, y, w, h } = subjectBounds;
-        const subjectLeft = x;
-        const subjectRight = x + w;
-        const subjectTop = y;
-        const subjectBottom = y + h;
-
-        // Compute safe zone boundaries: top/left are absolute, right/bottom are margins from edges
-        const safeLeft = spec.safeZoneLeftPx ?? 0;
-        const safeRight = spec.safeZoneRightPx !== null ? asset.width - spec.safeZoneRightPx : asset.width;
-        const safeTop = spec.safeZoneTopPx ?? 0;
-        const safeBottom = spec.safeZoneBottomPx !== null ? asset.height - spec.safeZoneBottomPx : asset.height;
-
-        let safeZoneViolation = false;
-        const violations: string[] = [];
-
-        if (subjectLeft < safeLeft) {
-          safeZoneViolation = true;
-          violations.push(`left edge ${subjectLeft} < safe zone left ${safeLeft}`);
-        }
-        if (subjectRight > safeRight) {
-          safeZoneViolation = true;
-          violations.push(`right edge ${subjectRight} > safe zone right ${safeRight}`);
-        }
-        if (subjectTop < safeTop) {
-          safeZoneViolation = true;
-          violations.push(`top edge ${subjectTop} < safe zone top ${safeTop}`);
-        }
-        if (subjectBottom > safeBottom) {
-          safeZoneViolation = true;
-          violations.push(`bottom edge ${subjectBottom} > safe zone bottom ${safeBottom}`);
-        }
-
-        if (safeZoneViolation) {
+        // Check for NaN values from invalid coordinate strings
+        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(w) || !Number.isFinite(h)) {
           findings.push(
             makeFinding(
-              "safe_zone_violation",
-              "fail",
-              "error",
-              `Subject extends outside safe zone: ${violations.join("; ")}`,
-              { subjectBounds, safeZones: { top: safeTop, bottom: safeBottom, left: safeLeft, right: safeRight }, violations },
-              "Re-shoot or crop to keep subject within safe zones",
+              "safe_zone_unknown",
+              "unknown",
+              "warning",
+              "Safe zones defined but coordinate values are invalid",
+              { safeZones: { top: spec.safeZoneTopPx, bottom: spec.safeZoneBottomPx, left: spec.safeZoneLeftPx, right: spec.safeZoneRightPx } },
+              "Manual review required: verify subject/text within safe zones",
             ),
           );
         } else {
-          findings.push(
-            makeFinding(
-              "safe_zone_ok",
-              "pass",
-              "info",
-              "Subject within safe zone boundaries",
-              { subjectBounds, safeZones: { top: safeTop, bottom: safeBottom, left: safeLeft, right: safeRight } },
-            ),
-          );
+          const subjectLeft = x;
+          const subjectRight = x + w;
+          const subjectTop = y;
+          const subjectBottom = y + h;
+
+          // Compute safe zone boundaries: top/left are absolute, right/bottom are margins from edges
+          const safeLeft = spec.safeZoneLeftPx ?? 0;
+          const safeRight = spec.safeZoneRightPx !== null ? asset.width - spec.safeZoneRightPx : asset.width;
+          const safeTop = spec.safeZoneTopPx ?? 0;
+          const safeBottom = spec.safeZoneBottomPx !== null ? asset.height - spec.safeZoneBottomPx : asset.height;
+
+          let safeZoneViolation = false;
+          const violations: string[] = [];
+
+          if (subjectLeft < safeLeft) {
+            safeZoneViolation = true;
+            violations.push(`left edge ${subjectLeft} < safe zone left ${safeLeft}`);
+          }
+          if (subjectRight > safeRight) {
+            safeZoneViolation = true;
+            violations.push(`right edge ${subjectRight} > safe zone right ${safeRight}`);
+          }
+          if (subjectTop < safeTop) {
+            safeZoneViolation = true;
+            violations.push(`top edge ${subjectTop} < safe zone top ${safeTop}`);
+          }
+          if (subjectBottom > safeBottom) {
+            safeZoneViolation = true;
+            violations.push(`bottom edge ${subjectBottom} > safe zone bottom ${safeBottom}`);
+          }
+
+          if (safeZoneViolation) {
+            findings.push(
+              makeFinding(
+                "safe_zone_violation",
+                "fail",
+                "error",
+                `Subject extends outside safe zone: ${violations.join("; ")}`,
+                { subjectBounds, safeZones: { top: safeTop, bottom: safeBottom, left: safeLeft, right: safeRight }, violations },
+                "Re-shoot or crop to keep subject within safe zones",
+              ),
+            );
+          } else {
+            findings.push(
+              makeFinding(
+                "safe_zone_ok",
+                "pass",
+                "info",
+                "Subject within safe zone boundaries",
+                { subjectBounds, safeZones: { top: safeTop, bottom: safeBottom, left: safeLeft, right: safeRight } },
+              ),
+            );
+          }
         }
       } else {
         findings.push(

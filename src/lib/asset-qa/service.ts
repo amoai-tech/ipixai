@@ -148,20 +148,23 @@ async function loadQAContext(input: QAServiceInput): Promise<QAContextResult> {
     ok: true,
     asset: typedAsset,
     shootId: shoot.id,
-    deliverables: deliverables.map((d) => ({
-      channel: d.channel,
-      aspectRatio: d.aspect_ratio ?? undefined,
-      acceptedFormats: d.format ? [d.format.toUpperCase()] : undefined,
-      requiredWidth: undefined,
-      requiredHeight: undefined,
-      maxFileSizeMb: undefined,
-      backgroundRequired: undefined,
-      productFillMinPct: undefined,
-      safeZoneTopPx: undefined,
-      safeZoneBottomPx: undefined,
-      safeZoneLeftPx: undefined,
-      safeZoneRightPx: undefined,
-    })),
+    deliverables: deliverables.map((d) => {
+      const normalized = normalizeDeliverableFormat(d.format);
+      return {
+        channel: d.channel,
+        aspectRatio: d.aspect_ratio ?? normalized.aspectRatio,
+        acceptedFormats: normalized.acceptedFormats,
+        requiredWidth: undefined,
+        requiredHeight: undefined,
+        maxFileSizeMb: undefined,
+        backgroundRequired: undefined,
+        productFillMinPct: undefined,
+        safeZoneTopPx: undefined,
+        safeZoneBottomPx: undefined,
+        safeZoneLeftPx: undefined,
+        safeZoneRightPx: undefined,
+      };
+    }),
     cloudinaryMirror: mirror as CloudinaryMirrorRow,
   };
 }
@@ -254,7 +257,7 @@ function getMissingMirrorFields(mirror: { width: number | null; height: number |
   return missing;
 }
 
-function normalizeDeliverableFormat(format: string | null): { aspectRatio?: string; acceptedFormats?: string[] } {
+export function normalizeDeliverableFormat(format: string | null): { aspectRatio?: string; acceptedFormats?: string[] } {
   if (!format) return {};
 
   const trimmed = format.trim();
@@ -268,7 +271,8 @@ function normalizeDeliverableFormat(format: string | null): { aspectRatio?: stri
 
   const ratioParts = aspectRatio.split(":");
   if (ratioParts.length !== 2) {
-    return { acceptedFormats: formatPart ? [formatPart] : undefined };
+    // No valid aspect ratio in the first part; treat entire string as format
+    return { acceptedFormats: trimmed ? [trimmed.toUpperCase()] : undefined };
   }
 
   const w = parseInt(ratioParts[0], 10);
