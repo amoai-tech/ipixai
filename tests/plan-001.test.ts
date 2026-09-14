@@ -198,6 +198,30 @@ describe("composeShootPlan", () => {
     expect(plan.talent).toEqual({ status: "needs_input" });
   });
 
+  it("a notes-only schedule (no dates) stays needs_input, not confirmed", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY];
+    const plan = await composeShootPlan(baseInput({ scheduleNotes: "Sometime next quarter" }));
+    expect(plan.schedule).toEqual({ status: "needs_input" });
+    expect(plan.missingInputs).toContain("schedule");
+  });
+
+  it("a single-date schedule (missing the other date) stays needs_input, not confirmed", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY];
+    const plan = await composeShootPlan(baseInput({ scheduleStartDate: "2027-03-01" }));
+    expect(plan.schedule).toEqual({ status: "needs_input" });
+  });
+
+  it("the canonical ShootPlanSchema itself — not just the compose-shoot-plan.ts call site — rejects a confirmed schedule missing a date", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY];
+    const validPlan = await composeShootPlan(baseInput());
+    const planWithBadSchedule = {
+      ...validPlan,
+      schedule: { status: "confirmed" as const, value: { notes: "TBD" }, source: "operator" },
+    };
+    const result = ShootPlanSchema.safeParse(planWithBadSchedule);
+    expect(result.success).toBe(false);
+  });
+
   it("empty trusted-reference data produces an explicit gap, never a fabricated shot list", async () => {
     supabaseMock.rows = [];
     const plan = await composeShootPlan(baseInput());
