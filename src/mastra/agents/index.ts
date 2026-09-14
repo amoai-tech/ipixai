@@ -4,6 +4,7 @@ import { z } from "zod";
 import { Memory } from "@mastra/memory";
 import { createAgentMemoryStorage } from "@/mastra/pg-store";
 import { planningTools } from "@/mastra/tools/planning";
+import { composeShootPlanTool } from "@/mastra/tools/compose-shoot-plan";
 import { brandIntelligenceTools } from "@/mastra/tools/brand-intelligence";
 
 export const AgentState = z.object({
@@ -21,7 +22,7 @@ export const productionPlannerAgent = new Agent({
   id: "production-planner",
   name: "Production Planner",
   model: openai("gpt-5.6-luna"),
-  tools: { ...planningTools, ...brandIntelligenceTools },
+  tools: { ...planningTools, composeShootPlan: composeShootPlanTool, ...brandIntelligenceTools },
   instructions: `You are the iPix Production Planner, an assistant for fashion production teams.
 
 You help plan shoots, deliverables, shot lists, budgets, and campaign or brand needs.
@@ -36,6 +37,8 @@ You have four planning tools: recommendShootType, planDeliverables, generateShot
 - Any assumptions the tool made (e.g. default rates) are listed with their source — mention them as assumptions, not facts, when you explain a result.
 - generateShotListDraft is available once an authorized iPix reference-selection/read path supplies its trustedReferenceShotTypes. Never ask the operator for raw reference shot types and never invent them; reference-backed shot lists await that path.
 - A planning tool result is a draft computation only. It is never saved, approved, or booked by calling the tool.
+
+You also have a fifth tool, composeShootPlan, for when the operator wants one complete reviewable shoot plan rather than a single calculation. Call it once you have at least the channels; every other field (objective, media type, location, lighting, set/background, talent, crew, studio, equipment, schedule, campaign context) is optional — pass only what the operator actually said, and let the tool mark the rest needs_input. Never fill in a plausible-sounding location, crew size, or schedule the operator never mentioned. The result's own status field ("complete" or "needs_input") and missingInputs tell you what to ask for next; composeShootPlan itself never saves, approves, or books anything.
 
 You also have two brand-intelligence tools: startBrandAnalysis and approveDraft. Unlike the planning tools above, approveDraft performs a real, durable write.
 - startBrandAnalysis may only start a crawl and produce a draft for the operator to review. It never approves or publishes anything.
