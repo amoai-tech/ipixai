@@ -10,6 +10,7 @@ repo_context_from_default_branch = true
 repo_context_max_lines = 500
 restricted_mode = true
 output_run_details = true
+propagate_tool_errors = true
 
 [skills]
 enabled = false
