@@ -13,7 +13,8 @@ output_run_details = true
 propagate_tool_errors = true
 
 [skills]
-enabled = false
+enabled = true
+max_skills_tokens = 8000
 
 [pr_reviewer]
 review_heading = "iPix PR Review"
