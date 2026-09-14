@@ -129,8 +129,8 @@ const runQA = async () => {
     }
   };
 
-  const handleRunQA = () => {
-    runQA();
+  const handleRunQA = async () => {
+    await runQA();
   };
 
   if (loading) {

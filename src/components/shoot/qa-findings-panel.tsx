@@ -47,8 +47,8 @@ export function QAFindingsPanel({ assetId, shootId, channels, initialResult, loa
     setResult(initialResult ?? null);
   }, [initialResult]);
 
-  const handleRunQA = () => {
-    onRunQA();
+  const handleRunQA = async () => {
+    await onRunQA();
   };
 
   const isLoading = loading ?? false;
