@@ -6,6 +6,7 @@ import { createAgentMemoryStorage } from "@/mastra/pg-store";
 import { planningTools } from "@/mastra/tools/planning";
 import { composeShootPlanTool } from "@/mastra/tools/compose-shoot-plan";
 import { brandIntelligenceTools } from "@/mastra/tools/brand-intelligence";
+import { resolveActiveTools } from "@/mastra/planner-tool-gate";
 
 export const AgentState = z.object({
   proverbs: z.array(z.string()).default([]),
@@ -62,3 +63,26 @@ You also have two brand-intelligence tools: startBrandAnalysis and approveDraft.
     },
   }),
 });
+
+/**
+ * IPI-1208 · PLANNER-TOOLGATE-001 — wrap Agent.stream() to inject activeTools.
+ *
+ * Why not in Agent constructor options: Mastra's Agent constructor sets the
+ * *default* tool set but has no per-call activeTools default; the option
+ * must be passed per stream()/resumeStream() call. This wrapper intercepts
+ * every call to this agent and applies the tool-gate policy (see
+ * planner-tool-gate.ts).
+ *
+ * If the caller already passed activeTools in options (e.g. a test override),
+ * that is honoured rather than overridden.
+ */
+{
+  const origStream = productionPlannerAgent.stream.bind(productionPlannerAgent);
+  productionPlannerAgent.stream = (messages: any, options?: any) => {
+    const activeTools = resolveActiveTools(
+      Array.isArray(messages) ? messages : [],
+      options?.activeTools,
+    );
+    return origStream(messages, { ...options ?? {}, activeTools });
+  };
+}
