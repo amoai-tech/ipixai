@@ -359,6 +359,13 @@ describe("IPI-644 loadShotReferenceCatalog", () => {
     expect(await loadShotReferenceCatalog()).toEqual([]);
   });
 
+  it("fails closed when reference_key breaks the canonical snake_case invariant", async () => {
+    supaMocks.createClient.mockResolvedValue(
+      catalogClient({ data: [{ ...row, reference_key: "Not-Snake-Case" }] }),
+    );
+    expect(await loadShotReferenceCatalog()).toEqual([]);
+  });
+
   it("returns [] on read error and on no session", async () => {
     supaMocks.createClient.mockResolvedValue(
       catalogClient({ data: null, error: { message: "boom" } }),

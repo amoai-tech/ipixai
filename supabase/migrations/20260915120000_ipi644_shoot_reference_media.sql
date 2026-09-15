@@ -128,14 +128,22 @@ create table if not exists shoot.shot_type_reference_media (
   -- Human/content owner recorded for the approved exact version.
   provenance_source text not null,
   rights_status text not null,
+  -- Durable pointer to the exact rights/licence evidence the curator approved
+  -- against (locator/URI/hash), so the approval decision stays auditable after
+  -- the manifest is gone. Never a copied document blob.
+  rights_evidence text not null,
   approved_at timestamptz not null default now(),
-  approved_by uuid,
+  -- Canonical durable identity: an auth user. Unknown approvers cannot be
+  -- recorded (FK), and an approver later deleted does not orphan the mapping.
+  approved_by uuid references auth.users (id) on delete set null,
   constraint shot_type_reference_media_asset_id_not_blank
     check (length(btrim(cloudinary_asset_id)) > 0),
   constraint shot_type_reference_media_public_id_not_blank
     check (length(btrim(public_id)) > 0),
   constraint shot_type_reference_media_provenance_not_blank
     check (length(btrim(provenance_source)) > 0),
+  constraint shot_type_reference_media_rights_evidence_not_blank
+    check (length(btrim(rights_evidence)) > 0),
   -- Invariants from the IPI-644 data contract: the media must be an exact,
   -- authenticated, image version whose rights are explicitly approved.
   constraint shot_type_reference_media_version_positive check (version > 0),

@@ -96,6 +96,18 @@ describe("parseReferenceCandidateManifest", () => {
     });
   });
 
+  it("accepts the canonical snake_case key and rejects blank or non-canonical keys", () => {
+    expect(
+      parseReferenceCandidateManifest(manifestWith([validCandidate({ referenceKey: REFERENCE_KEY })])),
+    ).toMatchObject({ ok: true });
+    for (const referenceKey of ["", "   ", "Full Body", "foo/bar", "foo bar"]) {
+      expect(parseReferenceCandidateManifest(manifestWith([validCandidate({ referenceKey })]))).toMatchObject({
+        ok: false,
+        reason: "invalid_candidate",
+      });
+    }
+  });
+
   it("rejects unapproved rights and duplicate reference keys", () => {
     expect(parseReferenceCandidateManifest(manifestWith([validCandidate({ rightsStatus: "pending" })]))).toMatchObject({
       ok: false,
@@ -127,13 +139,20 @@ describe("candidate identity + upload planning", () => {
     expect(context).toContain("credit=Studio One");
   });
 
-  it("uploads as an authenticated image without overwrite", () => {
+  it("uploads as an authenticated image with eager named previews and without overwrite", () => {
     const params = buildCandidateUploadParams(validCandidate());
     expect(params.folder).toBe(REFERENCE_LIBRARY_FOLDER);
     expect(params.public_id).toBe(REFERENCE_KEY);
     expect(params.type).toBe("authenticated");
     expect(params.resource_type).toBe("image");
     expect(params.overwrite).toBe(false);
+    // Authenticated assets cannot rely on lazy derivative generation, so the
+    // named previews the signed preview path requests must be built at upload.
+    expect(params.eager).toEqual([
+      { transformation: "asset-masonry" },
+      { transformation: "asset-review" },
+      { transformation: "asset-detail" },
+    ]);
   });
 
   it("plans upload, replace, and already-approved actions", () => {
@@ -210,6 +229,7 @@ describe("buildApprovedReferenceMapping", () => {
         resourceType: "image",
         deliveryType: "authenticated",
         rightsStatus: "approved_for_reference",
+        rightsEvidence: "license ref 2026-01",
       },
     });
   });
@@ -357,6 +377,7 @@ describe("runCli", () => {
       version: 17,
       format: "jpg",
       provenanceSource: "iPix-owned studio library",
+      rightsEvidence: "license ref 2026-01",
       approvedBy: "approver-uuid",
     });
     expect(deps.log).toHaveBeenCalledWith(expect.stringContaining(`approved ${REFERENCE_KEY}`));

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 import { MAX_TRUSTED_REFERENCES, TrustedReferenceShotTypeSchema } from "@/mastra/tools/planning";
+import { REFERENCE_KEY_PATTERN } from "./reference-candidates";
 import type { TrustedReferenceShotType } from "./shot-list-from-references";
 
 /**
@@ -17,7 +18,9 @@ export type ShotReferenceCatalogEntry = TrustedReferenceShotType & {
 };
 
 const ShotReferenceCatalogRowSchema = TrustedReferenceShotTypeSchema.extend({
-  referenceKey: z.string().min(1),
+  // Canonical invariant (matches the DB CHECK on reference_key); a blank or
+  // non-snake_case key is a malformed row and fails the whole load closed.
+  referenceKey: z.string().regex(REFERENCE_KEY_PATTERN),
   hasPreview: z.boolean(),
 });
 

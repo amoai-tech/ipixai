@@ -18,6 +18,8 @@
 // exact provider identity, and the CLI records it through a human-approved,
 // service_role-only Supabase function.
 
+import { PREVIEW_NAMED_TRANSFORMS } from "@/lib/cloudinary/preview-contract";
+
 export const REFERENCE_LIBRARY_FOLDER = "ipix/reference-library";
 export const REFERENCE_CANDIDATE_SCHEMA_VERSION = "reference-candidate-v1";
 export const REFERENCE_CANDIDATE_TAG = "ipi-reference-candidate";
@@ -29,7 +31,18 @@ export const ALLOWED_CANDIDATE_FORMATS = ["jpg", "jpeg", "png", "webp", "avif"] 
 export const MIN_CANDIDATE_SHORT_EDGE_PX = 800;
 export const MAX_CANDIDATE_BYTES = 12 * 1024 * 1024;
 
-const REFERENCE_KEY_PATTERN = /^[a-z0-9_]+$/;
+/** Canonical reference-key invariant — must match the DB CHECK constraint. */
+export const REFERENCE_KEY_PATTERN = /^[a-z0-9_]+$/;
+
+/**
+ * IPI-644 · P0 — the named preview transforms an approved reference must expose.
+ *
+ * Derived from the single canonical definition (`PREVIEW_NAMED_TRANSFORMS`) so
+ * the eager set can never drift from what the signed preview path requests.
+ * `f_auto`/`q_auto`/`dpr_auto` must stay OUTSIDE named transforms, so they are
+ * deliberately not part of this list.
+ */
+export const REFERENCE_PREVIEW_EAGER_TRANSFORMS = Object.values(PREVIEW_NAMED_TRANSFORMS);
 
 export type ReferenceCandidate = {
   referenceKey: string;
@@ -76,6 +89,7 @@ export type ReferenceApprovedMapping = {
   deliveryType: string;
   provenanceSource: string;
   rightsStatus: string;
+  rightsEvidence: string;
 };
 
 export type ReferenceCandidateFailureReason =
@@ -269,6 +283,7 @@ export function buildCandidateUploadParams(candidate: ReferenceCandidate): {
   resource_type: typeof APPROVED_REFERENCE_RESOURCE_TYPE;
   tags: string[];
   context: string;
+  eager: Array<{ transformation: string }>;
   overwrite: boolean;
 } {
   return {
@@ -278,6 +293,10 @@ export function buildCandidateUploadParams(candidate: ReferenceCandidate): {
     resource_type: APPROVED_REFERENCE_RESOURCE_TYPE,
     tags: buildCandidateTags(candidate),
     context: buildCandidateContext(candidate),
+    // Authenticated assets cannot rely on lazy derivative generation, and the
+    // preview API signs these exact named transforms, so create them eagerly at
+    // upload time from the one canonical transform definition.
+    eager: REFERENCE_PREVIEW_EAGER_TRANSFORMS.map((transformation) => ({ transformation })),
     overwrite: false,
   };
 }
@@ -346,6 +365,7 @@ export function buildApprovedReferenceMapping(
       deliveryType: APPROVED_REFERENCE_DELIVERY_TYPE,
       provenanceSource: candidate.provenanceSource,
       rightsStatus: REFERENCE_RIGHTS_STATUS_APPROVED,
+      rightsEvidence: candidate.rightsEvidence,
     },
   };
 }

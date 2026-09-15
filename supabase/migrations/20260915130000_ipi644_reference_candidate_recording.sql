@@ -16,8 +16,10 @@
 --   * the values the function writes (`image`, `authenticated`,
 --     `approved_for_reference`) are hardcoded, so a caller cannot record a
 --     mapping that violates the table's exact-mapping invariants;
---   * `approved_by` is required, so no mapping can exist without a recorded
---     human approver.
+--   * `approved_by` is required and must resolve to a real `auth.users` row, so
+--     no mapping can exist without a recorded, attributable human approver;
+--   * `rights_evidence` is required and non-blank, so an approval can never be
+--     recorded without a durable pointer to the rights basis it was made on.
 
 -- ---------------------------------------------------------------------------
 -- Human-approved mapping recording (service_role only)
@@ -30,6 +32,7 @@ create or replace function public.record_shot_reference_media(
   p_version bigint,
   p_format text,
   p_provenance_source text,
+  p_rights_evidence text,
   p_approved_by uuid
 )
 returns void
@@ -59,6 +62,21 @@ begin
       using errcode = 'not_null_violation';
   end if;
 
+  -- The approver must be a real, canonical identity — a random or stale UUID is
+  -- not an auditable approval. The FK on the table is the durable backstop; this
+  -- check fails closed with a clear reason first.
+  if not exists (select 1 from auth.users u where u.id = p_approved_by) then
+    raise exception 'IPI-644: approved_by % does not resolve to a known user', p_approved_by
+      using errcode = 'foreign_key_violation';
+  end if;
+
+  -- An approval without a durable rights basis is not auditable. Require a
+  -- non-blank evidence pointer rather than silently recording a blank one.
+  if p_rights_evidence is null or length(btrim(p_rights_evidence)) = 0 then
+    raise exception 'IPI-644: non-blank rights evidence is required to record an approved reference mapping'
+      using errcode = 'not_null_violation';
+  end if;
+
   -- Only ever write the exact-mapping invariants. Blank/version/resource/rights
   -- violations still fail the table CHECK constraints below.
   insert into shoot.shot_type_reference_media (
@@ -71,6 +89,7 @@ begin
     delivery_type,
     provenance_source,
     rights_status,
+    rights_evidence,
     approved_at,
     approved_by
   )
@@ -84,6 +103,7 @@ begin
     'authenticated',
     p_provenance_source,
     'approved_for_reference',
+    p_rights_evidence,
     now(),
     p_approved_by
   )
@@ -96,6 +116,7 @@ begin
     delivery_type = excluded.delivery_type,
     provenance_source = excluded.provenance_source,
     rights_status = excluded.rights_status,
+    rights_evidence = excluded.rights_evidence,
     approved_at = excluded.approved_at,
     approved_by = excluded.approved_by;
 end;
@@ -103,9 +124,9 @@ $$;
 
 -- service_role only: the CLI is the sole writer, and this function carries raw
 -- provider identity. Nothing else may EXECUTE it.
-revoke all on function public.record_shot_reference_media(uuid, text, text, bigint, text, text, uuid)
+revoke all on function public.record_shot_reference_media(uuid, text, text, bigint, text, text, text, uuid)
   from public, anon, authenticated;
-grant execute on function public.record_shot_reference_media(uuid, text, text, bigint, text, text, uuid)
+grant execute on function public.record_shot_reference_media(uuid, text, text, bigint, text, text, text, uuid)
   to service_role;
 
 -- The CLI reads the bounded catalog as service_role, so it must be able to read
