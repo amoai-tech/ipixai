@@ -117,7 +117,7 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
   // probabilistic model decision (Mastra's agent owns tool selection, not
   // the caller); that's a job for composeShootPlan's own tool-level tests,
   // not this browser/transport-health test.
-  test("operator gets a Planner response for the real shoot-brief regression @Td9c2e211", async ({
+  test("operator gets a real shoot-plan response from /app and it survives reload @Td9c2e211", async ({
     page,
   }) => {
     // Longer than the budget test's timeout: this prompt can trigger
@@ -131,30 +131,24 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
     // conversation restores after reload.
     const prompt = `Plan a Shopify product shoot for our new linen dress collection. Photos only, launching next month. [${runMarker}]`;
 
-    await page.goto("/planner");
-    await expect(page.getByText("Loading…")).toHaveCount(0, { timeout: NAV_TIMEOUT_MS });
+    await page.goto("/app");
     await expect(page.getByRole("status", { name: "Loading conversation…" })).toHaveCount(0, {
       timeout: NAV_TIMEOUT_MS,
     });
 
-    await page.getByRole("button", { name: "New" }).click();
-
-    const toggle = page.getByTestId("copilot-chat-toggle");
-    if ((await toggle.getAttribute("aria-pressed")) !== "true") {
-      await toggle.click();
-    }
-
-    const textarea = page.getByTestId("copilot-chat-textarea");
+    const chatDock = page.getByTestId("operator-chat-dock");
+    await expect(chatDock).toBeVisible({ timeout: NAV_TIMEOUT_MS });
+    const textarea = chatDock.getByTestId("copilot-chat-textarea");
     await textarea.click();
     await textarea.fill(prompt);
-    await page.getByTestId("copilot-send-button").click();
+    await chatDock.getByTestId("copilot-send-button").click();
 
     // The entire point of this test: some real assistant response must
     // appear. The live incident's exact symptom was silence — no response,
     // no error — after this same prompt, so simply reaching a non-empty
     // assistant message is the decisive assertion here.
-    const assistantMessages = page.getByTestId("copilot-assistant-message");
-    await expect(assistantMessages.last()).not.toHaveText("", {
+    const assistantMessages = chatDock.getByTestId("copilot-assistant-message");
+    await expect(assistantMessages.last()).toHaveText(/\S/, {
       timeout: PLAN_RESPONSE_TIMEOUT_MS,
     });
     const responseText = await assistantMessages.last().innerText();
@@ -162,14 +156,27 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
       0,
     );
 
-    // Persistence: same shape of check as the budget test above.
+    // Preserve IPI-1217's thread-lifecycle contract while proving PLAN-001 on
+    // the real production surface: the same tenant-scoped thread must survive
+    // reload and restore this exact planning turn.
+    const resolvedThreadId = await getStoredPlannerThreadId(page);
+    expect(resolvedThreadId, "PlannerChatDock should persist the active thread before reload").not.toBeNull();
+
     await page.reload();
-    await expect(page.getByTestId("copilot-user-message").last()).toContainText(runMarker, {
+    await expect(page.getByRole("status", { name: "Loading conversation…" })).toHaveCount(0, {
       timeout: NAV_TIMEOUT_MS,
     });
-    await expect(page.getByTestId("copilot-assistant-message").last()).not.toHaveText("", {
-      timeout: NAV_TIMEOUT_MS,
-    });
+    await expect(page.getByTestId("operator-chat-dock").getByTestId("copilot-user-message").last()).toContainText(
+      runMarker,
+      { timeout: NAV_TIMEOUT_MS },
+    );
+    await expect(page.getByTestId("operator-chat-dock").getByTestId("copilot-assistant-message").last()).toHaveText(
+      /\S/,
+      { timeout: NAV_TIMEOUT_MS },
+    );
+    expect(await getStoredPlannerThreadId(page), "reload must keep the same tenant-scoped Planner thread").toBe(
+      resolvedThreadId,
+    );
   });
 
   // IPI-1217 · COPILOT-APP-DOCK-002 — regression coverage for /app's
