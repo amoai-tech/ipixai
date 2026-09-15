@@ -121,8 +121,8 @@ const DEFAULT_RESOURCE_ID = "org-1";
  *  this mocked or the dock sticks on "Loading conversation…" forever. */
 function mockThreadsFetch(
   impl: (
-    input: RequestInfo | URL,
-    init?: RequestInit,
+    _input: RequestInfo | URL,
+    _init?: RequestInit,
   ) => Response | Promise<Response> = () =>
     new Response(JSON.stringify({ resourceId: DEFAULT_RESOURCE_ID, threads: [] }), { status: 200 }),
 ) {
@@ -358,7 +358,7 @@ describe("OperatorPanel", () => {
 
 describe("PlannerChatDock thread bootstrap (IPI-1217)", () => {
   it("shows the loading state before the bootstrap resolves, then mounts chat", async () => {
-    let resolveFetch!: (response: Response) => void;
+    let resolveFetch!: (_response: Response) => void;
     mockThreadsFetch(
       () =>
         new Promise<Response>((resolve) => {
