@@ -1,6 +1,9 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { cloudinary } from "@/lib/cloudinary/config";
+import type { Database } from "@/lib/supabase/database.types";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { loadChannelSpecsForQA } from "./load-channel-specs";
 import { runDeterministicChecks, runCloudinaryQualityChecks, computeChannelResult } from "./run-checks";
@@ -73,6 +76,7 @@ type QAContextResult =
 export type QAServiceInput = {
   assetId: string;
   orgId: string;
+  authClient: SupabaseClient<Database>;
 };
 
 export type QAServiceResult =
@@ -115,7 +119,9 @@ async function loadQAContext(input: QAServiceInput): Promise<QAContextResult> {
     return { ok: false, reason: "asset_not_linked_to_shoot", status: 409 };
   }
 
-  const { data: shootDetail, error: shootError } = await supabase
+  // get_shoot_detail is intentionally user-scoped and requires auth.uid().
+  // Never call it with the service-role client, which has no request user context.
+  const { data: shootDetail, error: shootError } = await input.authClient
     .rpc("get_shoot_detail", { p_shoot_id: typedAsset.v2_shoot_id });
 
   if (shootError || !shootDetail) {

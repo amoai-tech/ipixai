@@ -75,6 +75,7 @@ export async function POST(
   const result = await runAssetQA({
     assetId,
     orgId: brand.org_id,
+    authClient: supabase,
   });
 
   if (!result.ok) {
