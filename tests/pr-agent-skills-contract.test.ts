@@ -19,6 +19,9 @@ describe("IPI-1213 PR-Agent review skills contract", () => {
     expect(workflow).toContain("ref: ${{ github.event.pull_request.base.sha }}");
     expect(workflow).toContain("persist-credentials: false");
     expect(workflow).toContain("Select trusted PR-Agent skills");
+    expect(workflow).toContain(
+      "if [[ -e .claude/skills/mastra-review/SKILL.md && -e .claude/skills/copilotkit-review/SKILL.md ]]; then",
+    );
     expect(workflow).toContain('"/github/workspace/.claude/skills/mastra-review"');
     expect(workflow).toContain('"/github/workspace/.claude/skills/copilotkit-review"');
     expect(workflow).toContain('"/github/workspace/.claude/skills/mastra"');
