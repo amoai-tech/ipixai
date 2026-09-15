@@ -313,7 +313,7 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
             deciding.
             <button
               type="button"
-              onClick={() => router.refresh()}
+              onClick={() => { router.refresh(); }}
               className="ml-2 font-semibold underline"
             >
               Refresh
@@ -331,7 +331,7 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
           <button
             type="button"
             disabled={!hasExactVersion || decisionPending || decisionFinal}
-            onClick={() => handleDecision("approved")}
+            onClick={() => { void handleDecision("approved"); }}
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-sm text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Check className="h-4 w-4" aria-hidden />
@@ -340,7 +340,7 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
           <button
             type="button"
             disabled={!hasExactVersion || decisionPending || decisionFinal}
-            onClick={() => handleDecision("rejected")}
+            onClick={() => { void handleDecision("rejected"); }}
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <X className="h-4 w-4" aria-hidden />

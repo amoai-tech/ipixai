@@ -343,21 +343,22 @@ describe("ShootDetailWorkspace", () => {
 
   it("approves the exact reviewed asset version and reflects the durable decision", async () => {
     const assetId = "55555555-5555-4555-8555-555555555555";
-    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+    vi.mocked(fetch).mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes("/preview")) {
-        return {
+        return Promise.resolve({
           ok: true,
-          json: async () => ({
-            url: "https://res.cloudinary.com/demo/image/upload/v123/signed-preview.jpg",
-          }),
-        } as Response;
+          json: () =>
+            Promise.resolve({
+              url: "https://res.cloudinary.com/demo/image/upload/v123/signed-preview.jpg",
+            }),
+        } as Response);
       }
       if (url.includes("/decision")) {
-        return {
+        return Promise.resolve({
           ok: true,
-          json: async () => ({ ok: true, code: "APPROVED", approval: "approved" }),
-        } as Response;
+          json: () => Promise.resolve({ ok: true, code: "APPROVED", approval: "approved" }),
+        } as Response);
       }
       throw new Error(`unexpected fetch ${url}`);
     });
@@ -387,21 +388,22 @@ describe("ShootDetailWorkspace", () => {
 
   it("shows the stale-version warning instead of retrying against the newer version", async () => {
     const assetId = "55555555-5555-4555-8555-555555555555";
-    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+    vi.mocked(fetch).mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes("/preview")) {
-        return {
+        return Promise.resolve({
           ok: true,
-          json: async () => ({
-            url: "https://res.cloudinary.com/demo/image/upload/v123/signed-preview.jpg",
-          }),
-        } as Response;
+          json: () =>
+            Promise.resolve({
+              url: "https://res.cloudinary.com/demo/image/upload/v123/signed-preview.jpg",
+            }),
+        } as Response);
       }
       if (url.includes("/decision")) {
-        return {
+        return Promise.resolve({
           ok: false,
-          json: async () => ({ error: "error", reason: "stale_version" }),
-        } as Response;
+          json: () => Promise.resolve({ error: "error", reason: "stale_version" }),
+        } as Response);
       }
       throw new Error(`unexpected fetch ${url}`);
     });

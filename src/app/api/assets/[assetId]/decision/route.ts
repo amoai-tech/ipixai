@@ -17,13 +17,6 @@ const decisionBodySchema = z.object({
   requestId: z.string().min(1).max(200),
 });
 
-function jsonError(status: number, error: string, reason: string): Response {
-  return new Response(JSON.stringify({ error, reason }), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
-
 const STATUS_BY_CODE: Record<string, number> = {
   UNAUTHENTICATED: 401,
   FORBIDDEN: 403,
@@ -35,6 +28,52 @@ const STATUS_BY_CODE: Record<string, number> = {
   INVALID_DECISION: 400,
   INVALID_REQUEST: 400,
 };
+
+function jsonError(status: number, error: string, reason: string): Response {
+  return new Response(JSON.stringify({ error, reason }), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+type SupabaseServerClient = NonNullable<ReturnType<typeof createClientFromRequest>>;
+
+/**
+ * Defense-in-depth membership pre-check. The decide_asset_version RPC
+ * independently re-resolves asset -> brand -> org and requires editor/owner
+ * authority, so this only produces a clean early error.
+ */
+async function authorizeAssetAccess(
+  supabase: SupabaseServerClient,
+  assetId: string,
+  userId: string,
+): Promise<{ orgId: string } | { response: Response }> {
+  const { data: asset, error: assetError } = await supabase
+    .from("assets")
+    .select("id, brands(org_id)")
+    .eq("id", assetId)
+    .maybeSingle();
+
+  if (assetError) return { response: membershipLookupFailedResponse() };
+  if (!asset) return { response: jsonError(404, "not_found", "asset_not_found") };
+
+  const brand = Array.isArray(asset.brands) ? asset.brands[0] : asset.brands;
+  if (!brand?.org_id) {
+    return { response: jsonError(409, "conflict", "asset_missing_brand") };
+  }
+
+  const { data: membership, error: membershipError } = await supabase
+    .from("org_members")
+    .select("org_id")
+    .eq("org_id", brand.org_id)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (membershipError) return { response: membershipLookupFailedResponse() };
+  if (!membership) return { response: jsonError(403, "forbidden", "foreign_org") };
+
+  return { orgId: brand.org_id };
+}
 
 /**
  * IPI-1119 · MEDIA-APPROVAL-001 — Approve/Reject the exact Cloudinary asset version.
@@ -71,41 +110,8 @@ export async function POST(
   const { decision, expectedCloudinaryAssetId, expectedVersion, reason, requestId } =
     parsed.data;
 
-  // Defense-in-depth membership pre-check (the RPC independently re-resolves
-  // asset -> brand -> org and requires editor/owner authority).
-  const { data: asset, error: assetError } = await supabase
-    .from("assets")
-    .select("id, brands(org_id)")
-    .eq("id", assetId)
-    .maybeSingle();
-
-  if (assetError) {
-    return membershipLookupFailedResponse();
-  }
-
-  if (!asset) {
-    return jsonError(404, "not_found", "asset_not_found");
-  }
-
-  const brand = Array.isArray(asset.brands) ? asset.brands[0] : asset.brands;
-  if (!brand?.org_id) {
-    return jsonError(409, "conflict", "asset_missing_brand");
-  }
-
-  const { data: membership, error: membershipError } = await supabase
-    .from("org_members")
-    .select("org_id")
-    .eq("org_id", brand.org_id)
-    .eq("user_id", operator.id)
-    .maybeSingle();
-
-  if (membershipError) {
-    return membershipLookupFailedResponse();
-  }
-
-  if (!membership) {
-    return jsonError(403, "forbidden", "foreign_org");
-  }
+  const access = await authorizeAssetAccess(supabase, assetId, operator.id);
+  if ("response" in access) return access.response;
 
   const { data, error } = await supabase.rpc("decide_asset_version", {
     p_asset_id: assetId,
