@@ -4581,8 +4581,10 @@ export type Database = {
           category: string | null
           channel_fit: string[] | null
           description: string | null
+          has_preview: boolean | null
           id: string | null
           model_type: string | null
+          reference_key: string | null
           subcategory: string | null
           tags: string[] | null
         }
@@ -4592,8 +4594,10 @@ export type Database = {
           category?: string | null
           channel_fit?: string[] | null
           description?: string | null
+          has_preview?: never
           id?: string | null
           model_type?: string | null
+          reference_key?: string | null
           subcategory?: string | null
           tags?: string[] | null
         }
@@ -4603,8 +4607,10 @@ export type Database = {
           category?: string | null
           channel_fit?: string[] | null
           description?: string | null
+          has_preview?: never
           id?: string | null
           model_type?: string | null
+          reference_key?: string | null
           subcategory?: string | null
           tags?: string[] | null
         }
@@ -4755,6 +4761,20 @@ export type Database = {
       get_or_create_shortlist: { Args: { p_org_id: string }; Returns: string }
       get_own_talent_profile: { Args: never; Returns: Json }
       get_shoot_detail: { Args: { p_shoot_id: string }; Returns: Json }
+      get_shot_reference_media: {
+        Args: { p_reference_id: string }
+        Returns: {
+          cloudinary_asset_id: string
+          delivery_type: string
+          format: string
+          has_approved_media: boolean
+          public_id: string
+          reference_exists: boolean
+          resource_type: string
+          rights_status: string
+          version: number
+        }[]
+      }
       get_user_shoots: {
         Args: {
           status_filter?: Database["public"]["Enums"]["shoot_status_v2"]
@@ -4954,6 +4974,19 @@ export type Database = {
         }
         Returns: Json
       }
+      record_shot_reference_media: {
+        Args: {
+          p_approved_by: string
+          p_cloudinary_asset_id: string
+          p_format: string
+          p_provenance_source: string
+          p_public_id: string
+          p_reference_id: string
+          p_rights_evidence: string
+          p_version: number
+        }
+        Returns: undefined
+      }
       reject_brand_intelligence_draft: {
         Args: { p_brand_id: string; p_expected_draft_hash: string }
         Returns: Json
@@ -5002,6 +5035,10 @@ export type Database = {
           p_shoot_type?: string
         }
         Returns: Json[]
+      }
+      shot_type_reference_has_preview: {
+        Args: { p_reference_id: string }
+        Returns: boolean
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
