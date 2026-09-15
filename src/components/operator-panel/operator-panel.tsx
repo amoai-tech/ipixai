@@ -168,6 +168,7 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
       useSingleEndpoint={false}
       showDevConsole={false}
       enableInspector={false}
+      publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_PUBLIC_LICENSE_KEY}
     >
       <div className={styles.shell} data-testid="operator-panel">
       <div className={styles.menuBar}>

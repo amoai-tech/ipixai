@@ -2,16 +2,22 @@
 # Keep this file intentionally small. Upstream defaults remain authoritative unless overridden here.
 
 [config]
+model = "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b"
+fallback_models = ["nvidia_nim/nvidia/nemotron-3.5-lightning-30b-a3b"]
+custom_model_max_tokens = 32000
 repo_context_files = ["AGENTS.md", "docs/pr-review-guidelines.md"]
 repo_context_from_default_branch = true
 repo_context_max_lines = 500
 restricted_mode = true
 output_run_details = true
+propagate_tool_errors = true
 
 [skills]
-enabled = false
+enabled = true
+max_skills_tokens = 8000
 
 [pr_reviewer]
+review_heading = "iPix PR Review"
 require_score_review = true
 require_tests_review = true
 require_security_review = true
@@ -19,13 +25,44 @@ require_ticket_analysis_review = false
 require_risk_assessment = true
 require_merge_recommendation = true
 require_priority_files = true
+publish_error_details = true
 persistent_comment = true
 persistent_finding_state = false
 num_max_findings = 6
+enable_review_coverage_footer = true
 enable_large_pr_chunking = true
 max_number_of_calls = 3
 extra_instructions = """
-Prioritize correctness, tenant/authorization safety, data integrity, consequential AI/HITL safety, regression risk, and missing deterministic proof.
-Do not publish style-only findings as material issues. A numeric score never overrides a security, tenant-isolation, data-loss, payment, publishing, or approval-integrity blocker.
-For each HIGH/BLOCKER finding identify the changed code, realistic failure trigger, impact, evidence/invariant, smallest safe fix, and verification needed.
+Act as a forensic senior engineer reviewing production iPix code.
+
+Prioritize only material findings: correctness defects; security and tenant-isolation defects; authorization/RLS failures; data integrity or migration failures; CI/build/test failures; broken error/retry/idempotency behavior; Mastra workflow/HITL/persistence defects; CopilotKit/AG-UI runtime regressions; Cloudinary webhook/signing/media integrity defects; payment or publishing safety defects; and missing deterministic verification for high-risk changes.
+
+Do not report style-only suggestions, subjective preferences, speculative problems without a realistic failure scenario, or issues unrelated to changed code.
+
+Use `changes_required` only when at least one material finding proves a changed-code defect, violated safety/compatibility invariant, failed required deterministic proof, or realistic failure scenario that must be fixed before merge. If there is no such finding, do not return `changes_required`. Keep advisory observations out of `key_issues_to_review`.
+
+Do not flag the intentional trusted-base checkout used for reviewer skills as a defect: loading `SKILL.md` from `github.event.pull_request.base.sha` is the security boundary that prevents a PR from rewriting its own reviewer instructions. For dependency upgrades, do not create a finding that merely says to verify a changelog or documentation; require concrete incompatibility evidence, a violated pinned-family invariant, or missing required proof for a material risk.
+
+For EVERY finding, structure issue_content exactly with these sections:
+Severity: BLOCKER | HIGH | MEDIUM | LOW
+Problem: State the concrete defect in plain English.
+Why it matters: Describe the actual user, security, data, CI, or production consequence.
+Evidence: Identify the changed code/config/invariant that proves the concern. Do not invent repository state that is not visible.
+Failure scenario: Describe the smallest realistic sequence that triggers the problem.
+Fix: Give the smallest safe implementation fix. Prefer existing repository patterns or official functionality over new architecture.
+Verification: Give the cheapest decisive test or command proving the fix. Use existing repository scripts/commands when known. Never invent a command unsupported by repository context.
+Expected result: State what observable result proves the defect is fixed.
+
+For BLOCKER or HIGH findings, explain why the PR must not merge before resolution, include Org A vs Org B verification when authorization/RLS is involved, and include exact-head CI/runtime proof when relevant. Rank findings by severity and production impact. Return at most 6 material findings.
+"""
+
+[pr_code_suggestions]
+focus_only_on_problems = true
+suggestions_score_threshold = 7
+num_code_suggestions_per_chunk = 3
+max_number_of_calls = 3
+parallel_calls = true
+persistent_comment = true
+extra_instructions = """
+Only propose fixes for verified material defects. For every suggestion: identify the defect being fixed; explain why the change is necessary; propose the smallest safe patch; preserve existing architecture and ownership boundaries; specify the test that should prove the fix; and do not perform unrelated refactoring.
 """

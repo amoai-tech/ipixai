@@ -23,11 +23,22 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - name: Checkout trusted repository files for PR-Agent skills
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
       - name: Review pull request
         uses: docker://pragent/pr-agent@sha256:548b760b81ab4b3f729182428695ccc1194bbf87528c2b1e2b2b07e5223af7b6
         env:
-          OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_NIM_API_BASE: "https://integrate.api.nvidia.com/v1"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          config.propagate_tool_errors: "true"
+          skills.enabled: "true"
+          skills.paths: '["/github/workspace/.claude/skills/mastra"]'
+          skills.max_skills_tokens: "8000"
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "false"
           github_action_config.auto_improve: "false"

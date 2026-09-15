@@ -39,7 +39,11 @@ export function PlannerApp() {
   }
 
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      useSingleEndpoint={false}
+      publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_PUBLIC_LICENSE_KEY}
+    >
       <PlannerSurface />
     </CopilotKit>
   );
