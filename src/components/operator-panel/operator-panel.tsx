@@ -254,7 +254,9 @@ function ResolvedChatDock({
     <RestoreMastraHistory
       threadId={threadId}
       replay
-      onSettled={() => setRestoreSettled(true)}
+      onSettled={() => {
+        setRestoreSettled(true);
+      }}
     />
   ) : null;
 

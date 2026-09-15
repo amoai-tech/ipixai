@@ -148,14 +148,16 @@ import { ReportWorkspaceStats } from "./workspace-stats";
 
 const DEFAULT_RESOURCE_ID = "org-1";
 
+type ThreadsFetchImpl = (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => Response | Promise<Response>;
+
 /** IPI-1217: PlannerChatDock now bootstraps a thread via
  *  GET /api/planner/threads before mounting CopilotChat — every test needs
  *  this mocked or the dock sticks on "Loading conversation…" forever. */
 function mockThreadsFetch(
-  impl: (
-    _input: RequestInfo | URL,
-    _init?: RequestInit,
-  ) => Response | Promise<Response> = () =>
+  impl: ThreadsFetchImpl = () =>
     new Response(JSON.stringify({ resourceId: DEFAULT_RESOURCE_ID, threads: [] }), { status: 200 }),
 ) {
   vi.stubGlobal("fetch", vi.fn(impl));
@@ -390,9 +392,11 @@ describe("OperatorPanel", () => {
   });
 });
 
+type ResolveFetch = (response: Response) => void;
+
 describe("PlannerChatDock thread bootstrap (IPI-1217)", () => {
   it("shows the loading state before the bootstrap resolves, then mounts chat", async () => {
-    let resolveFetch!: (_response: Response) => void;
+    let resolveFetch!: ResolveFetch;
     mockThreadsFetch(
       () =>
         new Promise<Response>((resolve) => {
@@ -623,7 +627,8 @@ describe("PlannerChatDock thread bootstrap (IPI-1217)", () => {
     // arrived (fetch() resolved) when unmount happens, with only the body
     // parse still in flight. Without the aborted-check placed after that
     // await, this write would still land on an unmounted component.
-    let resolveJson!: (body: unknown) => void;
+    type ResolveJson = (body: unknown) => void;
+    let resolveJson!: ResolveJson;
     const pendingJson = new Promise((resolve) => {
       resolveJson = resolve;
     });

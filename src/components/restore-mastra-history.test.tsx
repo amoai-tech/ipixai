@@ -38,7 +38,7 @@ describe("RestoreMastraHistory", () => {
   it("shows the restored conversation after a successful fetch", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ messages: history }),
+      json: () => Promise.resolve({ messages: history }),
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -62,10 +62,11 @@ describe("RestoreMastraHistory", () => {
       vi.fn().mockResolvedValue({
         ok: false,
         status: 403,
-        json: async () => ({
-          error: "thread_forbidden",
-          secret: "ORG-A-SECRET-SHOULD-NOT-APPEAR",
-        }),
+        json: () =>
+          Promise.resolve({
+            error: "thread_forbidden",
+            secret: "ORG-A-SECRET-SHOULD-NOT-APPEAR",
+          }),
       }),
     );
 
@@ -97,7 +98,7 @@ describe("RestoreMastraHistory", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ messages: { secret: "not-an-array" } }),
+        json: () => Promise.resolve({ messages: { secret: "not-an-array" } }),
       }),
     );
     render(<RestoreMastraHistory threadId="thread-a" />);
@@ -123,17 +124,38 @@ describe("RestoreMastraHistory", () => {
   it("calls onSettled after a successful restore", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ messages: history }) }),
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ messages: history }) }),
     );
     const onSettled = vi.fn();
     render(<RestoreMastraHistory threadId="thread-a" onSettled={onSettled} />);
     await waitFor(() => expect(onSettled).toHaveBeenCalledTimes(1));
   });
 
-  it("calls onSettled after a failed restore too — a stuck gate would be worse than a shown error", async () => {
+  // A failed attempt leaves its own ErrorState + Try again visible (still
+  // mounted while ungated — see ResolvedChatDock in operator-panel.tsx), so
+  // this doesn't strand the operator without recourse. It does stop
+  // CopilotChat from mounting into what would otherwise look like a
+  // normal, empty conversation while durable history that actually exists
+  // failed to load.
+  it("does not call onSettled after a failed restore — the gate stays closed until Retry succeeds", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }));
     const onSettled = vi.fn();
     render(<RestoreMastraHistory threadId="thread-a" onSettled={onSettled} />);
+    await waitFor(() => expect(screen.getByTestId("error-state")).toBeDefined());
+    expect(onSettled).not.toHaveBeenCalled();
+  });
+
+  it("calls onSettled once Retry succeeds after an earlier failure", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ messages: history }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const onSettled = vi.fn();
+    render(<RestoreMastraHistory threadId="thread-a" onSettled={onSettled} />);
+    await waitFor(() => expect(screen.getByTestId("error-state")).toBeDefined());
+    expect(onSettled).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(onSettled).toHaveBeenCalledTimes(1));
   });
 
@@ -152,7 +174,7 @@ describe("RestoreMastraHistory", () => {
       .mockResolvedValueOnce({ ok: false, status: 503 })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ messages: history }),
+        json: () => Promise.resolve({ messages: history }),
       });
     vi.stubGlobal("fetch", fetchMock);
 

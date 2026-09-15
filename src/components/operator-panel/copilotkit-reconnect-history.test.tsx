@@ -4,11 +4,10 @@
 // real reconnect-history defect, using REAL (unmocked) library code:
 //   - @copilotkit/core's CopilotKitCore.connectAgent() (the same class
 //     @copilotkit/react-core/v2's <CopilotChat> calls on mount)
-//   - @copilotkit/runtime/v2's InMemoryAgentRunner (the exact base class
-//     TenantAbortRunner extends in ../../app/api/copilotkit/[[...slug]]/
-//     route.ts — TenantAbortRunner.connect() is a pure threadId-scoping
-//     pass-through to InMemoryAgentRunner.connect(), verified by reading
-//     that file; nothing about scoping changes replay behavior)
+//   - the real, fixed TenantAbortRunner (src/lib/copilotkit/
+//     tenant-abort-runner.ts — extracted out of the Next.js route handler
+//     at src/app/api/copilotkit/[[...slug]]/route.ts so it can be
+//     imported and unit-tested directly)
 //   - this repo's real RestoreMastraHistory component
 //
 // Root cause (verified by direct source read, not speculation):
@@ -25,33 +24,26 @@
 //
 //   2. "Ask the gateway for a full replay" means CopilotKit expects the
 //      SERVER's connect() to replay full durable history as AG-UI events
-//      immediately after the wipe. But InMemoryAgentRunner.connect()
-//      (@copilotkit/runtime/dist/v2/runtime/runner/in-memory.mjs
-//      ~L407-432) only replays events from ITS OWN process-local,
-//      non-durable `sharedStore` — "bounded and non-durable by design"
-//      per that file's own guidance string. TenantAbortRunner never
-//      teaches it about Mastra/Postgres.
-//
-//   3. So any thread resumed in a process that didn't itself run the
-//      original conversation (a fresh serverless instance, a restarted
-//      server, or simply a different worker) gets connect()-replayed
-//      ZERO events, and step 1's wipe is never refilled.
+//      immediately after the wipe. TenantAbortRunner.connect() now sources
+//      that replay from durable Mastra history (via recallPlannerChatMessages)
+//      whenever the thread isn't currently running — see that file's own
+//      doc comment for why the process-local InMemoryAgentRunner store is
+//      never trusted as the source, even within one warm server process.
 //
 // RestoreMastraHistory populating agent.messages from durable Mastra
-// history, gated to run BEFORE <CopilotChat> mounts, cannot survive this
+// history, gated to run BEFORE <CopilotChat> mounts, cannot survive step 1
 // on its own: CopilotChat's own mount-time connectAgent() call happens
 // AFTER RestoreMastraHistory settles, and unconditionally wipes whatever
 // RestoreMastraHistory just set — a `agent.setMessages(x)` done before
 // mount is strictly upstream of a wipe that always fires on first connect.
-// Test 1 below proves this against the REAL, FIXED TenantAbortRunner
-// (src/lib/copilotkit/tenant-abort-runner.ts): the server's connect() now
-// falls back to durable Mastra history itself when the in-memory replay is
-// empty, so CopilotKit's own "ask the gateway for a full replay" contract
-// is actually satisfied — history survives even though RestoreMastraHistory's
-// own client-side setMessages() call gets wiped moments later. Test 2 uses
-// the bare InMemoryAgentRunner to document why: real historic AG-UI events
-// arriving via connect()'s replay survive the wipe, unlike a same-tick
-// client-side setMessages() call made before mount.
+// Test 1 below proves the fix closes that gap against the REAL
+// TenantAbortRunner: even though RestoreMastraHistory's own client-side
+// setMessages() call gets wiped moments later, the server's connect()
+// finds durable Mastra history for the (not currently running) thread and
+// replays it, so it survives anyway. Test 2 uses the bare
+// InMemoryAgentRunner to document the underlying mechanism: real historic
+// AG-UI events arriving via connect()'s replay survive the wipe, unlike a
+// same-tick client-side setMessages() call made before mount.
 import { createContext, useContext } from "react";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
