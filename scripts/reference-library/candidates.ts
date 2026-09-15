@@ -56,6 +56,9 @@ export type RecordApprovedMappingInput = {
   approvedBy: string;
 };
 
+/* eslint-disable @typescript-eslint/no-unused-vars -- function-type parameter names document the
+   injected dependency contract and are intentionally unused; Codacy's hosted analyzer does not
+   honor the underscore arg-ignore pattern for function-type parameters. */
 export type ReferenceLibraryDeps = {
   log: (_message: string) => void;
   stderr: (_message: string) => void;
@@ -68,6 +71,7 @@ export type ReferenceLibraryDeps = {
   loadApprovedMappings: (_referenceIds: string[]) => Promise<ReferenceMediaAvailability[]>;
   recordApprovedMapping: (_input: RecordApprovedMappingInput) => Promise<void>;
 };
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 type ParsedArgs = {
   command: string;
