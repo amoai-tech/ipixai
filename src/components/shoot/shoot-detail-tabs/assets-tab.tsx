@@ -65,6 +65,7 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
   const [decisionPending, setDecisionPending] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [staleWarning, setStaleWarning] = useState(false);
+  const [reason, setReason] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -149,6 +150,7 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
           decision,
           expectedCloudinaryAssetId: asset.cloudinary_asset_id,
           expectedVersion: asset.version,
+          reason: reason.trim() || undefined,
           requestId: crypto.randomUUID(),
         }),
       });
@@ -167,6 +169,105 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
       setDecisionPending(false);
     }
   };
+
+  // Rendered in every card branch (loading, preview unavailable, and loaded)
+  // so video/raw assets and failed previews still expose the exact-version
+  // approval controls.
+  const decisionPanel = (
+    <div className="mt-3 pt-3 border-t border-gray-200">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+          Approval
+        </span>
+        <span
+          data-testid={`asset-approval-${asset.id}`}
+          className={
+            approval === "approved"
+              ? "rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800"
+              : approval === "rejected"
+                ? "rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800"
+                : "rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700"
+          }
+        >
+          {approval === "approved"
+            ? "Approved"
+            : approval === "rejected"
+              ? "Rejected"
+              : "Pending"}
+        </span>
+      </div>
+
+      {hasExactVersion ? (
+        <p className="mb-2 text-xs text-gray-500">
+          Version {String(asset.version)} · {asset.cloudinary_asset_id?.slice(0, 12)}…
+        </p>
+      ) : (
+        <p className="mb-2 text-xs text-gray-500">
+          Exact version unavailable — approval is disabled until the provider version is known.
+        </p>
+      )}
+
+      {staleWarning && (
+        <div
+          role="alert"
+          data-testid={`asset-stale-${asset.id}`}
+          className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800"
+        >
+          This asset changed while you were reviewing it. Review the newest version before
+          deciding.
+          <button
+            type="button"
+            onClick={() => { router.refresh(); }}
+            className="ml-2 font-semibold underline"
+          >
+            Refresh
+          </button>
+        </div>
+      )}
+
+      {decisionError && (
+        <p role="alert" className="mb-2 text-xs text-red-700">
+          {decisionError}
+        </p>
+      )}
+
+      <input
+        type="text"
+        value={reason}
+        onChange={(e) => { setReason(e.target.value); }}
+        placeholder="Reason (optional)"
+        aria-label="Decision reason (optional)"
+        className="mb-2 w-full rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-700"
+      />
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={!hasExactVersion || decisionPending || decisionFinal}
+          onClick={() => { void handleDecision("approved"); }}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-sm text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Check className="h-4 w-4" aria-hidden />
+          Approve
+        </button>
+        <button
+          type="button"
+          disabled={!hasExactVersion || decisionPending || decisionFinal}
+          onClick={() => { void handleDecision("rejected"); }}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <X className="h-4 w-4" aria-hidden />
+          Reject
+        </button>
+      </div>
+
+      {decisionFinal && (
+        <p className="mt-2 text-xs text-gray-500">
+          Decision is final for this exact version. A newer uploaded version returns to Pending.
+        </p>
+      )}
+    </div>
+  );
 
   if (loading) {
     return (
@@ -221,6 +322,7 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
           </p>
           <p className={styles.assetFormat}>{asset.format ?? "—"}</p>
         </div>
+        {decisionPanel}
       </article>
     );
   }
@@ -270,90 +372,7 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
           />
         )}
       </div>
-      <div className="mt-3 pt-3 border-t border-gray-200">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
-            Approval
-          </span>
-          <span
-            data-testid={`asset-approval-${asset.id}`}
-            className={
-              approval === "approved"
-                ? "rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800"
-                : approval === "rejected"
-                  ? "rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800"
-                  : "rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700"
-            }
-          >
-            {approval === "approved"
-              ? "Approved"
-              : approval === "rejected"
-                ? "Rejected"
-                : "Pending"}
-          </span>
-        </div>
-
-        {hasExactVersion ? (
-          <p className="mb-2 text-xs text-gray-500">
-            Version {String(asset.version)} · {asset.cloudinary_asset_id?.slice(0, 12)}…
-          </p>
-        ) : (
-          <p className="mb-2 text-xs text-gray-500">
-            Exact version unavailable — approval is disabled until the provider version is known.
-          </p>
-        )}
-
-        {staleWarning && (
-          <div
-            role="alert"
-            data-testid={`asset-stale-${asset.id}`}
-            className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800"
-          >
-            This asset changed while you were reviewing it. Review the newest version before
-            deciding.
-            <button
-              type="button"
-              onClick={() => { router.refresh(); }}
-              className="ml-2 font-semibold underline"
-            >
-              Refresh
-            </button>
-          </div>
-        )}
-
-        {decisionError && (
-          <p role="alert" className="mb-2 text-xs text-red-700">
-            {decisionError}
-          </p>
-        )}
-
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={!hasExactVersion || decisionPending || decisionFinal}
-            onClick={() => { void handleDecision("approved"); }}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-sm text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Check className="h-4 w-4" aria-hidden />
-            Approve
-          </button>
-          <button
-            type="button"
-            disabled={!hasExactVersion || decisionPending || decisionFinal}
-            onClick={() => { void handleDecision("rejected"); }}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <X className="h-4 w-4" aria-hidden />
-            Reject
-          </button>
-        </div>
-
-        {decisionFinal && (
-          <p className="mt-2 text-xs text-gray-500">
-            Decision is final for this exact version. A newer uploaded version returns to Pending.
-          </p>
-        )}
-      </div>
+      {decisionPanel}
     </article>
   );
 }

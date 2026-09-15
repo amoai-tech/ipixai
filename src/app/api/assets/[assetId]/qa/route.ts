@@ -1,8 +1,6 @@
+import { resolveAssetOrgAccess } from "@/lib/auth/asset-access";
 import { getVerifiedOperatorForRequest } from "@/lib/auth/copilot-hooks";
-import {
-  membershipLookupFailedResponse,
-  unauthorizedResponse,
-} from "@/lib/auth/unauthorized";
+import { unauthorizedResponse } from "@/lib/auth/unauthorized";
 import { runAssetQA } from "@/lib/asset-qa/service";
 import { createClientFromRequest } from "@/lib/supabase/server";
 
@@ -37,44 +35,12 @@ export async function POST(
 
   const { assetId } = await context.params;
 
-  // Verify operator has access to this asset's org
-  const { data: asset, error: assetError } = await supabase
-    .from("assets")
-    .select("id, brands(org_id)")
-    .eq("id", assetId)
-    .maybeSingle();
-
-  if (assetError) {
-    return membershipLookupFailedResponse();
-  }
-
-  if (!asset) {
-    return jsonError(404, "not_found", "asset_not_found");
-  }
-
-  const brand = Array.isArray(asset.brands) ? asset.brands[0] : asset.brands;
-  if (!brand?.org_id) {
-    return jsonError(409, "conflict", "asset_missing_brand");
-  }
-
-  const { data: membership, error: membershipError } = await supabase
-    .from("org_members")
-    .select("org_id")
-    .eq("org_id", brand.org_id)
-    .eq("user_id", operator.id)
-    .maybeSingle();
-
-  if (membershipError) {
-    return membershipLookupFailedResponse();
-  }
-
-  if (!membership) {
-    return jsonError(403, "forbidden", "foreign_org");
-  }
+  const access = await resolveAssetOrgAccess(supabase, assetId, operator.id);
+  if (!access.ok) return access.response;
 
   const result = await runAssetQA({
     assetId,
-    orgId: brand.org_id,
+    orgId: access.orgId,
     authClient: supabase,
   });
 

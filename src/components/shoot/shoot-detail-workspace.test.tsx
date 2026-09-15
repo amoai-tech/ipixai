@@ -369,6 +369,9 @@ describe("ShootDetailWorkspace", () => {
     const approveBtn = await screen.findByRole("button", { name: /Approve/ });
     expect(screen.getByTestId(`asset-approval-${assetId}`).textContent).toBe("Pending");
 
+    fireEvent.change(screen.getByLabelText("Decision reason (optional)"), {
+      target: { value: "looks on brand" },
+    });
     fireEvent.click(approveBtn);
 
     await waitFor(() => {
@@ -383,6 +386,7 @@ describe("ShootDetailWorkspace", () => {
     expect(body.decision).toBe("approved");
     expect(body.expectedCloudinaryAssetId).toBe("prov-asset-1");
     expect(body.expectedVersion).toBe(1);
+    expect(body.reason).toBe("looks on brand");
     expect(typeof body.requestId).toBe("string");
   });
 
@@ -422,5 +426,35 @@ describe("ShootDetailWorkspace", () => {
       .mock.calls.filter(([url]) => String(url).includes("/decision"));
     expect(decisionCalls.length).toBe(1);
     expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it("exposes approval controls for non-image assets with no preview", async () => {
+    vi.mocked(fetch).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/preview")) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              url: "https://res.cloudinary.com/demo/image/upload/v123/signed-preview.jpg",
+            }),
+        } as Response);
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+
+    render(<ShootDetailWorkspace detail={DETAIL_WITH_VIDEO} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Assets" }));
+
+    // Video asset renders its placeholder (no preview) ...
+    expect(screen.getByText("Video preview unavailable")).toBeDefined();
+    // ... and still exposes the exact-version approval controls.
+    expect(
+      screen.getByTestId("asset-approval-66666666-6666-4666-8666-666666666666"),
+    ).toBeDefined();
+    await waitFor(() => {
+      expect(screen.getAllByRole("button", { name: /Approve/ }).length).toBe(2);
+    });
+    expect(screen.getAllByRole("button", { name: /Reject/ }).length).toBe(2);
   });
 });

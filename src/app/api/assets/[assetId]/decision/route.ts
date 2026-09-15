@@ -1,10 +1,8 @@
 import { z } from "zod";
 
+import { resolveAssetOrgAccess } from "@/lib/auth/asset-access";
 import { getVerifiedOperatorForRequest } from "@/lib/auth/copilot-hooks";
-import {
-  membershipLookupFailedResponse,
-  unauthorizedResponse,
-} from "@/lib/auth/unauthorized";
+import { unauthorizedResponse } from "@/lib/auth/unauthorized";
 import { createClientFromRequest } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -34,45 +32,6 @@ function jsonError(status: number, error: string, reason: string): Response {
     status,
     headers: { "content-type": "application/json" },
   });
-}
-
-type SupabaseServerClient = NonNullable<ReturnType<typeof createClientFromRequest>>;
-
-/**
- * Defense-in-depth membership pre-check. The decide_asset_version RPC
- * independently re-resolves asset -> brand -> org and requires editor/owner
- * authority, so this only produces a clean early error.
- */
-async function authorizeAssetAccess(
-  supabase: SupabaseServerClient,
-  assetId: string,
-  userId: string,
-): Promise<{ orgId: string } | { response: Response }> {
-  const { data: asset, error: assetError } = await supabase
-    .from("assets")
-    .select("id, brands(org_id)")
-    .eq("id", assetId)
-    .maybeSingle();
-
-  if (assetError) return { response: membershipLookupFailedResponse() };
-  if (!asset) return { response: jsonError(404, "not_found", "asset_not_found") };
-
-  const brand = Array.isArray(asset.brands) ? asset.brands[0] : asset.brands;
-  if (!brand?.org_id) {
-    return { response: jsonError(409, "conflict", "asset_missing_brand") };
-  }
-
-  const { data: membership, error: membershipError } = await supabase
-    .from("org_members")
-    .select("org_id")
-    .eq("org_id", brand.org_id)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (membershipError) return { response: membershipLookupFailedResponse() };
-  if (!membership) return { response: jsonError(403, "forbidden", "foreign_org") };
-
-  return { orgId: brand.org_id };
 }
 
 /**
@@ -115,8 +74,8 @@ export async function POST(
     return jsonError(400, "invalid_request", "invalid_version");
   }
 
-  const access = await authorizeAssetAccess(supabase, assetId, operator.id);
-  if ("response" in access) return access.response;
+  const access = await resolveAssetOrgAccess(supabase, assetId, operator.id);
+  if (!access.ok) return access.response;
 
   const { data, error } = await supabase.rpc("decide_asset_version", {
     p_asset_id: assetId,
