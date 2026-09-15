@@ -323,6 +323,16 @@ begin
     raise exception 'service_role must not execute decide_asset_version (human approval is authenticated-only)';
   end if;
 
+  -- DB-level backstop: one exact version cannot carry two decision rows.
+  if not exists (
+    select 1 from pg_indexes
+    where schemaname = 'public'
+      and tablename = 'asset_events'
+      and indexname = 'asset_events_one_decision_per_version_idx'
+  ) then
+    raise exception 'asset_events_one_decision_per_version_idx missing';
+  end if;
+
   raise notice 'IPI-1119 media approval exact-version tests PASSED';
 end
 $$;

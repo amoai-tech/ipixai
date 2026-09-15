@@ -641,6 +641,19 @@ revoke all on function public.decide_asset_version(uuid, text, bigint, text, tex
 grant execute on function public.decide_asset_version(uuid, text, bigint, text, text, text)
   to authenticated;
 
+-- DB-level backstop for the "one exact version has exactly one final human
+-- decision" invariant. The RPC enforces this in PL/pgSQL, but a future or
+-- alternative writer with service_role table access could otherwise insert a
+-- contradictory approved+rejected pair for the same exact
+-- (asset_id, cloudinary_asset_id, version). No current writer emits
+-- approved/rejected rows other than decide_asset_version, so no backfill is
+-- needed. Partial: only decision rows with a known exact provider version.
+create unique index if not exists asset_events_one_decision_per_version_idx
+  on public.asset_events (asset_id, cloudinary_asset_id, version)
+  where kind in ('approved', 'rejected')
+    and cloudinary_asset_id is not null
+    and version is not null;
+
 -- ===========================================================================
 -- 3. get_shoot_detail — expose exact provider identity/version + approval
 -- ===========================================================================

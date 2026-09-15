@@ -110,13 +110,18 @@ export async function POST(
   const { decision, expectedCloudinaryAssetId, expectedVersion, reason, requestId } =
     parsed.data;
 
+  const expectedVersionNumber = Number(expectedVersion);
+  if (!Number.isSafeInteger(expectedVersionNumber) || expectedVersionNumber < 0) {
+    return jsonError(400, "invalid_request", "invalid_version");
+  }
+
   const access = await authorizeAssetAccess(supabase, assetId, operator.id);
   if ("response" in access) return access.response;
 
   const { data, error } = await supabase.rpc("decide_asset_version", {
     p_asset_id: assetId,
     p_expected_cloudinary_asset_id: expectedCloudinaryAssetId,
-    p_expected_version: Number(expectedVersion),
+    p_expected_version: expectedVersionNumber,
     p_decision: decision,
     p_reason: reason ?? "",
     p_request_id: requestId,
