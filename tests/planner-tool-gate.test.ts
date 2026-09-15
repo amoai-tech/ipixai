@@ -3,14 +3,13 @@
  * that determines which tools the model can see.
  *
  * These are pure tests — no LLM, no network, no model credentials required.
- * The second test file (planner-tool-gate-registry.test.ts) covers the real
- * agent integration (that activeTools reaches the adapter's stream path).
  */
 
 import { describe, expect, it } from "vitest";
 import {
   isBrandIntelligenceTurn,
   resolveActiveTools,
+  normaliseToMessages,
   PLANNING_ONLY_TOOLS,
   CONSEQUENTIAL_WRITE_TOOLS,
   ALL_AGENT_TOOLS,
@@ -20,11 +19,28 @@ import {
 const PLANNING_MSG: MessageLike = { role: "user", content: "Plan a shopify + instagram shoot for this collection" };
 const BRAND_APPROVE_MSG: MessageLike = { role: "user", content: "Approve the brand draft please" };
 const BRAND_REJECT_MSG: MessageLike = { role: "user", content: "Reject this profile" };
-const BRAND_ANALYSIS_MSG: MessageLike = { role: "user", content: "What does the brand draft look like?" };
+const BRAND_ANALYSIS_MSG: MessageLike = { role: "user", content: "Start a brand analysis" };
+const BRAND_ANALYSIS_LONG: MessageLike = { role: "user", content: "Can you analyze this brand for me?" };
+const BRAND_REVIEW_MSG: MessageLike = { role: "user", content: "Review the brand draft" };
 const AMBIGUOUS: MessageLike = { role: "user", content: "What tools do I have?" };
 const SHOOT_APPROVE: MessageLike = { role: "user", content: "Approve this shoot plan" };
+const BRAND_SHOOT_APPROVE: MessageLike = { role: "user", content: "Approve the brand shoot plan" };
+const MULTIMODAL: MessageLike = {
+  role: "user",
+  content: [
+    { type: "text", text: "Approve the brand draft please" },
+    { type: "image", contentType: "image/png" as any, fileName: "ref.png" },
+  ],
+};
+const MULTIMODAL_PLANNING: MessageLike = {
+  role: "user",
+  content: [
+    { type: "text", text: "Plan a shopify shoot" },
+    { type: "image", contentType: "image/png" as any, fileName: "ref.png" },
+  ],
+};
 
-describe("isBrandIntelligenceTurn", () => {
+describe("isBrandIntelligenceTurn — approval/rejection patterns", () => {
   it("returns false for an empty message list", () => {
     expect(isBrandIntelligenceTurn([])).toBe(false);
   });
@@ -41,7 +57,60 @@ describe("isBrandIntelligenceTurn", () => {
     expect(isBrandIntelligenceTurn([BRAND_REJECT_MSG])).toBe(true);
   });
 
-  it("returns true when the conversation has a prior brand-intelligence tool call", () => {
+  it("returns true for 'review the brand draft' (analysis pattern)", () => {
+    expect(isBrandIntelligenceTurn([BRAND_REVIEW_MSG])).toBe(true);
+  });
+
+  it("returns false for 'approve this shoot plan' (not brand)", () => {
+    expect(isBrandIntelligenceTurn([SHOOT_APPROVE])).toBe(false);
+  });
+
+  it("returns false for 'approve the brand shoot plan' (brand + shoot = planning)", () => {
+    // "brand" appears but the target noun is "plan" not "draft/profile" —
+    // the regex requires `draft|profile` after approve/reject/decline.
+    expect(isBrandIntelligenceTurn([BRAND_SHOOT_APPROVE])).toBe(false);
+  });
+
+  it("returns false for ambiguous text without prior tool context", () => {
+    expect(isBrandIntelligenceTurn([AMBIGUOUS])).toBe(false);
+  });
+
+  it("returns false when toolCalls is present but empty", () => {
+    expect(isBrandIntelligenceTurn([
+      AMBIGUOUS,
+      { role: "assistant", toolCalls: [] },
+    ])).toBe(false);
+  });
+
+  it("tolerates toolCalls entries without a function name", () => {
+    expect(isBrandIntelligenceTurn([
+      { role: "assistant", toolCalls: [{ function: undefined }] },
+    ])).toBe(false);
+  });
+});
+
+describe("isBrandIntelligenceTurn — brand analysis patterns", () => {
+  it("returns true for 'start a brand analysis'", () => {
+    expect(isBrandIntelligenceTurn([BRAND_ANALYSIS_MSG])).toBe(true);
+  });
+
+  it("returns true for 'analyze this brand'", () => {
+    expect(isBrandIntelligenceTurn([BRAND_ANALYSIS_LONG])).toBe(true);
+  });
+
+  it("returns true for 'brand intelligence' context phrase", () => {
+    const msg: MessageLike = { role: "user", content: "Show brand intelligence results" };
+    expect(isBrandIntelligenceTurn([msg])).toBe(true);
+  });
+
+  it("returns true for 'run analysis on the brand'", () => {
+    const msg: MessageLike = { role: "user", content: "Run analysis on the brand please" };
+    expect(isBrandIntelligenceTurn([msg])).toBe(true);
+  });
+});
+
+describe("isBrandIntelligenceTurn — prior tool call detection", () => {
+  it("returns true when the conversation has a prior startBrandAnalysis call", () => {
     const msgs: MessageLike[] = [
       AMBIGUOUS,
       { role: "assistant", toolCalls: [{ function: { name: "startBrandAnalysis" } }] },
@@ -58,27 +127,48 @@ describe("isBrandIntelligenceTurn", () => {
     expect(isBrandIntelligenceTurn(msgs)).toBe(true);
   });
 
-  it("returns false for 'approve this shoot plan' (not brand)", () => {
-    expect(isBrandIntelligenceTurn([SHOOT_APPROVE])).toBe(false);
-  });
-
-  it("returns false for ambiguous text without prior tool context", () => {
-    expect(isBrandIntelligenceTurn([AMBIGUOUS])).toBe(false);
-  });
-
-  it("returns false when toolCalls is present but empty", () => {
-    const msgs: MessageLike[] = [
+  it("detects tool_calls in snake_case (AI SDK variant)", () => {
+    const msgs: any[] = [
       AMBIGUOUS,
-      { role: "assistant", toolCalls: [] },
+      {
+        role: "assistant",
+        tool_calls: [{ function: { name: "startBrandAnalysis" } }],
+      },
     ];
-    expect(isBrandIntelligenceTurn(msgs)).toBe(false);
+    expect(isBrandIntelligenceTurn(msgs)).toBe(true);
+  });
+});
+
+describe("isBrandIntelligenceTurn — multi-modal content", () => {
+  it("extracts text from structured content arrays: brand approval", () => {
+    expect(isBrandIntelligenceTurn([MULTIMODAL])).toBe(true);
   });
 
-  it("tolerates toolCalls entries without a function name", () => {
-    const msgs: MessageLike[] = [
-      { role: "assistant", toolCalls: [{ function: undefined }] },
-    ];
-    expect(isBrandIntelligenceTurn(msgs)).toBe(false);
+  it("extracts text from structured content arrays: planning stays planning", () => {
+    expect(isBrandIntelligenceTurn([MULTIMODAL_PLANNING])).toBe(false);
+  });
+});
+
+describe("normaliseToMessages", () => {
+  it("passes an array of messages through unchanged", () => {
+    const msgs: MessageLike[] = [PLANNING_MSG];
+    expect(normaliseToMessages(msgs)).toBe(msgs);
+  });
+
+  it("wraps a single message object in an array", () => {
+    const result = normaliseToMessages(PLANNING_MSG);
+    expect(result).toEqual([PLANNING_MSG]);
+  });
+
+  it("wraps a plain string in a user message", () => {
+    const result = normaliseToMessages("Plan a shoot");
+    expect(result).toEqual([{ role: "user", content: "Plan a shoot" }]);
+  });
+
+  it("returns empty array for null/undefined/empty-string input", () => {
+    expect(normaliseToMessages("")).toEqual([]);
+    expect(normaliseToMessages(null as any)).toEqual([]);
+    expect(normaliseToMessages(undefined as any)).toEqual([]);
   });
 });
 
@@ -87,8 +177,12 @@ describe("resolveActiveTools", () => {
     expect(resolveActiveTools([PLANNING_MSG])).toEqual([...PLANNING_ONLY_TOOLS]);
   });
 
-  it("returns all tools for brand-intelligence turns", () => {
+  it("returns all tools for brand-intelligence turns (approval)", () => {
     expect(resolveActiveTools([BRAND_APPROVE_MSG])).toEqual([...ALL_AGENT_TOOLS]);
+  });
+
+  it("returns all tools for brand-intelligence turns (analysis)", () => {
+    expect(resolveActiveTools([BRAND_ANALYSIS_MSG])).toEqual([...ALL_AGENT_TOOLS]);
   });
 
   it("honours an explicit defaultActiveTools override", () => {
@@ -98,6 +192,10 @@ describe("resolveActiveTools", () => {
 
   it("returns only planning tools for 'approve this shoot plan'", () => {
     expect(resolveActiveTools([SHOOT_APPROVE])).toEqual([...PLANNING_ONLY_TOOLS]);
+  });
+
+  it("returns only planning tools for 'approve the brand shoot plan'", () => {
+    expect(resolveActiveTools([BRAND_SHOOT_APPROVE])).toEqual([...PLANNING_ONLY_TOOLS]);
   });
 
   it("contains approveDraft and startBrandAnalysis in ALL_AGENT_TOOLS", () => {
