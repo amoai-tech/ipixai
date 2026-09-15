@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ImageIcon, VideoIcon, FileIcon, RotateCcw } from "lucide-react";
+import { ImageIcon, VideoIcon, FileIcon, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import type { ShootDetail } from "@/lib/shoot/get-shoot-detail";
 import { ShootAssetUploader } from "../shoot-asset-uploader";
 import { formatCountLabel } from "../shoot-detail-format";
+import { QAFindingsPanel } from "../qa-findings-panel";
+import type { QAAssetResult, QAChannelResult, QAFinding } from "@/lib/asset-qa/types";
 
 import styles from "../shoot-detail.module.css";
 
@@ -14,6 +16,7 @@ import styles from "../shoot-detail.module.css";
  * IPI-1118 · SHOOT-ASSETS-001 — assets tab renders canonical V2 assets
  * with IPI-1112 secure previews. Asset URLs in the detail payload are
  * metadata only; the authorized preview route is the delivery boundary.
+ * IPI-1138 · ASSET-QA-001 — adds QA findings panel for asset quality checks.
  */
 export function AssetsTab({ detail }: { detail: ShootDetail }) {
   const count = detail.assets.length;
@@ -53,6 +56,10 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [showQA, setShowQA] = useState(false);
+  const [qaResult, setQaResult] = useState<QAAssetResult | null>(null);
+  const [qaLoading, setQaLoading] = useState(false);
+  const [qaError, setQaError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isImage) {
@@ -92,6 +99,29 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
     setLoading(true);
     setAttempt((a) => a + 1);
   };
+
+  const runQA = async () => {
+    setQaLoading(true);
+    setQaError(null);
+    try {
+      const res = await fetch(`/api/assets/${asset.id}/qa`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.reason || "QA check failed");
+      }
+      const data = await res.json();
+      setQaResult(data);
+    } catch (err) {
+      setQaError(err instanceof Error ? err.message : "Failed to run QA check");
+    } finally {
+      setQaLoading(false);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -175,6 +205,25 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
           {asset.width && asset.height ? `${asset.width}×${asset.height}` : "—"}
         </p>
         <p className={styles.assetFormat}>{asset.format ?? "—"}</p>
+      </div>
+      <div className="mt-3 pt-3 border-t border-gray-200">
+        <button
+          type="button"
+          onClick={() => { setShowQA(!showQA); }}
+          className="w-full py-2 px-3 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+        >
+          {showQA ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          <span>{showQA ? "Hide" : "Show"} Quality & Channel Readiness</span>
+        </button>
+        {showQA && (
+          <QAFindingsPanel
+            assetId={asset.id}
+            initialResult={qaResult}
+            loading={qaLoading}
+            error={qaError}
+            onRunQA={runQA}
+          />
+        )}
       </div>
     </article>
   );

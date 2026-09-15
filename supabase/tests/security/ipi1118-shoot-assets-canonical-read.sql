@@ -59,6 +59,10 @@ begin
     (shoot_a, brand_a, 'Shoot A', 'editorial_campaign', 'planning'),
     (shoot_b, brand_b, 'Shoot B', 'editorial_campaign', 'planning');
 
+  -- Explicit saved deliverable contract used by IPI-1138 QA precedence.
+  insert into shoot.shoot_deliverables (shoot_id, channel, format, quantity, aspect_ratio, origin)
+  values (shoot_a, 'instagram_feed', '1:1 JPG', 1, '1:1', 'manual');
+
   -- Canonical V2 assets linked via v2_shoot_id
   insert into public.assets (id, brand_id, v2_shoot_id, url, asset_type, status, dna_score, cloudinary_public_id, width, height, created_at)
   values
@@ -102,6 +106,15 @@ begin
   end if;
   if not (asset_ids @> array[asset_a1, asset_a2]) then
     raise exception 'Shoot A missing canonical assets for owner: %', asset_ids;
+  end if;
+
+  -- IPI-1138 contract: the final replayed RPC must expose the explicit saved
+  -- deliverable fields used by QA, not just channel/format.
+  if coalesce(rpc_result::jsonb->'deliverables'->0->>'aspect_ratio', '') <> '1:1' then
+    raise exception 'get_shoot_detail missing deliverable aspect_ratio after fresh replay: %', rpc_result::jsonb->'deliverables';
+  end if;
+  if coalesce(rpc_result::jsonb->'deliverables'->0->>'origin', '') <> 'manual' then
+    raise exception 'get_shoot_detail missing deliverable origin after fresh replay: %', rpc_result::jsonb->'deliverables';
   end if;
 
   -- Org A member (non-owner): Shoot A assets → should also succeed (same org)
