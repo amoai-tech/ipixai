@@ -19,6 +19,7 @@
     "test:skills": "vitest run tests/skill-contracts.test.ts",
     "test:design": "vitest run src/components/ui/empty-state.test.tsx src/components/ui/error-state.test.tsx src/components/ui/entity-list.test.tsx src/components/ui/status-chip.test.tsx",
     "channel": "tsx --tsconfig tsconfig.channel.json channel-host.mts",
+    "reference-library": "tsx scripts/reference-library/candidates.ts",
     "e2e": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --project=chromium --project=mobile-chromium",
     "e2e:ai-smoke": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --project=chromium-ai-smoke",
     "e2e:ui": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --project=chromium --project=mobile-chromium --ui",

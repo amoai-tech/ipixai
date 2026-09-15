@@ -96,6 +96,7 @@ alter table shoot.shot_type_references
 create or replace function shoot.shot_type_references_lock_reference_key()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
   if new.reference_key is distinct from old.reference_key then

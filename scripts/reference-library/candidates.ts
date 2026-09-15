@@ -56,6 +56,10 @@ export type RecordApprovedMappingInput = {
   approvedBy: string;
 };
 
+// TypeScript requires an explicit parameter name in interface method signatures, and these names
+// document the contract for each implementation below; the base `no-unused-vars` rule (which Codacy
+// runs) cannot see that, so the whole contract is exempted here rather than suppressing 8 lines.
+/* eslint-disable no-unused-vars -- interface method parameter names document the contract */
 export interface ReferenceLibraryDeps {
   log(message: string): void;
   stderr(message: string): void;
@@ -68,6 +72,7 @@ export interface ReferenceLibraryDeps {
   loadApprovedMappings(referenceIds: string[]): Promise<ReferenceMediaAvailability[]>;
   recordApprovedMapping(input: RecordApprovedMappingInput): Promise<void>;
 }
+/* eslint-enable no-unused-vars */
 
 type ParsedArgs = {
   command: string;
@@ -251,13 +256,19 @@ async function loadCatalogFromSupabase(): Promise<ReferenceCatalogRow[]> {
 async function loadApprovedMappingsFromSupabase(referenceIds: string[]): Promise<ReferenceMediaAvailability[]> {
   const supabase = createServiceRoleClient();
   if (!supabase) throw new Error("service_role_unavailable");
-  const rows: ReferenceMediaAvailability[] = [];
-  for (const referenceId of referenceIds) {
-    const { data, error } = await supabase.rpc("get_shot_reference_media", { p_reference_id: referenceId });
-    if (error) throw new Error(`reference_media_read_failed:${error.message}`);
-    rows.push({ referenceId, hasApprovedMedia: data?.[0]?.has_approved_media === true });
-  }
-  return rows;
+  // Single query over the least-privilege catalog view's computed `has_preview`
+  // flag. The media table itself is deny-all (service_role included), so a direct
+  // read is not possible; this view column is the sanctioned read path and avoids
+  // one get_shot_reference_media RPC per reference id.
+  const { data, error } = await supabase
+    .from("shot_type_references_view")
+    .select("id, has_preview")
+    .in("id", referenceIds);
+  if (error || !data) throw new Error(`reference_media_read_failed:${error?.message ?? "empty"}`);
+  return data.map((row) => ({
+    referenceId: String(row.id),
+    hasApprovedMedia: row.has_preview === true,
+  }));
 }
 
 async function recordApprovedMappingInSupabase(input: RecordApprovedMappingInput): Promise<void> {
