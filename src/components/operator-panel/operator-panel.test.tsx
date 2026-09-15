@@ -546,8 +546,13 @@ describe("PlannerChatDock thread bootstrap (IPI-1217)", () => {
   it("never reuses a stored thread id the authenticated resource does not own", async () => {
     // Simulates a stored id from another account/browser profile — the
     // exact case resolvePlannerThreadId's membership check exists to catch
-    // (thread-types.ts). Falling back to the resource's own first thread
-    // instead of blindly trusting localStorage is the required behavior.
+    // (thread-types.ts). IPI-1217: falling back to the resource's own most
+    // recent OTHER thread used to be the behavior here, but that's still a
+    // different conversation than the operator asked for — confirmed live
+    // that this can silently land the operator's next message in someone
+    // else's (or just some other) conversation. A fresh thread is required
+    // instead of blindly trusting localStorage OR blindly substituting
+    // another real one.
     window.localStorage.setItem(plannerThreadStorageKey(DEFAULT_RESOURCE_ID), "someone-elses-thread");
     mockThreadsFetch(
       () =>
@@ -567,8 +572,13 @@ describe("PlannerChatDock thread bootstrap (IPI-1217)", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByTestId("copilot-chat-stub").getAttribute("data-thread-id")).toBe("thread-a"),
+      expect(screen.getByTestId("copilot-chat-stub")).toBeDefined(),
     );
+    const resolvedThreadId = screen
+      .getByTestId("copilot-chat-stub")
+      .getAttribute("data-thread-id");
+    expect(resolvedThreadId).not.toBe("someone-elses-thread");
+    expect(resolvedThreadId).not.toBe("thread-a");
   });
 
   it("renders an honest error state on bootstrap failure, and Retry actually recovers", async () => {

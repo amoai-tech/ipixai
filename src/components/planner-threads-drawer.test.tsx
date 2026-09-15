@@ -36,7 +36,13 @@ afterEach(() => {
 });
 
 describe("PlannerThreadsDrawer", () => {
-  it("activates the authorized stored thread, not a foreign pointer", async () => {
+  it("never activates a foreign pointer, or silently substitutes another real thread for it", async () => {
+    // IPI-1217: a stored id that isn't in the authenticated resource's own
+    // list used to fall back to that resource's first/most-recent OTHER
+    // thread — confirmed live that this can silently land the operator's
+    // next message in a conversation they didn't choose. It must start a
+    // fresh thread instead, never resolvePlannerThreadId(rows, stored)'s
+    // rows[0].
     window.localStorage.setItem(
       plannerThreadStorageKey("org:a::user:a"),
       "99999999-9999-4999-8999-999999999999",
@@ -55,10 +61,14 @@ describe("PlannerThreadsDrawer", () => {
     render(
       <PlannerThreadsDrawer threadId={null} onThreadId={onThreadId} />,
     );
-    await waitFor(() =>
-      expect(onThreadId).toHaveBeenCalledWith(rowA.id, replayTrue),
-    );
-    expect(screen.getByText("SS26")).toBeDefined();
+    await waitFor(() => expect(onThreadId).toHaveBeenCalledTimes(1));
+    const [resolvedId, options] = onThreadId.mock.calls[0] as [
+      string,
+      { threadId: string; replay: boolean },
+    ];
+    expect(resolvedId).not.toBe("99999999-9999-4999-8999-999999999999");
+    expect(resolvedId).not.toBe(rowA.id);
+    expect(options).toEqual({ threadId: resolvedId, replay: false });
   });
 
   it("does not mint a UUID when the thread list fails; retry stays on the same surface", async () => {

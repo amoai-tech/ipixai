@@ -200,8 +200,19 @@ describe("resolvePlannerThreadId", () => {
     expect(resolvePlannerThreadId([rowA, rowB], rowB.id)).toBe(rowB.id);
   });
 
-  it("uses the first listed row when the stored id is absent", () => {
-    expect(resolvePlannerThreadId([rowA, rowB], orphan)).toBe(rowA.id);
+  // IPI-1217: confirmed live that a stored id can go temporarily missing
+  // from a fresh listing (deletion, staleness, or a transient gap) while
+  // OTHER real conversations for the same resource still list fine —
+  // silently resuming one of those instead is a worse failure than
+  // starting fresh, since the operator's next message would land in a
+  // conversation they didn't choose.
+  it("never substitutes a different existing conversation when the stored id is absent", () => {
+    const next = resolvePlannerThreadId([rowA, rowB], orphan);
+    expect(next).not.toBe(rowA.id);
+    expect(next).not.toBe(rowB.id);
+    expect(next).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
   });
 
   it("does not reuse a stored id when the list is empty", () => {
