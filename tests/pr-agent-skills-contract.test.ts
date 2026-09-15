@@ -48,5 +48,6 @@ describe("IPI-1213 PR-Agent review skills contract", () => {
     expect(copilotReviewSkill).not.toContain("references/");
     expect(copilotReviewSkill).toContain("Fix: Restore the changed CopilotKit import to its `/v2` subpath.");
     expect(copilotReviewSkill).toContain("Verification: Run the existing targeted CopilotKit route tests, then `npm run typecheck`.");
+    expect(copilotReviewSkill).toContain("Expected result: The route uses the `/v2` import and the targeted tests/typecheck pass.");
   });
 });
