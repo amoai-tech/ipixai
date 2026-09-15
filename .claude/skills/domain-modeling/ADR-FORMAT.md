@@ -1,8 +1,14 @@
 # ADR Format
 
-ADRs live in `docs/adr/` and use sequential numbering: `0001-slug.md`, `0002-slug.md`, etc.
+ADRs use sequential numbering within the ADR directory that owns the decision: `0001-slug.md`, `0002-slug.md`, etc.
 
-Create the `docs/adr/` directory lazily: only when the first ADR is needed.
+Choose the directory before numbering:
+
+- If no root `CONTEXT-MAP.md` exists, use root `docs/adr/`.
+- If `CONTEXT-MAP.md` exists and the decision is system-wide or spans multiple contexts, use root `docs/adr/`.
+- If `CONTEXT-MAP.md` exists and the decision belongs to one context, follow the map to that context and use that context's `docs/adr/`.
+
+Create the selected ADR directory lazily: only when the first ADR for that scope is needed.
 
 ## Template
 
@@ -24,7 +30,7 @@ Only include these when they add genuine value. Most ADRs won't need them.
 
 ## Numbering
 
-Scan `docs/adr/` for the highest existing number and increment by one.
+After selecting the owning ADR directory above, scan **that directory only** for the highest existing number and increment by one. Root and context-specific ADR directories maintain independent sequences.
 
 ## When to offer an ADR
 

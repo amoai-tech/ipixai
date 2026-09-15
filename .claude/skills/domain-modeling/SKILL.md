@@ -50,7 +50,7 @@ If a `CONTEXT-MAP.md` exists at the root, the repo has multiple contexts. The ma
 │       └── docs/adr/
 ```
 
-Create files lazily: only when you have something to write. If no `CONTEXT.md` exists, create one when the first term is resolved. If no `docs/adr/` exists, create it when the first ADR is needed.
+Create files lazily: only when you have something to write. If no `CONTEXT.md` exists, create one when the first term is resolved. For ADRs, use [ADR-FORMAT.md](./ADR-FORMAT.md) to choose the owning root or context-specific `docs/adr/` directory before creating or numbering the decision.
 
 ## During the session
 
