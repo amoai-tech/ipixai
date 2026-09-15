@@ -334,21 +334,23 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
   // Rendered in the preview-unavailable and loaded branches so video/raw
   // assets and failed previews still expose the exact-version decision
   // controls. The transient loading branch shows the read-only badge only.
+  const decisionIdentity: AssetDecisionIdentity = {
+    assetId: asset.id,
+    version: asset.version,
+    cloudinaryAssetId: asset.cloudinary_asset_id,
+  };
+  const decisionState: AssetDecisionState = {
+    approval,
+    hasExactVersion,
+    pending: decisionPending,
+    final: decisionFinal,
+    staleWarning,
+    error: decisionError,
+  };
   const decisionPanel = (
     <AssetDecisionPanel
-      identity={{
-        assetId: asset.id,
-        version: asset.version,
-        cloudinaryAssetId: asset.cloudinary_asset_id,
-      }}
-      state={{
-        approval,
-        hasExactVersion,
-        pending: decisionPending,
-        final: decisionFinal,
-        staleWarning,
-        error: decisionError,
-      }}
+      identity={decisionIdentity}
+      state={decisionState}
       reason={reason}
       onReasonChange={setReason}
       onApprove={() => { void handleDecision("approved"); }}
