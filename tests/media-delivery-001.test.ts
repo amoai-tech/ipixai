@@ -388,7 +388,16 @@ describe("MEDIA-DELIVERY-001 — exact-version approval guard", () => {
       mirror: { version: CURRENT_VERSION },
       approvals: [approvedOld],
     });
-    for (const bad of ["0", "-3", "abc", "1.5"]) {
+    for (const bad of [
+      "0",
+      "-3",
+      "abc",
+      "1.5",
+      "0x10",
+      "1e3",
+      " ",
+      String(Number.MAX_SAFE_INTEGER + 2),
+    ]) {
       expect(await call({ intent: "delivery", version: bad, supabase })).toEqual({
         ok: false,
         reason: "invalid_requested_version",

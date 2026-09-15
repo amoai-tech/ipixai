@@ -131,13 +131,18 @@ export async function getAuthorizedAssetPreview(input: {
 
   let requestedVersion: number | null = null;
   if (input.version !== undefined && input.version !== null && input.version !== "") {
+    // Only a plain decimal provider version is accepted. Reject hex
+    // (`0x10`), exponent, whitespace-only, and any non-decimal form so a
+    // caller can never alias a differently-formatted number onto a real
+    // version. Require a safe integer so the exact requested version is not
+    // rounded before the approval lookup and URL signing.
     const raw =
       typeof input.version === "number"
         ? input.version
-        : typeof input.version === "string"
+        : typeof input.version === "string" && /^[0-9]+$/.test(input.version)
           ? Number(input.version)
           : Number.NaN;
-    if (!Number.isInteger(raw) || raw <= 0) {
+    if (!Number.isSafeInteger(raw) || raw <= 0) {
       return { ok: false, reason: "invalid_requested_version" };
     }
     requestedVersion = raw;
