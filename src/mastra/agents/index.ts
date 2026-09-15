@@ -6,7 +6,10 @@ import { createAgentMemoryStorage } from "@/mastra/pg-store";
 import { planningTools } from "@/mastra/tools/planning";
 import { composeShootPlanTool } from "@/mastra/tools/compose-shoot-plan";
 import { brandIntelligenceTools } from "@/mastra/tools/brand-intelligence";
-import { resolveActiveTools, normaliseToMessages } from "@/mastra/planner-tool-gate";
+import {
+  wrapPlannerResumeStreamWithToolGate,
+  wrapPlannerStreamWithToolGate,
+} from "@/mastra/planner-tool-gate";
 
 export const AgentState = z.object({
   proverbs: z.array(z.string()).default([]),
@@ -77,26 +80,12 @@ You also have two brand-intelligence tools: startBrandAnalysis and approveDraft.
  * that is honoured rather than overridden.
  */
 {
-  const origStream = productionPlannerAgent.stream.bind(productionPlannerAgent);
-  productionPlannerAgent.stream = (messages: any, options?: any) => {
-    const normalised = normaliseToMessages(messages);
-    const activeTools = resolveActiveTools(normalised, options?.activeTools);
-    return origStream(messages, { ...options ?? {}, activeTools });
-  };
+  const origStream: typeof productionPlannerAgent.stream =
+    productionPlannerAgent.stream.bind(productionPlannerAgent);
+  productionPlannerAgent.stream = wrapPlannerStreamWithToolGate(origStream);
 
-  // Also wrap resumeStream so the gate applies when a workflow or HITL
-  // interaction resumes. Mastra's resumeStream accepts no "messages"
-  // parameter — it continues the existing thread — so we pass an empty
-  // array, which defaults to planning-only unless the agent remembers
-  // the prior intent through its own mechanism. In practice, the resume
-  // flow reuses the last active toolset from the initial stream call.
-  const origResume = (productionPlannerAgent as any).resumeStream?.bind(
-    productionPlannerAgent,
-  );
-  if (origResume) {
-    (productionPlannerAgent as any).resumeStream = (options?: any) => {
-      const activeTools = resolveActiveTools([], options?.activeTools);
-      return origResume({ ...options ?? {}, activeTools });
-    };
-  }
+  const origResume: typeof productionPlannerAgent.resumeStream =
+    productionPlannerAgent.resumeStream.bind(productionPlannerAgent);
+  productionPlannerAgent.resumeStream =
+    wrapPlannerResumeStreamWithToolGate(origResume);
 }

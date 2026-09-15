@@ -10,6 +10,8 @@ import {
   isBrandIntelligenceTurn,
   resolveActiveTools,
   normaliseToMessages,
+  wrapPlannerStreamWithToolGate,
+  wrapPlannerResumeStreamWithToolGate,
   PLANNING_ONLY_TOOLS,
   CONSEQUENTIAL_WRITE_TOOLS,
   ALL_AGENT_TOOLS,
@@ -137,6 +139,24 @@ describe("isBrandIntelligenceTurn — prior tool call detection", () => {
     ];
     expect(isBrandIntelligenceTurn(msgs)).toBe(true);
   });
+
+  it("detects AG-UI tool-call parts in assistant content", () => {
+    const msgs: MessageLike[] = [
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool-call",
+            toolCallId: "call-1",
+            toolName: "startBrandAnalysis",
+            args: {},
+          },
+        ],
+      },
+      { role: "user", content: "yes, approve it" },
+    ];
+    expect(isBrandIntelligenceTurn(msgs)).toBe(true);
+  });
 });
 
 describe("isBrandIntelligenceTurn — multi-modal content", () => {
@@ -169,6 +189,16 @@ describe("normaliseToMessages", () => {
     expect(normaliseToMessages("")).toEqual([]);
     expect(normaliseToMessages(null as any)).toEqual([]);
     expect(normaliseToMessages(undefined as any)).toEqual([]);
+  });
+
+  it("fails closed for null or malformed message arrays", () => {
+    expect(normaliseToMessages([null] as unknown as MessageLike[])).toEqual([]);
+    expect(
+      normaliseToMessages([PLANNING_MSG, null] as unknown as MessageLike[]),
+    ).toEqual([]);
+    expect(
+      normaliseToMessages([{ content: "missing role" }] as unknown as MessageLike[]),
+    ).toEqual([]);
   });
 });
 
@@ -206,5 +236,68 @@ describe("resolveActiveTools", () => {
   it("PLANNING_ONLY_TOOLS does not contain write tools", () => {
     expect(PLANNING_ONLY_TOOLS).not.toContain("approveDraft");
     expect(PLANNING_ONLY_TOOLS).not.toContain("startBrandAnalysis");
+  });
+});
+
+describe("typed runtime delegation wrappers", () => {
+  it("stream preserves messages/options and injects planning-only activeTools", () => {
+    const calls: unknown[][] = [];
+    const original = (messages: unknown, options?: Record<string, unknown>) => {
+      calls.push([messages, options]);
+      return "stream-result";
+    };
+    const wrapped = wrapPlannerStreamWithToolGate(original);
+    const messages = [{ role: "user", content: "Plan a shoot" }];
+
+    expect(wrapped(messages, { requestId: "req-1" })).toBe("stream-result");
+    expect(calls).toEqual([[
+      messages,
+      { requestId: "req-1", activeTools: [...PLANNING_ONLY_TOOLS] },
+    ]]);
+  });
+
+  it("stream preserves an explicit activeTools override", () => {
+    const calls: unknown[][] = [];
+    const original = (messages: unknown, options?: Record<string, unknown>) => {
+      calls.push([messages, options]);
+      return "stream-result";
+    };
+    const wrapped = wrapPlannerStreamWithToolGate(original);
+    const messages = [{ role: "user", content: "Plan a shoot" }];
+
+    wrapped(messages, { activeTools: ["composeShootPlan"] });
+    expect(calls[0]?.[1]).toEqual({ activeTools: ["composeShootPlan"] });
+  });
+
+  it("resumeStream preserves resumeData and injects tools only into streamOptions", () => {
+    const calls: unknown[][] = [];
+    const original = (resumeData: unknown, streamOptions: Record<string, unknown>) => {
+      calls.push([resumeData, streamOptions]);
+      return "resume-result";
+    };
+    const wrapped = wrapPlannerResumeStreamWithToolGate(original);
+    const resumeData = { approved: true, nested: { value: 7 } };
+
+    expect(wrapped(resumeData, { runId: "run-1" })).toBe("resume-result");
+    expect(calls).toEqual([[
+      resumeData,
+      { runId: "run-1", activeTools: [...PLANNING_ONLY_TOOLS] },
+    ]]);
+  });
+
+  it("resumeStream preserves an explicit activeTools override", () => {
+    const calls: unknown[][] = [];
+    const original = (resumeData: unknown, streamOptions: Record<string, unknown>) => {
+      calls.push([resumeData, streamOptions]);
+      return "resume-result";
+    };
+    const wrapped = wrapPlannerResumeStreamWithToolGate(original);
+    const resumeData = { approved: true };
+
+    wrapped(resumeData, { activeTools: ["startBrandAnalysis"] });
+    expect(calls).toEqual([[
+      resumeData,
+      { activeTools: ["startBrandAnalysis"] },
+    ]]);
   });
 });

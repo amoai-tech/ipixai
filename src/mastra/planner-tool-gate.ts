@@ -80,8 +80,10 @@ function extractMessageText(msg: MessageLike): string {
   if (typeof msg.content === "string") return msg.content;
   if (Array.isArray(msg.content)) {
     return msg.content
-      .filter((part: any): boolean => typeof part?.text === "string")
-      .map((part: any): string => part.text ?? "")
+      .filter((part): part is MessageContentPart & { text: string } =>
+        typeof part?.text === "string",
+      )
+      .map((part) => part.text)
       .join(" ");
   }
   return "";
@@ -102,11 +104,39 @@ function getToolCallNames(msg: MessageLike): string[] {
     }
   }
 
-  // AI SDK / AG-UI may pass tool_calls (snake_case) or a tools dict
-  const tcAny = msg as any;
-  if (Array.isArray(tcAny.tool_calls)) {
-    for (const tc of tcAny.tool_calls) {
-      const name = tc?.function?.name ?? (typeof tc?.name === "string" ? tc.name : "");
+  // AI SDK variants may pass tool_calls (snake_case).
+  const toolCalls = msg.tool_calls;
+  if (Array.isArray(toolCalls)) {
+    for (const tc of toolCalls) {
+      if (typeof tc !== "object" || tc === null) continue;
+      const record = tc as Record<string, unknown>;
+      const fn = record.function;
+      const functionName =
+        typeof fn === "object" && fn !== null && "name" in fn
+          ? (fn as { name?: unknown }).name
+          : undefined;
+      const directName = record.name;
+      const name =
+        typeof functionName === "string"
+          ? functionName
+          : typeof directName === "string"
+            ? directName
+            : "";
+      if (name) names.push(name);
+    }
+  }
+
+  // @ag-ui/mastra converts prior assistant tool calls to content parts:
+  // { type: "tool-call", toolCallId, toolName, args }.
+  if (Array.isArray(msg.content)) {
+    for (const part of msg.content) {
+      if (part?.type !== "tool-call") continue;
+      const name =
+        typeof part.toolName === "string"
+          ? part.toolName
+          : typeof part.name === "string"
+            ? part.name
+            : "";
       if (name) names.push(name);
     }
   }
@@ -114,11 +144,31 @@ function getToolCallNames(msg: MessageLike): string[] {
   return names;
 }
 
+export interface MessageContentPart {
+  type?: string;
+  text?: string;
+  toolCallId?: string;
+  toolName?: string;
+  name?: string;
+  args?: unknown;
+  [k: string]: unknown;
+}
+
 export interface MessageLike {
   role: string;
-  content?: string | Array<{ text?: string; type?: string; [k: string]: unknown }>;
+  content?: string | MessageContentPart[];
   toolCalls?: Array<{ function?: { name?: string; arguments?: string } }>;
-  [k: string]: unknown; // allow extra keys (tool_calls, tool_call_id, etc.)
+  tool_calls?: unknown;
+  [k: string]: unknown;
+}
+
+function isMessageLike(value: unknown): value is MessageLike {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "role" in value &&
+    typeof (value as { role?: unknown }).role === "string"
+  );
 }
 
 /**
@@ -157,14 +207,14 @@ export function isBrandIntelligenceTurn(messages: MessageLike[]): boolean {
  * - single message object
  * - plain string
  */
-export function normaliseToMessages(
-  input: string | MessageLike | MessageLike[],
-): MessageLike[] {
-  if (Array.isArray(input) && input.length > 0 && typeof input[0] === "object") {
-    return input as MessageLike[];
+export function normaliseToMessages(input: unknown): MessageLike[] {
+  if (Array.isArray(input)) {
+    return input.length > 0 && input.every(isMessageLike)
+      ? (input as MessageLike[])
+      : [];
   }
-  if (typeof input === "object" && input !== null && "role" in input) {
-    return [input as MessageLike];
+  if (isMessageLike(input)) {
+    return [input];
   }
   if (typeof input === "string" && input.length > 0) {
     return [{ role: "user", content: input }];
@@ -185,4 +235,61 @@ export function resolveActiveTools(
   if (defaultActiveTools) return defaultActiveTools;
   if (isBrandIntelligenceTurn(messages)) return [...ALL_AGENT_TOOLS];
   return [...PLANNING_ONLY_TOOLS];
+}
+
+type Callable = (...args: never[]) => unknown;
+
+type ActiveToolsOptions = {
+  activeTools?: string[];
+  [key: string]: unknown;
+};
+
+function normaliseToolOptions(value: unknown): ActiveToolsOptions {
+  return typeof value === "object" && value !== null
+    ? (value as ActiveToolsOptions)
+    : {};
+}
+
+/**
+ * Wraps Agent.stream while preserving the original callable type. The wrapper
+ * changes only the second argument by injecting activeTools.
+ */
+export function wrapPlannerStreamWithToolGate<T extends Callable>(original: T): T {
+  const wrapped = (...args: Parameters<T>): ReturnType<T> => {
+    const messages = args[0] as unknown;
+    const options = normaliseToolOptions(args[1]);
+    const activeTools = resolveActiveTools(
+      normaliseToMessages(messages),
+      options.activeTools,
+    );
+    const forwarded = [
+      messages,
+      { ...options, activeTools },
+      ...args.slice(2),
+    ] as unknown as Parameters<T>;
+    return Reflect.apply(original, undefined, forwarded) as ReturnType<T>;
+  };
+  return wrapped as T;
+}
+
+/**
+ * Wraps Agent.resumeStream(resumeData, streamOptions) while preserving the
+ * resume payload exactly and injecting activeTools only into streamOptions.
+ * With no explicit override, resume fails closed to planning-only tools.
+ */
+export function wrapPlannerResumeStreamWithToolGate<T extends Callable>(
+  original: T,
+): T {
+  const wrapped = (...args: Parameters<T>): ReturnType<T> => {
+    const resumeData = args[0] as unknown;
+    const streamOptions = normaliseToolOptions(args[1]);
+    const activeTools = resolveActiveTools([], streamOptions.activeTools);
+    const forwarded = [
+      resumeData,
+      { ...streamOptions, activeTools },
+      ...args.slice(2),
+    ] as unknown as Parameters<T>;
+    return Reflect.apply(original, undefined, forwarded) as ReturnType<T>;
+  };
+  return wrapped as T;
 }
