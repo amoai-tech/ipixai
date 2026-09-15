@@ -428,6 +428,46 @@ describe("ShootDetailWorkspace", () => {
     expect(refreshMock).not.toHaveBeenCalled();
   });
 
+  it("refetches the preview when the same asset advances to a newer provider version", async () => {
+    let previewCalls = 0;
+    vi.mocked(fetch).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (!url.includes("/preview")) throw new Error(`unexpected fetch ${url}`);
+      previewCalls += 1;
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            url: `https://res.cloudinary.com/demo/image/upload/v${previewCalls}/signed-preview.jpg`,
+          }),
+      } as Response);
+    });
+
+    const { rerender, container } = render(<ShootDetailWorkspace detail={DETAIL} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Assets" }));
+
+    await waitFor(() => {
+      expect(previewCalls).toBe(1);
+      expect(container.querySelector("img")?.getAttribute("src")).toContain("/v1/");
+    });
+
+    const nextDetail: ShootDetail = {
+      ...DETAIL,
+      assets: DETAIL.assets.map((asset) => ({
+        ...asset,
+        version: 2,
+        approval: "pending",
+      })),
+    };
+    rerender(<ShootDetailWorkspace detail={nextDetail} />);
+
+    await waitFor(() => {
+      expect(previewCalls).toBe(2);
+      expect(container.querySelector("img")?.getAttribute("src")).toContain("/v2/");
+    });
+    expect(container.querySelector("img")?.getAttribute("src")).not.toContain("/v1/");
+  });
+
   it("exposes approval controls for non-image assets with no preview", async () => {
     vi.mocked(fetch).mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);

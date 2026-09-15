@@ -79,6 +79,10 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
   }, [asset.id, asset.version, asset.approval]);
 
   useEffect(() => {
+    setPreviewUrl(null);
+    setLoading(true);
+    setError(false);
+
     if (!isImage) {
       setLoading(false);
       setError(true);
@@ -108,7 +112,7 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
     }
     fetchPreview();
     return () => { controller.abort(); };
-  }, [asset.id, isImage, attempt]);
+  }, [asset.id, asset.version, isImage, attempt]);
 
   const handleRetry = () => {
     setError(false);
