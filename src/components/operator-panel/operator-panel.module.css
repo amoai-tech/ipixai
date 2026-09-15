@@ -121,6 +121,28 @@
   overflow: hidden;
 }
 
+/* IPI-1217: the chat dock's loading/error/ready states — CopilotChat itself
+   fills whatever height it's given, so the ready state stacks the optional
+   welcome banner (shrink-0) above it (flex: 1, min-height: 0). */
+.chatDockStatus {
+  padding: 1rem;
+}
+
+.chatDockBody {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.chatDockWelcome {
+  padding: 1rem 1rem 0;
+}
+
+.chatDockChat {
+  flex: 1;
+  min-height: 0;
+}
+
 .rail {
   grid-area: rail;
   width: 16rem;

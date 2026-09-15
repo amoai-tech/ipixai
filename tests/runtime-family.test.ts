@@ -123,14 +123,26 @@ describe("IPI-1042 runtime family", () => {
   });
 
   it("keeps tenant-scoped stop/cancel after the Mastra upgrade", () => {
-    const src = readFileSync(
+    // IPI-1217: wrapAbortRun/TenantAbortRunner moved out of the route file
+    // into src/lib/copilotkit/tenant-abort-runner.ts so TenantAbortRunner's
+    // connect() (durable Mastra history fallback) could be unit-tested
+    // directly — Next.js route handler files only allow specific named
+    // exports, so the class itself can't be imported from route.ts.
+    const runnerSrc = readFileSync(
+      new URL("../src/lib/copilotkit/tenant-abort-runner.ts", import.meta.url),
+      "utf8",
+    );
+    expect(runnerSrc).toContain("function wrapAbortRun");
+    expect(runnerSrc).toContain("class TenantAbortRunner");
+    expect(runnerSrc).toContain("detachActiveRun()");
+    expect(runnerSrc).not.toMatch(/ToolSearchProcessor|search_tools|load_tool/);
+
+    const routeSrc = readFileSync(
       new URL("../src/app/api/copilotkit/[[...slug]]/route.ts", import.meta.url),
       "utf8",
     );
-    expect(src).toContain("function wrapAbortRun");
-    expect(src).toContain("class TenantAbortRunner");
-    expect(src).toContain("detachActiveRun()");
-    expect(src).not.toMatch(/ToolSearchProcessor|search_tools|load_tool/);
+    expect(routeSrc).toContain("TenantAbortRunner");
+    expect(routeSrc).not.toMatch(/ToolSearchProcessor|search_tools|load_tool/);
   });
 
   it("LibSQL fallback constructors still work without MASTRA_DATABASE_URL", async () => {

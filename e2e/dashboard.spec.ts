@@ -135,7 +135,14 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
   test("chat welcome stays honest for the QA org's real 0-brand state @T72b9d927", async ({ page }) => {
     await page.goto("/app");
     await expect(page.getByRole("heading", { name: "No brands yet" })).toBeVisible();
-    await expect(page.getByText("Start by creating a brand or planning your first shoot.")).toBeVisible();
+    // IPI-1217: the chat welcome text no longer renders immediately — it
+    // waits behind PlannerChatDock's GET /api/planner/threads bootstrap
+    // (same async gate /planner already had), so this needs the same
+    // cold-compile-sized timeout as other post-navigation assertions here,
+    // not Playwright's 5s default.
+    await expect(
+      page.getByText("Start by creating a brand or planning your first shoot."),
+    ).toBeVisible({ timeout: NAV_TIMEOUT_MS });
   });
 
   test("Intelligence rail stays honest for the QA org's real 0-brand state @T6029e637", async ({ page }, testInfo) => {
