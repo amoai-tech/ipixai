@@ -56,22 +56,18 @@ export type RecordApprovedMappingInput = {
   approvedBy: string;
 };
 
-/* eslint-disable @typescript-eslint/no-unused-vars -- function-type parameter names document the
-   injected dependency contract and are intentionally unused; Codacy's hosted analyzer does not
-   honor the underscore arg-ignore pattern for function-type parameters. */
-export type ReferenceLibraryDeps = {
-  log: (_message: string) => void;
-  stderr: (_message: string) => void;
-  readManifest: (_path: string) => Promise<unknown>;
-  fileExists: (_path: string) => boolean;
-  listProviderCandidates: () => Promise<ProviderReferenceCandidate[]>;
-  uploadCandidate: (_file: string, _params: UploadCandidateParams) => Promise<UploadedReferenceAsset>;
-  destroyCandidate: (_publicId: string) => Promise<void>;
-  loadCatalog: () => Promise<ReferenceCatalogRow[]>;
-  loadApprovedMappings: (_referenceIds: string[]) => Promise<ReferenceMediaAvailability[]>;
-  recordApprovedMapping: (_input: RecordApprovedMappingInput) => Promise<void>;
-};
-/* eslint-enable @typescript-eslint/no-unused-vars */
+export interface ReferenceLibraryDeps {
+  log(message: string): void;
+  stderr(message: string): void;
+  readManifest(path: string): Promise<unknown>;
+  fileExists(path: string): boolean;
+  listProviderCandidates(): Promise<ProviderReferenceCandidate[]>;
+  uploadCandidate(file: string, params: UploadCandidateParams): Promise<UploadedReferenceAsset>;
+  destroyCandidate(publicId: string): Promise<void>;
+  loadCatalog(): Promise<ReferenceCatalogRow[]>;
+  loadApprovedMappings(referenceIds: string[]): Promise<ReferenceMediaAvailability[]>;
+  recordApprovedMapping(input: RecordApprovedMappingInput): Promise<void>;
+}
 
 type ParsedArgs = {
   command: string;
