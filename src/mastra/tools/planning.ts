@@ -303,6 +303,16 @@ export const TrustedReferenceShotTypeSchema = z.object({
   description: z.string().max(MAX_TEXT_LENGTH),
   channelFit: z.array(z.string()).max(MAX_CHANNEL_FIT),
   background: z.string().nullable().optional(),
+  // Compatibility metadata for deterministic IPI-1081 · PLAN-001 reference
+  // selection (see src/lib/shoot/shot-list-from-references.ts). All optional:
+  // the public.shot_type_references_view projection is nullable and a
+  // missing value means "unknown", which must never filter a reference out
+  // (that would fabricate a gap) or manufacture a match (that would
+  // fabricate compatibility).
+  category: z.string().nullable().optional(),
+  subcategory: z.string().nullable().optional(),
+  modelType: z.string().nullable().optional(),
+  tags: z.array(z.string()).nullable().optional(),
 });
 
 const ShotSchema = z.object({
@@ -327,6 +337,12 @@ export const GenerateShotListDraftInputSchema = z.object({
   shootType: z.string().optional(),
   brandDnaSummary: z.string().max(MAX_TEXT_LENGTH).optional(),
   productNames: z.array(z.string().max(MAX_TEXT_LENGTH)).max(MAX_PRODUCT_NAMES).optional(),
+  // Optional operator-known context used to rank trusted references by
+  // semantic compatibility, not channel alone. Absent means unknown, which
+  // never filters a reference out and never invents a match.
+  productCategory: z.string().max(MAX_TEXT_LENGTH).optional(),
+  modelType: z.string().max(MAX_TEXT_LENGTH).optional(),
+  styleKeywords: z.array(z.string().max(MAX_TEXT_LENGTH)).max(MAX_PRODUCT_NAMES).optional(),
 });
 export const GenerateShotListDraftOutputSchema = z.object({
   ...planningResultFields,
@@ -345,12 +361,20 @@ export const generateShotListDraft = createTool({
   inputSchema: GenerateShotListDraftInputSchema,
   outputSchema: GenerateShotListDraftOutputSchema,
   execute: async (input) => {
-    const { selectedDeliverables, trustedReferenceShotTypes, productNames = [] } = input;
+    const {
+      selectedDeliverables,
+      trustedReferenceShotTypes,
+      productNames = [],
+      productCategory,
+      modelType,
+      styleKeywords,
+    } = input;
 
     const { shots, uncoveredDeliverableWarnings } = buildShotListFromReferences(
       selectedDeliverables as SelectedDeliverable[],
       trustedReferenceShotTypes as TrustedReferenceShotType[],
       productNames,
+      { productCategory, modelType, styleKeywords },
     );
 
     // An uncovered deliverable means no trusted reference fits that channel —

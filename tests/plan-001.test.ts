@@ -22,6 +22,7 @@ vi.mock("../src/lib/supabase/server", () => ({
         const result = { data: supabaseMock.error ? null : supabaseMock.rows, error: supabaseMock.error };
         const chain = {
           select: () => chain,
+          order: () => chain,
           limit: () => chain,
           insert: (...args: unknown[]) => { supabaseMock.mutatingCalls.push("insert"); return chain; },
           update: (...args: unknown[]) => { supabaseMock.mutatingCalls.push("update"); return chain; },
@@ -47,6 +48,11 @@ afterEach(() => {
 });
 
 import { loadTrustedShotReferences } from "../src/lib/shoot/shot-type-references";
+import {
+  pickReferencesForDeliverable,
+  scoreReferenceCompatibility,
+  type TrustedReferenceShotType,
+} from "../src/lib/shoot/shot-list-from-references";
 import { recommendShootType } from "../src/mastra/tools/planning";
 import {
   composeShootPlan,
@@ -104,6 +110,10 @@ describe("loadTrustedShotReferences", () => {
       description: "Garment laid flat, front facing, white background",
       channelFit: ["shopify_pdp", "amazon"],
       background: "white",
+      category: "clothing",
+      subcategory: "flat_lay",
+      modelType: null,
+      tags: null,
     });
   });
 
@@ -364,5 +374,185 @@ describe("composeShootPlan AG-UI/CopilotKit wire handoff", () => {
     // became schema-invalid (e.g. an undefined dropped by JSON.stringify)
     // across the boundary.
     expect(() => ShootPlanSchema.parse(received)).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Deterministic, compatibility-aware reference selection (PLAN-001 Step 1)
+// ---------------------------------------------------------------------------
+
+const REF_CLOTHING_PDP: TrustedReferenceShotType = {
+  id: "ref-clothing-pdp",
+  angle: "Model front, full body",
+  description: "Model wearing the garment on seamless white",
+  channelFit: ["shopify_pdp"],
+  background: "white",
+  category: "clothing",
+  subcategory: "on_model",
+  modelType: "human",
+  tags: ["studio", "editorial"],
+};
+
+const REF_BEAUTY_PDP: TrustedReferenceShotType = {
+  id: "ref-beauty-pdp",
+  angle: "Product macro",
+  description: "Beauty product macro on gradient",
+  channelFit: ["shopify_pdp"],
+  background: "studio_gradient",
+  category: "beauty",
+  subcategory: "macro",
+  modelType: "product",
+  tags: ["gradient", "glossy"],
+};
+
+const REF_CLOTHING_FLAT: TrustedReferenceShotType = {
+  id: "ref-clothing-flat",
+  angle: "Front flat lay",
+  description: "Garment laid flat, front facing, white background",
+  channelFit: ["shopify_pdp"],
+  background: "white",
+  category: "clothing",
+  subcategory: "flat_lay",
+  modelType: "product",
+  tags: ["catalog", "clean"],
+};
+
+const REF_UNKNOWN_METADATA: TrustedReferenceShotType = {
+  id: "ref-unknown",
+  angle: "Three quarter",
+  description: "Reference row without compatibility metadata",
+  channelFit: ["shopify_pdp"],
+  background: "white",
+  category: null,
+  subcategory: null,
+  modelType: null,
+  tags: null,
+};
+
+describe("pickReferencesForDeliverable — deterministic, compatibility-aware selection", () => {
+  it("returns the same selection for the same input and catalog", () => {
+    const catalog = [REF_BEAUTY_PDP, REF_CLOTHING_FLAT, REF_CLOTHING_PDP, REF_UNKNOWN_METADATA];
+    const context = { productCategory: "clothing", styleKeywords: ["catalog"] };
+    const first = pickReferencesForDeliverable("shopify", catalog, 3, context).map((r) => r.id);
+    const second = pickReferencesForDeliverable("shopify", catalog, 3, context).map((r) => r.id);
+    expect(first).toEqual(second);
+  });
+
+  it("does not depend on database/input row order — a reversed catalog selects the same references", () => {
+    const catalog = [REF_BEAUTY_PDP, REF_CLOTHING_FLAT, REF_CLOTHING_PDP, REF_UNKNOWN_METADATA];
+    const context = { productCategory: "clothing", styleKeywords: ["catalog"] };
+    const forward = pickReferencesForDeliverable("shopify", catalog, 4, context).map((r) => r.id);
+    const reversed = pickReferencesForDeliverable("shopify", [...catalog].reverse(), 4, context).map(
+      (r) => r.id,
+    );
+    expect(reversed).toEqual(forward);
+  });
+
+  it("excludes a channel-matching reference whose known product category disagrees — no silent substitution", () => {
+    // Both references match channel "shopify" → "shopify_pdp"; only the
+    // category distinguishes them.
+    expect(scoreReferenceCompatibility(REF_BEAUTY_PDP, "shopify", { productCategory: "clothing" })).toBe(0);
+    const picked = pickReferencesForDeliverable(
+      "shopify",
+      [REF_BEAUTY_PDP, REF_CLOTHING_PDP],
+      5,
+      { productCategory: "clothing" },
+    );
+    // Count is filled by cycling the compatible set, so 5 picks repeat the one
+    // compatible reference — the point is that the incompatible one never appears.
+    expect(new Set(picked.map((r) => r.id))).toEqual(new Set(["ref-clothing-pdp"]));
+  });
+
+  it("excludes a reference whose known model/talent class disagrees and ranks the matching class first", () => {
+    expect(scoreReferenceCompatibility(REF_CLOTHING_PDP, "shopify", { modelType: "product" })).toBe(0);
+    const picked = pickReferencesForDeliverable(
+      "shopify",
+      [REF_CLOTHING_FLAT, REF_CLOTHING_PDP],
+      1,
+      { modelType: "product" },
+    );
+    expect(picked.map((r) => r.id)).toEqual(["ref-clothing-flat"]);
+  });
+
+  it("ranks a style/tag match above a merely channel-compatible reference", () => {
+    const picked = pickReferencesForDeliverable(
+      "shopify",
+      [REF_UNKNOWN_METADATA, REF_CLOTHING_FLAT],
+      1,
+      { productCategory: "clothing", styleKeywords: ["catalog", "clean"] },
+    );
+    expect(picked.map((r) => r.id)).toEqual(["ref-clothing-flat"]);
+  });
+
+  it("keeps an unknown-metadata reference eligible rather than inventing a gap from missing data", () => {
+    const score = scoreReferenceCompatibility(REF_UNKNOWN_METADATA, "shopify", {
+      productCategory: "clothing",
+      modelType: "human",
+    });
+    expect(score).toBeGreaterThan(0);
+    const picked = pickReferencesForDeliverable("shopify", [REF_UNKNOWN_METADATA], 2, {
+      productCategory: "clothing",
+    });
+    expect(picked.map((r) => r.id)).toEqual(["ref-unknown", "ref-unknown"]);
+  });
+
+  it("returns an explicit empty selection when nothing is compatible — never a wrong reference", () => {
+    const picked = pickReferencesForDeliverable("shopify", [REF_BEAUTY_PDP], 2, {
+      productCategory: "clothing",
+    });
+    expect(picked).toEqual([]);
+  });
+
+  it("fails the composed plan closed to needs_input when no reference is compatible, with no invented referenceId", async () => {
+    // A beauty reference that matches the channel but not the known category.
+    supabaseMock.rows = [
+      {
+        id: "ref-beauty-pdp",
+        category: "beauty",
+        subcategory: "macro",
+        angle: "Product macro",
+        description: "Beauty product macro on gradient",
+        channel_fit: ["shopify_pdp"],
+        model_type: "product",
+        background: "studio_gradient",
+      },
+    ];
+    const plan = await composeShootPlan(baseInput({ channels: ["shopify"], productCategory: "clothing" }));
+    expect(plan.shotListResult?.status).toBe("needs_input");
+    expect(plan.shotListResult?.shots).toEqual([]);
+    expect(plan.referencesUsed).toEqual([]);
+    expect(plan.status).toBe("needs_input");
+  });
+
+  it("keeps every composed shot's referenceId inside the loaded trusted set even after category filtering", async () => {
+    supabaseMock.rows = [
+      {
+        id: "ref-clothing-pdp",
+        category: "clothing",
+        subcategory: "on_model",
+        angle: "Model front, full body",
+        description: "Model wearing the garment on seamless white",
+        channel_fit: ["shopify_pdp"],
+        model_type: "human",
+        background: "white",
+      },
+      {
+        id: "ref-beauty-pdp",
+        category: "beauty",
+        subcategory: "macro",
+        angle: "Product macro",
+        description: "Beauty product macro on gradient",
+        channel_fit: ["shopify_pdp"],
+        model_type: "product",
+        background: "studio_gradient",
+      },
+    ];
+    const plan = await composeShootPlan(baseInput({ channels: ["shopify"], productCategory: "clothing" }));
+    const allowed = new Set(["ref-clothing-pdp"]);
+    for (const shot of plan.shotListResult?.shots ?? []) {
+      expect(allowed.has(shot.referenceId)).toBe(true);
+      expect(shot.referenceId).not.toBe("ref-beauty-pdp");
+    }
+    expect(plan.shotListResult?.shots.length).toBeGreaterThan(0);
   });
 });

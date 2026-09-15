@@ -14,12 +14,22 @@ import type { TrustedReferenceShotType } from "./shot-list-from-references";
  * already exists in `public`, so it's reused rather than adding a second one.
  * No pgvector/RAG: the whole table is small and curated, so this loads it
  * unfiltered (bounded to MAX_TRUSTED_REFERENCES, matching
- * generateShotListDraft's own input cap) and lets the existing pure
- * `channelMatchesReference`/`pickReferencesForDeliverable`
+ * generateShotListDraft's own input cap) and lets the pure
+ * `scoreReferenceCompatibility`/`pickReferencesForDeliverable`
  * (shot-list-from-references.ts) — already tested, already handles the
- * "shopify" → "shopify_pdp" naming split — do the actual channel matching.
+ * "shopify" → "shopify_pdp" naming split — do the compatibility ranking.
  * Adding a second, query-side filter here would duplicate that logic for no
  * benefit at this table size.
+ *
+ * Deterministic order is required because selection ties are broken by score
+ * then a stable key; the read itself must not be free to return rows in an
+ * arbitrary order. `shoot.shot_type_references` has no sort_order/position
+ * column (verified live via Supabase MCP), and `created_at` is not exposed
+ * on this view, so the smallest stable ordering the view supports is the
+ * compound text+id order below — documented limitation, not a catalog
+ * position guarantee. The compatibility metadata (`category`, `subcategory`,
+ * `model_type`, `tags`) is projected so ranking can use it instead of
+ * channel alone.
  *
  * Best-effort only, same contract as loadChannelSpecs: any failure (no
  * session, RLS denial, network, unexpected schema) returns an empty array
@@ -42,7 +52,11 @@ export async function loadTrustedShotReferences(): Promise<TrustedReferenceShotT
 
     const { data, error } = await supabase
       .from("shot_type_references_view")
-      .select("id, angle, description, channel_fit, background")
+      .select("id, category, subcategory, angle, description, channel_fit, model_type, background, tags")
+      .order("category", { ascending: true })
+      .order("subcategory", { ascending: true })
+      .order("angle", { ascending: true })
+      .order("id", { ascending: true })
       .limit(MAX_TRUSTED_REFERENCES);
     if (error || !data?.length) return [];
 
@@ -60,6 +74,10 @@ export async function loadTrustedShotReferences(): Promise<TrustedReferenceShotT
         description: row.description,
         channelFit: row.channel_fit,
         background: row.background ?? null,
+        category: row.category ?? null,
+        subcategory: row.subcategory ?? null,
+        modelType: row.model_type ?? null,
+        tags: row.tags ?? null,
       });
       if (!parsed.success) {
         console.warn("[shot-type-references] malformed row in shot_type_references_view — failing closed (reference gap, not partial data)");
