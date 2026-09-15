@@ -525,6 +525,11 @@ jobs:
           psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/tests/security/ipi1119-media-approval.sql
 
+          # IPI-644 · SHOOT-DATA-002C — reference logical key + server-only exact
+          # media mapping + least-privilege reference view/function grants.
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/ipi644-reference-media-grants.sql
+
           # End-to-end proof, not just schema-level: a real signup on this
           # fresh database must actually produce a profiles row (the exact
           # bug this task's own review caught and fixed).

@@ -1,6 +1,25 @@
+import { z } from "zod";
+
 import { createClient } from "@/lib/supabase/server";
 import { MAX_TRUSTED_REFERENCES, TrustedReferenceShotTypeSchema } from "@/mastra/tools/planning";
 import type { TrustedReferenceShotType } from "./shot-list-from-references";
+
+/**
+ * IPI-644 · SHOOT-DATA-002C — the visual-reference catalog row. Extends the
+ * PLAN-001 trusted-reference shape with the stable logical key and a boolean
+ * "does a curator-approved exact media mapping exist" flag. The boolean is the
+ * ONLY media signal a client ever receives here: provider identity/version
+ * stay server-side and are resolved by `getShotReferencePreview`.
+ */
+export type ShotReferenceCatalogEntry = TrustedReferenceShotType & {
+  referenceKey: string;
+  hasPreview: boolean;
+};
+
+const ShotReferenceCatalogRowSchema = TrustedReferenceShotTypeSchema.extend({
+  referenceKey: z.string().min(1),
+  hasPreview: z.boolean(),
+});
 
 /**
  * IPI-1081 · PLAN-001 — the trusted-reference provider `generateShotListDraft`
@@ -88,6 +107,66 @@ export async function loadTrustedShotReferences(): Promise<TrustedReferenceShotT
     return references;
   } catch (err) {
     console.warn("[shot-type-references] loadTrustedShotReferences failed, returning empty (reference gap, not invented):", err);
+    return [];
+  }
+}
+
+/**
+ * IPI-644 · SHOOT-DATA-002C — the same trusted catalog, projected for the
+ * visual reference picker: identical fields and deterministic order as
+ * `loadTrustedShotReferences`, plus `referenceKey` (stable logical identity)
+ * and `hasPreview` (a curator-approved exact mapping exists). One reader
+ * module, one source of truth; PLAN-001 keeps its frozen projection so its
+ * contract/tests are untouched.
+ *
+ * Fail-closed contract matches `loadTrustedShotReferences`: no session, RLS
+ * denial, network error, or a single malformed row returns an empty array
+ * rather than partial or fabricated rows. A malformed row (including a null
+ * `reference_key` or non-boolean `has_preview`) means the catalog shape can no
+ * longer be trusted for a "complete" visual browse, so it is surfaced as an
+ * empty catalog instead of a silently incomplete one.
+ */
+export async function loadShotReferenceCatalog(): Promise<ShotReferenceCatalogEntry[]> {
+  try {
+    const supabase = await createClient();
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+      .from("shot_type_references_view")
+      .select(
+        "id, reference_key, category, subcategory, angle, description, channel_fit, model_type, background, tags, has_preview",
+      )
+      .order("category", { ascending: true })
+      .order("subcategory", { ascending: true })
+      .order("angle", { ascending: true })
+      .order("id", { ascending: true })
+      .limit(MAX_TRUSTED_REFERENCES);
+    if (error || !data?.length) return [];
+
+    const entries: ShotReferenceCatalogEntry[] = [];
+    for (const row of data) {
+      const parsed = ShotReferenceCatalogRowSchema.safeParse({
+        id: row.id,
+        angle: row.angle,
+        description: row.description,
+        channelFit: row.channel_fit,
+        background: row.background ?? null,
+        category: row.category ?? null,
+        subcategory: row.subcategory ?? null,
+        modelType: row.model_type ?? null,
+        tags: row.tags ?? null,
+        referenceKey: row.reference_key,
+        hasPreview: row.has_preview,
+      });
+      if (!parsed.success) {
+        console.warn("[shot-type-references] malformed row in shot_type_references_view (catalog read) — failing closed (reference gap, not partial data)");
+        return [];
+      }
+      entries.push(parsed.data);
+    }
+    return entries;
+  } catch (err) {
+    console.warn("[shot-type-references] loadShotReferenceCatalog failed, returning empty (reference gap, not invented):", err);
     return [];
   }
 }
