@@ -65,8 +65,16 @@ vi.mock("./operator-panel.module.css", () => ({
 // see operator-panel.tsx's isNewThread comment), and PlannerChatDock now
 // renders that copy itself in a real, visible paragraph — a stub that also
 // echoed the label as text would double-render it and mask that gate.
+// Resettable (vi.hoisted) rather than a plain arrow function so individual
+// tests can simulate an in-progress conversation via mockReturnValueOnce —
+// operator-panel.tsx's isNewThread welcome banner is also gated on this.
+const useAgentMock = vi.hoisted(() =>
+  vi.fn(() => ({ agent: { messages: [] as unknown[] } })),
+);
+
 vi.mock("@copilotkit/react-core/v2", () => ({
   CopilotKit: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useAgent: useAgentMock,
   CopilotChat: ({
     labels,
     threadId,
@@ -124,6 +132,7 @@ function mockThreadsFetch(
 beforeEach(() => {
   mockThreadsFetch();
   window.localStorage.clear();
+  useAgentMock.mockReturnValue({ agent: { messages: [] } });
 });
 
 afterEach(() => {
@@ -424,6 +433,29 @@ describe("PlannerChatDock thread bootstrap (IPI-1217)", () => {
     ).toHaveLength(1);
   });
 
+  it("hides the welcome banner once the conversation has real messages, even on a new thread", async () => {
+    // Low-risk finding from PR review: isNewThread alone reflects only the
+    // bootstrap-time snapshot, so without this it would stay true (and the
+    // banner would stay visible) for the rest of the mount even after the
+    // operator sends the first message. agent.messages.length is the live
+    // signal CopilotChat's own (now-unreachable) welcome screen used to key
+    // off, so PlannerChatDock mirrors it here.
+    useAgentMock.mockReturnValue({
+      agent: { messages: [{ id: "m1", role: "user", content: "hi" }] },
+    });
+
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={0} shootCount={0} />
+      </OperatorPanel>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("copilot-chat-stub")).toBeDefined());
+    expect(
+      screen.queryByText("Start by creating a brand or planning your first shoot."),
+    ).toBeNull();
+  });
+
   it("never reuses a stored thread id the authenticated resource does not own", async () => {
     // Simulates a stored id from another account/browser profile — the
     // exact case resolvePlannerThreadId's membership check exists to catch
@@ -477,11 +509,13 @@ describe("PlannerChatDock thread bootstrap (IPI-1217)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("aborts an in-flight bootstrap request on unmount", async () => {
+  it("aborts an in-flight bootstrap request on unmount", () => {
     const fetchMock = vi.fn(
       (_input: RequestInfo | URL, init?: RequestInit) =>
         new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
         }),
     );
     vi.stubGlobal("fetch", fetchMock);

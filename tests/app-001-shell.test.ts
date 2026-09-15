@@ -46,6 +46,9 @@ vi.mock("../src/components/operator-panel/operator-panel.module.css", () => ({
 // internals (see operator-panel.test.tsx for the same stub).
 vi.mock("@copilotkit/react-core/v2", () => ({
   CopilotKit: ({ children }: { children: React.ReactNode }) => createElement("div", null, children),
+  // IPI-1217: PlannerChatDock now also calls useAgent() for its welcome-copy
+  // gating — needed here too or the real hook throws on the undefined mock.
+  useAgent: () => ({ agent: { messages: [] } }),
   CopilotChat: () => createElement("div", { "data-testid": "copilot-chat-stub" }),
 }));
 

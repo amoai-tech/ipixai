@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotChat, CopilotKit, useAgent } from "@copilotkit/react-core/v2";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -147,7 +147,7 @@ function usePlannerThreadBootstrap() {
     setThreadId(null);
     setThreadError(false);
 
-    (async () => {
+    void (async () => {
       try {
         const response = await fetch("/api/planner/threads", {
           credentials: "include",
@@ -163,7 +163,10 @@ function usePlannerThreadBootstrap() {
         // account can never be persisted/reused under someone else's key.
         const resourceId = typeof body.resourceId === "string" ? body.resourceId : "";
         if (!resourceId) throw new Error("GET /api/planner/threads -> missing resourceId");
-        const rows = body.threads ?? [];
+        // Array.isArray, not just `?? []`: a malformed/non-array response
+        // body would otherwise throw inside .some() below instead of
+        // falling into the honest error state.
+        const rows = Array.isArray(body.threads) ? body.threads : [];
         const storageKey = plannerThreadStorageKey(resourceId);
         const stored = window.localStorage.getItem(storageKey);
         const resolved = resolvePlannerThreadId(rows, stored);
@@ -172,14 +175,24 @@ function usePlannerThreadBootstrap() {
         setThreadId(resolved);
       } catch (error) {
         if (controller.signal.aborted) return;
+        console.error("PlannerChatDock: thread bootstrap failed", error);
         setThreadError(true);
       }
     })();
 
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+    };
   }, [retryKey]);
 
-  return { threadId, isNewThread, threadError, retry: () => setRetryKey((n) => n + 1) };
+  return {
+    threadId,
+    isNewThread,
+    threadError,
+    retry: () => {
+      setRetryKey((n) => n + 1);
+    },
+  };
 }
 
 /** Reads WorkspaceStats from inside the provider (OperatorPanel's own body
@@ -188,10 +201,17 @@ function usePlannerThreadBootstrap() {
 function PlannerChatDock({ pathname }: { pathname: string }) {
   const stats = useWorkspaceStats();
   const { threadId, isNewThread, threadError, retry } = usePlannerThreadBootstrap();
+  // Called unconditionally (rules of hooks) even before threadId resolves —
+  // same pattern planner-threads-drawer.tsx already uses. Once the operator
+  // sends the first message, agent.messages.length flips to >0 and the
+  // welcome banner below hides itself, matching how CopilotChat's own
+  // (now-unreachable) welcome screen used to behave via messages.length.
+  const { agent } = useAgent({ agentId: "default" });
+  const hasMessages = (agent.messages?.length ?? 0) > 0;
 
   if (threadError) {
     return (
-      <div role="alert" style={{ padding: "1rem" }}>
+      <div role="alert" className={styles.chatDockStatus}>
         <p>Could not load conversation.</p>
         <Button type="button" variant="outline" size="sm" onClick={retry}>
           Retry
@@ -202,7 +222,7 @@ function PlannerChatDock({ pathname }: { pathname: string }) {
 
   if (!threadId) {
     return (
-      <p role="status" style={{ padding: "1rem" }}>
+      <p role="status" className={styles.chatDockStatus}>
         Loading conversation…
       </p>
     );
@@ -210,16 +230,17 @@ function PlannerChatDock({ pathname }: { pathname: string }) {
 
   // CopilotChat's own welcome screen never renders once threadId is
   // explicit (see hasExplicitThreadId gate above), so the portfolio-aware
-  // copy is rendered here instead, only for a thread that's genuinely new
-  // (isNewThread) — an existing conversation shouldn't show a "welcome"
-  // banner above its real history. labels.welcomeMessageText is kept as a
-  // harmless fallback in case that gate ever changes upstream.
+  // copy is rendered here instead, only for a thread that's both genuinely
+  // new (isNewThread) and still empty (!hasMessages) — an existing or
+  // already-started conversation shouldn't show a "welcome" banner above
+  // its real history. labels.welcomeMessageText is kept as a harmless
+  // fallback in case that gate ever changes upstream.
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      {isNewThread && (
-        <p style={{ padding: "1rem 1rem 0" }}>{portfolioWelcomeText(pathname, stats)}</p>
+    <div className={styles.chatDockBody}>
+      {isNewThread && !hasMessages && (
+        <p className={styles.chatDockWelcome}>{portfolioWelcomeText(pathname, stats)}</p>
       )}
-      <div style={{ flex: 1, minHeight: 0 }}>
+      <div className={styles.chatDockChat}>
         <CopilotChat
           agentId="default"
           threadId={threadId}

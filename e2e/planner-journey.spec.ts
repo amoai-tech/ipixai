@@ -191,8 +191,11 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
     await expect(page.getByTestId("copilot-user-message").last()).toContainText(runMarker, {
       timeout: NAV_TIMEOUT_MS,
     });
+    // /\S/ (not just "not empty string") so a whitespace-only response
+    // can't pass as a real answer — not.toHaveText("") only rejects an
+    // exactly-empty string.
     const assistantMessages = page.getByTestId("copilot-assistant-message");
-    await expect(assistantMessages.last()).not.toHaveText("", {
+    await expect(assistantMessages.last()).toHaveText(/\S/, {
       timeout: RESPONSE_TIMEOUT_MS,
     });
 
@@ -202,7 +205,7 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
     await expect(page.getByTestId("copilot-user-message").last()).toContainText(runMarker, {
       timeout: NAV_TIMEOUT_MS,
     });
-    await expect(page.getByTestId("copilot-assistant-message").last()).not.toHaveText("", {
+    await expect(page.getByTestId("copilot-assistant-message").last()).toHaveText(/\S/, {
       timeout: NAV_TIMEOUT_MS,
     });
   });
