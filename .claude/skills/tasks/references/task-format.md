@@ -70,6 +70,12 @@ Replace labels with the real task systems. Add failure/recovery/state diagrams o
 24. **Post-merge actions + tests** — use `post-merge.md`; verify merged SHA, main CI, deploy/runtime, real journey, domain-specific proof.
 25. **Final implementation report** — result, evidence, scores, residual risks, next task.
 
+## Decomposing a large task
+
+Default to **vertical tracer-bullet tickets**: each child delivers a narrow complete behavior and names its blocking edges. Avoid splitting purely by technical layer (`schema` → `API` → `UI` → `tests`) unless a layer is independently valuable or required as a safe prerequisite.
+
+For wide mechanical refactors that cannot land green vertically, use **expand → migrate → contract**: add the new contract beside the old, migrate callers in green batches, then delete the old contract after all batches pass. Size migration batches from Graphify/dependency evidence, not convenience.
+
 ## Minimum substance rule (no empty-box sections)
 
 Filling in a section heading is not the same as satisfying it. Twenty-five sections give a lot of surface to technically "complete" with one-line filler that adds no real information. At minimum:

@@ -1,6 +1,6 @@
 ---
 name: refactor-plan
-description: 'Create a concrete plan before starting a multi-file refactor. Use when the user asks to plan, sequence, scope, or safely execute a refactor across multiple files; always investigate first, output the plan, and wait for confirmation before making code changes.'
+description: 'Use when a multi-file refactor needs investigation, sequencing, dependency analysis, rollback planning, or an explicit execution plan before code changes.'
 ---
 
 # Refactor Plan
@@ -16,7 +16,7 @@ Create a detailed plan before making any code changes.
 5. Include verification steps between phases and a final validation command.
 6. Include rollback or recovery steps for the riskiest phases.
 7. Output the complete plan using the format below.
-8. Stop after the plan and ask for confirmation before implementing. If the user already asked you to implement, still produce the plan first and wait for confirmation unless they explicitly said to continue without review after the plan.
+8. If the user asked for planning only, stop after the plan and ask for confirmation. If the user already asked to implement the refactor, present the plan/checkpoints and continue without a second confirmation unless a STOP condition, ambiguity, or materially changed scope requires a decision.
 
 If the request is too ambiguous to plan safely, ask concise clarifying questions instead of editing files.
 
@@ -63,4 +63,4 @@ If something fails:
 - [Potential issue and mitigation]
 ```
 
-After the plan, ask: "Shall I proceed with Phase 1?"
+After the plan: if this was a planning-only request, ask: "Shall I proceed with Phase 1?" If implementation was already requested, continue directly to Phase 1 unless a STOP condition applies.
