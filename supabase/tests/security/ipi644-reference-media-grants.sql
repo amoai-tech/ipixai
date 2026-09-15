@@ -13,6 +13,8 @@
 --   * anon must not EXECUTE the reference media functions
 --   * authenticated must not EXECUTE the reference media resolver
 --   * an approved mapping must fail closed when its exact identity is incomplete
+--   * only human-approved mappings may be recorded
+--   * service_role owns the reference media recorder
 
 do $$
 declare
@@ -22,6 +24,7 @@ declare
 
   function_media text := 'public.get_shot_reference_media(uuid)';
   function_has_preview text := 'public.shot_type_reference_has_preview(uuid)';
+  function_record text := 'public.record_shot_reference_media(uuid, text, text, bigint, text, text, uuid)';
 
   policy_count int;
   hidden_columns text[];
@@ -167,6 +170,16 @@ begin
     raise exception 'IPI-644: authenticated must not have DML on shot_type_references_view';
   end if;
 
+  -- ---- service_role reads the catalog (CLI), never writes it ----------------
+  if not has_table_privilege('service_role', view_rel, 'select') then
+    raise exception 'IPI-644: service_role must SELECT shot_type_references_view (candidate CLI)';
+  end if;
+  if has_table_privilege('service_role', view_rel, 'insert')
+     or has_table_privilege('service_role', view_rel, 'update')
+     or has_table_privilege('service_role', view_rel, 'delete') then
+    raise exception 'IPI-644: service_role must not have DML on shot_type_references_view';
+  end if;
+
   -- ---- security_invoker must be retained ------------------------------------
   if not exists (
     select 1 from pg_class
@@ -198,12 +211,39 @@ begin
     raise exception 'IPI-644: service_role must EXECUTE the reference media resolver';
   end if;
 
+  -- ---- only human-approved mappings may be recorded, by service_role --------
+  if to_regprocedure(function_record) is null then
+    raise exception 'IPI-644: public.record_shot_reference_media(...) is missing';
+  end if;
+  if has_function_privilege('anon', function_record, 'execute')
+     or has_function_privilege('authenticated', function_record, 'execute') then
+    raise exception 'IPI-644: only service_role may EXECUTE the reference media recorder';
+  end if;
+  if not has_function_privilege('service_role', function_record, 'execute') then
+    raise exception 'IPI-644: service_role must EXECUTE the reference media recorder';
+  end if;
+
+  -- The recorder must require an approver and hardcode the exact-mapping
+  -- invariants, so no caller can write an unapproved or mismatched mapping.
+  if not exists (
+    select 1 from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname = 'record_shot_reference_media'
+      and p.prosrc like '%p_approved_by is null%'
+      and p.prosrc like '%approved_for_reference%'
+      and p.prosrc like '%''authenticated''%'
+      and p.prosrc like '%''image''%'
+  ) then
+    raise exception 'IPI-644: recorder must require a human approver and hardcode the exact-mapping invariants';
+  end if;
+
   -- SECURITY DEFINER functions must pin search_path (catalog rule).
   if exists (
     select 1 from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
-      and p.proname in ('get_shot_reference_media', 'shot_type_reference_has_preview')
+      and p.proname in ('get_shot_reference_media', 'shot_type_reference_has_preview', 'record_shot_reference_media')
       and p.prosecdef
       and not exists (
         select 1 from unnest(coalesce(p.proconfig, '{}')) cfg where cfg like 'search_path=%'

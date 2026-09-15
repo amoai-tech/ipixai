@@ -142,7 +142,7 @@ alter table shoot.shot_type_reference_media enable row level security;
 -- resolved through the SECURITY DEFINER functions below. Revoking here (rather
 -- than only relying on RLS) keeps `catalog-security-regression.sql`'s
 -- "RLS deny-all table still client-privileged" invariant satisfied.
-revoke all on table shoot.shot_type_reference_media from public, anon, authenticated;
+revoke all on table shoot.shot_type_reference_media from public, anon, authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- 3. Least-privilege read path
@@ -233,7 +233,7 @@ alter view public.shot_type_references_view set (security_invoker = true);
 -- Least privilege: anon must not read or write the reference view;
 -- authenticated may only SELECT it. Revoke everything first so a future
 -- default-privilege change cannot silently re-grant DML through this view.
-revoke all on table public.shot_type_references_view from public, anon, authenticated;
+revoke all on table public.shot_type_references_view from public, anon, authenticated, service_role;
 grant select on table public.shot_type_references_view to authenticated;
 
 -- The underlying canonical table keeps its existing authenticated SELECT policy

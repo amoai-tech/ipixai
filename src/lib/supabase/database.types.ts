@@ -4974,6 +4974,18 @@ export type Database = {
         }
         Returns: Json
       }
+      record_shot_reference_media: {
+        Args: {
+          p_approved_by: string
+          p_cloudinary_asset_id: string
+          p_format: string
+          p_provenance_source: string
+          p_public_id: string
+          p_reference_id: string
+          p_version: number
+        }
+        Returns: undefined
+      }
       reject_brand_intelligence_draft: {
         Args: { p_brand_id: string; p_expected_draft_hash: string }
         Returns: Json
