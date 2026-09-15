@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { resetSupabaseMock, supabaseMock } from "./mocks/supabase";
+
 /**
  * IPI-1081 · PLAN-001 — Step 2 runtime certification.
  *
@@ -15,54 +17,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
  * structured artifact), not model luck. CopilotKit/AG-UI browser delivery of
  * the same path is covered by the `e2e/planner-journey` smoke.
  *
- * Same Supabase mock shape as tests/plan-001.test.ts.
+ * Same Supabase mock as tests/plan-001.test.ts — both suites share it through
+ * tests/mocks/supabase.ts so the runtime proof and the unit proof can never
+ * drift apart on what the read surface returns.
  */
-const supabaseMock = vi.hoisted(() => ({
-  available: true,
-  rows: [] as unknown[],
-  error: null as null | { message: string },
-  mutatingCalls: [] as string[],
-}));
-
-vi.mock("../src/lib/supabase/server", () => ({
-  createClient: async () => {
-    if (!supabaseMock.available) return null;
-    return {
-      from: () => {
-        const chain = {
-          select: () => chain,
-          order: () => chain,
-          limit: () => chain,
-          insert: () => {
-            supabaseMock.mutatingCalls.push("insert");
-            return chain;
-          },
-          update: () => {
-            supabaseMock.mutatingCalls.push("update");
-            return chain;
-          },
-          upsert: () => {
-            supabaseMock.mutatingCalls.push("upsert");
-            return chain;
-          },
-          delete: () => {
-            supabaseMock.mutatingCalls.push("delete");
-            return chain;
-          },
-          then: (resolve: (value: unknown) => unknown) =>
-            Promise.resolve({ data: supabaseMock.error ? null : supabaseMock.rows, error: supabaseMock.error }).then(
-              resolve,
-            ),
-        };
-        return chain;
-      },
-      rpc: () => {
-        supabaseMock.mutatingCalls.push("rpc");
-        return Promise.resolve({ data: null, error: null });
-      },
-    };
-  },
-}));
+vi.mock(
+  "../src/lib/supabase/server",
+  async () => (await import("./mocks/supabase")).supabaseMockModule(),
+);
 
 import { MastraLanguageModelV2Mock, simulateReadableStream } from "@mastra/core/test-utils/llm-mock";
 import { productionPlannerAgent } from "../src/mastra/agents";
@@ -166,10 +128,7 @@ function toolNamesFor(model: MastraLanguageModelV2Mock): string[] {
 }
 
 afterEach(() => {
-  supabaseMock.available = true;
-  supabaseMock.rows = [];
-  supabaseMock.error = null;
-  supabaseMock.mutatingCalls = [];
+  resetSupabaseMock();
   productionPlannerAgent.__resetToOriginalModel();
   vi.restoreAllMocks();
 });

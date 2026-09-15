@@ -1,49 +1,21 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { resetSupabaseMock, supabaseMock } from "./mocks/supabase";
+
 /**
- * IPI-1081 · PLAN-001. Same mock shape as tests/tool-001.test.ts's
- * channel-specs mock, extended with `.limit()` for the trusted-reference
- * reader's query chain (src/lib/shoot/shot-type-references.ts).
+ * IPI-1081 · PLAN-001. The Supabase read surface is mocked through the shared
+ * helper in tests/mocks/supabase.ts, so this suite and
+ * tests/plan-001-planner-runtime.test.ts exercise the exact same contract
+ * (rows/error/session-absence semantics plus the mutating-call recorder the
+ * zero-write assertion depends on).
  */
-const supabaseMock = vi.hoisted(() => ({
-  available: true,
-  rows: [] as unknown[],
-  error: null as null | { message: string },
-  // Every mutating/RPC call the composed plan makes against the mocked
-  // client, in order — the zero-write test below asserts this stays empty.
-  mutatingCalls: [] as string[],
-}));
-vi.mock("../src/lib/supabase/server", () => ({
-  createClient: async () => {
-    if (!supabaseMock.available) return null;
-    return {
-      from: () => {
-        const result = { data: supabaseMock.error ? null : supabaseMock.rows, error: supabaseMock.error };
-        const chain = {
-          select: () => chain,
-          order: () => chain,
-          limit: () => chain,
-          insert: (...args: unknown[]) => { supabaseMock.mutatingCalls.push("insert"); return chain; },
-          update: (...args: unknown[]) => { supabaseMock.mutatingCalls.push("update"); return chain; },
-          upsert: (...args: unknown[]) => { supabaseMock.mutatingCalls.push("upsert"); return chain; },
-          delete: (...args: unknown[]) => { supabaseMock.mutatingCalls.push("delete"); return chain; },
-          then: (resolve: (v: typeof result) => unknown) => Promise.resolve(result).then(resolve),
-        };
-        return chain;
-      },
-      rpc: (...args: unknown[]) => {
-        supabaseMock.mutatingCalls.push("rpc");
-        return Promise.resolve({ data: null, error: null });
-      },
-    };
-  },
-}));
+vi.mock(
+  "../src/lib/supabase/server",
+  async () => (await import("./mocks/supabase")).supabaseMockModule(),
+);
 afterEach(() => {
-  supabaseMock.available = true;
-  supabaseMock.rows = [];
-  supabaseMock.error = null;
-  supabaseMock.mutatingCalls = [];
+  resetSupabaseMock();
   vi.restoreAllMocks();
 });
 
