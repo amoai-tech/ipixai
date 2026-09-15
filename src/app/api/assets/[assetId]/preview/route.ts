@@ -22,7 +22,10 @@ function jsonError(
 
 /**
  * IPI-1112 · CLD-DELIVERY-001 — org-safe signed preview URL.
- * Query: ?preview=masonry|review|detail
+ * IPI-1120 · MEDIA-DELIVERY-001 — `?intent=delivery` additionally requires a
+ * durable `asset_events(kind='approved')` row for the exact provider version.
+ *
+ * Query: ?preview=masonry|review|detail[&intent=preview|delivery][&version=N]
  */
 export async function GET(
   request: Request,
@@ -35,11 +38,16 @@ export async function GET(
   if (!supabase) return unauthorizedResponse();
 
   const { assetId } = await context.params;
-  const preview = new URL(request.url).searchParams.get("preview");
+  const searchParams = new URL(request.url).searchParams;
+  const preview = searchParams.get("preview");
+  const intent = searchParams.get("intent");
+  const version = searchParams.get("version");
 
   const result = await getAuthorizedAssetPreview({
     assetId,
     preview,
+    intent,
+    version,
     operator,
     supabase: supabase as never,
   });
@@ -47,6 +55,8 @@ export async function GET(
   if (!result.ok) {
     switch (result.reason) {
       case "unsupported_preview":
+      case "unsupported_intent":
+      case "invalid_requested_version":
       case "invalid_asset_id":
         return jsonError(400, "bad_request", result.reason);
       case "membership_lookup_failed":
@@ -56,12 +66,14 @@ export async function GET(
       case "needs_org_selection":
         return forbiddenResponse(result.reason);
       case "foreign_org":
-        return jsonError(403, "forbidden", "foreign_org");
+      case "version_not_approved":
+        return jsonError(403, "forbidden", result.reason);
       case "asset_not_found":
       case "missing_cloudinary_mirror":
         return jsonError(404, "not_found", result.reason);
       case "invalid_delivery_type":
       case "invalid_cloudinary_version":
+      case "missing_cloudinary_asset_id":
       case "unsupported_resource_type":
         // Data-integrity / MVP mismatch — not a client validation error.
         return jsonError(409, "conflict", result.reason);
@@ -76,8 +88,11 @@ export async function GET(
     url: result.url,
     assetId: result.assetId,
     preview: result.preview,
+    intent: result.intent,
+    approved: result.approved,
     namedTransform: result.namedTransform,
     version: result.version,
+    currentVersion: result.currentVersion,
     publicId: result.publicId,
   });
 }
