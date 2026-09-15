@@ -29,6 +29,20 @@ jobs:
           ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
 
+      # New review adapters are available only after they land on trusted base main.
+      # During this rollout PR, keep Mastra coverage with a bounded fallback.
+      - name: Select trusted PR-Agent skills
+        id: reviewer-skills
+        shell: bash
+        run: |
+          if [[ -e .claude/skills/mastra-review/SKILL.md && -e .claude/skills/copilotkit-review/SKILL.md ]]; then
+            echo 'paths=["/github/workspace/.claude/skills/mastra-review","/github/workspace/.claude/skills/copilotkit-review"]' >> "$GITHUB_OUTPUT"
+            echo 'max_tokens=8000' >> "$GITHUB_OUTPUT"
+          else
+            echo 'paths=["/github/workspace/.claude/skills/mastra"]' >> "$GITHUB_OUTPUT"
+            echo 'max_tokens=3500' >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Review pull request
         uses: docker://pragent/pr-agent@sha256:548b760b81ab4b3f729182428695ccc1194bbf87528c2b1e2b2b07e5223af7b6
         env:
@@ -37,8 +51,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           config.propagate_tool_errors: "true"
           skills.enabled: "true"
-          skills.paths: '["/github/workspace/.claude/skills/mastra"]'
-          skills.max_skills_tokens: "8000"
+          skills.paths: ${{ steps.reviewer-skills.outputs.paths }}
+          skills.max_skills_tokens: ${{ steps.reviewer-skills.outputs.max_tokens }}
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "false"
           github_action_config.auto_improve: "false"
