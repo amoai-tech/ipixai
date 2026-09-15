@@ -3,6 +3,7 @@ import { z } from "zod";
 import { resolveAssetOrgAccess } from "@/lib/auth/asset-access";
 import { getVerifiedOperatorForRequest } from "@/lib/auth/copilot-hooks";
 import { unauthorizedResponse } from "@/lib/auth/unauthorized";
+import { jsonError } from "@/lib/http/json-response";
 import { createClientFromRequest } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -19,6 +20,9 @@ const STATUS_BY_CODE: Record<string, number> = {
   UNAUTHENTICATED: 401,
   FORBIDDEN: 403,
   NOT_FOUND: 404,
+  // All 409: the request conflicts with the server's current state. NO_MIRROR,
+  // STALE_VERSION, DECISION_FINALIZED and REQUEST_CONFLICT are state conflicts
+  // (not malformed requests), so 409 is the correct class for each.
   NO_MIRROR: 409,
   STALE_VERSION: 409,
   DECISION_FINALIZED: 409,
@@ -26,13 +30,6 @@ const STATUS_BY_CODE: Record<string, number> = {
   INVALID_DECISION: 400,
   INVALID_REQUEST: 400,
 };
-
-function jsonError(status: number, error: string, reason: string): Response {
-  return new Response(JSON.stringify({ error, reason }), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
 
 /**
  * IPI-1119 · MEDIA-APPROVAL-001 — Approve/Reject the exact Cloudinary asset version.

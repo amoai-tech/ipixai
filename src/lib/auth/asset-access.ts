@@ -1,17 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { membershipLookupFailedResponse } from "@/lib/auth/unauthorized";
+import { jsonError } from "@/lib/http/json-response";
 
 export type AssetOrgAccess =
   | { ok: true; orgId: string }
   | { ok: false; response: Response };
-
-function jsonError(status: number, error: string, reason: string): Response {
-  return new Response(JSON.stringify({ error, reason }), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
 
 /**
  * Resolve an asset's owning organization and verify the caller is a member.

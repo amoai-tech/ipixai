@@ -2,20 +2,10 @@ import { resolveAssetOrgAccess } from "@/lib/auth/asset-access";
 import { getVerifiedOperatorForRequest } from "@/lib/auth/copilot-hooks";
 import { unauthorizedResponse } from "@/lib/auth/unauthorized";
 import { runAssetQA } from "@/lib/asset-qa/service";
+import { jsonError } from "@/lib/http/json-response";
 import { createClientFromRequest } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
-
-function jsonError(
-  status: number,
-  error: string,
-  reason: string,
-): Response {
-  return new Response(JSON.stringify({ error, reason }), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
 
 /**
  * IPI-1138 · ASSET-QA-001 — Asset Quality & Channel Readiness Check
