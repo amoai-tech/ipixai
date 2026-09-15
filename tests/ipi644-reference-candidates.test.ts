@@ -244,6 +244,18 @@ describe("buildApprovedReferenceMapping", () => {
       reason: "invalid_version",
     });
   });
+
+  it("rejects an uploaded asset that is not stored at the candidate's public id", () => {
+    expect(
+      buildApprovedReferenceMapping(
+        validCandidate(),
+        validUploaded({ publicId: "ipix/reference-library/some_other_key" }),
+      ),
+    ).toMatchObject({
+      ok: false,
+      reason: "mismatched_identity",
+    });
+  });
 });
 
 describe("provider normalization", () => {

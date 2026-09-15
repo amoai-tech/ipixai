@@ -92,21 +92,32 @@ begin
     raise exception 'IPI-644: reference_key must have a unique constraint';
   end if;
 
-  -- The one-time backfill guard is not enough: a permanent CHECK must reject
-  -- blank/whitespace-only/non-canonical keys on every future insert or update.
+  -- The one-time backfill guard is not enough: a permanent, VALIDATED CHECK must
+  -- reject blank/whitespace-only/non-canonical keys on every future insert or
+  -- update. Assert the actual validated definition (not just the name), so a
+  -- same-named CHECK (true) or a NOT VALID constraint cannot pass this suite.
   if not exists (
     select 1 from pg_constraint
     where conrelid = to_regclass('shoot.shot_type_references')
       and contype = 'c'
       and conname = 'shot_type_references_reference_key_format'
+      and convalidated
+      and pg_get_constraintdef(oid) = 'CHECK ((reference_key ~ ''^[a-z0-9_]+$''::text))'
   ) then
-    raise exception 'IPI-644: reference_key must reject blank or non-canonical keys (missing format CHECK)';
+    raise exception 'IPI-644: reference_key must reject blank or non-canonical keys (missing/mismatched format CHECK)';
   end if;
 
   if exists (select 1 from shoot.shot_type_references where reference_key is null)
      or (select count(distinct reference_key) from shoot.shot_type_references)
         <> (select count(*) from shoot.shot_type_references) then
     raise exception 'IPI-644: reference_key values must be non-null and unique';
+  end if;
+
+  -- Stored rows must satisfy the canonical invariant too, not merely be unique.
+  if exists (
+    select 1 from shoot.shot_type_references where reference_key !~ '^[a-z0-9_]+$'
+  ) then
+    raise exception 'IPI-644: stored reference_key values must match the canonical snake_case invariant';
   end if;
 
   -- ---- reference_key must be immutable --------------------------------------
@@ -292,17 +303,19 @@ begin
     raise exception 'IPI-644: reference media functions must stay SECURITY DEFINER';
   end if;
 
-  -- SECURITY DEFINER functions must pin search_path (catalog rule).
+  -- SECURITY DEFINER functions must pin the EXACT empty search_path (catalog
+  -- rule). Requiring only "some search_path" would let a hostile
+  -- `search_path=attacker_schema, pg_catalog` pass this suite.
   if exists (
     select 1 from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
       and p.proname in ('get_shot_reference_media', 'shot_type_reference_has_preview', 'record_shot_reference_media')
       and not exists (
-        select 1 from unnest(coalesce(p.proconfig, '{}')) cfg where cfg like 'search_path=%'
+        select 1 from unnest(coalesce(p.proconfig, '{}')) cfg where cfg = 'search_path=""'
       )
   ) then
-    raise exception 'IPI-644: reference media SECURITY DEFINER functions must pin search_path';
+    raise exception 'IPI-644: reference media SECURITY DEFINER functions must pin the exact empty search_path';
   end if;
 end
 $$;

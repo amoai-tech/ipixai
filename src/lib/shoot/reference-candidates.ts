@@ -108,7 +108,10 @@ export type ReferenceMediaFailureReason =
   | "image_too_small"
   | "image_too_large";
 
-export type ReferenceMappingFailureReason = ReferenceCandidateFailureReason | ReferenceMediaFailureReason;
+export type ReferenceMappingFailureReason =
+  | ReferenceCandidateFailureReason
+  | ReferenceMediaFailureReason
+  | "mismatched_identity";
 
 export type ManifestParseResult =
   | { ok: true; manifest: ReferenceCandidateManifest }
@@ -352,6 +355,19 @@ export function buildApprovedReferenceMapping(
 
   const resolved = resolveUploadedIdentity(uploaded);
   if (!resolved.ok) return resolved;
+
+  // Shape-validating the uploaded asset is not enough: a stale or mis-tagged
+  // Cloudinary resource at a different public_id would otherwise become the
+  // approved mapping. Bind the approved asset to this candidate's exact
+  // location before recording anything durable.
+  const expectedPublicId = candidatePublicId(candidate);
+  if (resolved.identity.publicId !== expectedPublicId) {
+    return {
+      ok: false,
+      reason: "mismatched_identity",
+      detail: `uploaded public_id ${resolved.identity.publicId} does not match the candidate location ${expectedPublicId}`,
+    };
+  }
 
   return {
     ok: true,
