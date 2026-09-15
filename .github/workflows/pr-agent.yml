@@ -37,7 +37,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           config.propagate_tool_errors: "true"
           skills.enabled: "true"
-          skills.paths: '["/github/workspace/.claude/skills/mastra"]'
+          skills.paths: '["/github/workspace/.claude/skills/mastra-review", "/github/workspace/.claude/skills/copilotkit-review"]'
           skills.max_skills_tokens: "8000"
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "false"
