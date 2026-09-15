@@ -78,6 +78,58 @@ function nonBlank(value: string | null | undefined): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+/** Positive, safe-integer provider version, or null when unusable. */
+function positiveVersion(value: number | string | null): number | null {
+  const version = typeof value === "string" ? Number(value) : value;
+  if (typeof version !== "number" || !Number.isSafeInteger(version)) return null;
+  return version > 0 ? version : null;
+}
+
+type MappingResolution =
+  | { ok: true; publicId: string; version: number; format: string | null }
+  | {
+      ok: false;
+      reason:
+        | "reference_not_found"
+        | "missing_approved_media"
+        | "unsupported_resource_type"
+        | "invalid_delivery_type"
+        | "unapproved_mapping"
+        | "invalid_mapping";
+    };
+
+/**
+ * Re-checks every approval invariant on the resolved mapping. Any failure means
+ * no URL. A missing row and an unconfirmed reference are the same answer to the
+ * caller: not found, so nothing leaks.
+ */
+function resolveApprovedMapping(
+  row: ShotReferenceMediaRow | undefined,
+): MappingResolution {
+  if (!row || row.reference_exists !== true) {
+    return { ok: false, reason: "reference_not_found" };
+  }
+  if (row.has_approved_media !== true) {
+    return { ok: false, reason: "missing_approved_media" };
+  }
+  if (row.resource_type !== MVP_RESOURCE_TYPE) {
+    return { ok: false, reason: "unsupported_resource_type" };
+  }
+  if (row.delivery_type !== AUTHENTICATED_DELIVERY_TYPE) {
+    return { ok: false, reason: "invalid_delivery_type" };
+  }
+  if (row.rights_status !== "approved_for_reference") {
+    return { ok: false, reason: "unapproved_mapping" };
+  }
+
+  const publicId = nonBlank(row.public_id);
+  const version = positiveVersion(row.version);
+  if (!publicId || !nonBlank(row.cloudinary_asset_id) || version === null) {
+    return { ok: false, reason: "invalid_mapping" };
+  }
+  return { ok: true, publicId, version, format: nonBlank(row.format) };
+}
+
 /**
  * IPI-644 · SHOOT-DATA-002C — reference-specific authenticated preview.
  *
@@ -123,45 +175,16 @@ export async function getShotReferencePreview(input: {
     return { ok: false, reason: "lookup_failed" };
   }
 
-  const row = rows?.[0];
-  if (!row || row.reference_exists !== true) {
-    // A reference that does not exist and a reference whose existence the read
-    // cannot confirm are the same answer to the caller: not found. No leak.
-    return { ok: false, reason: "reference_not_found" };
-  }
-  if (row.has_approved_media !== true) {
-    return { ok: false, reason: "missing_approved_media" };
-  }
-
-  if (row.resource_type !== MVP_RESOURCE_TYPE) {
-    return { ok: false, reason: "unsupported_resource_type" };
-  }
-  if (row.delivery_type !== AUTHENTICATED_DELIVERY_TYPE) {
-    return { ok: false, reason: "invalid_delivery_type" };
-  }
-  if (row.rights_status !== "approved_for_reference") {
-    return { ok: false, reason: "unapproved_mapping" };
-  }
-
-  const publicId = nonBlank(row.public_id);
-  const cloudinaryAssetId = nonBlank(row.cloudinary_asset_id);
-  if (!publicId || !cloudinaryAssetId) {
-    return { ok: false, reason: "invalid_mapping" };
-  }
-
-  const version =
-    typeof row.version === "string" ? Number(row.version) : row.version;
-  if (typeof version !== "number" || !Number.isSafeInteger(version) || version <= 0) {
-    return { ok: false, reason: "invalid_mapping" };
-  }
+  const mapping = resolveApprovedMapping(rows?.[0]);
+  if (!mapping.ok) return { ok: false, reason: mapping.reason };
 
   let url: string;
   try {
     url = signExactVersionPreviewUrl({
-      publicId,
-      version,
+      publicId: mapping.publicId,
+      version: mapping.version,
       preview,
-      format: row.format,
+      format: mapping.format,
     });
   } catch {
     return { ok: false, reason: "signing_failed" };
@@ -172,9 +195,9 @@ export async function getShotReferencePreview(input: {
     url,
     referenceId,
     preview,
-    version,
-    publicId,
-    format: nonBlank(row.format),
+    version: mapping.version,
+    publicId: mapping.publicId,
+    format: mapping.format,
     namedTransform: namedTransformForPreview(preview),
   };
 }
