@@ -87,7 +87,7 @@ Do not proceed until you have reproduced **and** minimised.
 
 ### Evidence scan before hypotheses
 
-Before forming hypotheses, **check recent changes before forming hypotheses**: inspect the smallest relevant git diff/history, dependency/config changes, environment drift, and nearby migrations that could explain when the regression appeared. Do not assume recency proves causation; use it only to narrow the hypothesis space.
+Before forming hypotheses, **check recent changes**: inspect the smallest relevant git diff/history, dependency/config changes, environment drift, and nearby migrations that could explain when the regression appeared. Do not assume recency proves causation; use it only to narrow the hypothesis space.
 
 Then **find the closest working example in the current codebase** that exercises the same pattern, boundary, library, or data flow. Compare working vs broken paths and list material differences before inventing a new implementation pattern. Prefer a current iPix example over generic external guidance.
 

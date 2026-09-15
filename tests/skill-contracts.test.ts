@@ -59,13 +59,15 @@ describe("iPix engineering skill contracts", () => {
 
   test("tasks classifies bounded, ambiguous, and architectural work before implementation", () => {
     expect(tasks).toContain("## Implementation-shape gate");
-    expect(tasks).toContain("**Bounded:**");
-    expect(tasks).toContain("**Ambiguous:**");
-    expect(tasks).toContain("**Architectural:**");
-    expect(tasks).toContain("brainstorming");
-    expect(tasks).toContain("explicit design approval");
-    expect(tasks).toContain("writing-plans");
-    expect(tasks).toContain("Do not force brainstorming onto bounded work");
+    expect(tasks).toMatch(
+      /- \*\*Bounded:\*\*(?=[^\n]*proceed directly to implementation and TDD)(?=[^\n]*Do not force brainstorming onto bounded work)[^\n]*/,
+    );
+    expect(tasks).toMatch(
+      /- \*\*Ambiguous:\*\*(?=[^\n]*brainstorming)(?=[^\n]*explicit design approval)[^\n]*/,
+    );
+    expect(tasks).toMatch(
+      /- \*\*Architectural:\*\*(?=[^\n]*brainstorming)(?=[^\n]*explicit design approval)(?=[^\n]*writing-plans)[^\n]*/,
+    );
   });
 
   test("tdd requires observed red before production code and green before refactor", () => {
@@ -77,7 +79,7 @@ describe("iPix engineering skill contracts", () => {
   });
 
   test("diagnosing-bugs checks recent changes and working examples and stops after three failed fixes", () => {
-    expect(diagnosingBugs).toMatch(/check recent changes before forming hypotheses/i);
+    expect(diagnosingBugs).toMatch(/check recent changes/i);
     expect(diagnosingBugs).toMatch(/find the closest working example in the current codebase/i);
     expect(diagnosingBugs).toMatch(/after three failed fix attempts, STOP/i);
     expect(diagnosingBugs).toMatch(/question the seam, assumptions, or architecture/i);
