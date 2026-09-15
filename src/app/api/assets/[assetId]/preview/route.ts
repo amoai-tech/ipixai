@@ -73,6 +73,7 @@ export async function GET(
         return jsonError(404, "not_found", result.reason);
       case "invalid_delivery_type":
       case "invalid_cloudinary_version":
+      case "missing_cloudinary_asset_id":
       case "unsupported_resource_type":
         // Data-integrity / MVP mismatch — not a client validation error.
         return jsonError(409, "conflict", result.reason);

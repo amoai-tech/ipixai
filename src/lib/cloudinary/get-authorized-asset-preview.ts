@@ -48,6 +48,7 @@ export type AuthorizedAssetPreviewError = {
     | "asset_not_found"
     | "foreign_org"
     | "missing_cloudinary_mirror"
+    | "missing_cloudinary_asset_id"
     | "unsupported_resource_type"
     | "invalid_delivery_type"
     | "invalid_cloudinary_version"
@@ -130,16 +131,17 @@ export async function getAuthorizedAssetPreview(input: {
   const intent = intentValue;
 
   let requestedVersion: number | null = null;
-  if (input.version !== undefined && input.version !== null && input.version !== "") {
-    // Only a plain decimal provider version is accepted. Reject hex
-    // (`0x10`), exponent, whitespace-only, and any non-decimal form so a
-    // caller can never alias a differently-formatted number onto a real
-    // version. Require a safe integer so the exact requested version is not
-    // rounded before the approval lookup and URL signing.
+  if (input.version !== undefined && input.version !== null) {
+    // Only a plain decimal provider version is accepted: no empty string (an
+    // explicit `?version=` is a malformed request, not "use current"), no hex
+    // (`0x10`), exponent, whitespace, or leading zeros (`000123`), so a caller
+    // can never alias a differently-formatted number onto a real version.
+    // Require a safe integer so the exact requested version is not rounded
+    // before the approval lookup and URL signing.
     const raw =
       typeof input.version === "number"
         ? input.version
-        : typeof input.version === "string" && /^[0-9]+$/.test(input.version)
+        : typeof input.version === "string" && /^[1-9][0-9]*$/.test(input.version)
           ? Number(input.version)
           : Number.NaN;
     if (!Number.isSafeInteger(raw) || raw <= 0) {
@@ -234,7 +236,7 @@ export async function getAuthorizedAssetPreview(input: {
   let approved = false;
   if (intent === "delivery") {
     if (!mirror.cloudinary_asset_id) {
-      return { ok: false, reason: "version_not_approved" };
+      return { ok: false, reason: "missing_cloudinary_asset_id" };
     }
     let approvalRows: unknown[] | null;
     try {

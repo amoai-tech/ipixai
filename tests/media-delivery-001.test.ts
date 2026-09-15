@@ -329,7 +329,10 @@ describe("MEDIA-DELIVERY-001 — exact-version approval guard", () => {
         approvals: [approvedOld],
       }),
     });
-    expect(result).toEqual({ ok: false, reason: "version_not_approved" });
+    expect(result).toEqual({
+      ok: false,
+      reason: "missing_cloudinary_asset_id",
+    });
     expect(urlMock).not.toHaveBeenCalled();
   });
 
@@ -366,6 +369,29 @@ describe("MEDIA-DELIVERY-001 — exact-version approval guard", () => {
     expect(onEventsQuery).not.toHaveBeenCalled();
   });
 
+  it("serves an explicit historical version for preview without requiring approval", async () => {
+    const onEventsQuery = vi.fn();
+    const result = await call({
+      intent: "preview",
+      version: OLD_APPROVED_VERSION,
+      supabase: mockSupabase({
+        orgIds: [ORG_A],
+        asset: { orgId: ORG_A },
+        mirror: { version: CURRENT_VERSION },
+        approvals: [approvedOld],
+        onEventsQuery,
+      }),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.approved).toBe(false);
+    expect(result.intent).toBe("preview");
+    expect(result.version).toBe(OLD_APPROVED_VERSION);
+    expect(result.url).toContain("/v" + OLD_APPROVED_VERSION + "/");
+    expect(result.url).not.toContain("/v" + CURRENT_VERSION + "/");
+    expect(onEventsQuery).not.toHaveBeenCalled();
+  });
+
   it("rejects a request for a version newer than the mirror", async () => {
     const result = await call({
       intent: "delivery",
@@ -396,6 +422,8 @@ describe("MEDIA-DELIVERY-001 — exact-version approval guard", () => {
       "0x10",
       "1e3",
       " ",
+      "",
+      "000123",
       String(Number.MAX_SAFE_INTEGER + 2),
     ]) {
       expect(await call({ intent: "delivery", version: bad, supabase })).toEqual({
