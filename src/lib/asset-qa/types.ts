@@ -116,16 +116,17 @@ export interface ShootDeliverableRequirement {
   channel: string;
   aspectRatio?: string;
   acceptedFormats?: string[];
-  requiredWidth?: number;
-  requiredHeight?: number;
-  maxFileSizeMb?: number;
-  backgroundRequired?: string;
-  productFillMinPct?: number;
-  safeZoneTopPx?: number;
-  safeZoneBottomPx?: number;
-  safeZoneLeftPx?: number;
-  safeZoneRightPx?: number;
+  origin?: string;
 }
+
+export type ChannelSpecCandidate = {
+  platformSlug: string;
+  imageTypeSlug: string;
+};
+
+export type ChannelSpecResolution =
+  | { status: "resolved"; spec: ChannelSpecFull }
+  | { status: "ambiguous"; candidates: ChannelSpecCandidate[] };
 
 export const QA_CHECKER_VERSION = "1.0.0";
 
@@ -158,6 +159,7 @@ export type QAFindingCode =
   | "transform_unavailable"
   | "transform_available"
   | "spec_missing"
+  | "spec_ambiguous"
   | "spec_stale"
   | "spec_confidence_low"
   | "provider_enrichment_unavailable";
@@ -191,6 +193,7 @@ export const QA_FINDING_CODES = {
   TRANSFORM_UNAVAILABLE: "transform_unavailable" as QAFindingCode,
   TRANSFORM_AVAILABLE: "transform_available" as QAFindingCode,
   SPEC_MISSING: "spec_missing" as QAFindingCode,
+  SPEC_AMBIGUOUS: "spec_ambiguous" as QAFindingCode,
   SPEC_STALE: "spec_stale" as QAFindingCode,
   SPEC_CONFIDENCE_LOW: "spec_confidence_low" as QAFindingCode,
   PROVIDER_ENRICHMENT_UNAVAILABLE: "provider_enrichment_unavailable" as QAFindingCode,

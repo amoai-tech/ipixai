@@ -7,7 +7,7 @@ create or replace function public.get_shoot_detail(p_shoot_id uuid)
 returns json
 language plpgsql
 security definer
-set search_path = shoot, public
+set search_path = public
 as $$
 declare
   v_result json;

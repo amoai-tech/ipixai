@@ -1,17 +1,17 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import type { ChannelSpecFull } from "./types";
+import type { ChannelSpecResolution } from "./types";
 
 export async function loadChannelSpecsForQA(
   channels: readonly string[],
-): Promise<Map<string, ChannelSpecFull>> {
-  const specs = new Map<string, ChannelSpecFull>();
+): Promise<Map<string, ChannelSpecResolution>> {
+  const specs = new Map<string, ChannelSpecResolution>();
   if (channels.length === 0) return specs;
 
   try {
     const supabase = await createClient();
-    if (!supabase) return specs;
+    if (!supabase) throw new Error("supabase_unavailable");
 
     const { data: rules, error: rulesError } = await supabase
       .from("recommendation_rules")
@@ -20,7 +20,8 @@ export async function loadChannelSpecsForQA(
       .eq("condition_key", "channel")
       .in("condition_value", channels as string[]);
 
-    if (rulesError || !rules?.length) return specs;
+    if (rulesError) throw new Error(`recommendation_rules_query_failed: ${rulesError.message}`);
+    if (!rules?.length) return specs;
 
     // Group all candidates by channel to detect ambiguity across ALL rules
     const channelCandidates = new Map<string, { platformSlug: string; imageTypeSlug: string }[]>();
@@ -60,14 +61,16 @@ export async function loadChannelSpecsForQA(
         supabase.from("image_type_defs").select("id, slug, name").in("slug", [...allImageTypeSlugs]),
       ]);
 
-    if (platformsError || imageTypesError || !platforms?.length || !imageTypes?.length) return specs;
+    if (platformsError) throw new Error(`platforms_query_failed: ${platformsError.message}`);
+    if (imageTypesError) throw new Error(`image_type_defs_query_failed: ${imageTypesError.message}`);
+    if (!platforms?.length || !imageTypes?.length) return specs;
 
     const platformBySlug = new Map(
-      platforms.flatMap((p) => (p.slug && p.id ? [[p.slug, { id: p.id, name: p.name }] as const] : [])),
+      platforms.flatMap((p) => (p.slug && p.id ? [[p.slug, { id: p.id, slug: p.slug, name: p.name }] as const] : [])),
     );
     const imageTypeBySlug = new Map(
       imageTypes.flatMap((it) =>
-        it.slug && it.id ? [[it.slug, { id: it.id, name: it.name }] as const] : [],
+        it.slug && it.id ? [[it.slug, { id: it.id, slug: it.slug, name: it.name }] as const] : [],
       ),
     );
 
@@ -82,7 +85,8 @@ export async function loadChannelSpecsForQA(
       .in("platform_id", platformIds)
       .in("image_type_id", imageTypeIds);
 
-    if (specsError || !specRows?.length) return specs;
+    if (specsError) throw new Error(`image_specs_query_failed: ${specsError.message}`);
+    if (!specRows?.length) return specs;
 
     const specByPair = new Map(
       specRows.map((row) => [`${row.platform_id}:${row.image_type_id}`, row]),
@@ -90,7 +94,16 @@ export async function loadChannelSpecsForQA(
 
     // Now resolve each channel: if exactly one candidate pair has a spec, use it; otherwise ambiguous
     for (const [channel, candidates] of channelCandidates.entries()) {
-const validCandidates: { platformSlug: string; imageTypeSlug: string; spec: any; platform: any; imageType: any }[] = [];
+      type SpecRow = NonNullable<typeof specRows>[number];
+      type PlatformRow = NonNullable<typeof platforms>[number];
+      type ImageTypeRow = NonNullable<typeof imageTypes>[number];
+      const validCandidates: Array<{
+        platformSlug: string;
+        imageTypeSlug: string;
+        spec: SpecRow;
+        platform: PlatformRow;
+        imageType: ImageTypeRow;
+      }> = [];
 
       for (const { platformSlug, imageTypeSlug } of candidates) {
         const platform = platformBySlug.get(platformSlug);
@@ -109,42 +122,12 @@ const validCandidates: { platformSlug: string; imageTypeSlug: string; spec: any;
       }
 
       if (validCandidates.length > 1) {
-        // Ambiguous: multiple valid platform/image-type pairs for this channel
         specs.set(channel, {
-          platformId: "ambiguous",
-          platformSlug: "ambiguous",
-          platformName: "Ambiguous",
-          imageTypeId: "ambiguous",
-          imageTypeSlug: "ambiguous",
-          imageTypeName: "Ambiguous",
-          widthPx: 0,
-          heightPx: 0,
-          minWidthPx: null,
-          minHeightPx: null,
-          maxWidthPx: null,
-          maxHeightPx: null,
-          aspectRatioW: null,
-          aspectRatioH: null,
-          aspectRatioLabel: null,
-          acceptedFormats: null,
-          maxFileSizeMb: null,
-          recommendedColorMode: null,
-          safeZoneTopPx: null,
-          safeZoneBottomPx: null,
-          safeZoneLeftPx: null,
-          safeZoneRightPx: null,
-          backgroundRequired: null,
-          productFillMinPct: null,
-          specConfidence: null,
-          organic: false,
-          paid: false,
-          shoppingSupport: false,
-          mobileNotes: null,
-          desktopNotes: null,
-          cropNotes: null,
-          bestUseCases: null,
-          sourceUrl: null,
-          lastVerifiedAt: null,
+          status: "ambiguous",
+          candidates: validCandidates.map(({ platformSlug, imageTypeSlug }) => ({
+            platformSlug,
+            imageTypeSlug,
+          })),
         });
         continue;
       }
@@ -153,45 +136,48 @@ const validCandidates: { platformSlug: string; imageTypeSlug: string; spec: any;
       const { spec, platform, imageType } = validCandidates[0];
 
       specs.set(channel, {
-        platformId: platform.id,
-        platformSlug: platform.slug,
-        platformName: platform.name,
-        imageTypeId: imageType.id,
-        imageTypeSlug: imageType.slug,
-        imageTypeName: imageType.name,
-        widthPx: spec.width_px,
-        heightPx: spec.height_px,
-        minWidthPx: spec.min_width_px ?? null,
-        minHeightPx: spec.min_height_px ?? null,
-        maxWidthPx: spec.max_width_px ?? null,
-        maxHeightPx: spec.max_height_px ?? null,
-        aspectRatioW: spec.aspect_ratio_w ?? null,
-        aspectRatioH: spec.aspect_ratio_h ?? null,
-        aspectRatioLabel: spec.aspect_ratio_label ?? null,
-        acceptedFormats: spec.accepted_formats ?? null,
-        maxFileSizeMb: spec.max_file_size_mb ?? null,
-        recommendedColorMode: spec.recommended_color_mode ?? null,
-        safeZoneTopPx: spec.safe_zone_top_px ?? null,
-        safeZoneBottomPx: spec.safe_zone_bottom_px ?? null,
-        safeZoneLeftPx: spec.safe_zone_left_px ?? null,
-        safeZoneRightPx: spec.safe_zone_right_px ?? null,
-        backgroundRequired: spec.background_required ?? null,
-        productFillMinPct: spec.product_fill_min_pct ?? null,
-        specConfidence: spec.spec_confidence ?? null,
-        organic: spec.organic ?? false,
-        paid: spec.paid ?? false,
-        shoppingSupport: spec.shopping_support ?? false,
-        mobileNotes: spec.mobile_notes ?? null,
-        desktopNotes: spec.desktop_notes ?? null,
-        cropNotes: spec.crop_notes ?? null,
-        bestUseCases: spec.best_use_cases ?? null,
-        sourceUrl: spec.source_url ?? null,
-        lastVerifiedAt: spec.last_verified_at ?? null,
+        status: "resolved",
+        spec: {
+          platformId: platform.id,
+          platformSlug: platform.slug,
+          platformName: platform.name,
+          imageTypeId: imageType.id,
+          imageTypeSlug: imageType.slug,
+          imageTypeName: imageType.name,
+          widthPx: spec.width_px,
+          heightPx: spec.height_px,
+          minWidthPx: spec.min_width_px ?? null,
+          minHeightPx: spec.min_height_px ?? null,
+          maxWidthPx: spec.max_width_px ?? null,
+          maxHeightPx: spec.max_height_px ?? null,
+          aspectRatioW: spec.aspect_ratio_w ?? null,
+          aspectRatioH: spec.aspect_ratio_h ?? null,
+          aspectRatioLabel: spec.aspect_ratio_label ?? null,
+          acceptedFormats: spec.accepted_formats ?? null,
+          maxFileSizeMb: spec.max_file_size_mb ?? null,
+          recommendedColorMode: spec.recommended_color_mode ?? null,
+          safeZoneTopPx: spec.safe_zone_top_px ?? null,
+          safeZoneBottomPx: spec.safe_zone_bottom_px ?? null,
+          safeZoneLeftPx: spec.safe_zone_left_px ?? null,
+          safeZoneRightPx: spec.safe_zone_right_px ?? null,
+          backgroundRequired: spec.background_required ?? null,
+          productFillMinPct: spec.product_fill_min_pct ?? null,
+          specConfidence: spec.spec_confidence ?? null,
+          organic: spec.organic ?? false,
+          paid: spec.paid ?? false,
+          shoppingSupport: spec.shopping_support ?? false,
+          mobileNotes: spec.mobile_notes ?? null,
+          desktopNotes: spec.desktop_notes ?? null,
+          cropNotes: spec.crop_notes ?? null,
+          bestUseCases: spec.best_use_cases ?? null,
+          sourceUrl: spec.source_url ?? null,
+          lastVerifiedAt: spec.last_verified_at ?? null,
+        },
       });
     }
   } catch (err) {
-    console.warn("[asset-qa] loadChannelSpecsForQA failed:", err);
-    return new Map();
+    console.error("[asset-qa] loadChannelSpecsForQA failed:", err);
+    throw err;
   }
 
   return specs;

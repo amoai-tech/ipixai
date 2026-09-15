@@ -15,6 +15,52 @@ import type {
   ShootDeliverableRequirement,
 } from "./types";
 
+
+type CloudinaryResourceByAssetIdResult = {
+  asset_id: string;
+  public_id: string;
+  version: number;
+  width: number;
+  height: number;
+  format: string;
+  bytes: number;
+  resource_type: string;
+  type: string;
+  quality_analysis?: { focus?: number };
+  accessibility_analysis?: {
+    colorblind_accessibility_score?: number;
+    colorblind_accessibility_analysis?: {
+      distinct_edges?: number;
+      distinct_colors?: number;
+      most_indistinct_pair?: string[];
+    };
+  };
+  phash?: string;
+  colors?: string[][];
+  predominant?: CloudinaryAssetMetadata["predominant"];
+  faces?: number[][];
+  coordinates?: Record<string, unknown>;
+  media_metadata?: Record<string, unknown>;
+  illustration_score?: number;
+  semi_transparent?: boolean;
+  grayscale?: boolean;
+};
+
+type CloudinaryAssetIdApi = {
+  resource_by_asset_id: (
+    assetId: string,
+    options: {
+      colors: boolean;
+      faces: boolean;
+      phash: boolean;
+      accessibility_analysis: boolean;
+      coordinates: boolean;
+      media_metadata: boolean;
+      max_results: number;
+    },
+  ) => Promise<CloudinaryResourceByAssetIdResult>;
+};
+
 type AssetRow = {
   id: string;
   v2_shoot_id: string | null;
@@ -160,15 +206,7 @@ async function loadQAContext(input: QAServiceInput): Promise<QAContextResult> {
         channel: d.channel,
         aspectRatio: d.aspect_ratio ?? normalized.aspectRatio,
         acceptedFormats: normalized.acceptedFormats,
-        requiredWidth: undefined,
-        requiredHeight: undefined,
-        maxFileSizeMb: undefined,
-        backgroundRequired: undefined,
-        productFillMinPct: undefined,
-        safeZoneTopPx: undefined,
-        safeZoneBottomPx: undefined,
-        safeZoneLeftPx: undefined,
-        safeZoneRightPx: undefined,
+        origin: d.origin ?? undefined,
       };
     }),
     cloudinaryMirror: mirror as CloudinaryMirrorRow,
@@ -177,18 +215,14 @@ async function loadQAContext(input: QAServiceInput): Promise<QAContextResult> {
 
 async function getCloudinaryAssetMetadata(
   cloudinaryAssetId: string,
-  publicId: string,
   version: number,
 ): Promise<CloudinaryAssetMetadata | null> {
   try {
-    const result = await cloudinary.api.resource(publicId, {
-      resource_type: "image",
-      type: "authenticated",
-      version,
+    const assetIdApi = cloudinary.api as unknown as CloudinaryAssetIdApi;
+    const result = await assetIdApi.resource_by_asset_id(cloudinaryAssetId, {
       colors: true,
       faces: true,
       phash: true,
-      quality_analysis: true,
       accessibility_analysis: true,
       coordinates: true,
       media_metadata: true,
@@ -218,7 +252,13 @@ async function getCloudinaryAssetMetadata(
       accessibilityAnalysis: result.accessibility_analysis
         ? {
             colorblindAccessibilityScore: result.accessibility_analysis.colorblind_accessibility_score,
-            colorblindAccessibilityAnalysis: result.accessibility_analysis.colorblind_accessibility_analysis,
+            colorblindAccessibilityAnalysis: result.accessibility_analysis.colorblind_accessibility_analysis
+              ? {
+                  distinctEdges: result.accessibility_analysis.colorblind_accessibility_analysis.distinct_edges,
+                  distinctColors: result.accessibility_analysis.colorblind_accessibility_analysis.distinct_colors,
+                  mostIndistinctPair: result.accessibility_analysis.colorblind_accessibility_analysis.most_indistinct_pair,
+                }
+              : undefined,
           }
         : undefined,
       phash: result.phash,
@@ -296,10 +336,11 @@ export function normalizeDeliverableFormat(format: string | null): { aspectRatio
 function buildEffectiveSpec(
   spec: ChannelSpecFull,
   deliverableReq: ShootDeliverableRequirement | undefined,
-): ChannelSpecFull {
-  if (!deliverableReq) return spec;
+): { spec: ChannelSpecFull; skipResolutionCheck: boolean } {
+  if (!deliverableReq) return { spec, skipResolutionCheck: false };
 
   const effectiveSpec = { ...spec };
+  let skipResolutionCheck = false;
 
   if (deliverableReq.aspectRatio) {
     const parts = deliverableReq.aspectRatio.split(":");
@@ -307,9 +348,22 @@ function buildEffectiveSpec(
       const w = parseInt(parts[0], 10);
       const h = parseInt(parts[1], 10);
       if (!isNaN(w) && !isNaN(h) && w > 0 && h > 0) {
+        const canonicalRatio =
+          spec.aspectRatioW && spec.aspectRatioH ? spec.aspectRatioW / spec.aspectRatioH : null;
+        const savedRatio = w / h;
+        const ratioConflicts =
+          canonicalRatio !== null && Math.abs(canonicalRatio - savedRatio) >= 0.02;
+
         effectiveSpec.aspectRatioLabel = deliverableReq.aspectRatio;
         effectiveSpec.aspectRatioW = w;
         effectiveSpec.aspectRatioH = h;
+
+        // Canonical width/height belong to the canonical aspect-ratio row.
+        // When a saved Shoot explicitly overrides that ratio, those dimensions
+        // become recommendation evidence and must not hard-fail the saved geometry.
+        if (ratioConflicts) {
+          skipResolutionCheck = true;
+        }
       }
     }
   }
@@ -318,7 +372,7 @@ function buildEffectiveSpec(
     effectiveSpec.acceptedFormats = deliverableReq.acceptedFormats;
   }
 
-  return effectiveSpec;
+  return { spec: effectiveSpec, skipResolutionCheck };
 }
 
 export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult> {
@@ -342,7 +396,7 @@ export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult
   }
 
   const version = typeof cloudinaryMirror.version === "string" ? Number(cloudinaryMirror.version) : cloudinaryMirror.version;
-  if (!Number.isFinite(version) || !version || version <= 0) {
+  if (typeof version !== "number" || !Number.isSafeInteger(version) || version <= 0) {
     return { ok: false, reason: "invalid_cloudinary_version", status: 409 };
   }
 
@@ -356,11 +410,20 @@ export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult
     deliverableRequirements.set(d.channel, d);
   }
 
-  const specMap = await loadChannelSpecsForQA(channelsToCheck);
+  let specMap;
+  try {
+    specMap = await loadChannelSpecsForQA(channelsToCheck);
+  } catch (err) {
+    console.error("[asset-qa] channel spec infrastructure unavailable", err);
+    return { ok: false, reason: "qa_spec_service_unavailable", status: 503 };
+  }
+
+  if (!cloudinaryMirror.cloudinary_asset_id) {
+    return { ok: false, reason: "missing_cloudinary_asset_id", status: 409 };
+  }
 
   const cloudinaryMetadata = await getCloudinaryAssetMetadata(
-    cloudinaryMirror.cloudinary_asset_id ?? "",
-    cloudinaryMirror.public_id,
+    cloudinaryMirror.cloudinary_asset_id,
     version,
   );
 
@@ -377,8 +440,8 @@ export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult
   const channelResults: QAChannelResult[] = [];
 
   for (const channel of channelsToCheck) {
-    const spec = specMap.get(channel);
-    if (!spec) {
+    const specResolution = specMap.get(channel);
+    if (!specResolution) {
       channelResults.push({
         channel,
         platform: "unknown",
@@ -402,10 +465,35 @@ export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult
       continue;
     }
 
-    const deliverableReq = deliverableRequirements.get(channel);
-    const effectiveSpec = buildEffectiveSpec(spec, deliverableReq);
+    if (specResolution.status === "ambiguous") {
+      channelResults.push({
+        channel,
+        platform: "unknown",
+        imageType: "unknown",
+        specConfidence: null,
+        sourceUrl: null,
+        lastVerifiedAt: null,
+        findings: [{
+          code: "spec_ambiguous",
+          status: "unknown",
+          severity: "warning",
+          message: `Multiple canonical specs match channel "${channel}"`,
+          evidence: { channel, candidates: specResolution.candidates },
+          recommendedAction: "Resolve the channel mapping before approval QA",
+        }],
+        overallStatus: "unknown",
+        score: null,
+      });
+      continue;
+    }
 
-    let findings = runDeterministicChecks(assetMetadata, effectiveSpec, channel);
+    const spec = specResolution.spec;
+    const deliverableReq = deliverableRequirements.get(channel);
+    const effective = buildEffectiveSpec(spec, deliverableReq);
+
+    let findings = runDeterministicChecks(assetMetadata, effective.spec, channel, {
+      skipResolutionCheck: effective.skipResolutionCheck,
+    });
 
     const missingFields = (assetMetadata as CloudinaryAssetMetadata & { _missingMirrorFields?: string[] })._missingMirrorFields;
     if (missingFields && missingFields.length > 0) {
@@ -434,7 +522,7 @@ export async function runAssetQA(input: QAServiceInput): Promise<QAServiceResult
     const advisoryFindings = qualityFindings.map((f) => ({ ...f, isAdvisory: true }));
     findings = [...findings, ...advisoryFindings];
 
-    channelResults.push(computeChannelResult(channel, effectiveSpec, findings));
+    channelResults.push(computeChannelResult(channel, effective.spec, findings));
   }
 
   const allStatuses = channelResults.map((c) => c.overallStatus);

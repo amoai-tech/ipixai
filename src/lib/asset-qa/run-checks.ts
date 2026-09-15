@@ -46,6 +46,7 @@ export function runDeterministicChecks(
   asset: CloudinaryAssetMetadata,
   spec: ChannelSpecFull,
   channel: string,
+  options: { skipResolutionCheck?: boolean } = {},
 ): QAFinding[] {
   const findings: QAFinding[] = [];
 
@@ -91,8 +92,9 @@ export function runDeterministicChecks(
     }
   }
 
-  // Resolution check: use canonical width/height as fallback minimums when explicit mins absent
-  if (spec.widthPx && spec.heightPx) {
+  // Resolution check: canonical dimensions are authoritative only when they
+  // describe the same geometry as the saved Shoot requirement.
+  if (!options.skipResolutionCheck && spec.widthPx && spec.heightPx) {
     const effectiveMinWidth = spec.minWidthPx ?? spec.widthPx;
     const effectiveMinHeight = spec.minHeightPx ?? spec.heightPx;
     const effectiveMaxWidth = spec.maxWidthPx ?? null;
