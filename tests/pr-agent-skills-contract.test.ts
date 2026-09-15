@@ -9,14 +9,19 @@ const copilotReviewSkill = readFileSync(
   new URL("../.claude/skills/copilotkit-review/SKILL.md", import.meta.url),
   "utf8",
 );
+const mastraSkill = readFileSync(
+  new URL("../.claude/skills/mastra/SKILL.md", import.meta.url),
+  "utf8",
+);
 
 describe("IPI-1213 PR-Agent review skills contract", () => {
   it("selects trusted rollout-safe skills without autonomous fixes", () => {
     expect(workflow).toContain("ref: ${{ github.event.pull_request.base.sha }}");
     expect(workflow).toContain("persist-credentials: false");
     expect(workflow).toContain("Select trusted PR-Agent skills");
-    expect(workflow).toContain("paths=[\"/github/workspace/.claude/skills/mastra-review\",\"/github/workspace/.claude/skills/copilotkit-review\"]");
-    expect(workflow).toContain("paths=[\"/github/workspace/.claude/skills/mastra\"]");
+    expect(workflow).toContain('"/github/workspace/.claude/skills/mastra-review"');
+    expect(workflow).toContain('"/github/workspace/.claude/skills/copilotkit-review"');
+    expect(workflow).toContain('"/github/workspace/.claude/skills/mastra"');
     expect(workflow).toContain("max_tokens=8000");
     expect(workflow).toContain("max_tokens=3500");
     expect(workflow).toContain("skills.enabled: \"true\"");
@@ -28,6 +33,7 @@ describe("IPI-1213 PR-Agent review skills contract", () => {
       new URL("../.claude/skills/mastra-review/SKILL.md", import.meta.url),
     );
     expect(target).toBe("../mastra/SKILL.md");
+    expect(mastraSkill).toContain("references/README.md");
   });
 
   it("keeps the CopilotKit adapter review-only and anchored to v2 invariants", () => {

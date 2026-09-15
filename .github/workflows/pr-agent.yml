@@ -29,6 +29,8 @@ jobs:
           ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
 
+      # New review adapters are available only after they land on trusted base main.
+      # During this rollout PR, keep Mastra coverage with a bounded fallback.
       - name: Select trusted PR-Agent skills
         id: reviewer-skills
         shell: bash
