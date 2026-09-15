@@ -1,4 +1,22 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+import { plannerThreadStorageKey } from "../src/mastra/thread-types";
+
+/** Reads whatever thread PlannerChatDock/PlannerThreadsDrawer actually
+ *  persisted for this resource — the real, production identity-pinning
+ *  key, not a guessed/duplicated string — so a reload-identity assertion
+ *  proves the real contract instead of a copy of it. resourceId isn't
+ *  known ahead of time in the test, so read the one (there's only ever
+ *  one per authenticated resource) ipix.planner.threadId:* key present. */
+async function getStoredPlannerThreadId(page: Page): Promise<string | null> {
+  // plannerThreadStorageKey("") == "ipix.planner.threadId:" — the resourceId
+  // prefix with an empty resourceId, i.e. exactly the key's static part.
+  const prefix = plannerThreadStorageKey("");
+  return page.evaluate((keyPrefix) => {
+    const key = Object.keys(window.localStorage).find((k) => k.startsWith(keyPrefix));
+    return key ? window.localStorage.getItem(key) : null;
+  }, prefix);
+}
 
 // Makes one real configured OpenAI-model call through the hosted Production Planner agent —
 // see e2e/login-journey.spec.ts for the precedent of a real hosted call
@@ -199,6 +217,16 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
       timeout: RESPONSE_TIMEOUT_MS,
     });
 
+    // Explicit thread-identity proof, not just an inferred one: /app has no
+    // "New" button, so on a shared QA account with other threads created
+    // moments earlier by the tests above, the resolved thread is whichever
+    // one plannerThreadStorageKey pins in localStorage — capture it here so
+    // a future regression that silently resolves a *different* thread after
+    // reload (rather than a message simply not appearing) fails on this
+    // assertion specifically, not just on the visible-text checks below.
+    const resolvedThreadId = await getStoredPlannerThreadId(page);
+    expect(resolvedThreadId, "PlannerChatDock should have persisted a resolved threadId by now").not.toBeNull();
+
     // Persistence: reload restores the same conversation under the same
     // resolved thread, matching the /planner precedent above.
     await page.reload();
@@ -208,5 +236,8 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
     await expect(page.getByTestId("copilot-assistant-message").last()).toHaveText(/\S/, {
       timeout: NAV_TIMEOUT_MS,
     });
+    expect(await getStoredPlannerThreadId(page), "reload must resolve the identical thread, not a different one").toBe(
+      resolvedThreadId,
+    );
   });
 });
