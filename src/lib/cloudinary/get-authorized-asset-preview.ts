@@ -10,8 +10,10 @@ import {
   AUTHENTICATED_DELIVERY_TYPE,
   MVP_RESOURCE_TYPE,
   isAssetPreviewKind,
+  isAssetUrlIntent,
   namedTransformForPreview,
   type AssetPreviewKind,
+  type AssetUrlIntent,
 } from "@/lib/cloudinary/preview-contract";
 import { signExactVersionPreviewUrl } from "@/lib/cloudinary/sign-delivery-url";
 
@@ -24,7 +26,10 @@ export type AuthorizedAssetPreviewOk = {
   orgId: string;
   publicId: string;
   version: number;
+  currentVersion: number;
   preview: AssetPreviewKind;
+  intent: AssetUrlIntent;
+  approved: boolean;
   namedTransform: string;
   cloudinaryAssetId: string | null;
 };
@@ -34,12 +39,16 @@ export type AuthorizedAssetPreviewError = {
   reason:
     | "invalid_asset_id"
     | "unsupported_preview"
+    | "unsupported_intent"
+    | "invalid_requested_version"
+    | "version_not_approved"
     | "needs_onboarding"
     | "needs_org_selection"
     | "membership_lookup_failed"
     | "asset_not_found"
     | "foreign_org"
     | "missing_cloudinary_mirror"
+    | "missing_cloudinary_asset_id"
     | "unsupported_resource_type"
     | "invalid_delivery_type"
     | "invalid_cloudinary_version"
@@ -64,18 +73,19 @@ type CloudinaryMirrorRow = {
   cloudinary_asset_id: string | null;
 };
 
+type NarrowSelect = {
+  eq: (column: string, value: string | number) => NarrowSelect;
+  maybeSingle: () => PromiseLike<{
+    data: AssetOrgRow | CloudinaryMirrorRow | null;
+    error: unknown;
+  }>;
+  limit: (
+    count: number,
+  ) => PromiseLike<{ data: unknown[] | null; error: unknown }>;
+};
+
 type NarrowQuery = {
-  select: (columns: string) => {
-    eq: (
-      column: string,
-      value: string,
-    ) => {
-      maybeSingle: () => PromiseLike<{
-        data: AssetOrgRow | CloudinaryMirrorRow | null;
-        error: unknown;
-      }>;
-    };
-  };
+  select: (columns: string) => NarrowSelect;
 };
 
 type AssetLookupClient = {
@@ -98,6 +108,10 @@ function oneBrand(
 export async function getAuthorizedAssetPreview(input: {
   assetId: string;
   preview: unknown;
+  /** `preview` (default, IPI-1112) or `delivery` (IPI-1120 approval-gated). */
+  intent?: unknown;
+  /** Optional exact provider version; defaults to the mirror's current version. */
+  version?: unknown;
   operator: VerifiedOperator;
   supabase: AssetLookupClient;
   listOrgIds?: () => Promise<{ ok: true; orgIds: string[] } | { ok: false }>;
@@ -109,6 +123,32 @@ export async function getAuthorizedAssetPreview(input: {
     return { ok: false, reason: "unsupported_preview" };
   }
   const preview = input.preview;
+
+  const intentValue = input.intent ?? "preview";
+  if (!isAssetUrlIntent(intentValue)) {
+    return { ok: false, reason: "unsupported_intent" };
+  }
+  const intent = intentValue;
+
+  let requestedVersion: number | null = null;
+  if (input.version !== undefined && input.version !== null) {
+    // Only a plain decimal provider version is accepted: no empty string (an
+    // explicit `?version=` is a malformed request, not "use current"), no hex
+    // (`0x10`), exponent, whitespace, or leading zeros (`000123`), so a caller
+    // can never alias a differently-formatted number onto a real version.
+    // Require a safe integer so the exact requested version is not rounded
+    // before the approval lookup and URL signing.
+    const raw =
+      typeof input.version === "number"
+        ? input.version
+        : typeof input.version === "string" && /^[1-9][0-9]*$/.test(input.version)
+          ? Number(input.version)
+          : Number.NaN;
+    if (!Number.isSafeInteger(raw) || raw <= 0) {
+      return { ok: false, reason: "invalid_requested_version" };
+    }
+    requestedVersion = raw;
+  }
 
   const listOrgIds =
     input.listOrgIds ??
@@ -172,12 +212,51 @@ export async function getAuthorizedAssetPreview(input: {
     return { ok: false, reason: "invalid_delivery_type" };
   }
 
-  const version =
+  const currentVersion =
     typeof mirror.version === "string"
       ? Number(mirror.version)
       : mirror.version;
-  if (!Number.isFinite(version) || !version || version <= 0) {
+  if (!Number.isFinite(currentVersion) || !currentVersion || currentVersion <= 0) {
     return { ok: false, reason: "invalid_cloudinary_version" };
+  }
+
+  // A specific historical version may be requested (e.g. the approved vN while
+  // a newer vN+1 is pending), but never a version the mirror has not seen.
+  if (requestedVersion !== null && requestedVersion > currentVersion) {
+    return { ok: false, reason: "invalid_requested_version" };
+  }
+  const version = requestedVersion ?? currentVersion;
+
+  // IPI-1120 · MEDIA-DELIVERY-001 — exact-version human approval guard.
+  // Delivery authorization is the durable provider-identity approval event,
+  // never `cloudinary_assets.approval` (convenience UI state). RLS on
+  // asset_events already scopes this read to the caller's own org, and the
+  // asset/brand org check above ran first, so a foreign or anonymous caller
+  // can never observe a matching row. No matching row -> fail closed.
+  let approved = false;
+  if (intent === "delivery") {
+    if (!mirror.cloudinary_asset_id) {
+      return { ok: false, reason: "missing_cloudinary_asset_id" };
+    }
+    let approvalRows: unknown[] | null;
+    try {
+      const { data, error } = await input.supabase
+        .from("asset_events")
+        .select("id")
+        .eq("asset_id", asset.id)
+        .eq("cloudinary_asset_id", mirror.cloudinary_asset_id)
+        .eq("version", version)
+        .eq("kind", "approved")
+        .limit(1);
+      if (error) return { ok: false, reason: "lookup_failed" };
+      approvalRows = data;
+    } catch {
+      return { ok: false, reason: "lookup_failed" };
+    }
+    if (!approvalRows || approvalRows.length === 0) {
+      return { ok: false, reason: "version_not_approved" };
+    }
+    approved = true;
   }
 
   const url = signExactVersionPreviewUrl({
@@ -194,7 +273,10 @@ export async function getAuthorizedAssetPreview(input: {
     orgId: tenant.orgId,
     publicId: mirror.public_id,
     version,
+    currentVersion,
     preview,
+    intent,
+    approved,
     namedTransform: namedTransformForPreview(preview),
     cloudinaryAssetId: mirror.cloudinary_asset_id,
   };
