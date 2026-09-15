@@ -16,6 +16,7 @@
     "supabase:types": "supabase db reset --local --no-seed && node scripts/generate-supabase-types.mjs",
     "supabase:types:check": "node scripts/generate-supabase-types.mjs --check",
     "test": "vitest run",
+    "test:skills": "vitest run tests/skill-contracts.test.ts",
     "test:design": "vitest run src/components/ui/empty-state.test.tsx src/components/ui/error-state.test.tsx src/components/ui/entity-list.test.tsx src/components/ui/status-chip.test.tsx",
     "channel": "tsx --tsconfig tsconfig.channel.json channel-host.mts",
     "e2e": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --project=chromium --project=mobile-chromium",
