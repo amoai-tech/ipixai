@@ -85,7 +85,8 @@ function nonBlank(value: string | null | undefined): string | null {
  * DAM helper (`getAuthorizedAssetPreview`) is deliberately not reused: faking
  * tenant asset rows to satisfy that authorization model would create a second,
  * wrong source of truth. This helper resolves the trusted curated mapping
- * server-side through `get_shot_reference_media` (role-gated to `authenticated`)
+ * server-side through `get_shot_reference_media` (role-gated to `service_role`
+ * so the raw provider identity is never reachable by an authenticated browser)
  * and then reuses the existing exact-version named-transform signer.
  *
  * Security contract:

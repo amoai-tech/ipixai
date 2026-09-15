@@ -9,6 +9,9 @@
 --   * anon must not read or write the reference view
 --   * authenticated may only SELECT the reference view
 --   * provider identity/version must not be exposed through the catalog view
+--   * reference_key must be immutable
+--   * anon must not EXECUTE the reference media functions
+--   * authenticated must not EXECUTE the reference media resolver
 --   * an approved mapping must fail closed when its exact identity is incomplete
 
 do $$
@@ -90,6 +93,32 @@ begin
     raise exception 'IPI-644: reference_key values must be non-null and unique';
   end if;
 
+  -- ---- reference_key must be immutable --------------------------------------
+  if not exists (
+    select 1
+    from pg_trigger t
+    join pg_class c on c.oid = t.tgrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'shoot'
+      and c.relname = 'shot_type_references'
+      and t.tgname = 'shot_type_references_lock_reference_key'
+      and not t.tgisinternal
+      and t.tgenabled <> 'D'
+  ) then
+    raise exception 'IPI-644: reference_key must be immutable (missing enabled lock trigger)';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'shoot'
+      and p.proname = 'shot_type_references_lock_reference_key'
+      and p.prosrc like '%reference_key is immutable%'
+  ) then
+    raise exception 'IPI-644: reference_key must be immutable (lock function has no guard)';
+  end if;
+
   -- ---- exact-version invariants are enforced by CHECKs ----------------------
   if not exists (
     select 1 from pg_constraint
@@ -159,9 +188,14 @@ begin
      or has_function_privilege('anon', function_has_preview, 'execute') then
     raise exception 'IPI-644: anon must not EXECUTE the reference media functions';
   end if;
-  if not has_function_privilege('authenticated', function_media, 'execute')
-     or not has_function_privilege('authenticated', function_has_preview, 'execute') then
-    raise exception 'IPI-644: authenticated must EXECUTE the reference media functions';
+  if has_function_privilege('authenticated', function_media, 'execute') then
+    raise exception 'IPI-644: authenticated must not EXECUTE the reference media resolver';
+  end if;
+  if not has_function_privilege('authenticated', function_has_preview, 'execute') then
+    raise exception 'IPI-644: authenticated must EXECUTE the boolean preview-availability function';
+  end if;
+  if not has_function_privilege('service_role', function_media, 'execute') then
+    raise exception 'IPI-644: service_role must EXECUTE the reference media resolver';
   end if;
 
   -- SECURITY DEFINER functions must pin search_path (catalog rule).

@@ -30,11 +30,16 @@ vi.mock("../src/lib/cloudinary/config", () => ({
 const supaMocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   createClientFromRequest: vi.fn(),
+  createServiceRoleClient: vi.fn(),
 }));
 
 vi.mock("../src/lib/supabase/server", () => ({
   createClient: supaMocks.createClient,
   createClientFromRequest: supaMocks.createClientFromRequest,
+}));
+
+vi.mock("../src/lib/supabase/service-role", () => ({
+  createServiceRoleClient: supaMocks.createServiceRoleClient,
 }));
 
 const authMocks = vi.hoisted(() => ({
@@ -78,6 +83,7 @@ afterEach(() => {
   );
   supaMocks.createClient.mockReset();
   supaMocks.createClientFromRequest.mockReset();
+  supaMocks.createServiceRoleClient.mockReset();
   authMocks.getVerifiedOperatorForRequest.mockReset();
 });
 
@@ -241,12 +247,19 @@ describe("IPI-644 reference preview route", () => {
     authMocks.getVerifiedOperatorForRequest.mockResolvedValue(null);
     const response = await GET(request(), { params });
     expect(response.status).toBe(401);
-    expect(supaMocks.createClientFromRequest).not.toHaveBeenCalled();
+    expect(supaMocks.createServiceRoleClient).not.toHaveBeenCalled();
   });
 
-  it("returns a signed preview for an authenticated caller", async () => {
+  it("returns 503 when the verified server client is unavailable", async () => {
     authMocks.getVerifiedOperatorForRequest.mockResolvedValue({ id: "op" });
-    supaMocks.createClientFromRequest.mockReturnValue(
+    supaMocks.createServiceRoleClient.mockReturnValue(null);
+    const response = await GET(request(), { params });
+    expect(response.status).toBe(503);
+  });
+
+  it("returns a signed preview for an authenticated caller without leaking provider identity", async () => {
+    authMocks.getVerifiedOperatorForRequest.mockResolvedValue({ id: "op" });
+    supaMocks.createServiceRoleClient.mockReturnValue(
       rpcClient({ data: [approvedRow()] }),
     );
     const response = await GET(request(), { params });
@@ -254,12 +267,14 @@ describe("IPI-644 reference preview route", () => {
     const body = await response.json();
     expect(body.url).toContain(`/v${VERSION}/`);
     expect(body.referenceId).toBe(REFERENCE_ID);
+    expect(body).not.toHaveProperty("publicId");
     expect(body).not.toHaveProperty("cloudinary_asset_id");
+    expect(body).not.toHaveProperty("public_id");
   });
 
   it("maps an unsupported preview to 400", async () => {
     authMocks.getVerifiedOperatorForRequest.mockResolvedValue({ id: "op" });
-    supaMocks.createClientFromRequest.mockReturnValue(
+    supaMocks.createServiceRoleClient.mockReturnValue(
       rpcClient({ data: [approvedRow()] }),
     );
     const response = await GET(request("?preview=nope"), { params });
@@ -268,7 +283,7 @@ describe("IPI-644 reference preview route", () => {
 
   it("maps a missing mapping to 409 (no URL)", async () => {
     authMocks.getVerifiedOperatorForRequest.mockResolvedValue({ id: "op" });
-    supaMocks.createClientFromRequest.mockReturnValue(
+    supaMocks.createServiceRoleClient.mockReturnValue(
       rpcClient({ data: [approvedRow({ has_approved_media: false, public_id: null })] }),
     );
     const response = await GET(request(), { params });
@@ -279,14 +294,14 @@ describe("IPI-644 reference preview route", () => {
 
   it("maps an unknown reference to 404", async () => {
     authMocks.getVerifiedOperatorForRequest.mockResolvedValue({ id: "op" });
-    supaMocks.createClientFromRequest.mockReturnValue(rpcClient({ data: [] }));
+    supaMocks.createServiceRoleClient.mockReturnValue(rpcClient({ data: [] }));
     const response = await GET(request(), { params });
     expect(response.status).toBe(404);
   });
 
   it("maps a server read failure to 503", async () => {
     authMocks.getVerifiedOperatorForRequest.mockResolvedValue({ id: "op" });
-    supaMocks.createClientFromRequest.mockReturnValue(
+    supaMocks.createServiceRoleClient.mockReturnValue(
       rpcClient({ data: null, error: { message: "boom" } }),
     );
     const response = await GET(request(), { params });
@@ -378,12 +393,16 @@ describe("IPI-644 ships the migration + isolated SQL security suite", () => {
     expect(migration).toMatch(/No policies on purpose/);
     expect(migration).toMatch(/rights_status = 'approved_for_reference'/);
     expect(migration).toMatch(/security_invoker = true/);
+    expect(migration).toMatch(/reference_key is immutable/);
+    expect(migration).toMatch(/service_role only/);
 
     const acl = await readFile(aclPath, "utf8");
     expect(acl).toMatch(/global reference media must not be client-readable/);
     expect(acl).toMatch(/anon must not read or write the reference view/);
     expect(acl).toMatch(/authenticated may only SELECT the reference view/);
     expect(acl).toMatch(/provider identity\/version must not be exposed/);
+    expect(acl).toMatch(/reference_key must be immutable/);
     expect(acl).toMatch(/anon must not EXECUTE the reference media functions/);
+    expect(acl).toMatch(/authenticated must not EXECUTE the reference media resolver/);
   });
 });

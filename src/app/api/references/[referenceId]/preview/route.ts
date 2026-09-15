@@ -1,10 +1,13 @@
 import { getVerifiedOperatorForRequest } from "@/lib/auth/copilot-hooks";
-import { unauthorizedResponse } from "@/lib/auth/unauthorized";
+import {
+  configUnavailableResponse,
+  unauthorizedResponse,
+} from "@/lib/auth/unauthorized";
 import {
   getShotReferencePreview,
   type ShotReferenceMediaClient,
 } from "@/lib/shoot/get-shot-reference-preview";
-import { createClientFromRequest } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 export const runtime = "nodejs";
 
@@ -32,8 +35,11 @@ export async function GET(
   const operator = await getVerifiedOperatorForRequest(request);
   if (!operator) return unauthorizedResponse();
 
-  const supabase = createClientFromRequest(request);
-  if (!supabase) return unauthorizedResponse();
+  // Verified server path: resolve the raw provider identity with the
+  // service-role client (the resolver RPC is NOT executable by `authenticated`),
+  // then sign server-side. The browser only ever receives the signed URL.
+  const supabase = createServiceRoleClient();
+  if (!supabase) return configUnavailableResponse("reference_preview_unavailable");
 
   const { referenceId } = await context.params;
   const preview = new URL(request.url).searchParams.get("preview");
@@ -76,6 +82,5 @@ export async function GET(
     preview: result.preview,
     namedTransform: result.namedTransform,
     version: result.version,
-    publicId: result.publicId,
   });
 }

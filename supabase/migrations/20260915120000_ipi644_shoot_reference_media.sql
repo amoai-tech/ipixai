@@ -15,8 +15,10 @@
 --      tuple so identity survives later display-metadata edits).
 --   2. Adds the one-to-one `shoot.shot_type_reference_media` mapping table that
 --      records the exact approved Cloudinary asset_id + version + provenance.
---      It is server-only: RLS on, no policies, no client privileges. It is only
---      ever resolved through SECURITY DEFINER functions below.
+--      It is server-only: RLS on, no policies, no client privileges, and the
+--      provider-identity resolver is granted to `service_role` only so an
+--      authenticated browser can never read `public_id`/`version` directly
+--      through PostgREST.
 --   3. Hardens the public reference read surface to least privilege:
 --      anon loses all access, authenticated keeps SELECT only, and the exact
 --      approved mapping is exposed to clients as a boolean `has_preview` plus a
@@ -77,6 +79,28 @@ alter table shoot.shot_type_references
 
 alter table shoot.shot_type_references
   add constraint shot_type_references_reference_key_key unique (reference_key);
+
+-- reference_key must be immutable: it is the stable logical identity that
+-- persists across environments, and downstream consumers may persist it. A
+-- privileged UPDATE must not silently re-key an existing catalog row (that
+-- would stop the same row from identifying the same reference). Display
+-- metadata (description/angle/tags/...) stays editable; only the key is frozen.
+create or replace function shoot.shot_type_references_lock_reference_key()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.reference_key is distinct from old.reference_key then
+    raise exception 'IPI-644: reference_key is immutable (attempted % -> %); add a new catalog row instead of re-keying', old.reference_key, new.reference_key;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists shot_type_references_lock_reference_key on shoot.shot_type_references;
+create trigger shot_type_references_lock_reference_key
+before update on shoot.shot_type_references
+for each row execute function shoot.shot_type_references_lock_reference_key();
 
 -- ---------------------------------------------------------------------------
 -- 2. Exact approved Cloudinary mapping (server-only)
@@ -146,6 +170,10 @@ grant execute on function public.shot_type_reference_has_preview(uuid) to authen
 -- Server-side resolution of the exact approved mapping. Returns the reference
 -- existence flag separately from "has an approved mapping" so the caller can
 -- distinguish not-found from no-media and fail closed with the right reason.
+--
+-- service_role only: this returns raw provider identity (public_id/version), so
+-- it must never be reachable by an authenticated browser through PostgREST. The
+-- preview route is a verified server path that uses the service-role client.
 create or replace function public.get_shot_reference_media(p_reference_id uuid)
 returns table (
   reference_exists boolean,
@@ -178,8 +206,8 @@ as $$
   where r.id = p_reference_id;
 $$;
 
-revoke all on function public.get_shot_reference_media(uuid) from public, anon;
-grant execute on function public.get_shot_reference_media(uuid) to authenticated;
+revoke all on function public.get_shot_reference_media(uuid) from public, anon, authenticated;
+grant execute on function public.get_shot_reference_media(uuid) to service_role;
 
 -- Re-expose the canonical catalog with the stable key + availability. Columns
 -- are appended so `create or replace view` is valid (existing column
