@@ -158,7 +158,7 @@ After saving the plan, offer execution choice:
 
 **1. Subagent-Driven (recommended)** - I dispatch a fresh subagent per task, review between tasks, fast iteration
 
-**2. Inline Execution** - Execute tasks in this session using executing-plans, batch execution with checkpoints
+**2. Inline Execution** - Execute tasks in this session using the iPix `tasks` skill's Ordered Implementation Runbook, batch execution with checkpoints
 
 **Which approach?"**
 

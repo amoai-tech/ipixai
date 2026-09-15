@@ -94,15 +94,13 @@ is_windows_like_shell() {
   return 1
 }
 
-# Some environments reap detached/background processes. Auto-foreground when detected.
-if [[ -n "${CODEX_CI:-}" && "$FOREGROUND" != "true" && "$FORCE_BACKGROUND" != "true" ]]; then
-  FOREGROUND="true"
-fi
-
-# Windows/Git Bash reaps nohup background processes. Auto-foreground when detected.
+# Some environments reap detached/background processes. Do not silently switch to
+# blocking foreground mode: that can hang a tool call until the companion exits.
+# Instead fail fast and require the caller to own background execution explicitly.
 if [[ "$FOREGROUND" != "true" && "$FORCE_BACKGROUND" != "true" ]]; then
-  if is_windows_like_shell; then
-    FOREGROUND="true"
+  if [[ -n "${CODEX_CI:-}" ]] || is_windows_like_shell; then
+    echo '{"error": "This environment may reap detached processes. Re-run with --foreground using your tool or shell background-execution mechanism."}'
+    exit 2
   fi
 fi
 

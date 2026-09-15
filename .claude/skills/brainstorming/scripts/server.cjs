@@ -206,7 +206,7 @@ const helperInjection = '<script>\n' + helperScript + '\n</script>';
 // ========== Helper Functions ==========
 
 function readSuperpowersVersion() {
-  const root = path.join(__dirname, '../../..');
+  const root = path.join(__dirname, '../../../..');
   const manifests = [
     path.join(root, 'package.json'),
     path.join(root, '.codex-plugin/plugin.json')
@@ -379,7 +379,7 @@ function isAllowedWebSocketOrigin(req) {
   if (!origin) return true;
   const host = req.headers.host;
   if (!host) return false;
-  return origin === 'http://' + host;
+  return origin === 'http://' + host || origin === 'https://' + host;
 }
 
 // ========== HTTP Request Handler ==========
@@ -512,7 +512,12 @@ function handleMessage(text) {
   console.log(JSON.stringify({ source: 'user-event', ...event }));
   if (event && event.choice) {
     const eventsFile = path.join(STATE_DIR, 'events');
-    fs.appendFileSync(eventsFile, JSON.stringify(event) + '\n');
+    try {
+      fs.appendFileSync(eventsFile, JSON.stringify(event) + '\n');
+    } catch (e) {
+      console.error('Failed to persist WebSocket choice event:', e.message);
+      return;
+    }
   }
 }
 

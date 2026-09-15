@@ -65,13 +65,13 @@ without repeating it.
 scripts/start-server.sh --project-dir /path/to/project --open
 ```
 
-On Windows, the script auto-detects and switches to foreground mode (which blocks the tool call). Use `run_in_background: true` on the Bash tool call so the server survives across conversation turns, then read `$STATE_DIR/server-info` on the next turn to get the URL and port.
+On Windows, detached processes may be reaped. Launch `scripts/start-server.sh ... --foreground` with `run_in_background: true` (or your shell tool's equivalent) so the launcher never blocks the agent turn; then read `$STATE_DIR/server-info` to get the URL and port.
 
 **Codex:**
 ```bash
-# Codex reaps background processes. The script auto-detects CODEX_CI and
-# switches to foreground mode. Run it normally — no extra flags needed.
-scripts/start-server.sh --project-dir /path/to/project --open
+# Codex may reap detached processes. Run foreground mode through Codex's
+# background process mechanism so the tool call itself stays non-blocking.
+scripts/start-server.sh --project-dir /path/to/project --open --foreground
 ```
 
 **Gemini CLI:**
