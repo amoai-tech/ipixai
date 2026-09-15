@@ -39,6 +39,9 @@ const SEARCH_PAGE_SIZE = 500;
 
 type UploadCandidateParams = ReturnType<typeof buildCandidateUploadParams>;
 
+// The intersection is intentional; Codacy's hosted analyzer cannot resolve the `@/` path-alias
+// import of UploadedReferenceAsset and wrongly assumes the constituent is `any`.
+// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 export type ProviderReferenceCandidate = UploadedReferenceAsset & { referenceKey: string };
 export type ReferenceCatalogRow = { id: string; referenceKey: string };
 export type ReferenceMediaAvailability = { referenceId: string; hasApprovedMedia: boolean };
@@ -54,16 +57,16 @@ export type RecordApprovedMappingInput = {
 };
 
 export type ReferenceLibraryDeps = {
-  log: (message: string) => void;
-  stderr: (message: string) => void;
-  readManifest: (path: string) => Promise<unknown>;
-  fileExists: (path: string) => boolean;
+  log: (_message: string) => void;
+  stderr: (_message: string) => void;
+  readManifest: (_path: string) => Promise<unknown>;
+  fileExists: (_path: string) => boolean;
   listProviderCandidates: () => Promise<ProviderReferenceCandidate[]>;
-  uploadCandidate: (file: string, params: UploadCandidateParams) => Promise<UploadedReferenceAsset>;
-  destroyCandidate: (publicId: string) => Promise<void>;
+  uploadCandidate: (_file: string, _params: UploadCandidateParams) => Promise<UploadedReferenceAsset>;
+  destroyCandidate: (_publicId: string) => Promise<void>;
   loadCatalog: () => Promise<ReferenceCatalogRow[]>;
-  loadApprovedMappings: (referenceIds: string[]) => Promise<ReferenceMediaAvailability[]>;
-  recordApprovedMapping: (input: RecordApprovedMappingInput) => Promise<void>;
+  loadApprovedMappings: (_referenceIds: string[]) => Promise<ReferenceMediaAvailability[]>;
+  recordApprovedMapping: (_input: RecordApprovedMappingInput) => Promise<void>;
 };
 
 type ParsedArgs = {
@@ -113,10 +116,8 @@ function parseArgs(argv: string[]): ParsedArgs {
     const token = queue.shift() ?? "";
     if (token.startsWith("--")) {
       const name = token.slice(2);
-      const next: string | undefined = queue[0];
-      if (next !== undefined && !next.startsWith("--")) {
-        flags.set(name, next);
-        queue.shift();
+      if (queue.length > 0 && !queue[0].startsWith("--")) {
+        flags.set(name, queue.shift() ?? "");
       } else {
         flags.set(name, true);
       }
@@ -178,6 +179,7 @@ function readTagReferenceKey(tags: unknown): string | null {
   return null;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- see note on ProviderReferenceCandidate
 export function normalizeProviderCandidate(resource: unknown): ProviderReferenceCandidate | null {
   const value = asRecord(resource);
   if (!value) return null;
