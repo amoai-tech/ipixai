@@ -3,7 +3,7 @@ import {
   CopilotKitIntelligence,
   createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { createLocalAgents } from "@/agent";
 import {
