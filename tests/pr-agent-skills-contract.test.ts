@@ -17,6 +17,7 @@ describe("IPI-1213 PR-Agent review skills contract", () => {
     expect(workflow).toContain("skills.enabled: \"true\"");
     expect(workflow).toContain("/github/workspace/.claude/skills/mastra-review");
     expect(workflow).toContain("/github/workspace/.claude/skills/copilotkit-review");
+    expect(workflow).toContain("/github/workspace/.claude/skills/mastra\"]'");
     expect(workflow).toContain("skills.max_skills_tokens: \"8000\"");
     expect(workflow).toContain("github_action_config.auto_improve: \"false\"");
   });
