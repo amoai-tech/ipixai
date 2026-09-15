@@ -116,6 +116,36 @@ describe("RestoreMastraHistory", () => {
     expect(screen.queryByTestId("error-state")).toBeNull();
   });
 
+  // IPI-1217: /app uses onSettled to hold off letting the operator send
+  // anything until a resumed thread's history has actually loaded —
+  // confirmed live that sending while this fetch is still in flight can
+  // race agent.setMessages(...) and silently drop the new message.
+  it("calls onSettled after a successful restore", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ messages: history }) }),
+    );
+    const onSettled = vi.fn();
+    render(<RestoreMastraHistory threadId="thread-a" onSettled={onSettled} />);
+    await waitFor(() => expect(onSettled).toHaveBeenCalledTimes(1));
+  });
+
+  it("calls onSettled after a failed restore too — a stuck gate would be worse than a shown error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+    const onSettled = vi.fn();
+    render(<RestoreMastraHistory threadId="thread-a" onSettled={onSettled} />);
+    await waitFor(() => expect(onSettled).toHaveBeenCalledTimes(1));
+  });
+
+  it("calls onSettled immediately for a genuinely new conversation (replay=false)", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const onSettled = vi.fn();
+    render(<RestoreMastraHistory threadId="new-uuid" replay={false} onSettled={onSettled} />);
+    expect(onSettled).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("retries after 5xx and then shows restored messages", async () => {
     const fetchMock = vi
       .fn()

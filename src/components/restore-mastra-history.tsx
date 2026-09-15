@@ -35,13 +35,30 @@ function conversationRevision(messages: unknown) {
 export function RestoreMastraHistory({
   threadId,
   replay = true,
+  onSettled,
 }: {
   threadId: string;
   replay?: boolean;
+  /**
+   * Fires exactly once per attempt (mount, threadId change, or Retry), after
+   * the restore fetch has either applied its messages, failed, or been
+   * skipped (revision changed mid-flight) — never on abort (the attempt was
+   * superseded, not settled). Optional and additive: /planner doesn't pass
+   * it and is unaffected. /app's dock uses it to hold off letting the
+   * operator send anything until any restore for an *existing* thread has
+   * finished — confirmed live (IPI-1217) that sending while this fetch is
+   * still in flight can race agent.setMessages() and silently drop the new
+   * message, because nothing previously serialized "restore, then allow
+   * interaction" for a thread that already has real history — /planner's
+   * own tests never exercise that combination, since they always start a
+   * brand-new (replay=false) thread via New.
+   */
+  onSettled?: () => void;
 }) {
   const { agent } = useAgent({ agentId: "default" });
   const agentRef = useRef(agent);
   const baselineRevisionRef = useRef<string | null>(null);
+  const onSettledRef = useRef(onSettled);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [restored, setRestored] = useState<PlannerChatMessage[] | null>(null);
@@ -51,13 +68,20 @@ export function RestoreMastraHistory({
   }, [agent]);
 
   useEffect(() => {
+    onSettledRef.current = onSettled;
+  }, [onSettled]);
+
+  useEffect(() => {
     baselineRevisionRef.current = null;
     setRestored(null);
     setError(null);
   }, [threadId]);
 
   useEffect(() => {
-    if (!replay) return;
+    if (!replay) {
+      onSettledRef.current?.();
+      return;
+    }
     const controller = new AbortController();
     if (baselineRevisionRef.current === null) {
       baselineRevisionRef.current = conversationRevision(
@@ -96,6 +120,8 @@ export function RestoreMastraHistory({
       } catch {
         if (controller.signal.aborted) return;
         setError("Could not load this conversation. Try again.");
+      } finally {
+        if (!controller.signal.aborted) onSettledRef.current?.();
       }
     })();
     return () => {

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useEffect } from "react";
 
 import { plannerThreadStorageKey } from "@/mastra/thread-types";
 
@@ -90,6 +91,37 @@ vi.mock("@copilotkit/react-core/v2", () => ({
   ),
 }));
 
+// Real component makes its own fetch to /api/planner/threads/:id/messages
+// and calls agent.setMessages(...) — none of that is what these tests are
+// proving. What matters here is *whether PlannerChatDock renders it at
+// all* for an existing vs. a genuinely new thread (see operator-panel.tsx's
+// isNewThread comment on the ~50% CI reload flake this fixes), so the stub
+// only needs to surface its own props. autoSettle/capturedOnSettled let the
+// gate test below simulate a still-in-flight restore, then complete it on
+// demand, without needing real async fetch machinery.
+const restoreAutoSettle = vi.hoisted(() => ({ current: true }));
+const capturedOnSettled = vi.hoisted(() => ({ current: null as (() => void) | null }));
+
+vi.mock("@/components/restore-mastra-history", () => ({
+  RestoreMastraHistory: ({
+    threadId,
+    replay,
+    onSettled,
+  }: {
+    threadId: string;
+    replay?: boolean;
+    onSettled?: () => void;
+  }) => {
+    capturedOnSettled.current = onSettled ?? null;
+    useEffect(() => {
+      if (restoreAutoSettle.current) onSettled?.();
+    }, [onSettled]);
+    return (
+      <div data-testid="restore-mastra-history-stub" data-thread-id={threadId} data-replay={String(replay)} />
+    );
+  },
+}));
+
 vi.mock("next/navigation", () => ({
   usePathname: () => "/app",
 }));
@@ -133,6 +165,8 @@ beforeEach(() => {
   mockThreadsFetch();
   window.localStorage.clear();
   useAgentMock.mockReturnValue({ agent: { messages: [] } });
+  restoreAutoSettle.current = true;
+  capturedOnSettled.current = null;
 });
 
 afterEach(() => {
@@ -407,6 +441,51 @@ describe("PlannerChatDock thread bootstrap (IPI-1217)", () => {
     // Resuming a real existing conversation must never show a "welcome"
     // banner above it — see the isNewThread test below for the contrast.
     expect(screen.queryByText("Ask a question to get started.")).toBeNull();
+    // The actual reload-restore fix: an existing thread must activate
+    // history hydration, not just render CopilotChat with the right id —
+    // connectAgent() alone doesn't reliably backfill past messages (the
+    // ~50% CI reload flake this addresses).
+    const restore = screen.getByTestId("restore-mastra-history-stub");
+    expect(restore.getAttribute("data-thread-id")).toBe("thread-owned");
+    expect(restore.getAttribute("data-replay")).toBe("true");
+  });
+
+  it("does not mount CopilotChat until an existing thread's history restore settles", async () => {
+    // Confirmed live (IPI-1217): sending while RestoreMastraHistory's fetch
+    // is still in flight can race its agent.setMessages(...) call and
+    // silently drop the new message. Holding CopilotChat back until
+    // onSettled fires removes that window entirely, regardless of the
+    // exact internal timing that caused it.
+    restoreAutoSettle.current = false;
+    window.localStorage.setItem(plannerThreadStorageKey(DEFAULT_RESOURCE_ID), "thread-owned");
+    mockThreadsFetch(
+      () =>
+        new Response(
+          JSON.stringify({
+            resourceId: DEFAULT_RESOURCE_ID,
+            threads: [{ id: "thread-owned", title: "t", createdAt: "x", updatedAt: "x" }],
+          }),
+          { status: 200 },
+        ),
+    );
+
+    render(
+      <OperatorPanel>
+        <p>Body</p>
+      </OperatorPanel>,
+    );
+
+    // RestoreMastraHistory must still mount (so its own fetch can actually
+    // run and eventually call onSettled) even while the chat stays gated.
+    await waitFor(() => expect(screen.getByTestId("restore-mastra-history-stub")).toBeDefined());
+    expect(screen.queryByTestId("copilot-chat-stub")).toBeNull();
+    expect(screen.getByText("Loading conversation…")).toBeDefined();
+
+    capturedOnSettled.current?.();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("copilot-chat-stub").getAttribute("data-thread-id")).toBe("thread-owned"),
+    );
   });
 
   it("shows the portfolio welcome copy above the chat only for a genuinely new thread", async () => {
@@ -431,6 +510,10 @@ describe("PlannerChatDock thread bootstrap (IPI-1217)", () => {
     expect(
       screen.getAllByText("Start by creating a brand or planning your first shoot."),
     ).toHaveLength(1);
+    // A genuinely new thread has no history to restore — history hydration
+    // must not activate here (nothing wrong with it being a no-op, but it
+    // would be an extra request and re-render for nothing).
+    expect(screen.queryByTestId("restore-mastra-history-stub")).toBeNull();
   });
 
   it("hides the welcome banner once the conversation has real messages, even on a new thread", async () => {
@@ -533,6 +616,35 @@ describe("PlannerChatDock thread bootstrap (IPI-1217)", () => {
     unmount();
 
     expect(init?.signal?.aborted).toBe(true);
+  });
+
+  it("does not write localStorage if unmounted while response.json() was still pending", async () => {
+    // response.json() is itself async — the request can have already
+    // arrived (fetch() resolved) when unmount happens, with only the body
+    // parse still in flight. Without the aborted-check placed after that
+    // await, this write would still land on an unmounted component.
+    let resolveJson!: (body: unknown) => void;
+    const pendingJson = new Promise((resolve) => {
+      resolveJson = resolve;
+    });
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({ ok: true, json: () => pendingJson } as unknown as Response),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { unmount } = render(
+      <OperatorPanel>
+        <p>Body</p>
+      </OperatorPanel>,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    unmount();
+
+    resolveJson({ resourceId: DEFAULT_RESOURCE_ID, threads: [] });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(window.localStorage.getItem(plannerThreadStorageKey(DEFAULT_RESOURCE_ID))).toBeNull();
   });
 });
 

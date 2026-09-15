@@ -12,6 +12,7 @@ import { navItemIsActive, OPERATOR_NAV } from "./nav";
 import styles from "./operator-panel.module.css";
 import { useWorkspaceStats, WorkspaceStatsProvider } from "./workspace-stats";
 import type { WorkspaceStats } from "./workspace-stats";
+import { RestoreMastraHistory } from "@/components/restore-mastra-history";
 import {
   plannerThreadStorageKey,
   resolvePlannerThreadId,
@@ -158,6 +159,12 @@ function usePlannerThreadBootstrap() {
           resourceId?: string;
           threads?: PlannerThreadRow[];
         };
+        // response.json() is itself async — the component can have
+        // unmounted (or a retry can have superseded this attempt) while it
+        // was pending. Same guard planner-threads-drawer.tsx already uses
+        // after its own await, so a resolved-too-late response can't still
+        // write localStorage/state for a request nothing is waiting on.
+        if (controller.signal.aborted) return;
         // Only the resourceId the server actually returns is trusted —
         // never a client-supplied one — so a stored thread from a previous
         // account can never be persisted/reused under someone else's key.
@@ -195,19 +202,102 @@ function usePlannerThreadBootstrap() {
   };
 }
 
+/**
+ * Everything that depends on one specific resolved thread. Rendered with
+ * `key={threadId}` by PlannerChatDock so React remounts it fresh — including
+ * a fresh `restoreSettled` state — whenever the resolved thread actually
+ * changes, instead of a manual reset effect. That reset effect was tried
+ * first and had a real bug: it shares a dependency (threadId/isNewThread)
+ * with the very transition that also mounts RestoreMastraHistory, so on the
+ * same commit where RestoreMastraHistory's effect calls onSettled(true),
+ * this component's own reset effect (parent effects run after child
+ * effects) fired right after and clobbered it back to false — the gate
+ * never actually opened. The `key` remount avoids that whole class of race.
+ */
+function ResolvedChatDock({
+  pathname,
+  threadId,
+  isNewThread,
+}: {
+  pathname: string;
+  threadId: string;
+  isNewThread: boolean;
+}) {
+  const stats = useWorkspaceStats();
+  // Called unconditionally (rules of hooks) — same pattern
+  // planner-threads-drawer.tsx already uses. Once the operator sends the
+  // first message, agent.messages.length flips to >0 and the welcome
+  // banner below hides itself, matching how CopilotChat's own
+  // (now-unreachable) welcome screen used to behave via messages.length.
+  const { agent } = useAgent({ agentId: "default" });
+  const hasMessages = (agent.messages?.length ?? 0) > 0;
+  // Gate CopilotChat's interactivity until an existing thread's history
+  // restore has actually settled — confirmed live (IPI-1217): sending while
+  // RestoreMastraHistory's fetch is still in flight can race its
+  // agent.setMessages(...) call and silently drop the new message. A
+  // genuinely new thread has nothing to restore, so it starts settled.
+  const [restoreSettled, setRestoreSettled] = useState(isNewThread);
+
+  // An explicit threadId makes CopilotChat *connect* to the live stream
+  // (the IPI-1217 fix — proven live), but connectAgent() alone doesn't
+  // reliably backfill an existing thread's past messages: it depends on
+  // AG-UI's own reconnect protocol, which iPix's SSE runtime
+  // (TenantAbortRunner extends InMemoryAgentRunner, not a persisting one)
+  // doesn't guarantee. RestoreMastraHistory pulls the authoritative
+  // Mastra/Postgres messages for this thread and calls agent.setMessages(...)
+  // directly — no second persistence path, reusing /planner's proven one.
+  // It's mounted here even while !restoreSettled specifically so its own
+  // effect actually runs and can call onSettled; only the visible chat
+  // surface below is held back until then. Only for an existing thread: a
+  // genuinely new one has no history to restore.
+  const restoreHistory = !isNewThread ? (
+    <RestoreMastraHistory
+      threadId={threadId}
+      replay
+      onSettled={() => setRestoreSettled(true)}
+    />
+  ) : null;
+
+  if (!restoreSettled) {
+    return (
+      <div className={styles.chatDockBody}>
+        {restoreHistory}
+        <p role="status" className={styles.chatDockStatus}>
+          Loading conversation…
+        </p>
+      </div>
+    );
+  }
+
+  // CopilotChat's own welcome screen never renders once threadId is
+  // explicit (see hasExplicitThreadId gate above), so the portfolio-aware
+  // copy is rendered here instead, only for a thread that's both genuinely
+  // new (isNewThread) and still empty (!hasMessages) — an existing or
+  // already-started conversation shouldn't show a "welcome" banner above
+  // its real history. labels.welcomeMessageText is kept as a harmless
+  // fallback in case that gate ever changes upstream.
+  return (
+    <div className={styles.chatDockBody}>
+      {restoreHistory}
+      {isNewThread && !hasMessages && (
+        <p className={styles.chatDockWelcome}>{portfolioWelcomeText(pathname, stats)}</p>
+      )}
+      <div className={styles.chatDockChat}>
+        <CopilotChat
+          agentId="default"
+          threadId={threadId}
+          labels={{ welcomeMessageText: portfolioWelcomeText(pathname, stats) }}
+        />
+      </div>
+    </div>
+  );
+}
+
 /** Reads WorkspaceStats from inside the provider (OperatorPanel's own body
  *  sits above it in the tree, so it can't call the hook directly) and hands
  *  CopilotChat portfolio-aware welcome copy instead of a static string. */
 function PlannerChatDock({ pathname }: { pathname: string }) {
-  const stats = useWorkspaceStats();
   const { threadId, isNewThread, threadError, retry } = usePlannerThreadBootstrap();
-  // Called unconditionally (rules of hooks) even before threadId resolves —
-  // same pattern planner-threads-drawer.tsx already uses. Once the operator
-  // sends the first message, agent.messages.length flips to >0 and the
-  // welcome banner below hides itself, matching how CopilotChat's own
-  // (now-unreachable) welcome screen used to behave via messages.length.
-  const { agent } = useAgent({ agentId: "default" });
-  const hasMessages = (agent.messages?.length ?? 0) > 0;
 
   if (threadError) {
     return (
@@ -228,27 +318,7 @@ function PlannerChatDock({ pathname }: { pathname: string }) {
     );
   }
 
-  // CopilotChat's own welcome screen never renders once threadId is
-  // explicit (see hasExplicitThreadId gate above), so the portfolio-aware
-  // copy is rendered here instead, only for a thread that's both genuinely
-  // new (isNewThread) and still empty (!hasMessages) — an existing or
-  // already-started conversation shouldn't show a "welcome" banner above
-  // its real history. labels.welcomeMessageText is kept as a harmless
-  // fallback in case that gate ever changes upstream.
-  return (
-    <div className={styles.chatDockBody}>
-      {isNewThread && !hasMessages && (
-        <p className={styles.chatDockWelcome}>{portfolioWelcomeText(pathname, stats)}</p>
-      )}
-      <div className={styles.chatDockChat}>
-        <CopilotChat
-          agentId="default"
-          threadId={threadId}
-          labels={{ welcomeMessageText: portfolioWelcomeText(pathname, stats) }}
-        />
-      </div>
-    </div>
-  );
+  return <ResolvedChatDock key={threadId} pathname={pathname} threadId={threadId} isNewThread={isNewThread} />;
 }
 
 function OpenPlannerLink({
