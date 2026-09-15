@@ -29,6 +29,9 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Cursor rules: `.cursor/rule
 | `ipix-wireframe` | Lo-fi UI |
 | `cloudinary` | Canonical iPix Cloudinary skill → embedded official docs/Next/React/transformation/MCP refs + Node refs |
 | `graphify` | Official `graphify install` 0.9.48 — query `graphify-out/` |
+| `domain-modeling` | Domain language / `CONTEXT.md` / ADR discipline; adapted from Matt Pocock skills |
+| `codebase-design` | Deep-module, seam, interface, and test-surface design; adapted from Matt Pocock skills |
+| `resolving-merge-conflicts` | Intent-based merge/rebase conflict resolution with iPix high-risk verification |
 
 Official Cloudinary upstream packs are embedded under `.claude/skills/cloudinary/references/official/` and are not separate triggerable skills. Refresh snapshots into a temporary directory, then sync only the needed embedded references so the iPix security overlay remains authoritative.
 
@@ -53,3 +56,7 @@ Also not copied from the wider old catalog: `mercur`, `amazon-bedrock`, `ipix` r
 - Supabase: preview-first, do not `cd /home/sk/ipix` from this repo
 - CopilotKit: `ipix-production.md` is old-app notes
 - Task execution: `tasks` is canonical; `ipix-task-lifecycle` and `pr-workflow` are compatibility aliases only
+
+## External skill provenance
+
+The three Matt Pocock-derived engineering skills above were copied from `mattpocock/skills` commit `3cca18b368ae95cdbdebbff572ccafa662551015` and then given small iPix-specific safety/source-of-truth overlays.
