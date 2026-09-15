@@ -10,6 +10,8 @@
 --   * authenticated may only SELECT the reference view
 --   * provider identity/version must not be exposed through the catalog view
 --   * reference_key must be immutable
+--   * reference_key must reject blank or non-canonical keys
+--   * reference media functions must stay SECURITY DEFINER
 --   * anon must not EXECUTE the reference media functions
 --   * authenticated must not EXECUTE the reference media resolver
 --   * an approved mapping must fail closed when its exact identity is incomplete
@@ -88,6 +90,17 @@ begin
       and conname = 'shot_type_references_reference_key_key'
   ) then
     raise exception 'IPI-644: reference_key must have a unique constraint';
+  end if;
+
+  -- The one-time backfill guard is not enough: a permanent CHECK must reject
+  -- blank/whitespace-only/non-canonical keys on every future insert or update.
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = to_regclass('shoot.shot_type_references')
+      and contype = 'c'
+      and conname = 'shot_type_references_reference_key_format'
+  ) then
+    raise exception 'IPI-644: reference_key must reject blank or non-canonical keys (missing format CHECK)';
   end if;
 
   if exists (select 1 from shoot.shot_type_references where reference_key is null)
@@ -238,13 +251,27 @@ begin
     raise exception 'IPI-644: recorder must require a human approver and hardcode the exact-mapping invariants';
   end if;
 
+  -- SECURITY DEFINER is load-bearing: if any of these loses the attribute the
+  -- caller is checked directly against the deny-all media table and reference
+  -- reads break (or, worse, a future owner forgets why it was needed). Require
+  -- the attribute explicitly instead of only checking search_path on functions
+  -- that already happen to be SECURITY DEFINER.
+  if exists (
+    select 1 from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in ('get_shot_reference_media', 'shot_type_reference_has_preview', 'record_shot_reference_media')
+      and not p.prosecdef
+  ) then
+    raise exception 'IPI-644: reference media functions must stay SECURITY DEFINER';
+  end if;
+
   -- SECURITY DEFINER functions must pin search_path (catalog rule).
   if exists (
     select 1 from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
       and p.proname in ('get_shot_reference_media', 'shot_type_reference_has_preview', 'record_shot_reference_media')
-      and p.prosecdef
       and not exists (
         select 1 from unnest(coalesce(p.proconfig, '{}')) cfg where cfg like 'search_path=%'
       )

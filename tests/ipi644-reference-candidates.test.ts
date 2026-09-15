@@ -411,5 +411,7 @@ describe("IPI-644 candidate tooling ships its migration and ACL suite", () => {
     expect(sql).toMatch(/service_role owns the reference media recorder/);
     expect(sql).toMatch(/only service_role may EXECUTE the reference media recorder/);
     expect(sql).toMatch(/recorder must require a human approver/);
+    expect(sql).toMatch(/reference_key must reject blank or non-canonical keys/);
+    expect(sql).toMatch(/reference media functions must stay SECURITY DEFINER/);
   });
 });

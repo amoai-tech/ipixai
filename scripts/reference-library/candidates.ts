@@ -11,6 +11,7 @@ import {
   parseReferenceCandidateManifest,
   planCandidateUploads,
   resolveUploadedIdentity,
+  type ReferenceCandidate,
   type ReferenceCandidateManifest,
   type UploadedReferenceAsset,
 } from "@/lib/shoot/reference-candidates";
@@ -107,14 +108,15 @@ function parseArgs(argv: string[]): ParsedArgs {
   const [command = "", ...rest] = argv;
   const positional: string[] = [];
   const flags = new Map<string, string | true>();
-  for (let index = 0; index < rest.length; index += 1) {
-    const token = rest[index];
+  const queue = [...rest];
+  while (queue.length > 0) {
+    const token = queue.shift() ?? "";
     if (token.startsWith("--")) {
       const name = token.slice(2);
-      const next = rest[index + 1];
+      const next: string | undefined = queue[0];
       if (next !== undefined && !next.startsWith("--")) {
         flags.set(name, next);
-        index += 1;
+        queue.shift();
       } else {
         flags.set(name, true);
       }
@@ -158,13 +160,13 @@ function numberOrNull(value: unknown): number | null {
   return null;
 }
 
-function readContextValue(context: unknown, key: string): string | null {
+function readReferenceKeyFromContext(context: unknown): string | null {
   const record = asRecord(context);
   if (!record) return null;
-  const direct = stringOrNull(record[key]);
+  const direct = stringOrNull(record.reference_key);
   if (direct) return direct;
   const custom = asRecord(record.custom);
-  return custom ? stringOrNull(custom[key]) : null;
+  return custom ? stringOrNull(custom.reference_key) : null;
 }
 
 function readTagReferenceKey(tags: unknown): string | null {
@@ -179,7 +181,7 @@ function readTagReferenceKey(tags: unknown): string | null {
 export function normalizeProviderCandidate(resource: unknown): ProviderReferenceCandidate | null {
   const value = asRecord(resource);
   if (!value) return null;
-  const referenceKey = readContextValue(value.context, "reference_key") ?? readTagReferenceKey(value.tags);
+  const referenceKey = readReferenceKeyFromContext(value.context) ?? readTagReferenceKey(value.tags);
   if (!referenceKey) return null;
   return {
     referenceKey,
@@ -305,12 +307,12 @@ async function loadApprovedKeySet(
 function usage(deps: ReferenceLibraryDeps): number {
   deps.log(
     [
-      "usage: reference-library <command>",
-      "  prepare <manifest>                                  validate + confirm candidate files exist",
-      "  upload <manifest> [--replace]                       upload authenticated candidates (never approves)",
+      "usage: reference-library [command]",
+      "  prepare [manifest]                                  validate + confirm candidate files exist",
+      "  upload [manifest] [--replace]                       upload authenticated candidates (never approves)",
       "  validate                                            verify uploaded candidate identities",
-      "  approve <referenceKey> --approved-by <uuid> --manifest <manifest>   record the exact approved mapping",
-      "  reject <referenceKey>                               record a rejection (no Supabase write)",
+      "  approve [referenceKey] --approved-by [uuid] --manifest [manifest]   record the exact approved mapping",
+      "  reject [referenceKey]                               record a rejection (no Supabase write)",
       "  status                                              approved/pending/missing/orphaned coverage",
     ].join("\n"),
   );
@@ -385,6 +387,26 @@ async function commandValidate(deps: ReferenceLibraryDeps): Promise<number> {
   return failures === 0 ? 0 : 1;
 }
 
+async function resolveApprovalContext(
+  referenceKey: string,
+  manifestPath: string,
+  deps: ReferenceLibraryDeps,
+): Promise<
+  { ok: true; candidate: ReferenceCandidate; uploaded: ProviderReferenceCandidate; catalogId: string } | { ok: false; detail: string }
+> {
+  const loaded = await loadValidManifest(manifestPath, deps);
+  if (!loaded.ok) return { ok: false, detail: loaded.detail };
+  const candidate = loaded.manifest.candidates.find((item) => item.referenceKey === referenceKey);
+  if (!candidate) return { ok: false, detail: `reference ${referenceKey} is not in the manifest` };
+  const provider = await deps.listProviderCandidates();
+  const uploaded = provider.find((item) => item.referenceKey === referenceKey);
+  if (!uploaded) return { ok: false, detail: `reference ${referenceKey} has no uploaded candidate; run upload first` };
+  const catalog = await deps.loadCatalog();
+  const catalogRow = catalog.find((row) => row.referenceKey === referenceKey);
+  if (!catalogRow) return { ok: false, detail: `reference ${referenceKey} is not a canonical catalog reference` };
+  return { ok: true, candidate, uploaded, catalogId: catalogRow.id };
+}
+
 async function commandApprove(
   referenceKey: string,
   approvedBy: string | null,
@@ -392,38 +414,21 @@ async function commandApprove(
   deps: ReferenceLibraryDeps,
 ): Promise<number> {
   if (!approvedBy) {
-    deps.stderr("approve requires --approved-by <uuid> (the human approver)");
+    deps.stderr("approve requires --approved-by [uuid] (the human approver)");
     return 1;
   }
   if (!manifestPath) {
-    deps.stderr("approve requires --manifest <manifest> to bind provenance");
+    deps.stderr("approve requires --manifest [manifest] to bind provenance");
     return 1;
   }
-  const loaded = await loadValidManifest(manifestPath, deps);
-  if (!loaded.ok) {
-    deps.stderr(`approve failed: ${loaded.detail}`);
+  const resolved = await resolveApprovalContext(referenceKey, manifestPath, deps);
+  if (!resolved.ok) {
+    deps.stderr(`approve failed: ${resolved.detail}`);
     return 1;
   }
-  const candidate = loaded.manifest.candidates.find((item) => item.referenceKey === referenceKey);
-  if (!candidate) {
-    deps.stderr(`reference ${referenceKey} is not in the manifest`);
-    return 1;
-  }
-  const provider = await deps.listProviderCandidates();
-  const uploaded = provider.find((item) => item.referenceKey === referenceKey);
-  if (!uploaded) {
-    deps.stderr(`reference ${referenceKey} has no uploaded candidate; run upload first`);
-    return 1;
-  }
-  const mapping = buildApprovedReferenceMapping(candidate, uploaded);
+  const mapping = buildApprovedReferenceMapping(resolved.candidate, resolved.uploaded);
   if (!mapping.ok) {
     deps.stderr(`cannot approve ${referenceKey}: ${mapping.detail}`);
-    return 1;
-  }
-  const catalog = await deps.loadCatalog();
-  const catalogRow = catalog.find((row) => row.referenceKey === referenceKey);
-  if (!catalogRow) {
-    deps.stderr(`reference ${referenceKey} is not a canonical catalog reference`);
     return 1;
   }
   deps.log(
@@ -431,7 +436,7 @@ async function commandApprove(
       `v${mapping.mapping.version} (${mapping.mapping.format}) provenance=${mapping.mapping.provenanceSource} approved_by=${approvedBy}`,
   );
   await deps.recordApprovedMapping({
-    referenceId: catalogRow.id,
+    referenceId: resolved.catalogId,
     cloudinaryAssetId: mapping.mapping.cloudinaryAssetId,
     publicId: mapping.mapping.publicId,
     version: mapping.mapping.version,
@@ -467,23 +472,28 @@ async function commandStatus(deps: ReferenceLibraryDeps): Promise<number> {
 export async function runCli(argv: string[], deps: ReferenceLibraryDeps): Promise<number> {
   const { command, positional, flags } = parseArgs(argv);
   const first = positional[0] ?? "";
-  switch (command) {
-    case "prepare":
-      return first ? commandPrepare(first, deps) : usage(deps);
-    case "upload":
-      return first ? commandUpload(first, flags.has("replace"), deps) : usage(deps);
-    case "validate":
-      return commandValidate(deps);
-    case "approve":
-      return first
-        ? commandApprove(first, stringFlag(flags, "approved-by"), stringFlag(flags, "manifest"), deps)
-        : usage(deps);
-    case "reject":
-      return first ? commandReject(first, deps) : usage(deps);
-    case "status":
-      return commandStatus(deps);
-    default:
-      return usage(deps);
+  try {
+    switch (command) {
+      case "prepare":
+        return first ? commandPrepare(first, deps) : usage(deps);
+      case "upload":
+        return first ? commandUpload(first, flags.has("replace"), deps) : usage(deps);
+      case "validate":
+        return commandValidate(deps);
+      case "approve":
+        return first
+          ? commandApprove(first, stringFlag(flags, "approved-by"), stringFlag(flags, "manifest"), deps)
+          : usage(deps);
+      case "reject":
+        return first ? commandReject(first, deps) : usage(deps);
+      case "status":
+        return commandStatus(deps);
+      default:
+        return usage(deps);
+    }
+  } catch (error) {
+    deps.stderr(`reference library command failed: ${safeErrorMessage(error)}`);
+    return 1;
   }
 }
 
@@ -492,7 +502,9 @@ export function createRuntimeDeps(): ReferenceLibraryDeps {
   return {
     log: (message) => process.stdout.write(`${message}\n`),
     stderr: (message) => process.stderr.write(`${message}\n`),
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- operator-supplied manifest path
     readManifest: async (path) => JSON.parse(await readFile(resolve(path), "utf8")) as unknown,
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- operator-supplied manifest path
     fileExists: (path) => existsSync(resolve(path)),
     listProviderCandidates: listProviderCandidatesFromCloudinary,
     uploadCandidate: uploadCandidateToCloudinary,

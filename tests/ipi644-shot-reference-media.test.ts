@@ -394,6 +394,8 @@ describe("IPI-644 ships the migration + isolated SQL security suite", () => {
     expect(migration).toMatch(/rights_status = 'approved_for_reference'/);
     expect(migration).toMatch(/security_invoker = true/);
     expect(migration).toMatch(/reference_key is immutable/);
+    expect(migration).toMatch(/shot_type_references_reference_key_format/);
+    expect(migration).toMatch(/lower_snake_case form with a permanent CHECK/);
     expect(migration).toMatch(/service_role only/);
 
     const acl = await readFile(aclPath, "utf8");
@@ -402,7 +404,11 @@ describe("IPI-644 ships the migration + isolated SQL security suite", () => {
     expect(acl).toMatch(/authenticated may only SELECT the reference view/);
     expect(acl).toMatch(/provider identity\/version must not be exposed/);
     expect(acl).toMatch(/reference_key must be immutable/);
+    expect(acl).toMatch(/reference_key must reject blank or non-canonical keys/);
+    expect(acl).toMatch(/reference media functions must stay SECURITY DEFINER/);
     expect(acl).toMatch(/anon must not EXECUTE the reference media functions/);
     expect(acl).toMatch(/authenticated must not EXECUTE the reference media resolver/);
+    expect(acl).toMatch(/only human-approved mappings may be recorded/);
+    expect(acl).toMatch(/service_role owns the reference media recorder/);
   });
 });

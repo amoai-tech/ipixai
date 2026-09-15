@@ -80,6 +80,14 @@ alter table shoot.shot_type_references
 alter table shoot.shot_type_references
   add constraint shot_type_references_reference_key_key unique (reference_key);
 
+-- reference_key is a stable logical identity, not free text. The one-time
+-- backfill guard above runs only at migration time, so pin the canonical
+-- lower_snake_case form with a permanent CHECK: a blank, whitespace-only, or
+-- display-formatted key can never be stored by any insert or privileged update.
+alter table shoot.shot_type_references
+  add constraint shot_type_references_reference_key_format
+  check (reference_key ~ '^[a-z0-9_]+$');
+
 -- reference_key must be immutable: it is the stable logical identity that
 -- persists across environments, and downstream consumers may persist it. A
 -- privileged UPDATE must not silently re-key an existing catalog row (that
