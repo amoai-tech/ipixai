@@ -5,18 +5,16 @@
  * Both suites must exercise the real Planner against the exact same read
  * contract, so the mocked client lives here once instead of being copied:
  *
- * - `from(...).select/order/limit(...)` resolves the configured rows, which
- *   is all the trusted-reference reader and channel-specs loader need.
+ * - `from(...).select/eq/in/order/limit(...)` resolves table-specific rows,
+ *   covering both the trusted-reference reader and the normal channel-spec path.
  * - `insert/update/upsert/delete/rpc` are recorded in `mutatingCalls` so the
  *   zero-write assertion can prove the planning path never writes.
  * - `available: false` models "no Supabase session", and `error` models a
  *   failed read — both must fail closed to a reference gap, never to
  *   invented data.
- *
- * Deliberately NOT modelled: `eq`. The trusted-reference reader's query chain
- * does not use it, and channel-specs falls back to the documented
- * `ipix_default` specs when the chain throws — the suites accept that benign
- * fallback log.
+ * The filters are chain-compatible no-ops because each test already supplies
+ * only the rows that should match. This keeps the fake small while preventing
+ * an accidental missing query method from forcing production fallback logic.
  */
 
 export type SupabaseMockError = { message: string } | null;
@@ -25,6 +23,7 @@ export type SupabaseMockError = { message: string } | null;
 export const supabaseMock = {
   available: true,
   rows: [] as unknown[],
+  tables: {} as Record<string, unknown[]>,
   error: null as SupabaseMockError,
   mutatingCalls: [] as string[],
 };
@@ -33,6 +32,7 @@ export const supabaseMock = {
 export function resetSupabaseMock(): void {
   supabaseMock.available = true;
   supabaseMock.rows = [];
+  supabaseMock.tables = {};
   supabaseMock.error = null;
   supabaseMock.mutatingCalls = [];
 }
@@ -47,13 +47,18 @@ export function supabaseMockModule() {
     createClient: async () => {
       if (!supabaseMock.available) return null;
       return {
-        from: () => {
+        from: (table: string) => {
+          const tableRows = table === "shot_type_references_view"
+            ? supabaseMock.rows
+            : (supabaseMock.tables[table] ?? []);
           const result = {
-            data: supabaseMock.error ? null : supabaseMock.rows,
+            data: supabaseMock.error ? null : tableRows,
             error: supabaseMock.error,
           };
           const chain = {
             select: () => chain,
+            eq: () => chain,
+            in: () => chain,
             order: () => chain,
             limit: () => chain,
             insert: (...args: unknown[]) => {

@@ -35,6 +35,25 @@ import { ShootPlanSchema } from "../src/mastra/tools/plan-schema";
 const PLAN_001_BRIEF =
   "Plan a Shopify + Instagram shoot for our new linen dress collection. Photos only, launching next month.";
 
+const CHANNEL_SPEC_TABLES = {
+  recommendation_rules: [
+    { condition_value: "shopify", platform_slugs: ["shopify"], image_type_slugs: ["product"] },
+    { condition_value: "instagram_feed", platform_slugs: ["instagram"], image_type_slugs: ["feed"] },
+  ],
+  platforms: [
+    { id: "p-shopify", slug: "shopify" },
+    { id: "p-instagram", slug: "instagram" },
+  ],
+  image_type_defs: [
+    { id: "i-product", slug: "product" },
+    { id: "i-feed", slug: "feed" },
+  ],
+  image_specs: [
+    { platform_id: "p-shopify", image_type_id: "i-product", aspect_ratio_label: "1:1", accepted_formats: ["JPG"], background_required: "pure_white" },
+    { platform_id: "p-instagram", image_type_id: "i-feed", aspect_ratio_label: "4:5", accepted_formats: ["JPG"], background_required: null },
+  ],
+};
+
 const TRUSTED_ROWS = [
   {
     id: "ref-clothing-pdp",
@@ -146,6 +165,7 @@ describe("Planner turn gate — the real PLAN-001 shoot brief stays planning-onl
 describe("Production Planner runtime — one NL brief executes composeShootPlan", () => {
   it("runs composeShootPlan for the real Shopify + Instagram linen dress brief and returns a schema-valid ShootPlan", async () => {
     supabaseMock.rows = TRUSTED_ROWS;
+    supabaseMock.tables = CHANNEL_SPEC_TABLES;
     const model = scriptedModel(COMPOSE_ARGS, "Here is your shoot plan.");
     productionPlannerAgent.__updateModel({ model });
 
@@ -167,6 +187,7 @@ describe("Production Planner runtime — one NL brief executes composeShootPlan"
     const plan = ShootPlanSchema.parse(captured.result);
     expect(plan.channels).toEqual(expect.arrayContaining(["shopify", "instagram_feed"]));
     expect(plan.deliverablesResult.deliverables.length).toBeGreaterThan(0);
+    expect(plan.deliverablesResult.deliverables.some((d) => d.formatSource === "ipix_reference_v1")).toBe(true);
     expect(plan.shotListResult?.shots.length ?? 0).toBeGreaterThan(0);
     expect(plan.referencesUsed.length).toBeGreaterThan(0);
     expect(["complete", "needs_input"]).toContain(plan.status);
@@ -184,6 +205,7 @@ describe("Production Planner runtime — one NL brief executes composeShootPlan"
 
   it("fails closed to needs_input with no trusted references instead of inventing shots", async () => {
     supabaseMock.rows = [];
+    supabaseMock.tables = CHANNEL_SPEC_TABLES;
     const model = scriptedModel(COMPOSE_ARGS, "I need more inputs.");
     productionPlannerAgent.__updateModel({ model });
 
