@@ -4,6 +4,7 @@ import {
   createCopilotEndpoint,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
+// IPI-1213 certification control: preserve the supported CopilotKit v2 runtime surface.
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { createLocalAgents } from "@/agent";
 import {
