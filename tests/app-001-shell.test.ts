@@ -40,12 +40,24 @@ vi.mock("../src/components/operator-panel/operator-panel.module.css", () => ({
   default: new Proxy({}, { get: (_, key) => String(key) }),
 }));
 
+// IPI-1217: PlannerChatDock now also renders RestoreMastraHistory, which
+// transitively imports @/components/ui/error-state and its CSS module —
+// this test's plain-node Vitest config can't load that CSS pipeline, and
+// this file only asserts route/layout wiring, not history-restore
+// behavior (see operator-panel.test.tsx for that coverage).
+vi.mock("../src/components/restore-mastra-history", () => ({
+  RestoreMastraHistory: () => null,
+}));
+
 // @copilotkit/react-core/v2's package entry pulls in its own bundled CSS,
 // which this repo's plain-node Vitest config (no CSS transform) can't load.
 // Stubbed here — these tests assert route/layout wiring, not CopilotKit's
 // internals (see operator-panel.test.tsx for the same stub).
 vi.mock("@copilotkit/react-core/v2", () => ({
   CopilotKit: ({ children }: { children: React.ReactNode }) => createElement("div", null, children),
+  // IPI-1217: PlannerChatDock now also calls useAgent() for its welcome-copy
+  // gating — needed here too or the real hook throws on the undefined mock.
+  useAgent: () => ({ agent: { messages: [] } }),
   CopilotChat: () => createElement("div", { "data-testid": "copilot-chat-stub" }),
 }));
 

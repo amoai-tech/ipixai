@@ -1,4 +1,23 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+import { plannerThreadStorageKey } from "../src/mastra/thread-types";
+
+/** Reads the thread PlannerChatDock/PlannerThreadsDrawer persisted for the
+ *  currently authenticated resource. Resolve resourceId from the same
+ *  tenant-scoped server endpoint the UI uses, then read that exact storage
+ *  key so a stale key from another resource cannot satisfy the assertion. */
+async function getStoredPlannerThreadId(page: Page): Promise<string | null> {
+  const response = await page.request.get("/api/planner/threads");
+  expect(response.ok(), "authenticated planner thread list should load").toBe(true);
+  const body = (await response.json()) as { resourceId?: unknown };
+  const resourceId = typeof body.resourceId === "string" ? body.resourceId : "";
+  expect(resourceId, "planner thread list should identify the active resource").not.toBe("");
+
+  return page.evaluate(
+    (storageKey) => window.localStorage.getItem(storageKey),
+    plannerThreadStorageKey(resourceId),
+  );
+}
 
 // Makes one real configured OpenAI-model call through the hosted Production Planner agent —
 // see e2e/login-journey.spec.ts for the precedent of a real hosted call
@@ -98,7 +117,7 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
   // probabilistic model decision (Mastra's agent owns tool selection, not
   // the caller); that's a job for composeShootPlan's own tool-level tests,
   // not this browser/transport-health test.
-  test("operator gets a Planner response for the real shoot-brief regression @Td9c2e211", async ({
+  test("operator gets a real shoot-plan response from /app and it survives reload @Td9c2e211", async ({
     page,
   }) => {
     // Longer than the budget test's timeout: this prompt can trigger
@@ -112,30 +131,24 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
     // conversation restores after reload.
     const prompt = `Plan a Shopify product shoot for our new linen dress collection. Photos only, launching next month. [${runMarker}]`;
 
-    await page.goto("/planner");
-    await expect(page.getByText("Loading…")).toHaveCount(0, { timeout: NAV_TIMEOUT_MS });
+    await page.goto("/app");
     await expect(page.getByRole("status", { name: "Loading conversation…" })).toHaveCount(0, {
       timeout: NAV_TIMEOUT_MS,
     });
 
-    await page.getByRole("button", { name: "New" }).click();
-
-    const toggle = page.getByTestId("copilot-chat-toggle");
-    if ((await toggle.getAttribute("aria-pressed")) !== "true") {
-      await toggle.click();
-    }
-
-    const textarea = page.getByTestId("copilot-chat-textarea");
+    const chatDock = page.getByTestId("operator-chat-dock");
+    await expect(chatDock).toBeVisible({ timeout: NAV_TIMEOUT_MS });
+    const textarea = chatDock.getByTestId("copilot-chat-textarea");
     await textarea.click();
     await textarea.fill(prompt);
-    await page.getByTestId("copilot-send-button").click();
+    await chatDock.getByTestId("copilot-send-button").click();
 
     // The entire point of this test: some real assistant response must
     // appear. The live incident's exact symptom was silence — no response,
     // no error — after this same prompt, so simply reaching a non-empty
     // assistant message is the decisive assertion here.
-    const assistantMessages = page.getByTestId("copilot-assistant-message");
-    await expect(assistantMessages.last()).not.toHaveText("", {
+    const assistantMessages = chatDock.getByTestId("copilot-assistant-message");
+    await expect(assistantMessages.last()).toHaveText(/\S/, {
       timeout: PLAN_RESPONSE_TIMEOUT_MS,
     });
     const responseText = await assistantMessages.last().innerText();
@@ -143,13 +156,96 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
       0,
     );
 
-    // Persistence: same shape of check as the budget test above.
+    // Preserve IPI-1217's thread-lifecycle contract while proving PLAN-001 on
+    // the real production surface: the same tenant-scoped thread must survive
+    // reload and restore this exact planning turn.
+    const resolvedThreadId = await getStoredPlannerThreadId(page);
+    expect(resolvedThreadId, "PlannerChatDock should persist the active thread before reload").not.toBeNull();
+
+    await page.reload();
+    await expect(page.getByRole("status", { name: "Loading conversation…" })).toHaveCount(0, {
+      timeout: NAV_TIMEOUT_MS,
+    });
+    await expect(page.getByTestId("operator-chat-dock").getByTestId("copilot-user-message").last()).toContainText(
+      runMarker,
+      { timeout: NAV_TIMEOUT_MS },
+    );
+    await expect(page.getByTestId("operator-chat-dock").getByTestId("copilot-assistant-message").last()).toHaveText(
+      /\S/,
+      { timeout: NAV_TIMEOUT_MS },
+    );
+    expect(await getStoredPlannerThreadId(page), "reload must keep the same tenant-scoped Planner thread").toBe(
+      resolvedThreadId,
+    );
+  });
+
+  // IPI-1217 · COPILOT-APP-DOCK-002 — regression coverage for /app's
+  // embedded chat dock. Proven live (11/11 fresh-context attempts): the
+  // network run completes (RUN_STARTED/RUN_FINISHED) but the visible
+  // CopilotChat stayed at messages.length === 0 forever, because /app never
+  // passed CopilotChat an explicit threadId. This deliberately lives beside
+  // the /planner tests above (not in e2e/dashboard.spec.ts) because it makes
+  // the same real, paid Production Planner call — dashboard.spec.ts is
+  // matched by the default chromium/mobile-chromium projects the required
+  // playwright-e2e CI job runs on every PR, and putting a real LLM call
+  // there would reintroduce the hosted-provider CI dependency this file is
+  // already isolated from (see playwright.config.ts's chromium-ai-smoke
+  // project). No toggle click here, unlike /planner's CopilotSidebar case
+  // above: /app's chat is an inline CopilotChat, always visible once
+  // mounted, not a collapsed popup.
+  test("operator gets a real response from /app's embedded chat, and it survives reload @Tb1e0f4a2", async ({
+    page,
+  }) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
+
+    const runMarker = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const prompt = `Say hello and repeat this marker back to me: [${runMarker}]`;
+
+    await page.goto("/app");
+    await expect(page.getByRole("status", { name: "Loading conversation…" })).toHaveCount(0, {
+      timeout: NAV_TIMEOUT_MS,
+    });
+
+    const textarea = page.getByTestId("copilot-chat-textarea");
+    await textarea.click();
+    await textarea.fill(prompt);
+    await page.getByTestId("copilot-send-button").click();
+
+    // The user's own message must stay visible (not just accepted) and a
+    // real, non-empty assistant response must appear — the exact outcome
+    // that silently failed before this fix, with no console/page error.
+    await expect(page.getByTestId("copilot-user-message").last()).toContainText(runMarker, {
+      timeout: NAV_TIMEOUT_MS,
+    });
+    // /\S/ (not just "not empty string") so a whitespace-only response
+    // can't pass as a real answer — not.toHaveText("") only rejects an
+    // exactly-empty string.
+    const assistantMessages = page.getByTestId("copilot-assistant-message");
+    await expect(assistantMessages.last()).toHaveText(/\S/, {
+      timeout: RESPONSE_TIMEOUT_MS,
+    });
+
+    // Explicit thread-identity proof, not just an inferred one: /app has no
+    // "New" button, so on a shared QA account with other threads created
+    // moments earlier by the tests above, the resolved thread is whichever
+    // one plannerThreadStorageKey pins in localStorage — capture it here so
+    // a future regression that silently resolves a *different* thread after
+    // reload (rather than a message simply not appearing) fails on this
+    // assertion specifically, not just on the visible-text checks below.
+    const resolvedThreadId = await getStoredPlannerThreadId(page);
+    expect(resolvedThreadId, "PlannerChatDock should have persisted a resolved threadId by now").not.toBeNull();
+
+    // Persistence: reload restores the same conversation under the same
+    // resolved thread, matching the /planner precedent above.
     await page.reload();
     await expect(page.getByTestId("copilot-user-message").last()).toContainText(runMarker, {
       timeout: NAV_TIMEOUT_MS,
     });
-    await expect(page.getByTestId("copilot-assistant-message").last()).not.toHaveText("", {
+    await expect(page.getByTestId("copilot-assistant-message").last()).toHaveText(/\S/, {
       timeout: NAV_TIMEOUT_MS,
     });
+    expect(await getStoredPlannerThreadId(page), "reload must resolve the identical thread, not a different one").toBe(
+      resolvedThreadId,
+    );
   });
 });
