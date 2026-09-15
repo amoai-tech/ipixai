@@ -12,6 +12,11 @@ vi.mock("../ui/empty-state.module.css", () => ({
   default: new Proxy({}, { get: (_, key) => String(key) }),
 }));
 
+const { refreshMock } = vi.hoisted(() => ({ refreshMock: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: refreshMock }),
+}));
+
 import type { ShootDetail } from "@/lib/shoot/get-shoot-detail";
 import { ShootDetailWorkspace } from "./shoot-detail-workspace";
 
@@ -62,6 +67,9 @@ const DETAIL: ShootDetail = {
       id: "55555555-5555-4555-8555-555555555555",
       url: null,
       cloudinary_id: "cld:asset:1",
+      cloudinary_asset_id: "prov-asset-1",
+      version: 1,
+      approval: "pending",
       format: "jpg",
       resource_type: "image",
       width: 4000,
@@ -92,6 +100,9 @@ const DETAIL_WITH_VIDEO: ShootDetail = {
       id: "55555555-5555-4555-8555-555555555555",
       url: null,
       cloudinary_id: "cld:asset:1",
+      cloudinary_asset_id: "prov-asset-1",
+      version: 1,
+      approval: "pending",
       format: "jpg",
       resource_type: "image",
       width: 4000,
@@ -104,6 +115,9 @@ const DETAIL_WITH_VIDEO: ShootDetail = {
       id: "66666666-6666-4666-8666-666666666666",
       url: null,
       cloudinary_id: "cld:asset:2",
+      cloudinary_asset_id: "prov-asset-2",
+      version: 1,
+      approval: "pending",
       format: "mp4",
       resource_type: "video",
       width: 1920,
@@ -325,5 +339,86 @@ describe("ShootDetailWorkspace", () => {
     expect(screen.getByText("No crew yet")).toBeDefined();
     screen.getByRole("tab", { name: "Assets" }).click();
     expect(screen.getByText("No assets yet")).toBeDefined();
+  });
+
+  it("approves the exact reviewed asset version and reflects the durable decision", async () => {
+    const assetId = "55555555-5555-4555-8555-555555555555";
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/preview")) {
+        return {
+          ok: true,
+          json: async () => ({
+            url: "https://res.cloudinary.com/demo/image/upload/v123/signed-preview.jpg",
+          }),
+        } as Response;
+      }
+      if (url.includes("/decision")) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, code: "APPROVED", approval: "approved" }),
+        } as Response;
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+
+    render(<ShootDetailWorkspace detail={DETAIL} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Assets" }));
+
+    const approveBtn = await screen.findByRole("button", { name: /Approve/ });
+    expect(screen.getByTestId(`asset-approval-${assetId}`).textContent).toBe("Pending");
+
+    fireEvent.click(approveBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`asset-approval-${assetId}`).textContent).toBe("Approved");
+    });
+
+    const decisionCall = vi
+      .mocked(fetch)
+      .mock.calls.find(([url]) => String(url).includes("/decision"));
+    expect(decisionCall).toBeDefined();
+    const body = JSON.parse((decisionCall?.[1] as RequestInit).body as string);
+    expect(body.decision).toBe("approved");
+    expect(body.expectedCloudinaryAssetId).toBe("prov-asset-1");
+    expect(body.expectedVersion).toBe(1);
+    expect(typeof body.requestId).toBe("string");
+  });
+
+  it("shows the stale-version warning instead of retrying against the newer version", async () => {
+    const assetId = "55555555-5555-4555-8555-555555555555";
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/preview")) {
+        return {
+          ok: true,
+          json: async () => ({
+            url: "https://res.cloudinary.com/demo/image/upload/v123/signed-preview.jpg",
+          }),
+        } as Response;
+      }
+      if (url.includes("/decision")) {
+        return {
+          ok: false,
+          json: async () => ({ error: "error", reason: "stale_version" }),
+        } as Response;
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+
+    render(<ShootDetailWorkspace detail={DETAIL} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Assets" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: /Approve/ }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`asset-stale-${assetId}`)).toBeDefined();
+    });
+    // The decision was never auto-retried against the newer version.
+    const decisionCalls = vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => String(url).includes("/decision"));
+    expect(decisionCalls.length).toBe(1);
+    expect(refreshMock).not.toHaveBeenCalled();
   });
 });

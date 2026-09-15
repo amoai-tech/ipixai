@@ -4722,6 +4722,17 @@ export type Database = {
         Args: { p_deal_id: string; p_stage: string }
         Returns: undefined
       }
+      decide_asset_version: {
+        Args: {
+          p_asset_id: string
+          p_decision: string
+          p_expected_cloudinary_asset_id: string
+          p_expected_version: number
+          p_reason: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
       expire_stale_bookings: { Args: never; Returns: number }
       expire_stale_brand_analysis: { Args: never; Returns: number }
       get_booking: { Args: { p_booking_id: string }; Returns: Json }

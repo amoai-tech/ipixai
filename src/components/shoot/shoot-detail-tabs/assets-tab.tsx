@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ImageIcon, VideoIcon, FileIcon, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ImageIcon, VideoIcon, FileIcon, RotateCcw, ChevronDown, ChevronUp, Check, X } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import type { ShootDetail } from "@/lib/shoot/get-shoot-detail";
@@ -60,6 +61,11 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
   const [qaResult, setQaResult] = useState<QAAssetResult | null>(null);
   const [qaLoading, setQaLoading] = useState(false);
   const [qaError, setQaError] = useState<string | null>(null);
+  const [approval, setApproval] = useState<string | null>(asset.approval ?? null);
+  const [decisionPending, setDecisionPending] = useState(false);
+  const [decisionError, setDecisionError] = useState<string | null>(null);
+  const [staleWarning, setStaleWarning] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (!isImage) {
@@ -122,6 +128,45 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
     }
   };
 
+  const hasExactVersion =
+    typeof asset.cloudinary_asset_id === "string" &&
+    asset.cloudinary_asset_id.length > 0 &&
+    asset.version !== null &&
+    asset.version !== undefined;
+
+  const decisionFinal = approval === "approved" || approval === "rejected";
+
+  const handleDecision = async (decision: "approved" | "rejected") => {
+    if (!hasExactVersion) return;
+    setDecisionPending(true);
+    setDecisionError(null);
+    setStaleWarning(false);
+    try {
+      const res = await fetch(`/api/assets/${asset.id}/decision`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          decision,
+          expectedCloudinaryAssetId: asset.cloudinary_asset_id,
+          expectedVersion: asset.version,
+          requestId: crypto.randomUUID(),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data.reason === "stale_version") {
+          setStaleWarning(true);
+          return;
+        }
+        throw new Error(data.reason || "Decision failed");
+      }
+      setApproval(typeof data.approval === "string" ? data.approval : decision);
+    } catch (err) {
+      setDecisionError(err instanceof Error ? err.message : "Decision failed");
+    } finally {
+      setDecisionPending(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -223,6 +268,90 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
             error={qaError}
             onRunQA={runQA}
           />
+        )}
+      </div>
+      <div className="mt-3 pt-3 border-t border-gray-200">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            Approval
+          </span>
+          <span
+            data-testid={`asset-approval-${asset.id}`}
+            className={
+              approval === "approved"
+                ? "rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800"
+                : approval === "rejected"
+                  ? "rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800"
+                  : "rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700"
+            }
+          >
+            {approval === "approved"
+              ? "Approved"
+              : approval === "rejected"
+                ? "Rejected"
+                : "Pending"}
+          </span>
+        </div>
+
+        {hasExactVersion ? (
+          <p className="mb-2 text-xs text-gray-500">
+            Version {String(asset.version)} · {asset.cloudinary_asset_id?.slice(0, 12)}…
+          </p>
+        ) : (
+          <p className="mb-2 text-xs text-gray-500">
+            Exact version unavailable — approval is disabled until the provider version is known.
+          </p>
+        )}
+
+        {staleWarning && (
+          <div
+            role="alert"
+            data-testid={`asset-stale-${asset.id}`}
+            className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800"
+          >
+            This asset changed while you were reviewing it. Review the newest version before
+            deciding.
+            <button
+              type="button"
+              onClick={() => router.refresh()}
+              className="ml-2 font-semibold underline"
+            >
+              Refresh
+            </button>
+          </div>
+        )}
+
+        {decisionError && (
+          <p role="alert" className="mb-2 text-xs text-red-700">
+            {decisionError}
+          </p>
+        )}
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={!hasExactVersion || decisionPending || decisionFinal}
+            onClick={() => handleDecision("approved")}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-sm text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Check className="h-4 w-4" aria-hidden />
+            Approve
+          </button>
+          <button
+            type="button"
+            disabled={!hasExactVersion || decisionPending || decisionFinal}
+            onClick={() => handleDecision("rejected")}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <X className="h-4 w-4" aria-hidden />
+            Reject
+          </button>
+        </div>
+
+        {decisionFinal && (
+          <p className="mt-2 text-xs text-gray-500">
+            Decision is final for this exact version. A newer uploaded version returns to Pending.
+          </p>
         )}
       </div>
     </article>

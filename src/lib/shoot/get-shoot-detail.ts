@@ -351,6 +351,12 @@ const shootDetailSchema = z.object({
       id: z.string(),
       url: z.string().nullable(),
       cloudinary_id: z.string().nullable(),
+      // IPI-1119 — immutable provider identity + exact version + convenience
+      // approval. `version` is bigint in Postgres; accept number or string so
+      // the contract is robust to either JSON encoding.
+      cloudinary_asset_id: z.string().nullable(),
+      version: z.union([z.number(), z.string()]).nullable(),
+      approval: z.string().nullable(),
       format: z.string().nullable(),
       resource_type: z.string().nullable(),
       width: z.number().nullable(),
