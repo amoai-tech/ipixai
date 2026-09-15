@@ -215,6 +215,19 @@ describe("resolvePlannerThreadId", () => {
     );
   });
 
+  it("treats an empty stored value as stale instead of resuming another conversation", () => {
+    const next = resolvePlannerThreadId([rowA, rowB], "");
+    expect(next).not.toBe(rowA.id);
+    expect(next).not.toBe(rowB.id);
+    expect(next).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+  });
+
+  it("treats an undefined stored value as missing and resumes the listed conversation", () => {
+    expect(resolvePlannerThreadId([rowA, rowB], undefined)).toBe(rowA.id);
+  });
+
   it("does not reuse a stored id when the list is empty", () => {
     const next = resolvePlannerThreadId([], orphan);
     expect(next).not.toBe(orphan);

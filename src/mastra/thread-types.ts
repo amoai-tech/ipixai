@@ -27,9 +27,9 @@ export function plannerThreadStorageKey(resourceId: string) {
  */
 export function resolvePlannerThreadId(
   rows: Array<{ id: string }>,
-  stored: string | null,
+  stored: string | null | undefined,
 ): string {
-  if (stored) {
+  if (stored != null) {
     if (rows.some((row) => row.id === stored)) return stored;
     return crypto.randomUUID();
   }
