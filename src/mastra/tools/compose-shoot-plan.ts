@@ -48,6 +48,10 @@ const ComposeShootPlanInputSchema = z.object({
   productCategory: z.string().max(MAX_TEXT_LENGTH).optional(),
   brandDnaSummary: z.string().max(MAX_TEXT_LENGTH).optional(),
   styleKeywords: z.array(z.string().max(100)).max(50).optional(),
+  // Talent/model class used only to rank trusted references by compatibility
+  // (e.g. "human", "product", "flat"). Deliberately separate from `talent`
+  // below, which is free-text production detail, not a comparable class.
+  modelType: z.string().max(MAX_TEXT_LENGTH).optional(),
   productNames: z.array(z.string().max(MAX_TEXT_LENGTH)).max(MAX_PRODUCT_NAMES).optional(),
   shootType: ShootTypeSchema.optional(),
   mediaType: z.enum(["photo", "video", "both"]).optional(),
@@ -163,6 +167,9 @@ export async function composeShootPlan(input: ComposeShootPlanInput): Promise<Sh
             shootType: effectiveShootType,
             brandDnaSummary: input.brandDnaSummary,
             productNames: input.productNames,
+            productCategory: input.productCategory,
+            modelType: input.modelType,
+            styleKeywords: input.styleKeywords,
           },
           NO_CONTEXT,
         ),
