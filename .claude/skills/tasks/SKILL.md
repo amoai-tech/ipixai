@@ -7,7 +7,7 @@ description: >
   review-comment troubleshooting, and post-merge proof. Defines the task standard; it does not
   replace task-verifier Done checks.
 metadata:
-  version: "1.11.0"
+  version: "1.12.0"
 ---
 
 # tasks — iPix Linear task specification standard
@@ -89,6 +89,27 @@ After merge, read [post-merge.md](references/post-merge.md). Legacy `ipix-task-l
 ## Explicit action vocabulary
 
 Never use `adapt` by itself. Use: **COPY**, **COPY + CLEAN**, **COPY + CLEAN TOKENS**, **PORT**, **REIMPLEMENT USING CURRENT iPix PATTERN**, **EXTRACT + REUSE**, **COPY UI STRUCTURE + REWRITE DATA/WORKFLOW LOGIC**, **REWRITE**, **MOVE TO IPI-XXX · TASK-ID — Full Task Name**, or **DROP**.
+
+## Ticket decomposition — vertical slices first
+
+When a task must be split, prefer **tracer-bullet vertical slices** over layer-by-layer tickets. Each child ticket should deliver one narrow, complete, independently demoable or verifiable outcome across every layer it genuinely needs.
+
+Rules:
+- Each slice must fit in one fresh agent context when practical.
+- Declare real blocking edges explicitly; a ticket with no blockers may run in parallel.
+- Do not create separate "DB", "API", "UI", and "tests" tickets when none is useful alone.
+- Prefer the smallest end-to-end behavior: for example, "operator creates one shoot draft" may include schema/API/UI/tests in one ticket.
+- Prefactoring may be a prerequisite ticket when it makes the vertical slice materially simpler or safer.
+
+### Wide-refactor exception — expand → migrate → contract
+
+A wide mechanical refactor whose blast radius cannot stay green as a vertical slice should use **expand → migrate → contract** instead:
+
+1. **Expand:** introduce the new contract beside the old without breaking callers.
+2. **Migrate:** move callers in independently green batches sized by the real dependency graph.
+3. **Contract:** remove the old contract only after every migration batch is proven complete.
+
+If even migration batches cannot stay green independently, use an explicit integration branch and a final integrate-and-verify ticket. Do not pretend a horizontal breaking change is a tracer bullet.
 
 ## Required execution behavior
 
