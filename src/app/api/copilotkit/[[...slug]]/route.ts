@@ -4,6 +4,7 @@ import {
   createCopilotEndpoint,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
+// Keep this route on the CopilotKit v2 surface used by the app runtime and hooks.
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { createLocalAgents } from "@/agent";
 import {
