@@ -33,6 +33,7 @@ When the shape of that interface is itself in question (how deep the module is, 
 
 ## Rules of the loop
 
-- **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
-- **One slice at a time.** One seam, one test, one minimal implementation per cycle.
-- **Refactoring is not part of the loop.** It belongs to the review stage (see the `code-review` skill), not the red → green implementation cycle.
+- **Observed RED is mandatory.** Write one failing test, then **run it**. Run the test and confirm it fails for the expected reason: the missing behavior or reproduced bug, not a syntax/setup mistake. If it passes, the test does not prove the intended gap yet. **Do not write production code until that RED has been observed.**
+- **Minimal GREEN.** Implement only enough behavior to satisfy the current test. Run the same test and confirm GREEN, then run the smallest affected regression set. Fix production code rather than weakening a correct test.
+- **One slice at a time.** One seam, one test, one minimal implementation per cycle. Do not batch imagined tests ahead of the behavior they specify.
+- **Refactor only after GREEN.** Cleanup may happen only while the relevant tests remain green. For iPix, broader refactoring still belongs to the review stage (see the `code-review` skill), not as speculative work inside the red → green step.

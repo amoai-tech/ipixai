@@ -7,7 +7,7 @@ description: >
   review-comment troubleshooting, and post-merge proof. Defines the task standard; it does not
   replace task-verifier Done checks.
 metadata:
-  version: "1.12.0"
+  version: "1.13.0"
 ---
 
 # tasks — iPix Linear task specification standard
@@ -89,6 +89,16 @@ After merge, read [post-merge.md](references/post-merge.md). Legacy `ipix-task-l
 ## Explicit action vocabulary
 
 Never use `adapt` by itself. Use: **COPY**, **COPY + CLEAN**, **COPY + CLEAN TOKENS**, **PORT**, **REIMPLEMENT USING CURRENT iPix PATTERN**, **EXTRACT + REUSE**, **COPY UI STRUCTURE + REWRITE DATA/WORKFLOW LOGIC**, **REWRITE**, **MOVE TO IPI-XXX · TASK-ID — Full Task Name**, or **DROP**.
+
+## Implementation-shape gate
+
+Before implementation, classify the task by how much design uncertainty remains:
+
+- **Bounded:** the desired behavior, owning boundary, and acceptance proof are already clear. Use Graphify / `fastest` as applicable, then proceed directly to implementation and TDD. **Do not force brainstorming onto bounded work.**
+- **Ambiguous:** product behavior, scope, UX, ownership, or acceptance criteria still have meaningful alternatives. Use `brainstorming` when available; otherwise run the equivalent short design exploration directly in the live Linear task. Resolve the ambiguity and obtain explicit design approval before implementation. A separate implementation plan is optional unless the work is multi-step or cross-cutting.
+- **Architectural:** the change moves ownership, introduces a new system boundary/source of truth, changes a cross-system contract, or has multiple coupled implementation paths. Use `brainstorming` when available (otherwise perform the same design exploration in Linear), obtain **explicit design approval**, then use `writing-plans` to turn the approved design into dependency-ordered implementation steps before coding. If `writing-plans` is not yet available in the local skill set, write the equivalent concise implementation plan in the live Linear task using this skill's runbook format.
+
+Do not use brainstorming as ceremony after the design is already settled. If inspection proves a supposedly bounded task still contains a material product/architecture choice, reclassify it before coding.
 
 ## Ticket decomposition — vertical slices first
 
