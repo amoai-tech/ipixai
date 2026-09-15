@@ -95,11 +95,13 @@ const history: Message[] = [
  * is skipped, not any actual server-side logic.
  */
 class RunnerBackedAgent extends AbstractAgent {
+  private readonly runner: Pick<InMemoryAgentRunner, "connect">;
   constructor(
     config: ConstructorParameters<typeof AbstractAgent>[0],
-    private readonly runner: Pick<InMemoryAgentRunner, "connect">,
+    runner: Pick<InMemoryAgentRunner, "connect">,
   ) {
     super(config);
+    this.runner = runner;
   }
   run(_input: RunAgentInput): Observable<BaseEvent> {
     throw new Error("run() not exercised by this test");
@@ -110,11 +112,13 @@ class RunnerBackedAgent extends AbstractAgent {
 }
 
 class SeedAgent extends AbstractAgent {
+  private readonly seedMessages: Message[];
   constructor(
     config: ConstructorParameters<typeof AbstractAgent>[0],
-    private readonly seedMessages: Message[],
+    seedMessages: Message[],
   ) {
     super(config);
+    this.seedMessages = seedMessages;
   }
   run(input: RunAgentInput): Observable<BaseEvent> {
     const messages = this.seedMessages;
@@ -165,7 +169,7 @@ describe("IPI-1217: CopilotKit reconnect vs. RestoreMastraHistory (real library 
   it("restored history survives CopilotChat's real mount-time connect against a cold (never-ran-this-thread) TenantAbortRunner, via its durable-Mastra fallback", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ messages: history }) }),
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ messages: history }) }),
     );
     const historyAsChat: PlannerChatMessage[] = history as unknown as PlannerChatMessage[];
     vi.spyOn(threadPersistence, "getPlannerMemory").mockResolvedValue(
