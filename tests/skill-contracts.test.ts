@@ -1,44 +1,48 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, test } from "vitest";
+import { beforeAll, describe, expect, test } from "vitest";
 
 function readRepoFile(path: string) {
   return readFileSync(join(process.cwd(), path), "utf8");
 }
 
-const refactorPlan = readRepoFile(".claude/skills/refactor-plan/SKILL.md");
-const domainModeling = readRepoFile(".claude/skills/domain-modeling/SKILL.md");
-const adrFormat = readRepoFile(".claude/skills/domain-modeling/ADR-FORMAT.md");
-const tasks = readRepoFile(".claude/skills/tasks/SKILL.md");
-const mergeConflicts = readRepoFile(".claude/skills/resolving-merge-conflicts/SKILL.md");
+let refactorPlan: string;
+let domainModeling: string;
+let adrFormat: string;
+let tasks: string;
+let mergeConflicts: string;
 
 describe("iPix engineering skill contracts", () => {
+  beforeAll(() => {
+    refactorPlan = readRepoFile(".claude/skills/refactor-plan/SKILL.md");
+    domainModeling = readRepoFile(".claude/skills/domain-modeling/SKILL.md");
+    adrFormat = readRepoFile(".claude/skills/domain-modeling/ADR-FORMAT.md");
+    tasks = readRepoFile(".claude/skills/tasks/SKILL.md");
+    mergeConflicts = readRepoFile(".claude/skills/resolving-merge-conflicts/SKILL.md");
+  });
+
   test("refactor-plan continues when implementation was already requested", () => {
     expect(refactorPlan).toContain("If the user already asked to implement the refactor");
     expect(refactorPlan).toContain("continue without a second confirmation");
     expect(refactorPlan).toContain("If the user asked for planning only, stop after the plan and ask for confirmation");
   });
 
-  test("domain-modeling uses the iPix source hierarchy and context-owned ADR directories", () => {
-    const sourceOrder = [
-      "Live Supabase/runtime contracts",
-      "`docs/prd.md` and the product sitemap",
-      "Accepted ADRs in `docs/adr/`",
-      "Current `origin/main` implementation and generated types",
-      "Lumina/legacy docs only as reference",
-    ];
+  test("domain-modeling preserves the ordered iPix source hierarchy", () => {
+    expect(domainModeling).toContain(
+      [
+        "1. Live Supabase/runtime contracts when they are the durable source of truth.",
+        "2. `docs/prd.md` and the product sitemap for product language and scope.",
+        "3. Accepted ADRs in `docs/adr/`.",
+        "4. Current `origin/main` implementation and generated types.",
+        "5. Lumina/legacy docs only as reference, never as V2 authority.",
+      ].join("\n"),
+    );
+  });
 
-    let previousIndex = -1;
-    for (const source of sourceOrder) {
-      const index = domainModeling.indexOf(source);
-      expect(index).toBeGreaterThan(previousIndex);
-      previousIndex = index;
-    }
-
-    expect(adrFormat).toContain("If no root `CONTEXT-MAP.md` exists, use root `docs/adr/`");
-    expect(adrFormat).toContain("If `CONTEXT-MAP.md` exists and the decision belongs to one context");
-    expect(adrFormat).toContain("scan **that directory only**");
-    expect(adrFormat).toContain("independent sequences");
+  test("ADR format selects the owning directory and increments its local sequence", () => {
+    expect(adrFormat).toMatch(
+      /Choose the directory before numbering:[\s\S]*- If no root `CONTEXT-MAP\.md` exists, use root `docs\/adr\/`\.[\s\S]*- If `CONTEXT-MAP\.md` exists and the decision is system-wide or spans multiple contexts, use root `docs\/adr\/`\.[\s\S]*- If `CONTEXT-MAP\.md` exists and the decision belongs to one context, follow the map to that context and use that context's `docs\/adr\/`\.[\s\S]*After selecting the owning ADR directory above, scan \*\*that directory only\*\* for the highest existing number and increment by one\. Root and context-specific ADR directories maintain independent sequences\./,
+    );
   });
 
   test("tasks prefers tracer-bullet vertical slices and reserves expand-migrate-contract for wide refactors", () => {
