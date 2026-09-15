@@ -10,6 +10,8 @@ let refactorPlan: string;
 let domainModeling: string;
 let adrFormat: string;
 let tasks: string;
+let tdd: string;
+let diagnosingBugs: string;
 let mergeConflicts: string;
 
 describe("iPix engineering skill contracts", () => {
@@ -18,6 +20,8 @@ describe("iPix engineering skill contracts", () => {
     domainModeling = readRepoFile(".claude/skills/domain-modeling/SKILL.md");
     adrFormat = readRepoFile(".claude/skills/domain-modeling/ADR-FORMAT.md");
     tasks = readRepoFile(".claude/skills/tasks/SKILL.md");
+    tdd = readRepoFile(".agents/skills/tdd/SKILL.md");
+    diagnosingBugs = readRepoFile(".agents/skills/diagnosing-bugs/SKILL.md");
     mergeConflicts = readRepoFile(".claude/skills/resolving-merge-conflicts/SKILL.md");
   });
 
@@ -51,6 +55,35 @@ describe("iPix engineering skill contracts", () => {
     expect(tasks).toContain("### Wide-refactor exception — expand → migrate → contract");
     expect(tasks).toContain("whose blast radius cannot stay green as a vertical slice");
     expect(tasks).toContain("Do not pretend a horizontal breaking change is a tracer bullet");
+  });
+
+  test("tasks classifies bounded, ambiguous, and architectural work before implementation", () => {
+    expect(tasks).toContain("## Implementation-shape gate");
+    expect(tasks).toMatch(
+      /- \*\*Bounded:\*\*(?=[^\n]*proceed directly to implementation and TDD)(?=[^\n]*Do not force brainstorming onto bounded work)[^\n]*/,
+    );
+    expect(tasks).toMatch(
+      /- \*\*Ambiguous:\*\*(?=[^\n]*brainstorming)(?=[^\n]*explicit design approval)[^\n]*/,
+    );
+    expect(tasks).toMatch(
+      /- \*\*Architectural:\*\*(?=[^\n]*brainstorming)(?=[^\n]*explicit design approval)(?=[^\n]*writing-plans)[^\n]*/,
+    );
+  });
+
+  test("tdd requires observed red before production code and green before refactor", () => {
+    expect(tdd).toContain("Observed RED is mandatory");
+    expect(tdd).toContain("Run the test and confirm it fails for the expected reason");
+    expect(tdd).toContain("Do not write production code until that RED has been observed");
+    expect(tdd).toContain("Run the same test and confirm GREEN");
+    expect(tdd).toContain("Refactor only after GREEN");
+  });
+
+  test("diagnosing-bugs checks recent changes and working examples and stops after three failed fixes", () => {
+    expect(diagnosingBugs).toMatch(/check recent changes/i);
+    expect(diagnosingBugs).toMatch(/find the closest working example in the current codebase/i);
+    expect(diagnosingBugs).toMatch(/after three failed fix attempts, STOP/i);
+    expect(diagnosingBugs).toMatch(/question the seam, assumptions, or architecture/i);
+    expect(diagnosingBugs).toMatch(/do not stack a fourth speculative fix/i);
   });
 
   test("merge-conflict skill allows safe pause or abort and requires confirmation for new trade-offs", () => {
