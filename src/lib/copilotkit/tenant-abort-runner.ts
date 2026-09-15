@@ -150,30 +150,38 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
   }
 
   /**
-   * IPI-1217 · COPILOT-APP-DOCK-002: InMemoryAgentRunner.connect() only
-   * replays events from its own process-local, non-durable store — "bounded
-   * and non-durable by design" per its own guidance string
-   * (@copilotkit/runtime dist/v2/runtime/runner/in-memory.mjs). On the
-   * FIRST connect of any explicit thread, CopilotKit's own
-   * CopilotKitCore.connectAgent() unconditionally clears agent.messages
-   * (isFreshRestore is always true against a freshly-loaded page) and
-   * expects the gateway's connect() to "ask... for a full replay" (that
-   * file's own doc comment on _lastConnectedThreadIdsByAgent). A resumed
-   * thread in a process that never ran it (a fresh serverless instance, a
-   * restart, or just a different worker) gets zero replayed events and
-   * the wipe is never refilled — proven deterministically in
-   * tenant-abort-runner.test.ts and
-   * src/components/operator-panel/copilotkit-reconnect-history.test.tsx.
+   * IPI-1217 · COPILOT-APP-DOCK-002: CopilotKitCore.connectAgent()
+   * (@copilotkit/core) unconditionally clears agent.messages on the FIRST
+   * connect of any explicit thread in a fresh browser JS heap — that
+   * tracking map is CLIENT-side, so this happens on every page reload
+   * regardless of whether the SERVER process happens to still be warm.
+   * It then expects the gateway's connect() to "ask... for a full replay"
+   * (that file's own doc comment on _lastConnectedThreadIdsByAgent).
    *
-   * Fix: when the in-memory replay produces nothing, fall back to durable
-   * Mastra history via the same authorized recallPlannerChatMessages()
-   * helper the /api/planner/threads/:id/messages route uses — resourceId
-   * is this.resourceId, server-derived from requirePlannerResourceId in
+   * A prior version of this fix only consulted durable Mastra history when
+   * the in-memory replay produced ZERO events ("cold process"). That
+   * missed the more common case this exact CI job hits: a single
+   * long-lived server process where the in-memory store DOES still have
+   * historic events from the original run, so the durable fallback never
+   * engaged — leaving the same reload-restoration defect live for the
+   * ordinary same-process case (proven red by
+   * e2e/planner-journey.spec.ts's "...and it survives reload" job on PR
+   * #171 head 9be9f55, and by the missing "warm process" case in
+   * tenant-abort-runner.test.ts).
+   *
+   * Fix: source replay from durable Mastra history (via the same
+   * authorized recallPlannerChatMessages() helper
+   * /api/planner/threads/:id/messages already uses) whenever the thread is
+   * NOT currently running — never from the process-local in-memory store,
+   * which is "bounded and non-durable by design" per its own guidance
+   * string (@copilotkit/runtime dist/v2/runtime/runner/in-memory.mjs) and
+   * therefore not a reliable source of truth for a finished conversation
+   * even within the same process. Only a thread with a genuinely active
+   * run reconnects to the live in-memory stream. resourceId is
+   * this.resourceId, server-derived from requirePlannerResourceId in
    * handleCopilot, never client-supplied, and recallPlannerChatMessages
    * itself fails closed (returns []) when the thread belongs to another
-   * resource. A thread that is genuinely running live is untouched: the
-   * in-memory observable only completes without emitting when there is
-   * nothing in flight for it (see in-memory.mjs's connect()).
+   * resource.
    */
   override connect(request: Parameters<InMemoryAgentRunner["connect"]>[0]) {
     const { mastraThreadId } = splitRunThreadIds(
@@ -181,60 +189,51 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
       request.threadId,
     );
     const resourceId = this.resourceId;
-    const inMemory$ = super.connect({
-      ...request,
-      threadId: this.scope(request.threadId),
-    });
     return new Observable<BaseEvent>((subscriber) => {
-      let sawEvent = false;
       let cancelled = false;
-      const inner = inMemory$.subscribe({
-        next: (event) => {
-          sawEvent = true;
-          subscriber.next(event);
-        },
-        error: (error) => subscriber.error(error),
-        complete: () => {
-          if (sawEvent) {
-            subscriber.complete();
-            return;
-          }
-          void (async () => {
-            const memory = await getPlannerMemory();
-            if (cancelled) return;
-            const messages = memory
-              ? await recallPlannerChatMessages(memory, {
-                  threadId: mastraThreadId,
-                  resourceId,
-                })
-              : [];
-            if (cancelled) return;
-            if (messages.length > 0) {
-              const runId = randomUUID();
-              subscriber.next({
-                type: EventType.RUN_STARTED,
-                threadId: mastraThreadId,
-                runId,
-              } as BaseEvent);
-              subscriber.next({
-                type: EventType.MESSAGES_SNAPSHOT,
-                messages,
-              } as unknown as BaseEvent);
-              subscriber.next({
-                type: EventType.RUN_FINISHED,
-                threadId: mastraThreadId,
-                runId,
-              } as BaseEvent);
-            }
-            subscriber.complete();
-          })().catch((error) => {
-            if (!cancelled) subscriber.error(error);
-          });
-        },
+      let inner: { unsubscribe: () => void } | undefined;
+      void (async () => {
+        const running = await this.isRunning({ threadId: request.threadId });
+        if (cancelled) return;
+        if (running) {
+          inner = super
+            .connect({ ...request, threadId: this.scope(request.threadId) })
+            .subscribe(subscriber);
+          return;
+        }
+        const memory = await getPlannerMemory();
+        if (cancelled) return;
+        const messages = memory
+          ? await recallPlannerChatMessages(memory, {
+              threadId: mastraThreadId,
+              resourceId,
+            })
+          : [];
+        if (cancelled) return;
+        if (messages.length > 0) {
+          const runId = randomUUID();
+          subscriber.next({
+            type: EventType.RUN_STARTED,
+            threadId: mastraThreadId,
+            runId,
+          } as BaseEvent);
+          subscriber.next({
+            type: EventType.MESSAGES_SNAPSHOT,
+            messages,
+          } as unknown as BaseEvent);
+          subscriber.next({
+            type: EventType.RUN_FINISHED,
+            threadId: mastraThreadId,
+            runId,
+          } as BaseEvent);
+        }
+        subscriber.complete();
+      })().catch((error) => {
+        if (!cancelled) subscriber.error(error);
       });
       return () => {
         cancelled = true;
-        inner.unsubscribe();
+        inner?.unsubscribe();
       };
     });
   }

@@ -104,6 +104,7 @@ class RunnerBackedAgent extends AbstractAgent {
     this.runner = runner;
   }
   run(_input: RunAgentInput): Observable<BaseEvent> {
+    void _input;
     throw new Error("run() not exercised by this test");
   }
   protected connect(input: RunAgentInput) {
