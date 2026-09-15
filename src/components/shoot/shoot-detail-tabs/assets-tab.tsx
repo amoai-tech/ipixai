@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import { ImageIcon, VideoIcon, FileIcon, RotateCcw, ChevronDown, ChevronUp, Check, X } from "lucide-react";
 
@@ -71,39 +71,49 @@ function ApprovalBadge({ approval, assetId }: { approval: ApprovalState; assetId
   );
 }
 
-type AssetDecisionPanelProps = {
+type AssetDecisionIdentity = {
   assetId: string;
-  approval: ApprovalState;
   version: string | number | null | undefined;
   cloudinaryAssetId: string | null | undefined;
+};
+
+type AssetDecisionState = {
+  approval: ApprovalState;
   hasExactVersion: boolean;
-  decisionPending: boolean;
-  decisionFinal: boolean;
+  pending: boolean;
+  final: boolean;
   staleWarning: boolean;
-  decisionError: string | null;
+  error: string | null;
+};
+
+type AssetDecisionPanelProps = {
+  identity: AssetDecisionIdentity;
+  state: AssetDecisionState;
   reason: string;
-  onReasonChange: (value: string) => void;
+  onReasonChange: Dispatch<SetStateAction<string>>;
   onApprove: () => void;
   onReject: () => void;
   onRefresh: () => void;
 };
 
 function AssetDecisionPanel({
-  assetId,
-  approval,
-  version,
-  cloudinaryAssetId,
-  hasExactVersion,
-  decisionPending,
-  decisionFinal,
-  staleWarning,
-  decisionError,
+  identity,
+  state,
   reason,
   onReasonChange,
   onApprove,
   onReject,
   onRefresh,
 }: AssetDecisionPanelProps) {
+  const { assetId, version, cloudinaryAssetId } = identity;
+  const {
+    approval,
+    hasExactVersion,
+    pending: decisionPending,
+    final: decisionFinal,
+    staleWarning,
+    error: decisionError,
+  } = state;
   const buttonsDisabled = !hasExactVersion || decisionPending || decisionFinal;
 
   return (
@@ -326,15 +336,19 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
   // controls. The transient loading branch shows the read-only badge only.
   const decisionPanel = (
     <AssetDecisionPanel
-      assetId={asset.id}
-      approval={approval}
-      version={asset.version}
-      cloudinaryAssetId={asset.cloudinary_asset_id}
-      hasExactVersion={hasExactVersion}
-      decisionPending={decisionPending}
-      decisionFinal={decisionFinal}
-      staleWarning={staleWarning}
-      decisionError={decisionError}
+      identity={{
+        assetId: asset.id,
+        version: asset.version,
+        cloudinaryAssetId: asset.cloudinary_asset_id,
+      }}
+      state={{
+        approval,
+        hasExactVersion,
+        pending: decisionPending,
+        final: decisionFinal,
+        staleWarning,
+        error: decisionError,
+      }}
       reason={reason}
       onReasonChange={setReason}
       onApprove={() => { void handleDecision("approved"); }}
