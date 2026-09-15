@@ -20,6 +20,12 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Cursor rules: `.cursor/rule
 | `linear` | IPI issues |
 | `tasks` | **Primary iPix task skill** — task setup/execution, agent prompts, pre-commit, testing, PR review, user journeys, CI, migration reuse, and post-merge proof |
 | `task-verifier` | **Adversarial independent evidence gate** — Quick narrow checks, Standard task/PR review, automatic Adversarial escalation for high-risk work |
+| `brainstorming` | Selected `obra/superpowers` methodology skill — design/intent exploration before creative implementation work |
+| `writing-plans` | Selected `obra/superpowers` methodology skill — convert an approved design/spec into executable implementation steps |
+| `subagent-driven-development` | Selected `obra/superpowers` methodology skill — execute independent plan tasks with fresh subagents and staged review |
+| `dispatching-parallel-agents` | Selected `obra/superpowers` methodology skill — parallelize genuinely independent work |
+| `receiving-code-review` | Selected `obra/superpowers` methodology skill — verify review feedback before applying it |
+| `requesting-code-review` | Selected `obra/superpowers` methodology skill — request focused review before the iPix PR/Done gates |
 | `ipix-task-lifecycle` | **Deprecated compatibility alias** → use `tasks` for new work |
 | `pr-workflow` | **Deprecated compatibility alias** → use `tasks` PR/Actions/post-merge references |
 | `lean` | Velocity audit |
@@ -60,3 +66,7 @@ Also not copied from the wider old catalog: `mercur`, `amazon-bedrock`, `ipix` r
 ## External skill provenance
 
 The three Matt Pocock-derived engineering skills above were copied from `mattpocock/skills` commit `3cca18b368ae95cdbdebbff572ccafa662551015` and then given small iPix-specific safety/source-of-truth overlays.
+
+## Superpowers methodology subset
+
+The six Superpowers methodology skills above were vendored from [`obra/superpowers`](https://github.com/obra/superpowers) commit `b36e0829c6d0140e93cfef2ca599b1b07d4a7797` under the upstream MIT license (`SUPERPOWERS_LICENSE.txt`). Only dependency references that would otherwise require unvendored Superpowers skills were adapted to existing iPix owners: `worktrees` for workspace isolation and `tasks` for inline execution / branch finishing / PR-post-merge handling. iPix `tasks`, `task-verifier`, `worktrees`, `pr`, `fastest`, Graphify, and domain skills remain authoritative for repository-specific behavior.
