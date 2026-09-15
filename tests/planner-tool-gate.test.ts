@@ -250,10 +250,12 @@ describe("typed runtime delegation wrappers", () => {
     const messages = [{ role: "user", content: "Plan a shoot" }];
 
     expect(wrapped(messages, { requestId: "req-1" })).toBe("stream-result");
-    expect(calls).toEqual([[
-      messages,
-      { requestId: "req-1", activeTools: [...PLANNING_ONLY_TOOLS] },
-    ]]);
+    expect(calls[0]?.[0]).toBe(messages);
+    expect(calls[0]?.[1]).toMatchObject({
+      requestId: "req-1",
+      activeTools: [...PLANNING_ONLY_TOOLS],
+    });
+    expect(typeof (calls[0]?.[1] as Record<string, unknown>).prepareStep).toBe("function");
   });
 
   it("stream preserves an explicit activeTools override", () => {
@@ -266,7 +268,7 @@ describe("typed runtime delegation wrappers", () => {
     const messages = [{ role: "user", content: "Plan a shoot" }];
 
     wrapped(messages, { activeTools: ["composeShootPlan"] });
-    expect(calls[0]?.[1]).toEqual({ activeTools: ["composeShootPlan"] });
+    expect(calls[0]?.[1]).toMatchObject({ activeTools: ["composeShootPlan"] });
   });
 
   it("resumeStream preserves resumeData and injects tools only into streamOptions", () => {
@@ -279,10 +281,9 @@ describe("typed runtime delegation wrappers", () => {
     const resumeData = { approved: true, nested: { value: 7 } };
 
     expect(wrapped(resumeData, { runId: "run-1" })).toBe("resume-result");
-    expect(calls).toEqual([[
-      resumeData,
-      { runId: "run-1", activeTools: [...PLANNING_ONLY_TOOLS] },
-    ]]);
+    expect(calls[0]?.[0]).toBe(resumeData);
+    expect(calls[0]?.[1]).toMatchObject({ runId: "run-1" });
+    expect(typeof (calls[0]?.[1] as Record<string, unknown>).prepareStep).toBe("function");
   });
 
   it("resumeStream preserves an explicit activeTools override", () => {
@@ -295,9 +296,9 @@ describe("typed runtime delegation wrappers", () => {
     const resumeData = { approved: true };
 
     wrapped(resumeData, { activeTools: ["startBrandAnalysis"] });
-    expect(calls).toEqual([[
-      resumeData,
-      { activeTools: ["startBrandAnalysis"] },
-    ]]);
+    expect(calls[0]?.[0]).toBe(resumeData);
+    expect(calls[0]?.[1]).toMatchObject({
+      activeTools: ["startBrandAnalysis"],
+    });
   });
 });

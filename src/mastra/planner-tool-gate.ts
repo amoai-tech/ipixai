@@ -1,3 +1,5 @@
+import { RequestContext } from "@mastra/core/request-context";
+
 /**
  * IPI-1208 · PLANNER-TOOLGATE-001 — excludes consequential durable-write tools
  * from the model's toolset during planning-only turns.
@@ -81,7 +83,7 @@ function extractMessageText(msg: MessageLike): string {
   if (Array.isArray(msg.content)) {
     return msg.content
       .filter((part): part is MessageContentPart & { text: string } =>
-        typeof part?.text === "string",
+        typeof part.text === "string",
       )
       .map((part) => part.text)
       .join(" ");
@@ -100,7 +102,7 @@ function getToolCallNames(msg: MessageLike): string[] {
   // Mastra's canonical toolCalls array: [{ function: { name: "..." } }]
   if (Array.isArray(msg.toolCalls)) {
     for (const tc of msg.toolCalls) {
-      if (tc?.function?.name) names.push(tc.function.name);
+      if (tc.function?.name) names.push(tc.function.name);
     }
   }
 
@@ -130,7 +132,7 @@ function getToolCallNames(msg: MessageLike): string[] {
   // { type: "tool-call", toolCallId, toolName, args }.
   if (Array.isArray(msg.content)) {
     for (const part of msg.content) {
-      if (part?.type !== "tool-call") continue;
+      if (part.type !== "tool-call") continue;
       const name =
         typeof part.toolName === "string"
           ? part.toolName
@@ -237,22 +239,71 @@ export function resolveActiveTools(
   return [...PLANNING_ONLY_TOOLS];
 }
 
-type Callable = (...args: never[]) => unknown;
+type Callable = (..._args: never[]) => unknown;
 
-type ActiveToolsOptions = {
-  activeTools?: string[];
+type PrepareStepArgsLike = {
+  requestContext?: RequestContext;
   [key: string]: unknown;
 };
 
+type PrepareStepResultLike = {
+  activeTools?: string[];
+  [key: string]: unknown;
+};
+type PrepareStepLike = (
+  args: PrepareStepArgsLike,
+) =>
+  | PrepareStepResultLike
+  | undefined
+  | void
+  | Promise<PrepareStepResultLike | undefined | void>;
+
+type ActiveToolsOptions = {
+  activeTools?: string[];
+  requestContext?: RequestContext;
+  prepareStep?: PrepareStepLike;
+  [key: string]: unknown;
+};
+
+const PLANNER_ACTIVE_TOOLS_CONTEXT_KEY = "ipix.planner.activeTools";
 function normaliseToolOptions(value: unknown): ActiveToolsOptions {
   return typeof value === "object" && value !== null
     ? (value as ActiveToolsOptions)
     : {};
 }
 
+function readPersistedToolPolicy(requestContext?: RequestContext): string[] | undefined {
+  const value = requestContext?.getRaw(PLANNER_ACTIVE_TOOLS_CONTEXT_KEY);
+  return Array.isArray(value) && value.every((item) => typeof item === "string")
+    ? value
+    : undefined;
+}
+
+function persistToolPolicy(requestContext: RequestContext, activeTools: string[]): void {
+  requestContext.setRaw(PLANNER_ACTIVE_TOOLS_CONTEXT_KEY, [...activeTools]);
+}
+
+function buildPolicyPrepareStep(
+  existingPrepareStep: PrepareStepLike | undefined,
+  fallbackActiveTools: string[],
+): PrepareStepLike {
+  return async (args) => {
+    const existingResult = await existingPrepareStep?.(args);
+    const result =
+      typeof existingResult === "object" && existingResult !== null
+        ? existingResult
+        : {};
+    const activeTools =
+      readPersistedToolPolicy(args.requestContext) ?? fallbackActiveTools;
+
+    return { ...result, activeTools: [...activeTools] };
+  };
+}
+
 /**
  * Wraps Agent.stream while preserving the original callable type. The wrapper
- * changes only the second argument by injecting activeTools.
+ * applies the tool policy now and stores it in Mastra RequestContext so a
+ * suspended run can recover the same policy from its durable snapshot.
  */
 export function wrapPlannerStreamWithToolGate<T extends Callable>(original: T): T {
   const wrapped = (...args: Parameters<T>): ReturnType<T> => {
@@ -262,9 +313,13 @@ export function wrapPlannerStreamWithToolGate<T extends Callable>(original: T): 
       normaliseToMessages(messages),
       options.activeTools,
     );
+    const requestContext = options.requestContext ?? new RequestContext();
+    persistToolPolicy(requestContext, activeTools);
+    const prepareStep = buildPolicyPrepareStep(options.prepareStep, activeTools);
+
     const forwarded = [
       messages,
-      { ...options, activeTools },
+      { ...options, requestContext, activeTools, prepareStep },
       ...args.slice(2),
     ] as unknown as Parameters<T>;
     return Reflect.apply(original, undefined, forwarded) as ReturnType<T>;
@@ -274,8 +329,9 @@ export function wrapPlannerStreamWithToolGate<T extends Callable>(original: T): 
 
 /**
  * Wraps Agent.resumeStream(resumeData, streamOptions) while preserving the
- * resume payload exactly and injecting activeTools only into streamOptions.
- * With no explicit override, resume fails closed to planning-only tools.
+ * resume payload exactly. Mastra restores the suspended run's persisted
+ * RequestContext before prepareStep executes; that hook reapplies the original
+ * tool policy. Missing policy fails closed to planning-only tools.
  */
 export function wrapPlannerResumeStreamWithToolGate<T extends Callable>(
   original: T,
@@ -283,10 +339,29 @@ export function wrapPlannerResumeStreamWithToolGate<T extends Callable>(
   const wrapped = (...args: Parameters<T>): ReturnType<T> => {
     const resumeData = args[0] as unknown;
     const streamOptions = normaliseToolOptions(args[1]);
-    const activeTools = resolveActiveTools([], streamOptions.activeTools);
+    const fallbackActiveTools = streamOptions.activeTools ?? [
+      ...PLANNING_ONLY_TOOLS,
+    ];
+    const requestContext = streamOptions.requestContext ?? new RequestContext();
+    if (streamOptions.activeTools) {
+      persistToolPolicy(requestContext, streamOptions.activeTools);
+    }
+    const prepareStep = buildPolicyPrepareStep(
+      streamOptions.prepareStep,
+      fallbackActiveTools,
+    );
+
+    const forwardedOptions = {
+      ...streamOptions,
+      requestContext,
+      prepareStep,
+      ...(streamOptions.activeTools
+        ? { activeTools: streamOptions.activeTools }
+        : {}),
+    };
     const forwarded = [
       resumeData,
-      { ...streamOptions, activeTools },
+      forwardedOptions,
       ...args.slice(2),
     ] as unknown as Parameters<T>;
     return Reflect.apply(original, undefined, forwarded) as ReturnType<T>;
