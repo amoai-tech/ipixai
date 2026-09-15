@@ -59,7 +59,7 @@ export function QAFindingsPanel({ assetId, shootId, channels, initialResult, loa
       <div className="qa-panel p-4 border border-gray-200 rounded-lg bg-gray-50">
         <button
           type="button"
-          onClick={handleRunQA}
+          onClick={() => { void handleRunQA(); }}
           className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
         >
           <RefreshCw className="w-4 h-4" aria-hidden />
@@ -86,7 +86,7 @@ export function QAFindingsPanel({ assetId, shootId, channels, initialResult, loa
         <p className="text-red-600 mb-2">Error: {currentError}</p>
         <button
           type="button"
-          onClick={handleRunQA}
+          onClick={() => { void handleRunQA(); }}
           className="py-2 px-4 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
         >
           Retry
@@ -115,7 +115,7 @@ export function QAFindingsPanel({ assetId, shootId, channels, initialResult, loa
           </div>
           <button
             type="button"
-            onClick={handleRunQA}
+            onClick={() => { void handleRunQA(); }}
             className="py-1 px-3 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1"
           >
             <RefreshCw className="w-3 h-3" aria-hidden />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ImageIcon, VideoIcon, FileIcon, RotateCcw, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
+import { ImageIcon, VideoIcon, FileIcon, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import type { ShootDetail } from "@/lib/shoot/get-shoot-detail";
@@ -11,13 +11,6 @@ import { QAFindingsPanel } from "../qa-findings-panel";
 import type { QAAssetResult, QAChannelResult, QAFinding } from "@/lib/asset-qa/types";
 
 import styles from "../shoot-detail.module.css";
-
-/**
- * IPI-1118 · SHOOT-ASSETS-001 — assets tab renders canonical V2 assets
- * with IPI-1112 secure previews. Asset URLs in the detail payload are
- * metadata only; the authorized preview route is the delivery boundary.
- * IPI-1138 · ASSET-QA-001 — adds QA findings panel for asset quality checks.
- */
 
 /**
  * IPI-1118 · SHOOT-ASSETS-001 — assets tab renders canonical V2 assets
@@ -107,7 +100,7 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
     setAttempt((a) => a + 1);
   };
 
-const runQA = async () => {
+  const runQA = async () => {
     setQaLoading(true);
     setQaError(null);
     try {
@@ -129,9 +122,6 @@ const runQA = async () => {
     }
   };
 
-  const handleRunQA = async () => {
-    await runQA();
-  };
 
   if (loading) {
     return (
@@ -224,7 +214,6 @@ const runQA = async () => {
         >
           {showQA ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           <span>{showQA ? "Hide" : "Show"} Quality & Channel Readiness</span>
-          <RefreshCw className="w-4 h-4" aria-hidden />
         </button>
         {showQA && (
           <QAFindingsPanel
