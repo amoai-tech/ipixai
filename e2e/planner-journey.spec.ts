@@ -2,20 +2,21 @@ import { test, expect, type Page } from "@playwright/test";
 
 import { plannerThreadStorageKey } from "../src/mastra/thread-types";
 
-/** Reads whatever thread PlannerChatDock/PlannerThreadsDrawer actually
- *  persisted for this resource — the real, production identity-pinning
- *  key, not a guessed/duplicated string — so a reload-identity assertion
- *  proves the real contract instead of a copy of it. resourceId isn't
- *  known ahead of time in the test, so read the one (there's only ever
- *  one per authenticated resource) ipix.planner.threadId:* key present. */
+/** Reads the thread PlannerChatDock/PlannerThreadsDrawer persisted for the
+ *  currently authenticated resource. Resolve resourceId from the same
+ *  tenant-scoped server endpoint the UI uses, then read that exact storage
+ *  key so a stale key from another resource cannot satisfy the assertion. */
 async function getStoredPlannerThreadId(page: Page): Promise<string | null> {
-  // plannerThreadStorageKey("") == "ipix.planner.threadId:" — the resourceId
-  // prefix with an empty resourceId, i.e. exactly the key's static part.
-  const prefix = plannerThreadStorageKey("");
-  return page.evaluate((keyPrefix) => {
-    const key = Object.keys(window.localStorage).find((k) => k.startsWith(keyPrefix));
-    return key ? window.localStorage.getItem(key) : null;
-  }, prefix);
+  const response = await page.request.get("/api/planner/threads");
+  expect(response.ok(), "authenticated planner thread list should load").toBe(true);
+  const body = (await response.json()) as { resourceId?: unknown };
+  const resourceId = typeof body.resourceId === "string" ? body.resourceId : "";
+  expect(resourceId, "planner thread list should identify the active resource").not.toBe("");
+
+  return page.evaluate(
+    (storageKey) => window.localStorage.getItem(storageKey),
+    plannerThreadStorageKey(resourceId),
+  );
 }
 
 // Makes one real configured OpenAI-model call through the hosted Production Planner agent —
