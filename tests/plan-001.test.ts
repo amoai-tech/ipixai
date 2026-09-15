@@ -527,4 +527,43 @@ describe("pickReferencesForDeliverable — deterministic, compatibility-aware se
     }
     expect(plan.shotListResult?.shots.length).toBeGreaterThan(0);
   });
+
+  it("treats whitespace-only metadata as unknown, never as a disqualifying mismatch", () => {
+    const whitespaceRef: TrustedReferenceShotType = {
+      id: "ref-whitespace",
+      angle: "Front flat lay",
+      description: "Garment laid flat, front facing, white background",
+      channelFit: ["shopify_pdp"],
+      background: "white",
+      category: "   ",
+      subcategory: null,
+      modelType: "  ",
+      tags: ["catalog"],
+    };
+
+    // The reference's own blank metadata is "unknown": it stays eligible and
+    // earns exactly the channel-only score — never a category/model bonus and
+    // never a hard rejection.
+    expect(
+      scoreReferenceCompatibility(whitespaceRef, "shopify", {
+        productCategory: "clothing",
+        modelType: "human",
+      }),
+    ).toBe(1);
+
+    // A whitespace-only request value is likewise unknown, not a mismatch.
+    expect(scoreReferenceCompatibility(REF_CLOTHING_PDP, "shopify", { productCategory: "  " })).toBe(
+      scoreReferenceCompatibility(REF_CLOTHING_PDP, "shopify", {}),
+    );
+  });
+
+  it("counts repeated style keywords once instead of inflating the score", () => {
+    const once = scoreReferenceCompatibility(REF_CLOTHING_PDP, "shopify", {
+      styleKeywords: ["studio"],
+    });
+    const repeated = scoreReferenceCompatibility(REF_CLOTHING_PDP, "shopify", {
+      styleKeywords: ["studio", "Studio", "  studio  ", "studio"],
+    });
+    expect(repeated).toBe(once);
+  });
 });

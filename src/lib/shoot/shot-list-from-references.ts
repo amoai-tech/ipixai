@@ -74,8 +74,16 @@ function normalize(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function sameText(a: string | null | undefined, b: string | null | undefined): boolean {
-  return Boolean(a) && Boolean(b) && normalize(a as string) === normalize(b as string);
+/**
+ * Normalized metadata or `null` when it is absent OR whitespace-only.
+ * Whitespace-only values must behave exactly like a missing column: they are
+ * "unknown" (skip the field) rather than a value that mismatches and
+ * disqualifies an otherwise compatible reference.
+ */
+function normalizedOrNull(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = normalize(value);
+  return normalized.length > 0 ? normalized : null;
 }
 
 /**
@@ -102,19 +110,31 @@ export function scoreReferenceCompatibility(
 
   let score = 1;
 
-  if (context.productCategory && reference.category) {
-    if (!sameText(reference.category, context.productCategory)) return 0;
+  const contextCategory = normalizedOrNull(context.productCategory);
+  const referenceCategory = normalizedOrNull(reference.category);
+  if (contextCategory && referenceCategory) {
+    if (contextCategory !== referenceCategory) return 0;
     score += 4;
   }
 
-  if (context.modelType && reference.modelType) {
-    if (!sameText(reference.modelType, context.modelType)) return 0;
+  const contextModelType = normalizedOrNull(context.modelType);
+  const referenceModelType = normalizedOrNull(reference.modelType);
+  if (contextModelType && referenceModelType) {
+    if (contextModelType !== referenceModelType) return 0;
     score += 2;
   }
 
   if (context.styleKeywords?.length && reference.tags?.length) {
-    const refTags = new Set(reference.tags.map(normalize));
-    const overlap = context.styleKeywords.filter((keyword) => refTags.has(normalize(keyword))).length;
+    const refTags = new Set(reference.tags.map(normalize).filter((tag) => tag.length > 0));
+    // De-duplicate the request's keywords too: repeating one keyword must not
+    // inflate the overlap (["catalog","catalog"] scores the same as ["catalog"]).
+    const styleTags = new Set(
+      context.styleKeywords.map(normalize).filter((keyword) => keyword.length > 0),
+    );
+    let overlap = 0;
+    for (const keyword of styleTags) {
+      if (refTags.has(keyword)) overlap += 1;
+    }
     // Style/tag agreement only adds credit; no overlap is not proof of
     // incompatibility, so it never removes the reference.
     score += Math.min(overlap, 2);
