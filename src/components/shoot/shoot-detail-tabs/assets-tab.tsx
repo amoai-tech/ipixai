@@ -68,6 +68,16 @@ function AssetCard({ asset }: { asset: ShootDetail["assets"][0] }) {
   const [reason, setReason] = useState("");
   const router = useRouter();
 
+  // Re-sync local decision state when the underlying asset row changes, e.g.
+  // after router.refresh() surfaces a newer provider version following a
+  // stale warning. Keyed on id/version/approval so a local optimistic
+  // decision (which does not change the prop) is not clobbered.
+  useEffect(() => {
+    setApproval(asset.approval ?? null);
+    setStaleWarning(false);
+    setDecisionError(null);
+  }, [asset.id, asset.version, asset.approval]);
+
   useEffect(() => {
     if (!isImage) {
       setLoading(false);
