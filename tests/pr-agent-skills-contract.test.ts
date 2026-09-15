@@ -11,14 +11,15 @@ const copilotReviewSkill = readFileSync(
 );
 
 describe("IPI-1213 PR-Agent review skills contract", () => {
-  it("loads trusted Mastra and CopilotKit review skills without autonomous fixes", () => {
+  it("selects trusted rollout-safe skills without autonomous fixes", () => {
     expect(workflow).toContain("ref: ${{ github.event.pull_request.base.sha }}");
     expect(workflow).toContain("persist-credentials: false");
+    expect(workflow).toContain("Select trusted PR-Agent skills");
+    expect(workflow).toContain("paths=[\"/github/workspace/.claude/skills/mastra-review\",\"/github/workspace/.claude/skills/copilotkit-review\"]");
+    expect(workflow).toContain("paths=[\"/github/workspace/.claude/skills/mastra\"]");
+    expect(workflow).toContain("max_tokens=8000");
+    expect(workflow).toContain("max_tokens=3500");
     expect(workflow).toContain("skills.enabled: \"true\"");
-    expect(workflow).toContain("/github/workspace/.claude/skills/mastra-review");
-    expect(workflow).toContain("/github/workspace/.claude/skills/copilotkit-review");
-    expect(workflow).toContain("/github/workspace/.claude/skills/mastra\"]'");
-    expect(workflow).toContain("skills.max_skills_tokens: \"8000\"");
     expect(workflow).toContain("github_action_config.auto_improve: \"false\"");
   });
 
