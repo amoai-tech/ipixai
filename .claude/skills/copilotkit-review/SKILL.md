@@ -50,6 +50,10 @@ and has a realistic runtime, security, data, CI, or operator failure scenario.
 - Do not report style-only findings or generic "verify the docs" advice.
 - For v2 import findings, point to the changed import and require restoring the
   `/v2` surface plus the cheapest decisive typecheck/runtime test.
+- A published v2 import finding is incomplete unless `issue_content` explicitly includes:
+  - `Fix: Restore the changed CopilotKit import to its `/v2` subpath.`
+  - `Verification: Run the existing targeted CopilotKit route tests, then `npm run typecheck`.`
+  - `Expected result: The route uses the `/v2` import and the targeted tests/typecheck pass.`
 - For tenant/thread findings, state the smallest Org A → Org B failure sequence
   and require deterministic cross-org denial proof.
 - Treat deterministic tests/CI as authoritative when AI review disagrees.
