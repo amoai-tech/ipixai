@@ -37,7 +37,6 @@ export type ShotReferencePreviewError = {
     | "missing_approved_media"
     | "unsupported_resource_type"
     | "invalid_delivery_type"
-    | "unapproved_mapping"
     | "invalid_mapping"
     | "signing_failed"
     | "lookup_failed";
@@ -61,7 +60,6 @@ export type ShotReferenceMediaRow = {
   format: string | null;
   resource_type: string | null;
   delivery_type: string | null;
-  rights_status: string | null;
 };
 
 /** Narrow structural client so tests can pass a fake without the full type. */
@@ -94,7 +92,6 @@ type MappingResolution =
         | "missing_approved_media"
         | "unsupported_resource_type"
         | "invalid_delivery_type"
-        | "unapproved_mapping"
         | "invalid_mapping";
     };
 
@@ -118,10 +115,6 @@ function resolveApprovedMapping(
   if (row.delivery_type !== AUTHENTICATED_DELIVERY_TYPE) {
     return { ok: false, reason: "invalid_delivery_type" };
   }
-  if (row.rights_status !== "approved_for_reference") {
-    return { ok: false, reason: "unapproved_mapping" };
-  }
-
   const publicId = nonBlank(row.public_id);
   const version = positiveVersion(row.version);
   if (!publicId || !nonBlank(row.cloudinary_asset_id) || version === null) {

@@ -1,40 +1,60 @@
--- IPI-644 · SHOOT-DATA-002C — drop the rights-evidence requirement.
+-- IPI-644 · SHOOT-DATA-002C — drop the licensing/rights fields from the
+-- approved reference mapping.
 --
 -- Product decision: this reference library is an internal, operator-curated set
--- and does not require a licensing/rights-evidence workflow. `rights_evidence`
--- was introduced by 20260915120000 and enforced by 20260915130000; both are
--- already deployed, so this is a forward-only migration that removes it.
+-- and does not run a licensing/rights-evidence workflow. `rights_evidence`
+-- (introduced by 20260915120000, enforced by 20260915130000) and the
+-- `rights_status` marker (`approved_for_reference`) exist only to carry that
+-- removed workflow, so both are dropped here.
+--
+-- Both predecessor migrations are already deployed, so this is a forward-only
+-- migration. The drops below are intentionally exact (no `if exists`): PR #188
+-- guarantees those objects exist, so unexpected schema drift should fail loudly
+-- rather than silently continue.
 --
 -- What is deliberately kept:
 --   * `approved_by` + its `auth.users` FK and validation — an approval must
 --     still be attributable to a real human identity;
 --   * `provenance_source` — a lightweight origin note, not a licensing claim;
---   * `rights_status` — a hardcoded exact-mapping marker
---     (`approved_for_reference`) that the preview read path still checks.
+--   * `approved_at` — when the current mapping was approved.
 --
--- `record_shot_reference_media` is recreated with a 7-argument contract under
--- the same least-privilege boundary (SECURITY DEFINER, pinned empty
--- search_path, service_role-only EXECUTE, schema-qualified relations).
+-- Approval truth is now the existence of the approved mapping row itself: one
+-- exact Cloudinary asset_id + version per reference. `record_shot_reference_media`
+-- is recreated with a 7-argument contract under the same least-privilege
+-- boundary (SECURITY DEFINER, pinned empty search_path, service_role-only
+-- EXECUTE, schema-qualified relations).
+--
+-- The server-only reader `get_shot_reference_media` returns `rights_status` in
+-- its OUT table, so it is dropped and recreated without that column as well. It
+-- keeps the same boundary.
 
 -- ---------------------------------------------------------------------------
--- 1. Drop the 8-argument recorder before changing the table it targets.
+-- 1. Drop the functions that depend on the columns being removed, before
+--    changing the table they target.
+--
+--    `get_shot_reference_media` returns `m.rights_status` in its OUT table, so
+--    Postgres would refuse to drop that column while it exists. Both functions
+--    are recreated below.
 -- ---------------------------------------------------------------------------
 
-drop function if exists public.record_shot_reference_media(uuid, text, text, bigint, text, text, text, uuid);
+drop function public.record_shot_reference_media(uuid, text, text, bigint, text, text, text, uuid);
+drop function public.get_shot_reference_media(uuid);
 
 -- ---------------------------------------------------------------------------
--- 2. Remove the column and its not-blank CHECK.
+-- 2. Remove the licensing/rights columns and their CHECK constraints.
 -- ---------------------------------------------------------------------------
 
 alter table shoot.shot_type_reference_media
-  drop constraint if exists shot_type_reference_media_rights_evidence_not_blank;
+  drop constraint shot_type_reference_media_rights_evidence_not_blank,
+  drop constraint shot_type_reference_media_rights_approved;
 
 alter table shoot.shot_type_reference_media
-  drop column if exists rights_evidence;
+  drop column rights_evidence,
+  drop column rights_status;
 
 -- ---------------------------------------------------------------------------
 -- 3. Human-approved mapping recording (service_role only), without rights
---    evidence.
+--    fields.
 -- ---------------------------------------------------------------------------
 
 create function public.record_shot_reference_media(
@@ -81,7 +101,7 @@ begin
       using errcode = 'foreign_key_violation';
   end if;
 
-  -- Only ever write the exact-mapping invariants. Blank/version/resource/rights
+  -- Only ever write the exact-mapping invariants. Blank/version/resource
   -- violations still fail the table CHECK constraints below.
   insert into shoot.shot_type_reference_media (
     reference_id,
@@ -92,7 +112,6 @@ begin
     resource_type,
     delivery_type,
     provenance_source,
-    rights_status,
     approved_at,
     approved_by
   )
@@ -105,7 +124,6 @@ begin
     'image',
     'authenticated',
     p_provenance_source,
-    'approved_for_reference',
     now(),
     p_approved_by
   )
@@ -120,7 +138,6 @@ begin
     resource_type = excluded.resource_type,
     delivery_type = excluded.delivery_type,
     provenance_source = excluded.provenance_source,
-    rights_status = excluded.rights_status,
     approved_at = excluded.approved_at,
     approved_by = excluded.approved_by;
 end;
@@ -132,6 +149,45 @@ revoke all on function public.record_shot_reference_media(uuid, text, text, bigi
   from public, anon, authenticated;
 grant execute on function public.record_shot_reference_media(uuid, text, text, bigint, text, text, uuid)
   to service_role;
+
+-- ---------------------------------------------------------------------------
+-- 4. Recreate the server-side reader without the removed rights column.
+--    Identical shape minus `rights_status`; raw provider identity stays
+--    service_role-only.
+-- ---------------------------------------------------------------------------
+
+create function public.get_shot_reference_media(p_reference_id uuid)
+returns table (
+  reference_exists boolean,
+  has_approved_media boolean,
+  cloudinary_asset_id text,
+  public_id text,
+  version bigint,
+  format text,
+  resource_type text,
+  delivery_type text
+)
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+  select
+    true,
+    (m.reference_id is not null),
+    m.cloudinary_asset_id,
+    m.public_id,
+    m.version,
+    m.format,
+    m.resource_type,
+    m.delivery_type
+  from shoot.shot_type_references r
+  left join shoot.shot_type_reference_media m on m.reference_id = r.id
+  where r.id = p_reference_id;
+$$;
+
+revoke all on function public.get_shot_reference_media(uuid) from public, anon, authenticated;
+grant execute on function public.get_shot_reference_media(uuid) to service_role;
 
 -- The CLI reads the bounded catalog as service_role, so it must be able to read
 -- the public reference view. Grant it explicitly instead of relying on a

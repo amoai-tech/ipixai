@@ -157,22 +157,30 @@ begin
   ) or not exists (
     select 1 from pg_constraint
     where conrelid = media and contype = 'c' and conname = 'shot_type_reference_media_delivery_type_authenticated'
-  ) or not exists (
-    select 1 from pg_constraint
-    where conrelid = media and contype = 'c' and conname = 'shot_type_reference_media_rights_approved'
   ) then
     raise exception 'IPI-644: shot_type_reference_media is missing one of its exact-mapping CHECK constraints';
   end if;
 
-  -- ---- removed rights-evidence contract must stay removed -----------------
+  -- ---- the removed licensing/rights contract must stay removed -------------
   if exists (
     select 1
     from information_schema.columns
     where table_schema = 'shoot'
       and table_name = 'shot_type_reference_media'
-      and column_name = 'rights_evidence'
+      and column_name in ('rights_evidence', 'rights_status')
   ) then
-    raise exception 'IPI-644: rights_evidence must remain removed from shot_type_reference_media';
+    raise exception 'IPI-644: licensing/rights columns (rights_evidence, rights_status) must stay removed from shot_type_reference_media';
+  end if;
+
+  if exists (
+    select 1 from pg_constraint
+    where conrelid = media
+      and conname in (
+        'shot_type_reference_media_rights_evidence_not_blank',
+        'shot_type_reference_media_rights_approved'
+      )
+  ) then
+    raise exception 'IPI-644: removed licensing/rights CHECK constraints must not exist on shot_type_reference_media';
   end if;
 
   if to_regprocedure(function_record_legacy) is not null then
@@ -282,7 +290,6 @@ begin
       and p.proname = 'record_shot_reference_media'
       and p.prosrc like '%p_approved_by is null%'
       and p.prosrc like '%auth.users%'
-      and p.prosrc like '%approved_for_reference%'
       and p.prosrc like '%''authenticated''%'
       and p.prosrc like '%''image''%'
   ) then

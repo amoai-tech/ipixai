@@ -4771,7 +4771,6 @@ export type Database = {
           public_id: string
           reference_exists: boolean
           resource_type: string
-          rights_status: string
           version: number
         }[]
       }
