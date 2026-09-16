@@ -109,6 +109,9 @@ begin
     now(),
     p_approved_by
   )
+  -- This row represents the CURRENT approved mapping, not approval history.
+  -- Re-approving a replacement asset/version intentionally updates approved_by
+  -- and approved_at so they identify the human decision behind the current row.
   on conflict (reference_id) do update set
     cloudinary_asset_id = excluded.cloudinary_asset_id,
     public_id = excluded.public_id,
