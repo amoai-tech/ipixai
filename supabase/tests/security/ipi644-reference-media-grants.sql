@@ -27,6 +27,7 @@ declare
   function_media text := 'public.get_shot_reference_media(uuid)';
   function_has_preview text := 'public.shot_type_reference_has_preview(uuid)';
   function_record text := 'public.record_shot_reference_media(uuid, text, text, bigint, text, text, uuid)';
+  function_record_legacy text := 'public.record_shot_reference_media(uuid, text, text, bigint, text, text, text, uuid)';
 
   policy_count int;
   hidden_columns text[];
@@ -161,6 +162,21 @@ begin
     where conrelid = media and contype = 'c' and conname = 'shot_type_reference_media_rights_approved'
   ) then
     raise exception 'IPI-644: shot_type_reference_media is missing one of its exact-mapping CHECK constraints';
+  end if;
+
+  -- ---- removed rights-evidence contract must stay removed -----------------
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'shoot'
+      and table_name = 'shot_type_reference_media'
+      and column_name = 'rights_evidence'
+  ) then
+    raise exception 'IPI-644: rights_evidence must remain removed from shot_type_reference_media';
+  end if;
+
+  if to_regprocedure(function_record_legacy) is not null then
+    raise exception 'IPI-644: obsolete 8-argument record_shot_reference_media must not exist';
   end if;
 
   -- ---- canonical approver identity ----------------------------------------
