@@ -203,7 +203,7 @@ begin
     and table_name = 'shot_type_references_view'
     and column_name in (
       'public_id', 'version', 'cloudinary_asset_id', 'format',
-      'resource_type', 'delivery_type', 'provenance_source', 'rights_status',
+      'resource_type', 'delivery_type', 'provenance_source',
       'approved_by', 'approved_at'
     );
   if hidden_columns is not null then
