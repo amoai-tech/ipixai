@@ -5,37 +5,27 @@
       "referenceKey": "clothing_model_full_body_front",
       "file": "assets/reference-candidates/clothing_model_full_body_front.jpg",
       "provenanceSource": "REPLACE_WITH_APPROVED_SOURCE",
-      "rightsStatus": "approved_for_reference",
-      "rightsEvidence": "REPLACE_WITH_LICENSE_OR_OWNERSHIP_EVIDENCE",
       "credit": "REPLACE_IF_REQUIRED"
     },
     {
       "referenceKey": "clothing_ghost_ghost_front",
       "file": "assets/reference-candidates/clothing_ghost_ghost_front.jpg",
-      "provenanceSource": "REPLACE_WITH_APPROVED_SOURCE",
-      "rightsStatus": "approved_for_reference",
-      "rightsEvidence": "REPLACE_WITH_LICENSE_OR_OWNERSHIP_EVIDENCE"
+      "provenanceSource": "REPLACE_WITH_APPROVED_SOURCE"
     },
     {
       "referenceKey": "clothing_flat_lay_front_flat_lay",
       "file": "assets/reference-candidates/clothing_flat_lay_front_flat_lay.jpg",
-      "provenanceSource": "REPLACE_WITH_APPROVED_SOURCE",
-      "rightsStatus": "approved_for_reference",
-      "rightsEvidence": "REPLACE_WITH_LICENSE_OR_OWNERSHIP_EVIDENCE"
+      "provenanceSource": "REPLACE_WITH_APPROVED_SOURCE"
     },
     {
       "referenceKey": "beauty_product_45_hero",
       "file": "assets/reference-candidates/beauty_product_45_hero.jpg",
-      "provenanceSource": "REPLACE_WITH_APPROVED_SOURCE",
-      "rightsStatus": "approved_for_reference",
-      "rightsEvidence": "REPLACE_WITH_LICENSE_OR_OWNERSHIP_EVIDENCE"
+      "provenanceSource": "REPLACE_WITH_APPROVED_SOURCE"
     },
     {
       "referenceKey": "home_goods_product_45_studio",
       "file": "assets/reference-candidates/home_goods_product_45_studio.jpg",
-      "provenanceSource": "REPLACE_WITH_APPROVED_SOURCE",
-      "rightsStatus": "approved_for_reference",
-      "rightsEvidence": "REPLACE_WITH_LICENSE_OR_OWNERSHIP_EVIDENCE"
+      "provenanceSource": "REPLACE_WITH_APPROVED_SOURCE"
     }
   ]
 }

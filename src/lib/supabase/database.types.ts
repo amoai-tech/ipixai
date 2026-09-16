@@ -4771,7 +4771,6 @@ export type Database = {
           public_id: string
           reference_exists: boolean
           resource_type: string
-          rights_status: string
           version: number
         }[]
       }
@@ -4982,7 +4981,6 @@ export type Database = {
           p_provenance_source: string
           p_public_id: string
           p_reference_id: string
-          p_rights_evidence: string
           p_version: number
         }
         Returns: undefined

@@ -53,7 +53,6 @@ export type RecordApprovedMappingInput = {
   version: number;
   format: string;
   provenanceSource: string;
-  rightsEvidence: string;
   approvedBy: string;
 };
 
@@ -282,7 +281,6 @@ async function recordApprovedMappingInSupabase(input: RecordApprovedMappingInput
     p_version: input.version,
     p_format: input.format,
     p_provenance_source: input.provenanceSource,
-    p_rights_evidence: input.rightsEvidence,
     p_approved_by: input.approvedBy,
   });
   if (error) throw new Error(`record_approved_mapping_failed:${error.message}`);
@@ -449,7 +447,7 @@ async function commandApprove(
   deps.log(
     `binding ${referenceKey} -> asset_id ${mapping.mapping.cloudinaryAssetId} public_id ${mapping.mapping.publicId} ` +
       `v${mapping.mapping.version} (${mapping.mapping.format}) provenance=${mapping.mapping.provenanceSource} ` +
-      `rights_evidence=${mapping.mapping.rightsEvidence} approved_by=${approvedBy}`,
+      `approved_by=${approvedBy}`,
   );
   await deps.recordApprovedMapping({
     referenceId: resolved.catalogId,
@@ -458,7 +456,6 @@ async function commandApprove(
     version: mapping.mapping.version,
     format: mapping.mapping.format,
     provenanceSource: mapping.mapping.provenanceSource,
-    rightsEvidence: mapping.mapping.rightsEvidence,
     approvedBy,
   });
   deps.log(`approved ${referenceKey}`);

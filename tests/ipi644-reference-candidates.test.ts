@@ -33,8 +33,6 @@ function validCandidate(overrides: Partial<ReferenceCandidate> = {}): ReferenceC
     referenceKey: REFERENCE_KEY,
     file: `assets/reference-candidates/${REFERENCE_KEY}.jpg`,
     provenanceSource: "iPix-owned studio library",
-    rightsStatus: "approved_for_reference",
-    rightsEvidence: "license ref 2026-01",
     ...overrides,
   };
 }
@@ -90,10 +88,6 @@ describe("parseReferenceCandidateManifest", () => {
       ok: false,
       reason: "invalid_candidate",
     });
-    expect(parseReferenceCandidateManifest(manifestWith([validCandidate({ rightsEvidence: "" })]))).toMatchObject({
-      ok: false,
-      reason: "invalid_candidate",
-    });
   });
 
   it("accepts the canonical snake_case key and rejects blank or non-canonical keys", () => {
@@ -108,11 +102,7 @@ describe("parseReferenceCandidateManifest", () => {
     }
   });
 
-  it("rejects unapproved rights and duplicate reference keys", () => {
-    expect(parseReferenceCandidateManifest(manifestWith([validCandidate({ rightsStatus: "pending" })]))).toMatchObject({
-      ok: false,
-      reason: "unapproved_rights_status",
-    });
+  it("rejects duplicate reference keys", () => {
     expect(parseReferenceCandidateManifest(manifestWith([validCandidate(), validCandidate()]))).toMatchObject({
       ok: false,
       reason: "duplicate_reference_key",
@@ -135,7 +125,6 @@ describe("candidate identity + upload planning", () => {
     const context = buildCandidateContext(validCandidate({ credit: "Studio|One" }));
     expect(context).toContain(`schema_version=${REFERENCE_CANDIDATE_SCHEMA_VERSION}`);
     expect(context).toContain(`reference_key=${REFERENCE_KEY}`);
-    expect(context).toContain("rights_status=approved_for_reference");
     expect(context).toContain("credit=Studio One");
   });
 
@@ -228,17 +217,11 @@ describe("buildApprovedReferenceMapping", () => {
         format: "jpg",
         resourceType: "image",
         deliveryType: "authenticated",
-        rightsStatus: "approved_for_reference",
-        rightsEvidence: "license ref 2026-01",
       },
     });
   });
 
-  it("refuses unapproved rights and propagates invalid identities", () => {
-    expect(buildApprovedReferenceMapping(validCandidate({ rightsStatus: "pending" }), validUploaded())).toMatchObject({
-      ok: false,
-      reason: "unapproved_rights_status",
-    });
+  it("propagates invalid identities", () => {
     expect(buildApprovedReferenceMapping(validCandidate(), validUploaded({ version: 0 }))).toMatchObject({
       ok: false,
       reason: "invalid_version",
@@ -389,7 +372,6 @@ describe("runCli", () => {
       version: 17,
       format: "jpg",
       provenanceSource: "iPix-owned studio library",
-      rightsEvidence: "license ref 2026-01",
       approvedBy: "approver-uuid",
     });
     expect(deps.log).toHaveBeenCalledWith(expect.stringContaining(`approved ${REFERENCE_KEY}`));
@@ -431,7 +413,6 @@ describe("IPI-644 candidate tooling ships its migration and ACL suite", () => {
     const sql = await readFile(migrationPath, "utf8");
     expect(sql).toMatch(/record_shot_reference_media/);
     expect(sql).toMatch(/p_approved_by is null/);
-    expect(sql).toMatch(/approved_for_reference/);
     expect(sql).toMatch(/grant execute on function public\.record_shot_reference_media/);
     expect(sql).toMatch(/grant select on table public\.shot_type_references_view to service_role/);
   });

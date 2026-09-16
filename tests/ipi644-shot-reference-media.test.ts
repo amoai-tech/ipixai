@@ -99,7 +99,6 @@ function approvedRow(
     format: "webp",
     resource_type: "image",
     delivery_type: "authenticated",
-    rights_status: "approved_for_reference",
     ...overrides,
   };
 }
@@ -199,7 +198,6 @@ describe("IPI-644 getShotReferencePreview — authenticated exact-version mappin
   it.each([
     ["unsupported_resource_type", { resource_type: "video" }],
     ["invalid_delivery_type", { delivery_type: "upload" }],
-    ["unapproved_mapping", { rights_status: "pending" }],
     ["invalid_mapping", { public_id: "  " }],
     ["invalid_mapping", { cloudinary_asset_id: null }],
     ["invalid_mapping", { version: 0 }],
@@ -398,7 +396,6 @@ describe("IPI-644 ships the migration + isolated SQL security suite", () => {
     expect(migration).toMatch(/anon must not read or write the reference view/);
     expect(migration).toMatch(/authenticated may only SELECT it/);
     expect(migration).toMatch(/No policies on purpose/);
-    expect(migration).toMatch(/rights_status = 'approved_for_reference'/);
     expect(migration).toMatch(/security_invoker = true/);
     expect(migration).toMatch(/reference_key is immutable/);
     expect(migration).toMatch(/shot_type_references_reference_key_format/);

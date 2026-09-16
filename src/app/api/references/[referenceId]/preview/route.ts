@@ -62,7 +62,6 @@ export async function GET(
       case "missing_approved_media":
       case "unsupported_resource_type":
       case "invalid_delivery_type":
-      case "unapproved_mapping":
       case "invalid_mapping":
         // The reference exists but its approved media contract is not usable.
         // This is a data-integrity/no-media state, not a client validation error.

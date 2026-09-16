@@ -24,7 +24,6 @@ export const REFERENCE_LIBRARY_FOLDER = "ipix/reference-library";
 export const REFERENCE_CANDIDATE_SCHEMA_VERSION = "reference-candidate-v1";
 export const REFERENCE_CANDIDATE_TAG = "ipi-reference-candidate";
 export const REFERENCE_APPROVED_TAG = "ipi-reference-approved";
-export const REFERENCE_RIGHTS_STATUS_APPROVED = "approved_for_reference";
 export const APPROVED_REFERENCE_RESOURCE_TYPE = "image";
 export const APPROVED_REFERENCE_DELIVERY_TYPE = "authenticated";
 export const ALLOWED_CANDIDATE_FORMATS = ["jpg", "jpeg", "png", "webp", "avif"] as const;
@@ -48,8 +47,6 @@ export type ReferenceCandidate = {
   referenceKey: string;
   file: string;
   provenanceSource: string;
-  rightsStatus: string;
-  rightsEvidence: string;
   credit?: string | null;
   tags?: string[] | null;
 };
@@ -88,15 +85,12 @@ export type ReferenceApprovedMapping = {
   resourceType: string;
   deliveryType: string;
   provenanceSource: string;
-  rightsStatus: string;
-  rightsEvidence: string;
 };
 
 export type ReferenceCandidateFailureReason =
   | "invalid_manifest"
   | "invalid_candidate"
-  | "duplicate_reference_key"
-  | "unapproved_rights_status";
+  | "duplicate_reference_key";
 
 export type ReferenceMediaFailureReason =
   | "missing_identity"
@@ -192,21 +186,11 @@ function parseCandidate(
 
   const file = nonBlank(record.file);
   const provenanceSource = nonBlank(record.provenanceSource);
-  const rightsEvidence = nonBlank(record.rightsEvidence);
-  if (!file || !provenanceSource || !rightsEvidence) {
+  if (!file || !provenanceSource) {
     return {
       ok: false,
       reason: "invalid_candidate",
-      detail: `candidate[${index}] (${referenceKey}) needs file, provenanceSource, and rightsEvidence`,
-    };
-  }
-
-  const rightsStatus = nonBlank(record.rightsStatus);
-  if (rightsStatus !== REFERENCE_RIGHTS_STATUS_APPROVED) {
-    return {
-      ok: false,
-      reason: "unapproved_rights_status",
-      detail: `candidate[${index}] (${referenceKey}) rightsStatus must be ${REFERENCE_RIGHTS_STATUS_APPROVED}`,
+      detail: `candidate[${index}] (${referenceKey}) needs file and provenanceSource`,
     };
   }
 
@@ -216,8 +200,6 @@ function parseCandidate(
       referenceKey,
       file,
       provenanceSource,
-      rightsStatus,
-      rightsEvidence,
       credit: nonBlank(record.credit),
       tags: optionalTags(record.tags),
     },
@@ -271,7 +253,6 @@ export function buildCandidateContext(candidate: ReferenceCandidate): string {
     ["schema_version", REFERENCE_CANDIDATE_SCHEMA_VERSION],
     ["reference_key", candidate.referenceKey],
     ["provenance_source", candidate.provenanceSource],
-    ["rights_status", candidate.rightsStatus],
   ];
   if (candidate.credit) fields.push(["credit", candidate.credit]);
   return fields
@@ -349,10 +330,6 @@ export function buildApprovedReferenceMapping(
   candidate: ReferenceCandidate,
   uploaded: UploadedReferenceAsset,
 ): ReferenceMappingResult {
-  if (candidate.rightsStatus !== REFERENCE_RIGHTS_STATUS_APPROVED) {
-    return { ok: false, reason: "unapproved_rights_status", detail: "candidate rights are not approved for reference use" };
-  }
-
   const resolved = resolveUploadedIdentity(uploaded);
   if (!resolved.ok) return resolved;
 
@@ -380,8 +357,6 @@ export function buildApprovedReferenceMapping(
       resourceType: APPROVED_REFERENCE_RESOURCE_TYPE,
       deliveryType: APPROVED_REFERENCE_DELIVERY_TYPE,
       provenanceSource: candidate.provenanceSource,
-      rightsStatus: REFERENCE_RIGHTS_STATUS_APPROVED,
-      rightsEvidence: candidate.rightsEvidence,
     },
   };
 }

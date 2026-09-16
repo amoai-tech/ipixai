@@ -26,7 +26,8 @@ declare
 
   function_media text := 'public.get_shot_reference_media(uuid)';
   function_has_preview text := 'public.shot_type_reference_has_preview(uuid)';
-  function_record text := 'public.record_shot_reference_media(uuid, text, text, bigint, text, text, text, uuid)';
+  function_record text := 'public.record_shot_reference_media(uuid, text, text, bigint, text, text, uuid)';
+  function_record_legacy text := 'public.record_shot_reference_media(uuid, text, text, bigint, text, text, text, uuid)';
 
   policy_count int;
   hidden_columns text[];
@@ -156,28 +157,37 @@ begin
   ) or not exists (
     select 1 from pg_constraint
     where conrelid = media and contype = 'c' and conname = 'shot_type_reference_media_delivery_type_authenticated'
-  ) or not exists (
-    select 1 from pg_constraint
-    where conrelid = media and contype = 'c' and conname = 'shot_type_reference_media_rights_approved'
   ) then
     raise exception 'IPI-644: shot_type_reference_media is missing one of its exact-mapping CHECK constraints';
   end if;
 
-  -- ---- durable rights evidence + canonical approver identity ----------------
-  if not exists (
-    select 1 from pg_constraint
-    where conrelid = media and contype = 'c'
-      and conname = 'shot_type_reference_media_rights_evidence_not_blank'
-  ) then
-    raise exception 'IPI-644: shot_type_reference_media must require non-blank rights_evidence';
-  end if;
+  -- ---- the removed licensing/rights contract must stay removed -------------
   if exists (
-    select 1 from information_schema.columns
-    where table_schema = 'shoot' and table_name = 'shot_type_reference_media'
-      and column_name = 'rights_evidence' and is_nullable = 'YES'
+    select 1
+    from information_schema.columns
+    where table_schema = 'shoot'
+      and table_name = 'shot_type_reference_media'
+      and column_name in ('rights_evidence', 'rights_status')
   ) then
-    raise exception 'IPI-644: rights_evidence must be NOT NULL';
+    raise exception 'IPI-644: licensing/rights columns (rights_evidence, rights_status) must stay removed from shot_type_reference_media';
   end if;
+
+  if exists (
+    select 1 from pg_constraint
+    where conrelid = media
+      and conname in (
+        'shot_type_reference_media_rights_evidence_not_blank',
+        'shot_type_reference_media_rights_approved'
+      )
+  ) then
+    raise exception 'IPI-644: removed licensing/rights CHECK constraints must not exist on shot_type_reference_media';
+  end if;
+
+  if to_regprocedure(function_record_legacy) is not null then
+    raise exception 'IPI-644: obsolete 8-argument record_shot_reference_media must not exist';
+  end if;
+
+  -- ---- canonical approver identity ----------------------------------------
   if not exists (
     select 1 from pg_constraint
     where conrelid = media and contype = 'f'
@@ -193,8 +203,8 @@ begin
     and table_name = 'shot_type_references_view'
     and column_name in (
       'public_id', 'version', 'cloudinary_asset_id', 'format',
-      'resource_type', 'delivery_type', 'provenance_source', 'rights_status',
-      'rights_evidence', 'approved_by', 'approved_at'
+      'resource_type', 'delivery_type', 'provenance_source',
+      'approved_by', 'approved_at'
     );
   if hidden_columns is not null then
     raise exception 'IPI-644: catalog view must not expose provider identity columns, found %', hidden_columns;
@@ -280,8 +290,6 @@ begin
       and p.proname = 'record_shot_reference_media'
       and p.prosrc like '%p_approved_by is null%'
       and p.prosrc like '%auth.users%'
-      and p.prosrc like '%p_rights_evidence%'
-      and p.prosrc like '%approved_for_reference%'
       and p.prosrc like '%''authenticated''%'
       and p.prosrc like '%''image''%'
   ) then
