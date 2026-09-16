@@ -34,7 +34,6 @@ function validCandidate(overrides: Partial<ReferenceCandidate> = {}): ReferenceC
     file: `assets/reference-candidates/${REFERENCE_KEY}.jpg`,
     provenanceSource: "iPix-owned studio library",
     rightsStatus: "approved_for_reference",
-    rightsEvidence: "license ref 2026-01",
     ...overrides,
   };
 }
@@ -87,10 +86,6 @@ describe("parseReferenceCandidateManifest", () => {
       { ok: false, reason: "invalid_candidate" },
     );
     expect(parseReferenceCandidateManifest(manifestWith([validCandidate({ file: "  " })]))).toMatchObject({
-      ok: false,
-      reason: "invalid_candidate",
-    });
-    expect(parseReferenceCandidateManifest(manifestWith([validCandidate({ rightsEvidence: "" })]))).toMatchObject({
       ok: false,
       reason: "invalid_candidate",
     });
@@ -229,7 +224,6 @@ describe("buildApprovedReferenceMapping", () => {
         resourceType: "image",
         deliveryType: "authenticated",
         rightsStatus: "approved_for_reference",
-        rightsEvidence: "license ref 2026-01",
       },
     });
   });
@@ -389,7 +383,6 @@ describe("runCli", () => {
       version: 17,
       format: "jpg",
       provenanceSource: "iPix-owned studio library",
-      rightsEvidence: "license ref 2026-01",
       approvedBy: "approver-uuid",
     });
     expect(deps.log).toHaveBeenCalledWith(expect.stringContaining(`approved ${REFERENCE_KEY}`));

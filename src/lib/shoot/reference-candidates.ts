@@ -49,7 +49,6 @@ export type ReferenceCandidate = {
   file: string;
   provenanceSource: string;
   rightsStatus: string;
-  rightsEvidence: string;
   credit?: string | null;
   tags?: string[] | null;
 };
@@ -89,7 +88,6 @@ export type ReferenceApprovedMapping = {
   deliveryType: string;
   provenanceSource: string;
   rightsStatus: string;
-  rightsEvidence: string;
 };
 
 export type ReferenceCandidateFailureReason =
@@ -192,12 +190,11 @@ function parseCandidate(
 
   const file = nonBlank(record.file);
   const provenanceSource = nonBlank(record.provenanceSource);
-  const rightsEvidence = nonBlank(record.rightsEvidence);
-  if (!file || !provenanceSource || !rightsEvidence) {
+  if (!file || !provenanceSource) {
     return {
       ok: false,
       reason: "invalid_candidate",
-      detail: `candidate[${index}] (${referenceKey}) needs file, provenanceSource, and rightsEvidence`,
+      detail: `candidate[${index}] (${referenceKey}) needs file and provenanceSource`,
     };
   }
 
@@ -217,7 +214,6 @@ function parseCandidate(
       file,
       provenanceSource,
       rightsStatus,
-      rightsEvidence,
       credit: nonBlank(record.credit),
       tags: optionalTags(record.tags),
     },
@@ -381,7 +377,6 @@ export function buildApprovedReferenceMapping(
       deliveryType: APPROVED_REFERENCE_DELIVERY_TYPE,
       provenanceSource: candidate.provenanceSource,
       rightsStatus: REFERENCE_RIGHTS_STATUS_APPROVED,
-      rightsEvidence: candidate.rightsEvidence,
     },
   };
 }

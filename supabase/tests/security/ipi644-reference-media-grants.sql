@@ -26,7 +26,7 @@ declare
 
   function_media text := 'public.get_shot_reference_media(uuid)';
   function_has_preview text := 'public.shot_type_reference_has_preview(uuid)';
-  function_record text := 'public.record_shot_reference_media(uuid, text, text, bigint, text, text, text, uuid)';
+  function_record text := 'public.record_shot_reference_media(uuid, text, text, bigint, text, text, uuid)';
 
   policy_count int;
   hidden_columns text[];
@@ -163,21 +163,7 @@ begin
     raise exception 'IPI-644: shot_type_reference_media is missing one of its exact-mapping CHECK constraints';
   end if;
 
-  -- ---- durable rights evidence + canonical approver identity ----------------
-  if not exists (
-    select 1 from pg_constraint
-    where conrelid = media and contype = 'c'
-      and conname = 'shot_type_reference_media_rights_evidence_not_blank'
-  ) then
-    raise exception 'IPI-644: shot_type_reference_media must require non-blank rights_evidence';
-  end if;
-  if exists (
-    select 1 from information_schema.columns
-    where table_schema = 'shoot' and table_name = 'shot_type_reference_media'
-      and column_name = 'rights_evidence' and is_nullable = 'YES'
-  ) then
-    raise exception 'IPI-644: rights_evidence must be NOT NULL';
-  end if;
+  -- ---- canonical approver identity ----------------------------------------
   if not exists (
     select 1 from pg_constraint
     where conrelid = media and contype = 'f'
@@ -194,7 +180,7 @@ begin
     and column_name in (
       'public_id', 'version', 'cloudinary_asset_id', 'format',
       'resource_type', 'delivery_type', 'provenance_source', 'rights_status',
-      'rights_evidence', 'approved_by', 'approved_at'
+      'approved_by', 'approved_at'
     );
   if hidden_columns is not null then
     raise exception 'IPI-644: catalog view must not expose provider identity columns, found %', hidden_columns;
@@ -280,7 +266,6 @@ begin
       and p.proname = 'record_shot_reference_media'
       and p.prosrc like '%p_approved_by is null%'
       and p.prosrc like '%auth.users%'
-      and p.prosrc like '%p_rights_evidence%'
       and p.prosrc like '%approved_for_reference%'
       and p.prosrc like '%''authenticated''%'
       and p.prosrc like '%''image''%'
