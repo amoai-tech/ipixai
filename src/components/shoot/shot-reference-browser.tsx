@@ -80,9 +80,11 @@ function useReferencePreview(referenceId: string, kind: "card" | "detail", enabl
     }
 
     const controller = new AbortController();
-    // Mutable holder (not a closure-narrowable `let`) so TypeScript cannot prove
-    // the guard below is unreachable; cleanup flips it before aborting.
+    // Per-run staleness flag guarded through the `await` below. The accessor keeps the
+    // flag out of TypeScript's literal narrowing, which would otherwise treat the
+    // post-await check as unreachable. Cleanup clears it before aborting the request.
     const request = { active: true };
+    const isActive = () => request.active;
     setState({ status: "loading" });
 
     // Fixed same-origin path built from a server-loaded trusted reference id.
@@ -91,13 +93,13 @@ function useReferencePreview(referenceId: string, kind: "card" | "detail", enabl
     // nosemgrep
     fetch(path, { signal: controller.signal })
       .then(async (response) => {
-        if (!request.active) return;
+        if (!isActive()) return;
         if (!response.ok) {
           setState(response.status === 404 || response.status === 409 ? { status: "unavailable" } : { status: "error" });
           return;
         }
         const payload = (await response.json()) as { url?: unknown };
-        if (!request.active) return;
+        if (!isActive()) return;
         if (typeof payload.url === "string" && payload.url.length > 0) {
           setState({ status: "ready", url: payload.url });
           return;
@@ -105,7 +107,7 @@ function useReferencePreview(referenceId: string, kind: "card" | "detail", enabl
         setState({ status: "unavailable" });
       })
       .catch((error: unknown) => {
-        if (!request.active || (error instanceof Error && error.name === "AbortError")) return;
+        if (!isActive() || (error instanceof Error && error.name === "AbortError")) return;
         setState({ status: "error" });
       });
 
