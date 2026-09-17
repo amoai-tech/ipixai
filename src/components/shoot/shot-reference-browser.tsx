@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import {
   channelMatchesReference,
@@ -18,19 +18,24 @@ import type { ShotReferenceCatalogEntry } from "@/lib/shoot/shot-type-references
  * - input: the trusted catalog + the reference currently in review;
  * - output: a trusted `referenceId` through `onSelect` — nothing else.
  *
- * `Keep` returns the current `referenceId` unchanged. `Replace` is only offered
- * when the PLAN-001 compatibility scorer says the candidate is compatible, so
- * replacement stays compatibility-safe without duplicating selection logic.
+ * `Keep` returns the current `referenceId` unchanged when it is present in the
+ * catalog (and is disabled otherwise, so an untrusted id can never be emitted).
+ * `Replace` is only offered when the PLAN-001 compatibility scorer says the
+ * candidate is compatible, so replacement stays compatibility-safe without
+ * duplicating selection logic.
  */
 
-// TypeScript requires an explicit parameter name in function-type signatures, and these names
-// document the contract for every consumer; the base `no-unused-vars` rule (which Codacy runs)
-// cannot see that, so the whole contract is exempted here rather than suppressing each line.
-/*
- * File-scoped: TypeScript function-type signatures (props and callbacks) require an explicit
- * parameter name, which the base `no-unused-vars` rule Codacy runs cannot understand.
- */
-/* eslint-disable no-unused-vars */
+// TypeScript function types need a named parameter to attach its type, and that name
+// documents the callback contract. The base `no-unused-vars` rule Codacy runs cannot
+// see that, so each shared handler type carries a targeted one-line suppression
+// instead of a whole-file disable.
+/* eslint-disable-next-line no-unused-vars -- named parameter documents the callback contract */
+type ReferenceIdHandler = (referenceId: string) => void;
+/* eslint-disable-next-line no-unused-vars -- named parameter documents the callback contract */
+type ValueHandler = (value: string) => void;
+/* eslint-disable-next-line no-unused-vars -- named parameter documents the callback contract */
+type EntryHandler = (entry: ShotReferenceCatalogEntry) => void;
+
 export type ShotReferenceBrowserProps = {
   /** Reference currently in review (from the planner / owning review flow). */
   currentReferenceId: string;
@@ -41,7 +46,7 @@ export type ShotReferenceBrowserProps = {
   /** Optional operator-known context; same inputs the PLAN-001 scorer already accepts. */
   context?: ReferenceSelectionContext;
   /** Receives ONLY a trusted reference id. Keep = current id; Replace = chosen id. */
-  onSelect: (referenceId: string) => void;
+  onSelect: ReferenceIdHandler;
   /** Optional heading override. */
   title?: string;
 };
@@ -90,6 +95,7 @@ function useReferencePreview(referenceId: string, kind: "card" | "detail", enabl
           return;
         }
         const payload = (await response.json()) as { url?: unknown };
+        if (!active) return;
         if (typeof payload.url === "string" && payload.url.length > 0) {
           setState({ status: "ready", url: payload.url });
           return;
@@ -152,7 +158,7 @@ function ReferencePreview({ referenceId, hasPreview, kind }: { referenceId: stri
 
   if (preview.status === "idle" || preview.status === "loading") {
     return (
-      <div className="h-32 w-full animate-pulse rounded-md bg-gray-100" data-testid="reference-preview-loading" aria-busy="true" />
+      <div className="h-32 w-full motion-safe:animate-pulse rounded-md bg-gray-100" data-testid="reference-preview-loading" aria-busy="true" />
     );
   }
 
@@ -272,8 +278,8 @@ function ReferenceCardComponent({
   compatible: boolean;
   expanded: boolean;
   blockedMessage: string | null;
-  onToggleDetails: () => void;
-  onReplace: () => void;
+  onToggleDetails: ReferenceIdHandler;
+  onReplace: EntryHandler;
 }) {
   return (
     <li
@@ -288,8 +294,12 @@ function ReferenceCardComponent({
       <ReferenceCardActions
         isCurrent={isCurrent}
         expanded={expanded}
-        onToggleDetails={onToggleDetails}
-        onReplace={onReplace}
+        onToggleDetails={() => {
+          onToggleDetails(entry.id);
+        }}
+        onReplace={() => {
+          onReplace(entry);
+        }}
       />
       {expanded ? <ReferenceDetails entry={entry} /> : null}
       {blockedMessage ? (
@@ -315,9 +325,9 @@ type Filters = {
   categories: string[];
   subcategories: string[];
   visible: ShotReferenceCatalogEntry[];
-  onCategoryChange: (value: string) => void;
-  onSubcategoryChange: (value: string) => void;
-  onQueryChange: (value: string) => void;
+  onCategoryChange: ValueHandler;
+  onSubcategoryChange: ValueHandler;
+  onQueryChange: ValueHandler;
 };
 
 function useReferenceFilters(catalog: ShotReferenceCatalogEntry[]): Filters {
@@ -377,7 +387,7 @@ function FilterSelect({
   value: string;
   allLabel: string;
   options: string[];
-  onChange: (value: string) => void;
+  onChange: ValueHandler;
 }) {
   return (
     <label className="flex flex-col gap-1 text-xs text-gray-600">
@@ -401,7 +411,7 @@ function FilterSelect({
   );
 }
 
-function FilterSearch({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+function FilterSearch({ value, onChange }: { value: string; onChange: ValueHandler }) {
   return (
     <label className="flex flex-col gap-1 text-xs text-gray-600">
       Search
@@ -419,11 +429,23 @@ function FilterSearch({ value, onChange }: { value: string; onChange: (value: st
   );
 }
 
-function BrowserHeader({ title, summary, onKeep }: { title: string; summary: string; onKeep: () => void }) {
+function BrowserHeader({
+  title,
+  summary,
+  onKeep,
+  keepEnabled,
+  headingId,
+}: {
+  title: string;
+  summary: string;
+  onKeep: () => void;
+  keepEnabled: boolean;
+  headingId: string;
+}) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-2">
       <div className="flex flex-col gap-1">
-        <h2 id="shot-reference-browser-title" className="text-base font-semibold text-gray-900">{title}</h2>
+        <h2 id={headingId} className="text-base font-semibold text-gray-900">{title}</h2>
         <p className="text-xs text-gray-500" data-testid="reference-current-summary">
           {summary}
         </p>
@@ -431,8 +453,9 @@ function BrowserHeader({ title, summary, onKeep }: { title: string; summary: str
       <button
         type="button"
         onClick={onKeep}
+        disabled={!keepEnabled}
         data-testid="reference-keep"
-        className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-800 transition-colors hover:bg-gray-100"
+        className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-800 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
       >
         Keep current reference
       </button>
@@ -456,8 +479,8 @@ function ReferenceGrid({
   context?: ReferenceSelectionContext;
   expandedId: string | null;
   blocked: { referenceId: string; message: string } | null;
-  onToggleDetails: (referenceId: string) => void;
-  onReplace: (entry: ShotReferenceCatalogEntry) => void;
+  onToggleDetails: ReferenceIdHandler;
+  onReplace: EntryHandler;
 }) {
   return (
     <ul role="list" data-testid="reference-grid" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -469,12 +492,8 @@ function ReferenceGrid({
           compatible={scoreReferenceCompatibility(entry, deliverableChannel, context) > 0}
           expanded={expandedId === entry.id}
           blockedMessage={blocked?.referenceId === entry.id ? blocked.message : null}
-          onToggleDetails={() => {
-            onToggleDetails(entry.id);
-          }}
-          onReplace={() => {
-            onReplace(entry);
-          }}
+          onToggleDetails={onToggleDetails}
+          onReplace={onReplace}
         />
       ))}
     </ul>
@@ -486,9 +505,16 @@ function ReferenceGrid({
  *
  * Performs no Shoot write: the only output is the trusted `referenceId` handed
  * back through `onSelect`, which the owning review flow owns.
+ *
+ * Preview loading is intentionally eager. The grid is bounded by the trusted
+ * catalog (49 rows today, and only rows with an approved preview fetch at all),
+ * and this component is not mounted yet, so viewport-gated loading via
+ * `IntersectionObserver` is deferred until a real mount can be profiled. Add it
+ * only if profiling shows the eager request burst is materially costly.
  */
 export function ShotReferenceBrowser(props: ShotReferenceBrowserProps) {
   const { currentReferenceId, catalog, deliverableChannel, context, onSelect, title = "Reference image" } = props;
+  const headingId = useId();
   const filters = useReferenceFilters(catalog);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [blocked, setBlocked] = useState<{ referenceId: string; message: string } | null>(null);
@@ -498,10 +524,13 @@ export function ShotReferenceBrowser(props: ShotReferenceBrowserProps) {
     [catalog, currentReferenceId],
   );
 
+  // Keep is only valid while the current reference is in the trusted catalog;
+  // emitting an id the catalog does not contain would break the onSelect contract.
   const handleKeep = useCallback(() => {
+    if (!currentEntry) return;
     setBlocked(null);
-    onSelect(currentReferenceId);
-  }, [currentReferenceId, onSelect]);
+    onSelect(currentEntry.id);
+  }, [currentEntry, onSelect]);
 
   const handleReplace = useCallback(
     (entry: ShotReferenceCatalogEntry) => {
@@ -527,8 +556,14 @@ export function ShotReferenceBrowser(props: ShotReferenceBrowserProps) {
     : "Current reference is not in the trusted catalog.";
 
   return (
-    <section aria-labelledby="shot-reference-browser-title" data-testid="shot-reference-browser" className="flex flex-col gap-4">
-      <BrowserHeader title={title} summary={summary} onKeep={handleKeep} />
+    <section aria-labelledby={headingId} data-testid="shot-reference-browser" className="flex flex-col gap-4">
+      <BrowserHeader
+        title={title}
+        summary={summary}
+        onKeep={handleKeep}
+        keepEnabled={currentEntry !== null}
+        headingId={headingId}
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <FilterSelect

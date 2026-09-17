@@ -142,6 +142,83 @@ describe("ShotReferenceBrowser", () => {
     expect(onSelect).toHaveBeenCalledWith(CURRENT_ID);
   });
 
+  it("refuses to keep a reference that is absent from the trusted catalog", () => {
+    const { onSelect } = renderBrowser({ currentReferenceId: "99999999-9999-4999-8999-999999999999" });
+
+    expect(screen.getByTestId("reference-current-summary").textContent).toContain("not in the trusted catalog");
+
+    const keep = screen.getByTestId("reference-keep");
+    expect(keep instanceof HTMLButtonElement && keep.disabled).toBe(true);
+    fireEvent.click(keep);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("gives each mounted browser a unique heading id", () => {
+    render(
+      <>
+        <ShotReferenceBrowser
+          currentReferenceId={CURRENT_ID}
+          catalog={CATALOG}
+          deliverableChannel="shopify"
+          context={CONTEXT}
+          onSelect={vi.fn()}
+        />
+        <ShotReferenceBrowser
+          currentReferenceId={CURRENT_ID}
+          catalog={CATALOG}
+          deliverableChannel="shopify"
+          context={CONTEXT}
+          onSelect={vi.fn()}
+        />
+      </>,
+    );
+
+    const ids = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.id);
+    expect(ids).toHaveLength(2);
+    expect(ids.every((id) => id.length > 0)).toBe(true);
+    expect(new Set(ids).size).toBe(2);
+  });
+
+  it("ignores a stale preview response that resolves after the card expands", async () => {
+    const STALE_URL =
+      "https://res.cloudinary.com/demo/image/authenticated/s--stale--/t_asset-masonry/v1/ipix/reference-library/stale.jpg";
+    let resolveStaleJson: (value: { url: string }) => void = () => {};
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          new Promise<{ url: string }>((resolve) => {
+            resolveStaleJson = resolve;
+          }),
+      })
+      .mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ url: PREVIEW_URL }),
+      });
+
+    renderBrowser({ catalog: [CURRENT_ENTRY], currentReferenceId: CURRENT_ID });
+
+    // The stale "card" preview response is still in flight when the card expands.
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+    fireEvent.click(screen.getByTestId("reference-toggle-details"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("reference-preview-image").getAttribute("src")).toBe(PREVIEW_URL);
+    });
+
+    // Resolving the abandoned request must not overwrite the current preview.
+    resolveStaleJson({ url: STALE_URL });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("reference-preview-image").getAttribute("src")).toBe(PREVIEW_URL);
+    });
+    expect(screen.getByTestId("reference-preview-image").getAttribute("src")).not.toBe(STALE_URL);
+  });
+
   it("returns only the trusted reference id when replacing with a compatible reference", () => {
     const { onSelect } = renderBrowser();
 
