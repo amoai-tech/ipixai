@@ -26,7 +26,11 @@ import type { ShotReferenceCatalogEntry } from "@/lib/shoot/shot-type-references
 // TypeScript requires an explicit parameter name in function-type signatures, and these names
 // document the contract for every consumer; the base `no-unused-vars` rule (which Codacy runs)
 // cannot see that, so the whole contract is exempted here rather than suppressing each line.
-/* eslint-disable no-unused-vars -- function-type parameter names document the contract */
+/*
+ * File-scoped: TypeScript function-type signatures (props and callbacks) require an explicit
+ * parameter name, which the base `no-unused-vars` rule Codacy runs cannot understand.
+ */
+/* eslint-disable no-unused-vars */
 export type ShotReferenceBrowserProps = {
   /** Reference currently in review (from the planner / owning review flow). */
   currentReferenceId: string;
@@ -41,7 +45,6 @@ export type ShotReferenceBrowserProps = {
   /** Optional heading override. */
   title?: string;
 };
-/* eslint-enable no-unused-vars */
 
 type PreviewState =
   | { status: "idle" }
