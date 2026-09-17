@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import {
   channelMatchesReference,
@@ -80,6 +80,9 @@ function useReferencePreview(referenceId: string, kind: "card" | "detail", enabl
     }
 
     const controller = new AbortController();
+    // Mutable holder (not a closure-narrowable `let`) so TypeScript cannot prove
+    // the guard below is unreachable; cleanup flips it before aborting.
+    const request = { active: true };
     setState({ status: "loading" });
 
     // Fixed same-origin path built from a server-loaded trusted reference id.
@@ -88,13 +91,13 @@ function useReferencePreview(referenceId: string, kind: "card" | "detail", enabl
     // nosemgrep
     fetch(path, { signal: controller.signal })
       .then(async (response) => {
-        if (controller.signal.aborted) return;
+        if (!request.active) return;
         if (!response.ok) {
           setState(response.status === 404 || response.status === 409 ? { status: "unavailable" } : { status: "error" });
           return;
         }
         const payload = (await response.json()) as { url?: unknown };
-        if (controller.signal.aborted) return;
+        if (!request.active) return;
         if (typeof payload.url === "string" && payload.url.length > 0) {
           setState({ status: "ready", url: payload.url });
           return;
@@ -102,11 +105,12 @@ function useReferencePreview(referenceId: string, kind: "card" | "detail", enabl
         setState({ status: "unavailable" });
       })
       .catch((error: unknown) => {
-        if (controller.signal.aborted || (error instanceof Error && error.name === "AbortError")) return;
+        if (!request.active || (error instanceof Error && error.name === "AbortError")) return;
         setState({ status: "error" });
       });
 
     return () => {
+      request.active = false;
       controller.abort();
     };
   }, [referenceId, kind, enabled]);
@@ -276,8 +280,8 @@ function ReferenceCardComponent({
   compatible: boolean;
   expanded: boolean;
   blockedMessage: string | null;
-  onToggleDetails: ReferenceIdHandler;
-  onReplace: EntryHandler;
+  onToggleDetails: () => void;
+  onReplace: () => void;
 }) {
   return (
     <li
@@ -292,8 +296,8 @@ function ReferenceCardComponent({
       <ReferenceCardActions
         isCurrent={isCurrent}
         expanded={expanded}
-        onToggleDetails={() => onToggleDetails(entry.id)}
-        onReplace={() => onReplace(entry)}
+        onToggleDetails={onToggleDetails}
+        onReplace={onReplace}
       />
       {expanded ? <ReferenceDetails entry={entry} /> : null}
       {blockedMessage ? (
@@ -309,8 +313,6 @@ function ReferenceCardComponent({
     </li>
   );
 }
-
-const ReferenceCard = memo(ReferenceCardComponent);
 
 type Filters = {
   category: string;
@@ -479,15 +481,19 @@ function ReferenceGrid({
   return (
     <ul role="list" data-testid="reference-grid" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {entries.map((entry) => (
-        <ReferenceCard
+        <ReferenceCardComponent
           key={entry.id}
           entry={entry}
           isCurrent={entry.id === currentReferenceId}
           compatible={scoreReferenceCompatibility(entry, deliverableChannel, context) > 0}
           expanded={expandedId === entry.id}
           blockedMessage={blocked?.referenceId === entry.id ? blocked.message : null}
-          onToggleDetails={onToggleDetails}
-          onReplace={onReplace}
+          onToggleDetails={() => {
+            onToggleDetails(entry.id);
+          }}
+          onReplace={() => {
+            onReplace(entry);
+          }}
         />
       ))}
     </ul>
