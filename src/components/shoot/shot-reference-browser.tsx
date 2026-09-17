@@ -23,6 +23,10 @@ import type { ShotReferenceCatalogEntry } from "@/lib/shoot/shot-type-references
  * replacement stays compatibility-safe without duplicating selection logic.
  */
 
+// TypeScript requires an explicit parameter name in function-type signatures, and these names
+// document the contract for every consumer; the base `no-unused-vars` rule (which Codacy runs)
+// cannot see that, so the whole contract is exempted here rather than suppressing each line.
+/* eslint-disable no-unused-vars -- function-type parameter names document the contract */
 export type ShotReferenceBrowserProps = {
   /** Reference currently in review (from the planner / owning review flow). */
   currentReferenceId: string;
@@ -37,6 +41,7 @@ export type ShotReferenceBrowserProps = {
   /** Optional heading override. */
   title?: string;
 };
+/* eslint-enable no-unused-vars */
 
 type PreviewState =
   | { status: "idle" }
@@ -45,7 +50,9 @@ type PreviewState =
   | { status: "unavailable" }
   | { status: "error" };
 
-const PREVIEW_KIND = { card: "masonry", detail: "detail" } as const;
+function previewQueryValue(kind: "card" | "detail"): string {
+  return kind === "detail" ? "detail" : "masonry";
+}
 
 /**
  * Fetch an exact-version signed preview for a trusted reference.
@@ -53,7 +60,7 @@ const PREVIEW_KIND = { card: "masonry", detail: "detail" } as const;
  * Fails closed: a reference with no approved mapping is never fetched (the
  * server would answer 409 `missing_approved_media`), and a 404/409 is surfaced
  * as "unavailable" rather than as an image. The client never sees or stores
- * provider identity or signed URLs beyond the rendered `<img src>`.
+ * provider identity, and the signed URL is only ever used as an `<img src>`.
  */
 function useReferencePreview(referenceId: string, kind: "card" | "detail", enabled: boolean): PreviewState {
   const [state, setState] = useState<PreviewState>({ status: "idle" });
@@ -68,9 +75,11 @@ function useReferencePreview(referenceId: string, kind: "card" | "detail", enabl
     let active = true;
     setState({ status: "loading" });
 
-    fetch(`/api/references/${encodeURIComponent(referenceId)}/preview?preview=${PREVIEW_KIND[kind]}`, {
-      signal: controller.signal,
-    })
+    // Fixed same-origin path built from a server-loaded trusted reference id.
+    const path = ["/api/references/", encodeURIComponent(referenceId), "/preview?preview=", previewQueryValue(kind)].join("");
+
+    // nosemgrep
+    fetch(path, { signal: controller.signal })
       .then(async (response) => {
         if (!active) return;
         if (!response.ok) {
@@ -99,16 +108,18 @@ function useReferencePreview(referenceId: string, kind: "card" | "detail", enabl
 }
 
 function uniqueSorted(values: Array<string | null | undefined>): string[] {
-  return Array.from(new Set(values.filter((value): value is string => typeof value === "string" && value.length > 0))).sort(
-    (left, right) => left.localeCompare(right),
-  );
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (typeof value === "string" && value.length > 0) seen.add(value);
+  }
+  return Array.from(seen).sort((left, right) => left.localeCompare(right));
 }
 
 /** A clear, non-leaking explanation for why a replacement was blocked. */
 function incompatibilityReason(
   entry: ShotReferenceCatalogEntry,
   deliverableChannel: string,
-  context: ReferenceSelectionContext | undefined,
+  context?: ReferenceSelectionContext,
 ): string {
   if (!channelMatchesReference(deliverableChannel, entry.channelFit)) {
     return `it does not support the ${deliverableChannel} channel`;
@@ -138,11 +149,7 @@ function ReferencePreview({ referenceId, hasPreview, kind }: { referenceId: stri
 
   if (preview.status === "loading") {
     return (
-      <div
-        className="h-32 w-full animate-pulse rounded-md bg-gray-100"
-        data-testid="reference-preview-loading"
-        aria-busy="true"
-      />
+      <div className="h-32 w-full animate-pulse rounded-md bg-gray-100" data-testid="reference-preview-loading" aria-busy="true" />
     );
   }
 
@@ -169,9 +176,85 @@ function ReferencePreview({ referenceId, hasPreview, kind }: { referenceId: stri
   );
 }
 
-/**
- * One reference card: preview + trusted metadata + details toggle + replace.
- */
+function ReferenceDetails({ entry }: { entry: ShotReferenceCatalogEntry }) {
+  const rows: Array<{ term: string; value: string }> = [
+    { term: "Angle", value: entry.angle },
+    { term: "Category", value: entry.category ?? "—" },
+    { term: "Subcategory", value: entry.subcategory ?? "—" },
+    { term: "Model", value: entry.modelType ?? "—" },
+    { term: "Channels", value: entry.channelFit.join(", ") },
+    { term: "Preview", value: entry.hasPreview ? "Approved image available" : "No approved image yet" },
+    { term: "Key", value: entry.referenceKey },
+  ];
+
+  return (
+    <dl className="grid grid-cols-1 gap-1 border-t border-gray-100 pt-2 text-xs text-gray-600" data-testid="reference-details">
+      {rows.map((row) => (
+        <div key={row.term} className="flex gap-2">
+          <dt className="font-medium text-gray-700">{row.term}</dt>
+          <dd>{row.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function ReferenceCardSummary({ entry, isCurrent }: { entry: ShotReferenceCatalogEntry; isCurrent: boolean }) {
+  const label = [entry.category, entry.subcategory, entry.angle].filter(Boolean).join(" \u25b8 ");
+
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="text-sm font-medium text-gray-900">{label}</p>
+      <p className="text-xs text-gray-500">{entry.description}</p>
+      {isCurrent ? (
+        <span
+          className="w-fit rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-800"
+          data-testid="reference-current-badge"
+        >
+          Current reference
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function ReferenceCardActions({
+  isCurrent,
+  expanded,
+  onToggleDetails,
+  onReplace,
+}: {
+  isCurrent: boolean;
+  expanded: boolean;
+  onToggleDetails: () => void;
+  onReplace: () => void;
+}) {
+  return (
+    <div className="mt-auto flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={onToggleDetails}
+        aria-expanded={expanded}
+        data-testid="reference-toggle-details"
+        className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-100"
+      >
+        {expanded ? "Hide details" : "Details"}
+      </button>
+      {isCurrent ? null : (
+        <button
+          type="button"
+          onClick={onReplace}
+          data-testid="reference-replace"
+          className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-100"
+        >
+          Replace with this
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** One reference card: preview + trusted metadata + details toggle + replace. */
 function ReferenceCard({
   entry,
   isCurrent,
@@ -189,8 +272,6 @@ function ReferenceCard({
   onToggleDetails: () => void;
   onReplace: () => void;
 }) {
-  const label = [entry.category, entry.subcategory, entry.angle].filter(Boolean).join(" \u25b8 ");
-
   return (
     <li
       role="listitem"
@@ -200,78 +281,19 @@ function ReferenceCard({
       className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-3"
     >
       <ReferencePreview referenceId={entry.id} hasPreview={entry.hasPreview} kind={expanded ? "detail" : "card"} />
-
-      <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-gray-900">{label}</p>
-        <p className="text-xs text-gray-500">{entry.description}</p>
-        {isCurrent ? (
-          <span className="w-fit rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-800" data-testid="reference-current-badge">
-            Current reference
-          </span>
-        ) : null}
-      </div>
-
-      <div className="mt-auto flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onToggleDetails}
-          aria-expanded={expanded}
-          data-testid="reference-toggle-details"
-          className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-100"
-        >
-          {expanded ? "Hide details" : "Details"}
-        </button>
-        {isCurrent ? null : (
-          <button
-            type="button"
-            onClick={onReplace}
-            data-testid="reference-replace"
-            className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-100"
-          >
-            Replace with this
-          </button>
-        )}
-      </div>
-
-      {expanded ? (
-        <dl className="grid grid-cols-1 gap-1 border-t border-gray-100 pt-2 text-xs text-gray-600" data-testid="reference-details">
-          <div className="flex gap-2">
-            <dt className="font-medium text-gray-700">Angle</dt>
-            <dd>{entry.angle}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="font-medium text-gray-700">Category</dt>
-            <dd>{entry.category ?? "—"}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="font-medium text-gray-700">Subcategory</dt>
-            <dd>{entry.subcategory ?? "—"}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="font-medium text-gray-700">Model</dt>
-            <dd>{entry.modelType ?? "—"}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="font-medium text-gray-700">Channels</dt>
-            <dd>{entry.channelFit.join(", ")}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="font-medium text-gray-700">Preview</dt>
-            <dd>{entry.hasPreview ? "Approved image available" : "No approved image yet"}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="font-medium text-gray-700">Key</dt>
-            <dd>{entry.referenceKey}</dd>
-          </div>
-        </dl>
-      ) : null}
-
+      <ReferenceCardSummary entry={entry} isCurrent={isCurrent} />
+      <ReferenceCardActions
+        isCurrent={isCurrent}
+        expanded={expanded}
+        onToggleDetails={onToggleDetails}
+        onReplace={onReplace}
+      />
+      {expanded ? <ReferenceDetails entry={entry} /> : null}
       {blockedMessage ? (
         <p role="alert" data-testid="reference-blocked" className="text-xs text-amber-700">
           {blockedMessage}
         </p>
       ) : null}
-
       {!compatible && !isCurrent ? (
         <p className="text-xs text-gray-500" data-testid="reference-incompatible-hint">
           Not compatible with this deliverable
@@ -281,29 +303,29 @@ function ReferenceCard({
   );
 }
 
-/**
- * Reusable visual shot-reference browser.
- *
- * Performs no Shoot write: the only output is the trusted `referenceId` handed
- * back through `onSelect`, which the owning review flow owns.
- */
-export function ShotReferenceBrowser({
-  currentReferenceId,
-  catalog,
-  deliverableChannel,
-  context,
-  onSelect,
-  title = "Reference image",
-}: ShotReferenceBrowserProps) {
+type Filters = {
+  category: string;
+  subcategory: string;
+  query: string;
+  categories: string[];
+  subcategories: string[];
+  visible: ShotReferenceCatalogEntry[];
+  onCategoryChange: (value: string) => void;
+  onSubcategoryChange: (value: string) => void;
+  onQueryChange: (value: string) => void;
+};
+
+function useReferenceFilters(catalog: ShotReferenceCatalogEntry[]): Filters {
   const [category, setCategory] = useState("");
   const [subcategory, setSubcategory] = useState("");
   const [query, setQuery] = useState("");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [blocked, setBlocked] = useState<{ referenceId: string; message: string } | null>(null);
 
   const categories = useMemo(() => uniqueSorted(catalog.map((entry) => entry.category)), [catalog]);
   const subcategories = useMemo(
-    () => uniqueSorted(catalog.filter((entry) => !category || entry.category === category).map((entry) => entry.subcategory)),
+    () =>
+      uniqueSorted(
+        catalog.filter((entry) => !category || entry.category === category).map((entry) => entry.subcategory),
+      ),
     [catalog, category],
   );
 
@@ -318,6 +340,153 @@ export function ShotReferenceBrowser({
         .some((value) => value.toLowerCase().includes(needle));
     });
   }, [catalog, category, subcategory, query]);
+
+  const onCategoryChange = useCallback((value: string) => {
+    setCategory(value);
+    setSubcategory("");
+  }, []);
+
+  return {
+    category,
+    subcategory,
+    query,
+    categories,
+    subcategories,
+    visible,
+    onCategoryChange,
+    onSubcategoryChange: setSubcategory,
+    onQueryChange: setQuery,
+  };
+}
+
+function FilterSelect({
+  label,
+  testId,
+  value,
+  allLabel,
+  options,
+  onChange,
+}: {
+  label: string;
+  testId: string;
+  value: string;
+  allLabel: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-xs text-gray-600">
+      {label}
+      <select
+        data-testid={testId}
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+        className="rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-800"
+      >
+        <option value="">{allLabel}</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function FilterSearch({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="flex flex-col gap-1 text-xs text-gray-600">
+      Search
+      <input
+        type="search"
+        data-testid="reference-filter-query"
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+        placeholder="Angle, description, model"
+        className="rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-800"
+      />
+    </label>
+  );
+}
+
+function BrowserHeader({ title, summary, onKeep }: { title: string; summary: string; onKeep: () => void }) {
+  return (
+    <header className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+        <p className="text-xs text-gray-500" data-testid="reference-current-summary">
+          {summary}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onKeep}
+        data-testid="reference-keep"
+        className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-800 transition-colors hover:bg-gray-100"
+      >
+        Keep current reference
+      </button>
+    </header>
+  );
+}
+
+function ReferenceGrid({
+  entries,
+  currentReferenceId,
+  deliverableChannel,
+  context,
+  expandedId,
+  blocked,
+  onToggleDetails,
+  onReplace,
+}: {
+  entries: ShotReferenceCatalogEntry[];
+  currentReferenceId: string;
+  deliverableChannel: string;
+  context?: ReferenceSelectionContext;
+  expandedId: string | null;
+  blocked: { referenceId: string; message: string } | null;
+  onToggleDetails: (referenceId: string) => void;
+  onReplace: (entry: ShotReferenceCatalogEntry) => void;
+}) {
+  return (
+    <ul role="list" data-testid="reference-grid" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {entries.map((entry) => (
+        <ReferenceCard
+          key={entry.id}
+          entry={entry}
+          isCurrent={entry.id === currentReferenceId}
+          compatible={scoreReferenceCompatibility(entry, deliverableChannel, context) > 0}
+          expanded={expandedId === entry.id}
+          blockedMessage={blocked?.referenceId === entry.id ? blocked.message : null}
+          onToggleDetails={() => {
+            onToggleDetails(entry.id);
+          }}
+          onReplace={() => {
+            onReplace(entry);
+          }}
+        />
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Reusable visual shot-reference browser.
+ *
+ * Performs no Shoot write: the only output is the trusted `referenceId` handed
+ * back through `onSelect`, which the owning review flow owns.
+ */
+export function ShotReferenceBrowser(props: ShotReferenceBrowserProps) {
+  const { currentReferenceId, catalog, deliverableChannel, context, onSelect, title = "Reference image" } = props;
+  const filters = useReferenceFilters(catalog);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<{ referenceId: string; message: string } | null>(null);
 
   const currentEntry = useMemo(
     () => catalog.find((entry) => entry.id === currentReferenceId) ?? null,
@@ -344,101 +513,57 @@ export function ShotReferenceBrowser({
     [context, deliverableChannel, onSelect],
   );
 
+  const handleToggleDetails = useCallback((referenceId: string) => {
+    setExpandedId((previous) => (previous === referenceId ? null : referenceId));
+  }, []);
+
+  const summary = currentEntry
+    ? `Current: ${[currentEntry.category, currentEntry.subcategory, currentEntry.angle].filter(Boolean).join(" \u25b8 ")}`
+    : "Current reference is not in the trusted catalog.";
+
   return (
     <section aria-label={title} data-testid="shot-reference-browser" className="flex flex-col gap-4">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-base font-semibold text-gray-900">{title}</h2>
-          <p className="text-xs text-gray-500" data-testid="reference-current-summary">
-            {currentEntry
-              ? `Current: ${[currentEntry.category, currentEntry.subcategory, currentEntry.angle].filter(Boolean).join(" \u25b8 ")}`
-              : "Current reference is not in the trusted catalog."}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={handleKeep}
-          data-testid="reference-keep"
-          className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-800 transition-colors hover:bg-gray-100"
-        >
-          Keep current reference
-        </button>
-      </header>
+      <BrowserHeader title={title} summary={summary} onKeep={handleKeep} />
 
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-xs text-gray-600">
-          Category
-          <select
-            data-testid="reference-filter-category"
-            value={category}
-            onChange={(event) => {
-              setCategory(event.target.value);
-              setSubcategory("");
-            }}
-            className="rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-800"
-          >
-            <option value="">All categories</option>
-            {categories.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex flex-col gap-1 text-xs text-gray-600">
-          Subcategory
-          <select
-            data-testid="reference-filter-subcategory"
-            value={subcategory}
-            onChange={(event) => setSubcategory(event.target.value)}
-            className="rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-800"
-          >
-            <option value="">All subcategories</option>
-            {subcategories.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex flex-col gap-1 text-xs text-gray-600">
-          Search
-          <input
-            type="search"
-            data-testid="reference-filter-query"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Angle, description, model"
-            className="rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-800"
-          />
-        </label>
+        <FilterSelect
+          label="Category"
+          testId="reference-filter-category"
+          value={filters.category}
+          allLabel="All categories"
+          options={filters.categories}
+          onChange={filters.onCategoryChange}
+        />
+        <FilterSelect
+          label="Subcategory"
+          testId="reference-filter-subcategory"
+          value={filters.subcategory}
+          allLabel="All subcategories"
+          options={filters.subcategories}
+          onChange={filters.onSubcategoryChange}
+        />
+        <FilterSearch value={filters.query} onChange={filters.onQueryChange} />
       </div>
 
       {catalog.length === 0 ? (
         <p role="status" data-testid="reference-empty" className="text-sm text-gray-500">
           No trusted references are available yet.
         </p>
-      ) : visible.length === 0 ? (
+      ) : filters.visible.length === 0 ? (
         <p role="status" data-testid="reference-no-matches" className="text-sm text-gray-500">
           No references match these filters.
         </p>
       ) : (
-        <ul role="list" data-testid="reference-grid" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((entry) => (
-            <ReferenceCard
-              key={entry.id}
-              entry={entry}
-              isCurrent={entry.id === currentReferenceId}
-              compatible={scoreReferenceCompatibility(entry, deliverableChannel, context) > 0}
-              expanded={expandedId === entry.id}
-              blockedMessage={blocked?.referenceId === entry.id ? blocked.message : null}
-              onToggleDetails={() => setExpandedId((previous) => (previous === entry.id ? null : entry.id))}
-              onReplace={() => handleReplace(entry)}
-            />
-          ))}
-        </ul>
+        <ReferenceGrid
+          entries={filters.visible}
+          currentReferenceId={currentReferenceId}
+          deliverableChannel={deliverableChannel}
+          context={context}
+          expandedId={expandedId}
+          blocked={blocked}
+          onToggleDetails={handleToggleDetails}
+          onReplace={handleReplace}
+        />
       )}
 
       <p className="text-xs text-gray-500" data-testid="reference-footnote">

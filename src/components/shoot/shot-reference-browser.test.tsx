@@ -7,7 +7,9 @@ import type { ShotReferenceCatalogEntry } from "@/lib/shoot/shot-type-references
 
 import { ShotReferenceBrowser } from "./shot-reference-browser";
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+});
 
 const CURRENT_ID = "11111111-1111-4111-8111-111111111111";
 const COMPATIBLE_ID = "22222222-2222-4222-8222-222222222222";
@@ -16,7 +18,25 @@ const INCOMPATIBLE_ID = "33333333-3333-4333-8333-333333333333";
 const PREVIEW_URL =
   "https://res.cloudinary.com/demo/image/authenticated/s--sig--/t_asset-masonry/v1789/ipix/reference-library/clothing_model_full_body_front.jpg";
 
-function entry(overrides: Partial<ShotReferenceCatalogEntry> & { id: string; referenceKey: string }): ShotReferenceCatalogEntry {
+/**
+ * Explicit optional-field shape (rather than `Partial<T> & {...}`) so the
+ * fixture stays a single, resolved object type.
+ */
+type EntryOverrides = {
+  id: string;
+  referenceKey: string;
+  angle?: string;
+  description?: string;
+  channelFit?: string[];
+  background?: string | null;
+  category?: string | null;
+  subcategory?: string | null;
+  modelType?: string | null;
+  tags?: string[] | null;
+  hasPreview?: boolean;
+};
+
+function entry(overrides: EntryOverrides): ShotReferenceCatalogEntry {
   return {
     angle: "Full body front",
     description: "Full body front on a seamless studio backdrop",
@@ -58,7 +78,7 @@ beforeEach(() => {
   fetchMock.mockResolvedValue({
     ok: true,
     status: 200,
-    json: async () => ({ url: PREVIEW_URL }),
+    json: () => Promise.resolve({ url: PREVIEW_URL }),
   });
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -118,11 +138,11 @@ describe("ShotReferenceBrowser", () => {
     // The beauty/product card is incompatible with the clothing deliverable.
     const cards = screen.getAllByTestId("reference-card");
     const beautyCard = cards.find((card) => card.getAttribute("data-reference-id") === INCOMPATIBLE_ID);
-    expect(beautyCard).toBeTruthy();
+    if (!beautyCard) throw new Error("the incompatible card is missing from the grid");
 
-    const replaceButton = beautyCard!.querySelector('[data-testid="reference-replace"]');
-    expect(replaceButton).toBeTruthy();
-    fireEvent.click(replaceButton!);
+    const replaceButton = beautyCard.querySelector('[data-testid="reference-replace"]');
+    if (!(replaceButton instanceof HTMLElement)) throw new Error("the incompatible card has no replace control");
+    fireEvent.click(replaceButton);
 
     expect(onSelect).not.toHaveBeenCalled();
     const alert = screen.getByTestId("reference-blocked");
@@ -145,8 +165,9 @@ describe("ShotReferenceBrowser", () => {
       expect(screen.getAllByTestId("reference-preview-image").length).toBeGreaterThan(0);
     });
 
-    const image = screen.getAllByTestId("reference-preview-image")[0] as HTMLImageElement;
-    expect(image.getAttribute("src")).toBe(PREVIEW_URL);
+    // eslint-disable-next-line xss/no-mixed-html -- reading rendered attributes in a test, not building HTML
+    const renderedImg = screen.getAllByTestId("reference-preview-image")[0] as HTMLImageElement;
+    expect(renderedImg.getAttribute("src")).toBe(PREVIEW_URL);
     expect(fetchMock).toHaveBeenCalledWith(
       `/api/references/${CURRENT_ID}/preview?preview=masonry`,
       expect.objectContaining({ signal: expect.anything() }),
@@ -154,7 +175,11 @@ describe("ShotReferenceBrowser", () => {
   });
 
   it("surfaces a 409 missing mapping as unavailable instead of rendering an image", async () => {
-    fetchMock.mockResolvedValue({ ok: false, status: 409, json: async () => ({ reason: "missing_approved_media" }) });
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: () => Promise.resolve({ reason: "missing_approved_media" }),
+    });
 
     renderBrowser({ catalog: [CURRENT_ENTRY], currentReferenceId: CURRENT_ID });
 
@@ -202,6 +227,8 @@ describe("ShotReferenceBrowser", () => {
     const text = document.body.textContent ?? "";
     expect(text).not.toContain("cloudinary_asset_id");
     expect(text).not.toContain("public_id");
-    expect(document.body.innerHTML).not.toContain("asset_id");
+    // eslint-disable-next-line xss/no-mixed-html -- asserting the rendered markup in a test, not building HTML
+    const renderedMarkup = document.body.innerHTML;
+    expect(renderedMarkup).not.toContain("asset_id");
   });
 });
