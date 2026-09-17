@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import type { ShotReferenceCatalogEntry } from "@/lib/shoot/shot-type-references";
 
@@ -110,6 +110,27 @@ describe("ShotReferenceBrowser", () => {
     expect(grid.getAttribute("role")).toBe("list");
     expect(screen.getAllByTestId("reference-card")).toHaveLength(3);
     expect(screen.getByTestId("reference-current-badge").textContent).toContain("Current reference");
+  });
+
+  it("never shows the missing-preview message on a reference that has an approved image", async () => {
+    renderBrowser();
+
+    const cards = screen.getAllByTestId("reference-card");
+    const currentCard = cards.find((card) => card.getAttribute("data-reference-id") === CURRENT_ID);
+    if (!(currentCard instanceof HTMLElement)) {
+      throw new Error("the current reference card is missing from the grid");
+    }
+
+    // Before the signed URL resolves the card must show a loading state, never
+    // the "No approved image yet" message, because this reference has a preview.
+    expect(within(currentCard).queryByTestId("reference-no-preview")).toBeNull();
+
+    await waitFor(() => {
+      expect(within(currentCard).getByTestId("reference-preview-image")).toBeTruthy();
+    });
+
+    expect(within(currentCard).queryByTestId("reference-no-preview")).toBeNull();
+    expect(fetchMock).toHaveBeenCalled();
   });
 
   it("returns the current reference id unchanged when the operator keeps it", () => {

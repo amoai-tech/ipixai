@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   channelMatchesReference,
@@ -139,7 +139,7 @@ function incompatibilityReason(
 function ReferencePreview({ referenceId, hasPreview, kind }: { referenceId: string; hasPreview: boolean; kind: "card" | "detail" }) {
   const preview = useReferencePreview(referenceId, kind, hasPreview);
 
-  if (!hasPreview || preview.status === "idle") {
+  if (!hasPreview) {
     return (
       <div
         className="flex h-32 w-full items-center justify-center rounded-md bg-gray-100 text-xs text-gray-500"
@@ -150,7 +150,7 @@ function ReferencePreview({ referenceId, hasPreview, kind }: { referenceId: stri
     );
   }
 
-  if (preview.status === "loading") {
+  if (preview.status === "idle" || preview.status === "loading") {
     return (
       <div className="h-32 w-full animate-pulse rounded-md bg-gray-100" data-testid="reference-preview-loading" aria-busy="true" />
     );
@@ -258,7 +258,7 @@ function ReferenceCardActions({
 }
 
 /** One reference card: preview + trusted metadata + details toggle + replace. */
-function ReferenceCard({
+function ReferenceCardComponent({
   entry,
   isCurrent,
   compatible,
@@ -305,6 +305,8 @@ function ReferenceCard({
     </li>
   );
 }
+
+const ReferenceCard = memo(ReferenceCardComponent);
 
 type Filters = {
   category: string;
@@ -421,7 +423,7 @@ function BrowserHeader({ title, summary, onKeep }: { title: string; summary: str
   return (
     <header className="flex flex-wrap items-center justify-between gap-2">
       <div className="flex flex-col gap-1">
-        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+        <h2 id="shot-reference-browser-title" className="text-base font-semibold text-gray-900">{title}</h2>
         <p className="text-xs text-gray-500" data-testid="reference-current-summary">
           {summary}
         </p>
@@ -525,7 +527,7 @@ export function ShotReferenceBrowser(props: ShotReferenceBrowserProps) {
     : "Current reference is not in the trusted catalog.";
 
   return (
-    <section aria-label={title} data-testid="shot-reference-browser" className="flex flex-col gap-4">
+    <section aria-labelledby="shot-reference-browser-title" data-testid="shot-reference-browser" className="flex flex-col gap-4">
       <BrowserHeader title={title} summary={summary} onKeep={handleKeep} />
 
       <div className="flex flex-wrap items-end gap-3">
