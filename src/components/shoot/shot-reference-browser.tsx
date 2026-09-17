@@ -80,7 +80,6 @@ function useReferencePreview(referenceId: string, kind: "card" | "detail", enabl
     }
 
     const controller = new AbortController();
-    let active = true;
     setState({ status: "loading" });
 
     // Fixed same-origin path built from a server-loaded trusted reference id.
@@ -89,13 +88,13 @@ function useReferencePreview(referenceId: string, kind: "card" | "detail", enabl
     // nosemgrep
     fetch(path, { signal: controller.signal })
       .then(async (response) => {
-        if (!active) return;
+        if (controller.signal.aborted) return;
         if (!response.ok) {
           setState(response.status === 404 || response.status === 409 ? { status: "unavailable" } : { status: "error" });
           return;
         }
         const payload = (await response.json()) as { url?: unknown };
-        if (!active) return;
+        if (controller.signal.aborted) return;
         if (typeof payload.url === "string" && payload.url.length > 0) {
           setState({ status: "ready", url: payload.url });
           return;
@@ -103,12 +102,11 @@ function useReferencePreview(referenceId: string, kind: "card" | "detail", enabl
         setState({ status: "unavailable" });
       })
       .catch((error: unknown) => {
-        if (!active || (error instanceof Error && error.name === "AbortError")) return;
+        if (controller.signal.aborted || (error instanceof Error && error.name === "AbortError")) return;
         setState({ status: "error" });
       });
 
     return () => {
-      active = false;
       controller.abort();
     };
   }, [referenceId, kind, enabled]);
@@ -294,12 +292,8 @@ function ReferenceCardComponent({
       <ReferenceCardActions
         isCurrent={isCurrent}
         expanded={expanded}
-        onToggleDetails={() => {
-          onToggleDetails(entry.id);
-        }}
-        onReplace={() => {
-          onReplace(entry);
-        }}
+        onToggleDetails={() => onToggleDetails(entry.id)}
+        onReplace={() => onReplace(entry)}
       />
       {expanded ? <ReferenceDetails entry={entry} /> : null}
       {blockedMessage ? (

@@ -148,7 +148,7 @@ describe("ShotReferenceBrowser", () => {
     expect(screen.getByTestId("reference-current-summary").textContent).toContain("not in the trusted catalog");
 
     const keep = screen.getByTestId("reference-keep");
-    expect(keep instanceof HTMLButtonElement && keep.disabled).toBe(true);
+    expect(keep.hasAttribute("disabled")).toBe(true);
     fireEvent.click(keep);
     expect(onSelect).not.toHaveBeenCalled();
   });
@@ -182,15 +182,12 @@ describe("ShotReferenceBrowser", () => {
   it("ignores a stale preview response that resolves after the card expands", async () => {
     const STALE_URL =
       "https://res.cloudinary.com/demo/image/authenticated/s--stale--/t_asset-masonry/v1/ipix/reference-library/stale.jpg";
-    let resolveStaleJson: (value: { url: string }) => void = () => {};
+    const staleJson = Promise.withResolvers<{ url: string }>();
     fetchMock
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () =>
-          new Promise<{ url: string }>((resolve) => {
-            resolveStaleJson = resolve;
-          }),
+        json: () => staleJson.promise,
       })
       .mockResolvedValue({
         ok: true,
@@ -211,7 +208,7 @@ describe("ShotReferenceBrowser", () => {
     });
 
     // Resolving the abandoned request must not overwrite the current preview.
-    resolveStaleJson({ url: STALE_URL });
+    staleJson.resolve({ url: STALE_URL });
 
     await waitFor(() => {
       expect(screen.getByTestId("reference-preview-image").getAttribute("src")).toBe(PREVIEW_URL);
