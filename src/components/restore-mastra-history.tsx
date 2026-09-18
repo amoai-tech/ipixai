@@ -51,15 +51,17 @@ export function RestoreMastraHistory({
    * gate staying closed doesn't strand the operator without recourse; it
    * only stops CopilotChat from mounting into what would otherwise look
    * like a normal, empty conversation while durable history that actually
-   * exists failed to load. Optional and additive: /planner doesn't pass it
-   * and is unaffected. /app's dock uses it to hold off letting the
-   * operator send anything until any restore for an *existing* thread has
-   * finished — confirmed live (IPI-1217) that sending while this fetch is
-   * still in flight can race agent.setMessages() and silently drop the new
-   * message, because nothing previously serialized "restore, then allow
-   * interaction" for a thread that already has real history — /planner's
-   * own tests never exercise that combination, since they always start a
-   * brand-new (replay=false) thread via New.
+   * exists failed to load. Optional and additive — this component's own
+   * unit tests render it without a caller. `/app`'s dock (the only real
+   * caller today; IPI-1225 · PLANNER-ROUTE-RETIRE-001 retired `/planner`,
+   * which used to mount this too) always passes onSettled to hold off
+   * letting the operator send anything until any restore for an *existing*
+   * thread has finished — confirmed live (IPI-1217) that sending while
+   * this fetch is still in flight can race agent.setMessages() and silently
+   * drop the new message, because nothing previously serialized "restore,
+   * then allow interaction" for a thread that already has real history.
+   * A genuinely new thread (isNewThread in operator-panel.tsx) has nothing
+   * to restore and skips mounting this component at all.
    */
   onSettled?: () => void;
 }) {

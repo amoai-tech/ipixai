@@ -71,16 +71,6 @@ vi.mock("../src/components/ui/empty-state.module.css", () => ({
   default: new Proxy({}, { get: (_, key) => String(key) }),
 }));
 
-vi.mock("../src/app/planner-app", () => ({
-  PlannerApp: () =>
-    createElement(
-      "div",
-      { "data-testid": "planner-app" },
-      createElement("h1", null, "Planner"),
-      createElement("p", null, "Planner surface content"),
-    ),
-}));
-
 vi.mock("../src/lib/auth/operator-auth", () => ({
   getVerifiedOperatorFromCookies,
 }));
@@ -202,21 +192,14 @@ describe("APP-001 route split", () => {
     expect(screen.getByText("Workspace body")).toBeDefined();
   });
 
-  it("signed-in /planner does not expose the operator workspace @Tca04d226", async () => {
-    getVerifiedOperatorFromCookies.mockResolvedValue(operator);
-    const ui = await PlannerPage();
-    render(ui);
-    // The Planner surface renders its own content (representative fixture)…
-    expect(screen.getByTestId("planner-app")).toBeDefined();
-    expect(screen.getByRole("heading", { name: "Planner" })).toBeDefined();
-    // …and the operator workspace shell is not wrapped around /planner.
-    expect(screen.queryByTestId("operator-panel")).toBeNull();
-  });
-
-  it("signed-out /planner redirects to login @T32b89593", async () => {
-    getVerifiedOperatorFromCookies.mockResolvedValue(null);
-    await expect(PlannerPage()).rejects.toThrow("REDIRECT:/login");
-    expect(redirect).toHaveBeenCalledWith("/login");
+  it("/planner unconditionally redirects to /app instead of rendering a standalone surface @Tca04d226", async () => {
+    // IPI-1225 · PLANNER-ROUTE-RETIRE-001 — /app is now the single production
+    // Planner surface; /planner is only a compatibility redirect and must not
+    // duplicate /app's own auth/tenant gate. Signed-out coverage for the real
+    // gate already lives on AppLayout itself (@T0dd76dd8 above) — a bare
+    // redirect("/app") has no auth branch of its own left to test here.
+    await expect(PlannerPage()).rejects.toThrow("REDIRECT:/app");
+    expect(redirect).toHaveBeenCalledWith("/app");
   });
 
   it("unknown /app/[section] calls notFound @T26f01279", async () => {

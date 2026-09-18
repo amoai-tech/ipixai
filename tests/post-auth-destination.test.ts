@@ -8,14 +8,12 @@ const operator = { id: "11111111-1111-4111-8111-111111111111", name: "qa@example
 
 describe("safeRedirect", () => {
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: accepts allowlisted internal destinations", () => {
-    expect(safeRedirect("/planner")).toBe("/planner");
     expect(safeRedirect("/app")).toBe("/app");
     expect(safeRedirect("/onboarding")).toBe("/onboarding");
     expect(safeRedirect("/org-selection")).toBe("/org-selection");
   });
 
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: preserves a query string on an allowlisted internal target", () => {
-    expect(safeRedirect("/planner?source=login")).toBe("/planner?source=login");
     expect(safeRedirect("/app?tab=brands")).toBe("/app?tab=brands");
   });
 
@@ -43,6 +41,11 @@ describe("safeRedirect", () => {
   it("rejects non-allowlisted internal paths", () => {
     expect(safeRedirect("/admin")).toBeNull();
     expect(safeRedirect("/login")).toBeNull();
+  });
+
+  it("IPI-1225 · PLANNER-ROUTE-RETIRE-001 — rejects /planner: it is a compatibility redirect (src/app/planner/page.tsx), never a post-auth target", () => {
+    expect(safeRedirect("/planner")).toBeNull();
+    expect(safeRedirect("/planner?tab=threads")).toBeNull();
   });
 });
 

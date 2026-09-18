@@ -25,6 +25,15 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     expect(errors, `console/page errors: ${errors.join("; ")}`).toEqual([]);
   });
 
+  // IPI-1225 · PLANNER-ROUTE-RETIRE-001 — /app is the single production
+  // Planner surface; /planner is a compatibility redirect for existing
+  // bookmarks/deep links, not a separate standalone UI anymore.
+  test("redirects a signed-in /planner deep link to /app @T1225plannerredirect", async ({ page }) => {
+    await page.goto("/planner");
+    await expect(page).toHaveURL(/\/app$/, { timeout: NAV_TIMEOUT_MS });
+    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  });
+
   test("shows the honest empty state for the QA test org (0 brands) @Te431923c", async ({ page }) => {
     // The E2E account's org ("QA iPix Isolation A") has 0 brands by design —
     // this is real live state, not a fixture, so the empty state is the

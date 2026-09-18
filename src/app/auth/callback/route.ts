@@ -64,8 +64,10 @@ export async function GET(request: NextRequest) {
   // safe `next` target only when its path is compatible with the resolved
   // tenant state. The allowlist is a shape check, not a tenant check — a
   // zero-org user must not be dumped into /planner via ?next=/planner.
-  // /planner remains a valid intentional deep link for a single-org user even
-  // though /app is now the default destination.
+  // IPI-1225 · PLANNER-ROUTE-RETIRE-001 — next=/planner is normalized to the
+  // resolved destination (/app for a single-org user) instead of honoring it
+  // literally: /planner itself now just redirects to /app (src/app/planner/
+  // page.tsx), so sending the operator there directly skips a redundant hop.
   const operator = await getVerifiedOperatorFromClaims({
     getClaims: async () =>
       claimsFromSupabaseResult(await supabase.auth.getClaims()),
@@ -77,10 +79,7 @@ export async function GET(request: NextRequest) {
         listMembershipOrgIdsFromServerClient(supabase, operator.id),
     });
     const nextPath = next ? new URL(next, request.url).pathname : null;
-    const nextIsCompatible =
-      next !== null &&
-      (nextPath === destination ||
-        (destination === "/app" && nextPath === "/planner"));
+    const nextIsCompatible = next !== null && nextPath === destination;
     const final = nextIsCompatible ? next : destination;
     response.headers.set("location", new URL(final, request.url).toString());
     return response;

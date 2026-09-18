@@ -2,8 +2,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 import { plannerThreadStorageKey } from "../src/mastra/thread-types";
 
-/** Reads the thread PlannerChatDock/PlannerThreadsDrawer persisted for the
- *  currently authenticated resource. Resolve resourceId from the same
+/** Reads the thread PlannerChatDock persisted for the currently
+ *  authenticated resource. Resolve resourceId from the same
  *  tenant-scoped server endpoint the UI uses, then read that exact storage
  *  key so a stale key from another resource cannot satisfy the assertion. */
 async function getStoredPlannerThreadId(page: Page): Promise<string | null> {
@@ -50,23 +50,16 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
     const runMarker = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const prompt = `Estimate the shoot budget for 2 crew members, a rental studio, 10 shots, and 20 total assets to be post-produced, over 1 shoot day, in USD, using default rates. [${runMarker}]`;
 
-    await page.goto("/planner");
-
-    // Two sequential async gates before the chat exists at all — auth
-    // handshake, then the threads-list fetch (both confirmed live).
-    await expect(page.getByText("Loading…")).toHaveCount(0, { timeout: NAV_TIMEOUT_MS });
+    // IPI-1225 · PLANNER-ROUTE-RETIRE-001 — migrated from /planner (retired
+    // to a compatibility redirect). /app has no "New"/toggle controls —
+    // its embedded CopilotChat is always visible once mounted, and (like
+    // the two tests below) reuses whatever thread the shared QA account's
+    // storage key already resolves to; runMarker is what proves identity
+    // across reload, not a guaranteed-fresh thread.
+    await page.goto("/app");
     await expect(page.getByRole("status", { name: "Loading conversation…" })).toHaveCount(0, {
       timeout: NAV_TIMEOUT_MS,
     });
-
-    // Guaranteed-fresh, isolated thread — don't reuse whatever the shared
-    // QA account already has (confirmed live: New always resets state).
-    await page.getByRole("button", { name: "New" }).click();
-
-    const toggle = page.getByTestId("copilot-chat-toggle");
-    if ((await toggle.getAttribute("aria-pressed")) !== "true") {
-      await toggle.click();
-    }
 
     const textarea = page.getByTestId("copilot-chat-textarea");
     await textarea.click();
@@ -183,16 +176,15 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
   // embedded chat dock. Proven live (11/11 fresh-context attempts): the
   // network run completes (RUN_STARTED/RUN_FINISHED) but the visible
   // CopilotChat stayed at messages.length === 0 forever, because /app never
-  // passed CopilotChat an explicit threadId. This deliberately lives beside
-  // the /planner tests above (not in e2e/dashboard.spec.ts) because it makes
-  // the same real, paid Production Planner call — dashboard.spec.ts is
-  // matched by the default chromium/mobile-chromium projects the required
-  // playwright-e2e CI job runs on every PR, and putting a real LLM call
-  // there would reintroduce the hosted-provider CI dependency this file is
-  // already isolated from (see playwright.config.ts's chromium-ai-smoke
-  // project). No toggle click here, unlike /planner's CopilotSidebar case
-  // above: /app's chat is an inline CopilotChat, always visible once
-  // mounted, not a collapsed popup.
+  // passed CopilotChat an explicit threadId. This deliberately lives
+  // alongside the other real-AI /app tests in this file (not in
+  // e2e/dashboard.spec.ts) because it makes the same real, paid Production
+  // Planner call — dashboard.spec.ts is matched by the default chromium/
+  // mobile-chromium projects the required playwright-e2e CI job runs on
+  // every PR, and putting a real LLM call there would reintroduce the
+  // hosted-provider CI dependency this file is already isolated from (see
+  // playwright.config.ts's chromium-ai-smoke project). /app's chat is an
+  // inline CopilotChat, always visible once mounted — no toggle/popup.
   test("operator gets a real response from /app's embedded chat, and it survives reload @Tb1e0f4a2", async ({
     page,
   }) => {
@@ -236,7 +228,7 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
     expect(resolvedThreadId, "PlannerChatDock should have persisted a resolved threadId by now").not.toBeNull();
 
     // Persistence: reload restores the same conversation under the same
-    // resolved thread, matching the /planner precedent above.
+    // resolved thread, matching the other real-AI /app tests above.
     await page.reload();
     await expect(page.getByTestId("copilot-user-message").last()).toContainText(runMarker, {
       timeout: NAV_TIMEOUT_MS,

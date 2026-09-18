@@ -129,7 +129,7 @@ Prove frontend, CopilotKit/AG-UI, authenticated context, Mastra agent, tools/wor
 
 **Planner chat continuity — current executable path**
 ```text
-/login → /planner → fresh thread → natural-language request → Production Planner → planning tool/result → visible answer → reload → same run/thread restored
+/login → /app → resolved thread (fresh or restored — /app has no "New" control; IPI-1225 retired /planner to a compatibility redirect) → natural-language request → Production Planner → planning tool/result → visible answer → reload → same run/thread restored
 ```
 Negative: ambiguous/missing input, plausible wrong tool, provider failure, stale shared QA thread, cross-org thread access, fake approval statement.
 
