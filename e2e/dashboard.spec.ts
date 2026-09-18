@@ -113,16 +113,29 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     await expect(page.getByTestId("command-center-hero")).toHaveCount(0);
   });
 
-  // IPI-1224: the Production Copilot panel is open by default (see
-  // operator-panel.tsx's copilotOpen comment — planner-journey.spec.ts and
-  // planner-thread-isolation.spec.ts both interact with the composer
-  // immediately after navigation with no "open" step of their own), so
-  // every test below needs no extra open step; a few explicitly exercise
-  // the close/reopen toggle where that's the thing under test.
-  test("Production Copilot panel is open on /app and stays capability-honest @Ta35df995", async ({ page }) => {
-    await page.goto("/app");
+  // IPI-1224: the Production Copilot panel is open by default on desktop
+  // (see operator-panel.tsx's copilotOpen comment — planner-journey.spec.ts
+  // and planner-thread-isolation.spec.ts both interact with the composer
+  // immediately after navigation with no "open" step of their own; both run
+  // only under the desktop-viewport "chromium-ai-smoke" project and
+  // testIgnore mobile-chromium, so they never observe the mobile behavior
+  // below). On mobile it auto-closes instead (a full-screen sheet covering
+  // the whole dashboard on load would be worse than the old bottom dock) —
+  // this file's own tests run under both the "chromium" and "mobile-
+  // chromium" projects (and one narrows the viewport manually), so open it
+  // first wherever the resulting state actually matters to the test.
+  async function ensureCopilotOpen(page: import("@playwright/test").Page) {
     const dock = page.getByTestId("operator-chat-dock");
-    await expect(dock).toHaveAttribute("data-open", "true");
+    if ((await dock.getAttribute("data-open")) !== "true") {
+      await page.getByRole("button", { name: "✦ Open Copilot" }).click();
+      await expect(dock).toHaveAttribute("data-open", "true");
+    }
+    return dock;
+  }
+
+  test("Production Copilot panel opens on /app and stays capability-honest @Ta35df995", async ({ page }) => {
+    await page.goto("/app");
+    const dock = await ensureCopilotOpen(page);
     await expect(dock).toBeVisible();
     // No fabricated actions — real capability gate (quick-action-chips.tsx),
     // asserted live, not just in the mocked component test.
@@ -167,6 +180,7 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
   test("chat welcome stays honest for the QA org's real 0-brand state @T72b9d927", async ({ page }) => {
     await page.goto("/app");
     await expect(page.getByRole("heading", { name: "No brands yet" })).toBeVisible();
+    await ensureCopilotOpen(page);
     // IPI-1217: the chat welcome text no longer renders immediately — it
     // waits behind PlannerChatDock's GET /api/planner/threads bootstrap
     // (same async gate /planner already had), so this needs the same
@@ -215,7 +229,7 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     // a landmark deep in the main content exercises that inner scroll
     // region; the panel and a nav link must both remain live afterward.
     await page.goto("/app");
-    const dock = page.getByTestId("operator-chat-dock");
+    const dock = await ensureCopilotOpen(page);
     await page.getByRole("heading", { name: "Quick links" }).scrollIntoViewIfNeeded();
     await expect(dock).toBeVisible();
     const composer = dock.getByTestId("copilot-chat-textarea");
@@ -236,12 +250,17 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     await page.setViewportSize({ width: 390, height: 500 });
     await page.goto("/app");
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    // Closed by default on mobile — a full-screen chat sheet covering the
+    // whole dashboard on load would be worse than reachability, not better.
     const dock = page.getByTestId("operator-chat-dock");
-    await expect(dock).toBeVisible();
-    // Both surfaces reachable, not just present: scroll to a deep main-
-    // content landmark, then confirm the panel is still there afterward.
-    await page.getByRole("button", { name: "Close Copilot" }).click();
+    await expect(dock).toHaveAttribute("data-open", "false");
+    // Dashboard content reachable with the panel closed: scroll to a deep
+    // main-content landmark first.
     await page.getByRole("heading", { name: "Quick links" }).scrollIntoViewIfNeeded();
     await expect(page.getByRole("button", { name: "✦ Open Copilot" })).toBeVisible();
+    // And the panel itself is still reachable as a full-height sheet.
+    await page.getByRole("button", { name: "✦ Open Copilot" }).click();
+    await expect(dock).toHaveAttribute("data-open", "true");
+    await expect(dock).toBeVisible();
   });
 });

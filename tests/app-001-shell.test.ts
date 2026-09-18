@@ -58,8 +58,10 @@ vi.mock("@copilotkit/react-core/v2", () => ({
   // IPI-1217: PlannerChatDock now also calls useAgent() for its welcome-copy
   // gating — needed here too or the real hook throws on the undefined mock.
   useAgent: () => ({ agent: { messages: [], addMessage: () => {} } }),
-  // IPI-1224: insight buttons send via agent.addMessage + copilotkit.runAgent.
-  useCopilotKit: () => ({ copilotkit: { runAgent: () => {} } }),
+  // IPI-1224: insight buttons send via agent.addMessage + copilotkit.runAgent,
+  // then .catch()/.finally() the result — must be a real Promise or that
+  // chaining throws the moment an insight is triggered.
+  useCopilotKit: () => ({ copilotkit: { runAgent: () => Promise.resolve() } }),
   // IPI-1084 registers the ShootPlan review HITL renderer inside the provider.
   useHumanInTheLoop: () => {},
   CopilotChat: () => createElement("div", { "data-testid": "copilot-chat-stub" }),

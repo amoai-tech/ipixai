@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type CSSProperties, type Ref } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type Ref } from "react";
 import { CopilotChat, CopilotKit, useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -389,7 +389,16 @@ function PlannerChatDock({
  *  bottom reserve). Toggled by local state only; does not touch the thread.
  *  Real per-area sections (Missing Shots, Approval Status, ...) are owned by
  *  IPI-1140 and later per-area tickets — stubbed here, per this ticket's
- *  explicit "Intelligence data is out of this ticket's Done" scope note. */
+ *  explicit "Intelligence data is out of this ticket's Done" scope note.
+ *
+ *  Known a11y gap: the conversation area behind this overlay isn't marked
+ *  `inert` (so its own interactive content stays Tab-reachable while
+ *  visually covered). CopilotChat renders messageView/scrollView/input as
+ *  one composed subtree (see ResolvedChatDock) — isolating "conversation
+ *  only, not composer" would mean pulling that composition apart into
+ *  separately-wrapped Slots, a bigger, separately-scoped change. The overlay
+ *  already blocks pointer interaction (z-index, opaque background) and
+ *  keyboard users land on the dialog's own Back control on open. */
 function IntelligenceDrawer({ contextLine, insights, onBack, onAsk, askDisabled }: {
   contextLine: string;
   insights: Insight[];
@@ -397,10 +406,32 @@ function IntelligenceDrawer({ contextLine, insights, onBack, onAsk, askDisabled 
   onAsk: (_question: string) => void;
   askDisabled: boolean;
 }) {
+  const backRef = useRef<HTMLButtonElement>(null);
+
+  // Non-modal (composer stays usable underneath, so no aria-modal and no
+  // page-wide focus trap) — just a disclosure that owns initial focus and
+  // Escape, like any other overlay panel.
+  useEffect(() => {
+    backRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onBack();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onBack]);
+
   return (
-    <div className={styles.intelligenceDrawer} data-testid="intelligence-drawer">
+    <div
+      className={styles.intelligenceDrawer}
+      data-testid="intelligence-drawer"
+      role="dialog"
+      aria-label="All intelligence"
+    >
       <div className={styles.drawerHeader}>
-        <button type="button" className={styles.drawerBack} onClick={onBack}>
+        <button type="button" ref={backRef} className={styles.drawerBack} onClick={onBack}>
           ← Back
         </button>
         <span className={styles.panelContext}>{contextLine}</span>
@@ -451,11 +482,24 @@ function ProductionCopilotPanel({
   const stats = useWorkspaceStats();
   const { contextLine, insights } = useIntelligence(pathname, stats);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Whichever control opened the drawer (header badge or "View all
+  // intelligence") gets focus back once it closes — standard disclosure
+  // pattern, and the only way a keyboard user doesn't lose their place.
+  const drawerOpenerRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (!drawerOpen) drawerOpenerRef.current?.focus();
+  }, [drawerOpen]);
   const [composerElement, setComposerElement] = useState<HTMLDivElement | null>(null);
   const [composerHeight, setComposerHeight] = useState(0);
   const [chatReady, setChatReady] = useState(false);
   const { agent } = useAgent({ agentId: "default" });
   const { copilotkit } = useCopilotKit();
+  // Synchronous, local guard — agent.isRunning is only as fresh as the last
+  // render, so two clicks inside the same event-loop turn (before a real
+  // run-status update lands) could both pass an isRunning-only check and
+  // fire two competing runs. This closes that window regardless of when/
+  // whether the real agent object's isRunning flips.
+  const askInFlightRef = useRef(false);
 
   // The CopilotKit input auto-grows. Measure its real outer container so the
   // intelligence drawer can stop above the composer at every height instead
@@ -482,12 +526,18 @@ function ProductionCopilotPanel({
   // while a run is active so a contextual Insight cannot start a competing
   // agent run or duplicate a user's in-flight request.
   const ask = (question: string) => {
-    if (!chatReady || agent.isRunning) return;
+    if (!chatReady || agent.isRunning || askInFlightRef.current) return;
+    askInFlightRef.current = true;
     setDrawerOpen(false);
     agent.addMessage({ id: crypto.randomUUID(), role: "user", content: question });
-    void copilotkit.runAgent({ agent }).catch((error) => {
-      console.error("ProductionCopilotPanel: insight run failed", error);
-    });
+    void copilotkit
+      .runAgent({ agent })
+      .catch((error) => {
+        console.error("ProductionCopilotPanel: insight run failed", error);
+      })
+      .finally(() => {
+        askInFlightRef.current = false;
+      });
   };
 
   return (
@@ -509,7 +559,10 @@ function ProductionCopilotPanel({
             <button
               type="button"
               className={styles.intelligenceBadge}
-              onClick={() => setDrawerOpen(true)}
+              onClick={(event) => {
+                drawerOpenerRef.current = event.currentTarget;
+                setDrawerOpen(true);
+              }}
               aria-label={`${insights.length} insights — view all intelligence`}
             >
               {insights.length} {insights.length === 1 ? "Insight" : "Insights"}
@@ -537,7 +590,14 @@ function ProductionCopilotPanel({
           </button>
         ))}
         {insights.length > 0 && (
-          <button type="button" className={styles.viewAllIntelligence} onClick={() => setDrawerOpen(true)}>
+          <button
+            type="button"
+            className={styles.viewAllIntelligence}
+            onClick={(event) => {
+              drawerOpenerRef.current = event.currentTarget;
+              setDrawerOpen(true);
+            }}
+          >
             View all intelligence →
           </button>
         )}
@@ -613,6 +673,38 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
   const [copilotOpen, setCopilotOpen] = useState(true);
   const isMobile = useMobileNav();
   const navInert = isMobile && !navOpen;
+
+  // Mobile renders the panel as a full-height sheet (operator-panel.module
+  // .css .panelOpenMobile), so an open-by-default panel there would cover
+  // the entire dashboard on first load — close it the moment mobile is
+  // detected. useMobileNav() starts false and flips true after its own
+  // mount-time matchMedia check, so this only fires once real mobile is
+  // confirmed, not on the SSR/first-paint guess. Desktop keeps the open
+  // default (see copilotOpen's own comment) since this effect never fires
+  // there. Required playwright-ai-smoke/gate-9 specs run their own
+  // "chromium-ai-smoke" desktop-viewport project and explicitly testIgnore
+  // this file's mobile-chromium project (playwright.config.ts), so they
+  // never observe this auto-close.
+  useEffect(() => {
+    if (isMobile) setCopilotOpen(false);
+  }, [isMobile]);
+
+  // Restore focus to the reopening control after a user-initiated close —
+  // `inert` on the now-closed panel would otherwise drop focus to <body>.
+  // Gated on a ref (not just "copilotOpen became false") so the automatic
+  // mobile auto-close above never steals focus on page load.
+  const openButtonRef = useRef<HTMLButtonElement>(null);
+  const focusOpenButtonOnCloseRef = useRef(false);
+  useEffect(() => {
+    if (!copilotOpen && focusOpenButtonOnCloseRef.current) {
+      focusOpenButtonOnCloseRef.current = false;
+      openButtonRef.current?.focus();
+    }
+  }, [copilotOpen]);
+  const closeCopilot = () => {
+    focusOpenButtonOnCloseRef.current = true;
+    setCopilotOpen(false);
+  };
 
   // useSingleEndpoint={false} matches the multi-route
   // /api/copilotkit/[[...slug]] handler (see planner-app.tsx's own
@@ -708,6 +800,7 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
             open. */}
         {!copilotOpen && (
           <Button
+            ref={openButtonRef}
             type="button"
             variant="secondary"
             size="sm"
@@ -723,7 +816,7 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
         )}
       </main>
 
-      <ProductionCopilotPanel pathname={pathname} open={copilotOpen} onClose={() => setCopilotOpen(false)} />
+      <ProductionCopilotPanel pathname={pathname} open={copilotOpen} onClose={closeCopilot} />
       </div>
     </CopilotKit>
     </WorkspaceStatsProvider>

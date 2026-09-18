@@ -252,6 +252,34 @@ describe("OperatorPanel", () => {
     expect(screen.getByTestId("copilot-chat-stub")).toBe(chat);
   });
 
+  it("restores focus to Open Copilot after a user closes the panel", async () => {
+    render(
+      <OperatorPanel>
+        <p>Workspace body</p>
+      </OperatorPanel>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close Copilot" }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "✦ Open Copilot" })),
+    );
+  });
+
+  it("closes the Copilot panel automatically on mobile instead of covering the dashboard on load", async () => {
+    mockMobileNav(true);
+    render(
+      <OperatorPanel>
+        <p>Workspace body</p>
+      </OperatorPanel>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("operator-chat-dock").getAttribute("data-open")).toBe("false"),
+    );
+    expect(screen.getByRole("button", { name: "✦ Open Copilot" })).toBeDefined();
+    // Mobile auto-close is a background effect, not a user-initiated close —
+    // it must never steal focus on page load.
+    expect(document.activeElement).not.toBe(screen.getByRole("button", { name: "✦ Open Copilot" }));
+  });
+
   it("rail shows no insights when no real workspace stats have been reported", () => {
     render(
       <OperatorPanel>
@@ -412,24 +440,56 @@ describe("OperatorPanel", () => {
       content: "Give me an overview of my current shoots.",
     });
     expect(runAgentMock).toHaveBeenCalledTimes(1);
+  });
 
-    cleanup();
-    addMessageMock.mockReset();
-    runAgentMock.mockReset();
-    useAgentMock.mockReturnValue({
-      agent: { messages: [], addMessage: addMessageMock, isRunning: true },
-    });
+  it("ask()'s own guard blocks a run even when the disabled attribute hasn't caught up yet", async () => {
+    // The real useAgent() here isn't subscribed to OnRunStatusChanged, so
+    // agent.isRunning flipping true doesn't necessarily trigger a re-render
+    // — the disabled attribute (computed at last render) can stay stale
+    // while the live agent object already says isRunning. Mutating the
+    // *same* mocked agent object in place (not swapping mockReturnValue,
+    // which would force a fresh disabled=true render and only prove the
+    // native disabled-button behavior) reproduces exactly that gap, so this
+    // proves ask()'s own internal guard — not the disabled attribute — is
+    // what actually stops the click.
+    const agent = { messages: [] as unknown[], addMessage: addMessageMock, isRunning: false };
+    useAgentMock.mockReturnValue({ agent });
 
     render(
       <OperatorPanel>
         <ReportWorkspaceStats brandCount={2} shootCount={1} />
       </OperatorPanel>,
     );
-    const runningInsight = screen.getByTestId("intelligence-workspace-stats") as HTMLButtonElement;
-    expect(runningInsight.disabled).toBe(true);
-    fireEvent.click(runningInsight);
+
+    const insight = screen.getByTestId("intelligence-workspace-stats") as HTMLButtonElement;
+    await waitFor(() => expect(insight.disabled).toBe(false));
+
+    agent.isRunning = true;
+    // Still enabled from React's perspective — no re-render has happened.
+    expect(insight.disabled).toBe(false);
+
+    fireEvent.click(insight);
     expect(addMessageMock).not.toHaveBeenCalled();
     expect(runAgentMock).not.toHaveBeenCalled();
+  });
+
+  it("intelligence drawer moves focus to Back on open, and Escape returns it to the opener", async () => {
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={2} shootCount={1} />
+      </OperatorPanel>,
+    );
+
+    const opener = await screen.findByRole("button", { name: "View all intelligence →" });
+    fireEvent.click(opener);
+
+    const dialog = screen.getByRole("dialog", { name: "All intelligence" });
+    const backButton = within(dialog).getByRole("button", { name: "← Back" });
+    await waitFor(() => expect(document.activeElement).toBe(backButton));
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByTestId("intelligence-drawer")).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(opener));
   });
 
   it("toggles mobile navigation open and closed", () => {
