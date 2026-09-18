@@ -1,6 +1,6 @@
 import { MastraAgent } from "@ag-ui/mastra";
 import type { AbstractAgent } from "@ag-ui/client";
-import { mastra } from "@/mastra";
+import { getMastra } from "@/mastra/runtime";
 
 /**
  * Every local Mastra agent, keyed by name — what the web route mounts.
@@ -15,7 +15,7 @@ export function createLocalAgents(
   // Without it, CopilotKit seeds working memory onto a frontend-minted
   // threadId that does not exist in LibSQL yet ("Thread … not found").
   return MastraAgent.getLocalAgents({
-    mastra,
+    mastra: getMastra(),
     resourceId,
   }) as Record<string, AbstractAgent>;
 }

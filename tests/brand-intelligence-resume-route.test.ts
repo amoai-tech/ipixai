@@ -9,8 +9,8 @@ const mocks = vi.hoisted(() => ({
 }));
 const { resume, createRun, getWorkflow } = mocks;
 
-vi.mock("@/mastra", () => ({
-  mastra: { getWorkflow: mocks.getWorkflow },
+vi.mock("@/mastra/runtime", () => ({
+  getMastra: () => ({ getWorkflow: mocks.getWorkflow }),
 }));
 
 import { POST } from "@/app/api/workflows/brand-intelligence/resume/route";
