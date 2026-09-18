@@ -14,30 +14,9 @@ import {
   claimUnavailableResponse,
   unauthorizedResponse,
 } from "./unauthorized";
-import {
-  claimsFromSupabaseResult,
-  getVerifiedOperatorFromClaims,
-} from "./verified-operator";
-import { createClient, createClientFromRequest } from "@/lib/supabase/server";
+import { getVerifiedOperatorForRequest } from "./operator-auth";
 
-export async function getVerifiedOperatorForRequest(request: Request) {
-  const supabase = createClientFromRequest(request);
-  if (!supabase) return null;
-  return getVerifiedOperatorFromClaims({
-    request,
-    getClaims: async () =>
-      claimsFromSupabaseResult(await supabase.auth.getClaims()),
-  });
-}
-
-export async function getVerifiedOperatorFromCookies() {
-  const supabase = await createClient();
-  if (!supabase) return null;
-  return getVerifiedOperatorFromClaims({
-    getClaims: async () =>
-      claimsFromSupabaseResult(await supabase.auth.getClaims()),
-  });
-}
+export { getVerifiedOperatorForRequest, getVerifiedOperatorFromCookies } from "./operator-auth";
 
 export async function identifyOperator(request: Request) {
   const operator = await getVerifiedOperatorForRequest(request);

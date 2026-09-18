@@ -1,6 +1,6 @@
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { MASTRA_SCHEMA_FINGERPRINT_SQL } from "../scripts/mastra-schema-fingerprint";
-import { LibSQLStore } from "@mastra/libsql";
+import { InMemoryStore } from "@mastra/core/storage";
 import { PostgresStore } from "@mastra/pg";
 import {
   APPROVED_MASTRA_DIRECT_HOST,
@@ -213,7 +213,7 @@ describe("IPI-1124 hosted URL guard and fail-closed", () => {
     expect(() => requireMastraPostgresUrl()).toThrow(/approved iPix Mastra Postgres project/);
   });
 
-  it("keeps LibSQL fallback when not hosted and URL is missing", () => {
+  it("keeps local in-memory fallback when not hosted and URL is missing", () => {
     delete process.env.IPIX_MASTRA_HOSTED;
     delete process.env.MASTRA_DATABASE_URL;
     expect(requireMastraPostgresUrl()).toBeUndefined();
@@ -271,7 +271,7 @@ describe("IPI-1124 hosted URL guard and fail-closed", () => {
     expect(() => assertMastraProofWritesAllowed()).not.toThrow();
   });
 
-  it("createMastraStorage: hosted missing/invalid throws and does not return LibSQL", () => {
+  it("createMastraStorage: hosted missing/invalid throws and does not return local in-memory storage", () => {
     process.env.IPIX_MASTRA_HOSTED = "1";
     delete process.env.MASTRA_DATABASE_URL;
     expect(() => createMastraStorage()).toThrow(/IPIX_MASTRA_HOSTED requires MASTRA_DATABASE_URL/);
@@ -279,11 +279,11 @@ describe("IPI-1124 hosted URL guard and fail-closed", () => {
     expect(() => createMastraStorage()).toThrow(/approved iPix Mastra Postgres project/);
   });
 
-  it("createMastraStorage: local missing URL returns LibSQL", () => {
+  it("createMastraStorage: local missing URL returns Mastra core in-memory storage", () => {
     delete process.env.IPIX_MASTRA_HOSTED;
     delete process.env.MASTRA_DATABASE_URL;
     const storage = createMastraStorage();
-    expect(storage).toBeInstanceOf(LibSQLStore);
+    expect(storage).toBeInstanceOf(InMemoryStore);
     expect(storage).not.toBeInstanceOf(PostgresStore);
   });
 });

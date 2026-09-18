@@ -34,7 +34,6 @@ const nextConfig: NextConfig = {
     cpus: 4,
     memoryBasedWorkersCount: true,
   },
-  serverExternalPackages: ["@copilotkit/runtime"],
   env: {
     NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED: process.env.COPILOTKIT_LICENSE_TOKEN
       ? "true"

@@ -77,7 +77,7 @@ vi.mock("../src/app/planner-app", () => ({
     ),
 }));
 
-vi.mock("../src/lib/auth/copilot-hooks", () => ({
+vi.mock("../src/lib/auth/operator-auth", () => ({
   getVerifiedOperatorFromCookies,
 }));
 

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22.23.2"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "echo 'DEV-STAB-001: run npm run dev:ui and npm run dev:agent separately until the combined watcher storm is fixed' && exit 1",
