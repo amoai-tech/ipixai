@@ -1,17 +1,26 @@
-# Cloudinary (iPixai)
+# Cloudinary media
 
-**Photo lab** for shoot selects. Living spec — not the 1,000-line plan dump.
+Cloudinary owns image/video bytes, transformations, and delivery. Supabase owns media business truth: organization, brand, shoot, approval, asset state, and audit history.
 
-| Job | File |
-| --- | --- |
-| What we are building | **[prd.md](./prd.md)** |
-| Now / Next / Later | **[roadmap.md](./roadmap.md)** |
-| Check-off + mint | **[todo.md](./todo.md)** |
-| Official GitHub to open first | **[official-repos.md](./official-repos.md)** |
-| Official docs URLs by task (≤5) | **[../links.md](../links.md)** (Cloudinary section) |
-| Master product | [../prd.md](../prd.md) · [../roadmap.md](../roadmap.md) |
-| Brand “reuse the rack” | [../copilotkit-mastra/brand.md](../copilotkit-mastra/brand.md) |
+## Current state
 
-**Status:** live Linear **[IPI-1102](https://linear.app/amo100/issue/IPI-1102)**. **IPI-1108** is **Todo**. No Cloudinary packages on lockfile yet.
+The current application has `cloudinary` and `next-cloudinary` installed and has Cloudinary signing and webhook Route Handlers under `src/app/api/cloudinary/`.
 
-Dumps: [../archive/cloudinary/](../archive/cloudinary/).
+| Need | Current source |
+|---|---|
+| Media requirements | [prd.md](./prd.md) |
+| Official repositories/examples | [official-repos.md](./official-repos.md) |
+| Master product requirements | [../prd.md](../prd.md) |
+| Documentation audit | [../docs-index.md](../docs-index.md) |
+| Live task status | [Linear v2-ipix](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues) |
+
+## Rules
+
+- Prefer the official Cloudinary SDK, Next Cloudinary, CLI, MCP, and maintained examples before custom media code.
+- Browser uploads are signed server-side; secrets never go to the client.
+- Webhooks verify provider authenticity before writing business state.
+- Private/operator media must respect organization ownership and approval state.
+- Cloudinary Search is not the iPix application database.
+- Supabase remains the source of truth for asset ownership and workflow state.
+
+Historical Cloudinary audits, phase PRDs, prompts, and drafts remain in Git and are listed in the documentation inventory, but they are not current architecture authority.
