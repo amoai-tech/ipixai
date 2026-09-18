@@ -192,19 +192,14 @@ describe("APP-001 route split", () => {
     expect(screen.getByText("Workspace body")).toBeDefined();
   });
 
-  it("signed-in /planner redirects to /app instead of rendering a standalone surface @Tca04d226", async () => {
+  it("/planner unconditionally redirects to /app instead of rendering a standalone surface @Tca04d226", async () => {
     // IPI-1225 · PLANNER-ROUTE-RETIRE-001 — /app is now the single production
-    // Planner surface; /planner is a compatibility redirect only.
-    getVerifiedOperatorFromCookies.mockResolvedValue(operator);
-    serverCreateClient.mockResolvedValue(undefined);
+    // Planner surface; /planner is only a compatibility redirect and must not
+    // duplicate /app's own auth/tenant gate. Signed-out coverage for the real
+    // gate already lives on AppLayout itself (@T0dd76dd8 above) — a bare
+    // redirect("/app") has no auth branch of its own left to test here.
     await expect(PlannerPage()).rejects.toThrow("REDIRECT:/app");
     expect(redirect).toHaveBeenCalledWith("/app");
-  });
-
-  it("signed-out /planner redirects to login @T32b89593", async () => {
-    getVerifiedOperatorFromCookies.mockResolvedValue(null);
-    await expect(PlannerPage()).rejects.toThrow("REDIRECT:/login");
-    expect(redirect).toHaveBeenCalledWith("/login");
   });
 
   it("unknown /app/[section] calls notFound @T26f01279", async () => {

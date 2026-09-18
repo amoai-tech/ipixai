@@ -2,8 +2,28 @@ import path from "node:path";
 import { test, expect, type Page } from "@playwright/test";
 
 import { contextForSavedRole } from "./support/login";
+import { plannerThreadStorageKey } from "../src/mastra/thread-types";
 
 const orgBFile = path.resolve(__dirname, "../playwright/.auth/org-b.json");
+
+/** Reads the exact thread id /app's PlannerChatDock resolved and persisted
+ *  for the currently authenticated resource — the same lookup
+ *  e2e/planner-journey.spec.ts uses. This is the real conversation identity
+ *  the operator is talking to, independent of whether it's a brand-new or a
+ *  restored thread — /app has no "New" control, so a message can legitimately
+ *  land on an existing thread (see IPI-1225 fix note below). */
+async function getStoredPlannerThreadId(page: Page): Promise<string | null> {
+  const response = await page.request.get("/api/planner/threads");
+  expect(response.ok(), "authenticated planner thread list should load").toBe(true);
+  const body = (await response.json()) as { resourceId?: unknown };
+  const resourceId = typeof body.resourceId === "string" ? body.resourceId : "";
+  expect(resourceId, "planner thread list should identify the active resource").not.toBe("");
+
+  return page.evaluate(
+    (storageKey) => window.localStorage.getItem(storageKey),
+    plannerThreadStorageKey(resourceId),
+  );
+}
 
 /**
  * IPI-1191 · COPILOT-INTEL-001 — live proof that CopilotKit Intelligence
@@ -37,15 +57,15 @@ async function fetchIntelligenceThreads(page: Page): Promise<IntelligenceThread[
 test(
   "org A vs org B: CopilotKit Intelligence threads remain tenant-isolated live",
   async ({ browser, page }) => {
-    // Org A is the default authenticated `page` fixture (storageState from
-    // auth.setup.ts, same account as every other chromium-project test).
-    const before = await fetchIntelligenceThreads(page);
-
     const runMarker = `intel-isolation-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     // IPI-1225 · PLANNER-ROUTE-RETIRE-001 — migrated from /planner (retired
-    // to a compatibility redirect); /app has no "New"/toggle controls, and
-    // this assertion only needs *a* new Intelligence thread to appear after
-    // a real message, not a guaranteed-fresh Planner conversation.
+    // to a compatibility redirect). /planner's own "New" button used to
+    // guarantee a fresh thread here; /app has no such control (by design —
+    // see operator-panel.tsx's usePlannerThreadBootstrap) and always restores
+    // this resource's persisted thread. So this test no longer requires a
+    // *new* thread to appear after sending — it identifies whichever thread
+    // /app actually resolved (fresh or restored, via the same localStorage
+    // lookup /app itself uses) and asserts isolation on that real identity.
     await page.goto("/app");
     await expect(page.getByRole("status", { name: "Loading conversation…" })).toHaveCount(0, {
       timeout: 30_000,
@@ -62,13 +82,9 @@ test(
       timeout: 45_000,
     });
 
-    const after = await fetchIntelligenceThreads(page);
-    const orgAThread = after.find((thread) => !before.some((prior) => prior.id === thread.id));
-    expect(
-      orgAThread,
-      `expected a new Intelligence thread after a real message; before=${JSON.stringify(before)} after=${JSON.stringify(after)}`,
-    ).toBeTruthy();
-    const orgAThreadId = orgAThread!.id;
+    const resolvedThreadId = await getStoredPlannerThreadId(page);
+    expect(resolvedThreadId, "/app should have resolved and persisted a thread id by now").not.toBeNull();
+    const orgAThreadId = resolvedThreadId!;
 
     // Org B: cached storageState from a separate session — never inherits
     // Org A's Supabase session (see contextForSavedRole).

@@ -159,13 +159,13 @@ describe("successful authentication navigates to /app", () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(null);
     const ui = await LoginPage({
       searchParams: Promise.resolve({
-        next: ["/planner", "/app"],
+        next: ["/org-selection", "/app"],
       }),
     });
     render(ui);
     expect(await screen.findByLabelText("Email")).toBeDefined();
     // The lazy form receives the normalized first query value.
-    expect(lastNextProp.value).toBe("/planner");
+    expect(lastNextProp.value).toBe("/org-selection");
   });
 
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: login form pushes /app after a successful password sign-in", async () => {
@@ -259,14 +259,14 @@ describe("successful authentication navigates to /app", () => {
 
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: auth callback provider error retains a safe next target on /login", async () => {
     const url = new URL(
-      "http://localhost:3000/auth/callback?error=access_denied&next=/planner",
+      "http://localhost:3000/auth/callback?error=access_denied&next=/app",
     );
     const request = { url: url.toString(), nextUrl: url } as unknown as NextRequest;
     const response = await GET(request);
     expect(response.status).toBe(307);
     const location = response.headers.get("location") ?? "";
     expect(location).toContain("/login");
-    expect(location).toContain("next=%2Fplanner");
+    expect(location).toContain("next=%2Fapp");
   });
 
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: auth callback resolves the operator from the exchanged session (no incoming cookie)", async () => {

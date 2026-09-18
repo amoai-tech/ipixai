@@ -150,7 +150,7 @@ Planner ACL (ADR-008 `[PROPOSED]`): `owner > manager > contributor > viewer`.
 
 ## 6. Journeys
 
-1. **Brand DNA `[MVP]`** — URL → crawl/vision → `BrandDNACard` → Approve → `promote_brand_draft` RPC. Fail: manual intake + upload. Not Core (Core is persist + thin `/planner` only).
+1. **Brand DNA `[MVP]`** — URL → crawl/vision → `BrandDNACard` → Approve → `promote_brand_draft` RPC. Fail: manual intake + upload. Not Core (Core is persist + the `/app` Production Copilot only; IPI-1225 · PLANNER-ROUTE-RETIRE-001 retired `/planner` to a compatibility redirect).
 2. **3-gate shoot `[MVP]`** — Deliverables → shot list → budget → `commit_shoot_draft` → `shoot.*` + `planner.instances`. **Not** Core.
 3. **Production DAG `[MVP UI; schema Core-ready]`** — Topological shift on slip; cycle detection before write.
 4. **Talent + booking `[MVP]`** — Separate routes: `/app/matching/talent/[id]/book` and `/app/bookings/[id]`. **Not** Shoot Wizard `flow=booking`.
@@ -166,7 +166,7 @@ Canonical routes: **[Product sitemap](./sitemap.md)**.
 
 | Phase | Authenticated surfaces |
 |---|---|
-| **Core** | `/login` (minimal) + **`/planner` only** — no Operator Shell, no Command Center |
+| **Core** | `/login` (minimal) + **`/app`** — Operator Shell with the Production Copilot embedded (`/planner` is now a compatibility redirect only) |
 | **MVP** | Shell + `/app`, `/app/brands`, `/app/shoots`, campaigns, assets, preview, matching/book, bookings, CRM, inbox, settings, `/onboarding` |
 | **Post-MVP** | `/app/analytics`, `/app/plans/*` (legacy production workspace), talent self-serve |
 | **Advanced** | Catalog, collections, PDP, events, collab graph |
@@ -255,7 +255,7 @@ WCAG 2.1 AA. Full keyboard. Semantic landmarks + `aria-live` on streams. Breakpo
 
 ## 13. Phases (must match sitemap)
 
-**Dependency:** Supabase harden → Auth/org → Mastra PostgresStore gold → CopilotKit → **thin `/planner`** → Operator Shell → Brand/Shoots → Wizard/CRM/Booking.
+**Dependency:** Supabase harden → Auth/org → Mastra PostgresStore gold → CopilotKit → **`/app` Production Copilot** → Operator Shell → Brand/Shoots → Wizard/CRM/Booking.
 
 | Phase | Name | In | Out |
 |---|---|---|---|
@@ -352,7 +352,7 @@ Do not claim production-ready without a labeled verification level (unit / build
 | Auth / tenancy | `IPI-TBD · AUTH-002 — Session/org, RLS/RPC, cross-tenant 403` |
 | Planner agent | `IPI-TBD · AGENT-003 — Production Planner compute tools + JWT reads` |
 | Operator UI | `IPI-TBD · UI-004 — Shell + CopilotKit dock rebuild + ApprovalCard` |
-| Planner page | `IPI-TBD · PLAN-005 — Thin /planner Core page; /app/plans later` |
+| Planner page | `IPI-TBD · PLAN-005 — /app Production Copilot Core surface; /app/plans later` |
 | MVP flows | `IPI-TBD · FLOW-006 — 3-gate shoot, brand crawl, Cloudinary, booking routes` |
 
 Replace `IPI-TBD` with the live Linear identifier when the issue exists. No bare `CORE-001` in roadmaps.

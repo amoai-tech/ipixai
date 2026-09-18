@@ -5,13 +5,10 @@ import type { VerifiedOperator } from "./verified-operator";
 // Anything outside this set is rejected by safeRedirect and never used as a
 // post-auth target. /onboarding and /org-selection are the AUTH-002 boundaries
 // owned by ONBOARD-001 / org-selection; /app is the single-org default
-// workspace, and /planner stays a valid intentional deep link.
-const ALLOWED_INTERNAL_PATHS = new Set([
-  "/planner",
-  "/app",
-  "/onboarding",
-  "/org-selection",
-]);
+// workspace. /planner is deliberately absent (IPI-1225 ·
+// PLANNER-ROUTE-RETIRE-001): it is only a compatibility redirect to /app now
+// (src/app/planner/page.tsx), never a valid post-auth target on its own.
+const ALLOWED_INTERNAL_PATHS = new Set(["/app", "/onboarding", "/org-selection"]);
 
 const EXTERNAL_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 

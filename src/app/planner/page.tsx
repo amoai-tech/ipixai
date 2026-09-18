@@ -1,40 +1,11 @@
 import { redirect } from "next/navigation";
 
-import { getVerifiedOperatorFromCookies } from "@/lib/auth/operator-auth";
-import {
-  listMembershipOrgIdsFromServerClient,
-  resolveRuntimeTenant,
-} from "@/lib/auth/runtime-org";
-import { plannerSurfaceFor } from "@/lib/auth/verified-operator";
-import { createClient } from "@/lib/supabase/server";
-
+// IPI-1225 · PLANNER-ROUTE-RETIRE-001 — /app is now the single production
+// Planner surface; /planner is only a compatibility redirect. Auth/tenant
+// gating (login, onboarding, org-selection, fail-closed) is owned once by
+// /app's own layout (src/app/app/layout.tsx via requireResolvedAppWorkspace
+// in src/lib/auth/app-shell.ts) — duplicating those checks here would let
+// the two gates silently diverge.
 export default async function Page() {
-  const operator = await getVerifiedOperatorFromCookies();
-  if (!operator || plannerSurfaceFor(operator) === "login") {
-    redirect("/login");
-  }
-  // Planner route authorization is independent of the post-login destination
-  // policy (IPI-1058 · MARKETING-LOGIN-001): /app is the default workspace,
-  // but /planner stays a valid intentional deep link for a single-org member.
-  // Zero-org → onboarding, multi-org → org selection, lookup failure → login.
-  const supabase = await createClient();
-  if (supabase) {
-    const tenant = await resolveRuntimeTenant({
-      listOrgIds: () =>
-        listMembershipOrgIdsFromServerClient(supabase, operator.id),
-    });
-    if (tenant.status === "needs_onboarding") {
-      redirect("/onboarding");
-    }
-    if (tenant.status === "needs_org_selection") {
-      redirect("/org-selection");
-    }
-    if (tenant.status === "lookup_failed") {
-      redirect("/login");
-    }
-  }
-  // IPI-1225 · PLANNER-ROUTE-RETIRE-001 — /app is now the single production
-  // Planner surface; /planner stays a valid deep link that lands the
-  // operator on the same workspace instead of a separate standalone UI.
   redirect("/app");
 }
