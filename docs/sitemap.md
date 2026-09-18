@@ -122,7 +122,7 @@ flowchart TD
   end
 
   subgraph core [CORE — Operator Shell + Production Copilot]
-    CC["/app Command Center + Production Copilot"]
+    CC["/app Dashboard + Production Copilot"]
     Login --> CC
   end
 
@@ -183,7 +183,7 @@ Status = V2 intent, not HTML completeness.
 | Phase | Route | Job | Design SCR (HTML) |
 |---|---|---|---|
 | Core | `/login` | Auth | — |
-| Core | `/app` | Command Center + Production Copilot | SCR-01 + SCR-32–35 interaction patterns |
+| Core | `/app` | Dashboard + Production Copilot | SCR-01 + SCR-32–35 interaction patterns |
 | MVP | `/signup` | Signup | — |
 | MVP | `/onboarding` | Brand DNA funnel | SCR-11 |
 | MVP | `/app/brands` · `/[id]` | Brand list/detail | SCR-02, 03 |
@@ -203,6 +203,7 @@ Status = V2 intent, not HTML completeness.
 | Post-MVP | `/app/analytics` · `/campaigns` | Analytics (honest empty paid KPIs) | SCR-16, 17 |
 | Post-MVP | `/app/plans/*` | Production DAG workspace | SCR-32–35 |
 | Post-MVP | `/app/talent/*` | Talent self-serve | SCR-24 |
+| Post-MVP | `/app/operations` | Operations | — |
 | Post-MVP | availability + role dashboards | Rebuild | SCR-23, 25 |
 | Advanced | catalog / collections / PDP / events / collab route | Out of nav | SCR-12, 13, 14, 18, 19 |
 
@@ -253,7 +254,7 @@ Do not cite `Pages/` at repo root, `docs/handoff/SCREEN-REGISTRY.md`, or July �
 
 1. Tokens + empty/error/skeleton
 2. Operator Shell + Production Copilot context panel
-3. Brand list/detail → Shoots list/detail → Command Center aggregation
+3. Brand list/detail → Shoots list/detail → Dashboard aggregation
 4. Channel preview
 5. CRM companies + detail
 6. Matching talent tab
