@@ -138,6 +138,26 @@ describe("IPI-1084 · APPROVAL-001 — exact-revision approval record", () => {
 
   it("documents the REVISION_CONFLICT retry contract", async () => {
     const sql = await migration();
-    expect(sql).toContain("the caller retries once");
+    expect(sql).toContain("caller retries once");
+  });
+
+  it("serialises staging and deciding per planner run and asserts pgcrypto", async () => {
+    const sql = await migration();
+    const stageBody = sql.slice(
+      sql.indexOf("create or replace function public.stage_shoot_plan_revision"),
+      sql.indexOf("create or replace function public.decide_shoot_plan_revision"),
+    );
+    const decideBody = sql.slice(
+      sql.indexOf("create or replace function public.decide_shoot_plan_revision"),
+      sql.indexOf("comment on function public.decide_shoot_plan_revision"),
+    );
+    expect(stageBody).toContain("pg_advisory_xact_lock");
+    expect(decideBody).toContain("pg_advisory_xact_lock");
+    // The decision must take the shared key before it checks for a newer revision,
+    // otherwise a concurrent stage could slip in between the check and the write.
+    expect(decideBody.indexOf("pg_advisory_xact_lock")).toBeLessThan(
+      decideBody.indexOf("SUPERSEDED_REVISION"),
+    );
+    expect(sql).toContain("create extension if not exists pgcrypto with schema extensions");
   });
 });

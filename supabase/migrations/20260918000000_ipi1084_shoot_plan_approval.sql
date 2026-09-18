@@ -18,6 +18,13 @@
 -- browser can never mint an approval identity. Editing a plan stages a NEW
 -- revision row, which structurally invalidates the earlier approval.
 
+-- SHA-256 is computed by the database via extensions.digest, so pgcrypto must
+-- exist in the extensions schema. Supabase ships it there; assert it idempotently
+-- so a replay in a different environment cannot fail later with
+-- 'function extensions.digest(text, text) does not exist'.
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
+
 create table if not exists shoot.shoot_plan_approvals (
   id uuid primary key default gen_random_uuid(),
   brand_id uuid not null references public.brands(id) on delete cascade,
@@ -166,6 +173,12 @@ begin
     return jsonb_build_object('ok', false, 'code', 'INVALID_INPUT', 'detail', 'staged_by is not a known user');
   end if;
 
+  -- Serialise staging and deciding for one planner run: decide_shoot_plan_revision
+  -- takes the same transaction-scoped key, which makes the superseded-revision
+  -- check and the decision write atomic with respect to a concurrent stage and
+  -- keeps max(revision) + 1 race-free. Released automatically on commit/rollback.
+  perform pg_advisory_xact_lock(hashtextextended(p_brand_id::text || ':' || p_workflow_run_id, 0));
+
   v_plan_hash := encode(extensions.digest(p_plan::text, 'sha256'), 'hex');
 
   select coalesce(max(a.revision), 0) + 1
@@ -251,6 +264,13 @@ begin
   if not found then
     return jsonb_build_object('ok', false, 'code', 'NOT_FOUND');
   end if;
+
+  -- Same transaction-scoped key as stage_shoot_plan_revision (row lock first, then
+  -- this key — staging takes only this key, so there is no lock cycle). Together
+  -- they make the superseded-revision check below and the decision write atomic: a
+  -- concurrent stage either commits before this check runs, or waits until this
+  -- decision has committed.
+  perform pg_advisory_xact_lock(hashtextextended(v_row.brand_id::text || ':' || v_row.workflow_run_id, 0));
 
   -- Deciding a plan review is an editor/owner action: a viewer membership is
   -- not sufficient authority to approve or reject an AI plan.
@@ -421,11 +441,14 @@ $$;
 comment on function public.get_shoot_plan_approval(uuid) is
   'IPI-1084 — org-scoped read of one ShootPlan revision with a recomputed hashMatches proof and an isCurrent flag. authenticated only.';
 
--- Staging concurrency contract: the unique (workflow_run_id, revision) constraint
--- is the compare-and-set guard. A concurrent stage of the same next revision is
--- rejected with REVISION_CONFLICT and the caller retries once — the retry re-reads
--- max(revision) and stages the following number, so no revision is ever lost or
--- overwritten. Only the newest revision can be decided (SUPERSEDED_REVISION).
+-- Concurrency contract: staging and deciding for one planner run are serialised by
+-- a transaction-scoped advisory lock on (brand_id, workflow_run_id) taken by both
+-- RPCs, so max(revision) + 1 cannot collide with a concurrent stage and a decision
+-- cannot be recorded against a revision that a concurrent stage supersedes. The
+-- unique (workflow_run_id, revision) constraint remains the structural
+-- compare-and-set backstop: if REVISION_CONFLICT is ever returned, the staging
+-- caller retries once after re-reading max(revision). Only the newest revision can
+-- be decided (SUPERSEDED_REVISION).
 
 revoke all on function public.stage_shoot_plan_revision(uuid, text, jsonb, uuid, text, timestamptz) from public;
 revoke all on function public.stage_shoot_plan_revision(uuid, text, jsonb, uuid, text, timestamptz) from anon;
