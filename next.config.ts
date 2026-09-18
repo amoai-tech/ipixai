@@ -34,15 +34,11 @@ const nextConfig: NextConfig = {
     cpus: 4,
     memoryBasedWorkersCount: true,
   },
-  env: {
-    NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED: process.env.COPILOTKIT_LICENSE_TOKEN
-      ? "true"
-      : "false",
-  },
-  typescript: {
-    // @mastra/memory beta packages have unstable types that break strict checking
-    ignoreBuildErrors: true,
-  },
+  // No `env` block: it previously derived a dead NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED
+  // flag from COPILOTKIT_LICENSE_TOKEN at build time (zero consumers, and the
+  // secret is not set in any Vercel environment), forcing a needless build-time
+  // secret read. No `typescript.ignoreBuildErrors` either — CI `npm run typecheck`
+  // is the gate, so the Vercel build must not silently swallow type errors.
 };
 
 export default nextConfig;
