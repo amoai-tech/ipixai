@@ -11,7 +11,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # The event name is part of the group so a normal push run can never cancel an
+  # intentional manual release run (or vice versa). Releasing by dispatch is only
+  # meaningful if a later merge cannot abort it mid-flight.
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -681,11 +684,27 @@ jobs:
           functions/start-brand-crawl/index.ts
           functions/firecrawl-webhook/index.ts
 
-  # IPI-1229 · VERCEL-OPT-001 — Production deployment stays inside the same
-  # trusted CI run that tested this exact main SHA. The explicit repository
-  # variable is the cutover switch: keep it false while Vercel Git owns
-  # Production, then arm it only after the replacement path is certified and
-  # Vercel Git is disconnected.
+  # IPI-1229 · VERCEL-OPT-001 / IPI-1238 · VERCEL-RELEASE-001 — Production is
+  # released ONLY by an explicit manual dispatch of this workflow on main.
+  #
+  # Every merge to main still runs the full CI suite above, but creates NO
+  # Production deployment. Deploying on push is what made deployment storage grow
+  # once per merge (17 merges -> 17 Production artifacts); releasing is now an
+  # intentional act, not a side effect of merging.
+  #
+  # RELEASE SWITCH: `VERCEL_ACTIONS_PRODUCTION_ENABLED`
+  # (repository variable: Settings -> Secrets and variables -> Actions ->
+  # Variables).
+  #
+  #   'true'                  -> deploy the dispatched main SHA to Production.
+  #   'false'                 -> deliberately skip the deploy; the run warns.
+  #   unset / anything else   -> this job FAILS with ::error.
+  #
+  # The switch is validated INSIDE the job, never in the job-level `if:`. A
+  # job-level condition reports conclusion=skipped, which is not a failure — so
+  # an unset variable would silently release nothing. IPI-1238 sets
+  # `git.deploymentEnabled: false`, which makes this job the ONLY production
+  # path, so a silent skip would mean releases stop while CI stays green.
   vercel-production:
     needs:
       - build
@@ -702,9 +721,8 @@ jobs:
       - supabase-fresh-replay
       - edge-deno
     if: >-
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-      github.ref == 'refs/heads/main' &&
-      vars.VERCEL_ACTIONS_PRODUCTION_ENABLED == 'true'
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -713,7 +731,30 @@ jobs:
       group: vercel-production
       cancel-in-progress: false
     steps:
+      - name: Require a valid Production release switch
+        id: release
+        shell: bash
+        env:
+          PRODUCTION_ENABLED: ${{ vars.VERCEL_ACTIONS_PRODUCTION_ENABLED }}
+        run: |
+          set -euo pipefail
+          case "$PRODUCTION_ENABLED" in
+            true)
+              echo "enabled=true" >> "$GITHUB_OUTPUT"
+              ;;
+            false)
+              echo "enabled=false" >> "$GITHUB_OUTPUT"
+              echo "::warning title=Production release is switched off::VERCEL_ACTIONS_PRODUCTION_ENABLED=false and vercel.json sets git.deploymentEnabled=false, so this repository currently has NO production release path. ${GITHUB_SHA} merges without deploying."
+              ;;
+            *)
+              echo "::error title=Production release switch is not set::VERCEL_ACTIONS_PRODUCTION_ENABLED must be exactly 'true' or 'false', but is '${PRODUCTION_ENABLED:-<unset>}'."
+              echo "::error::vercel.json sets git.deploymentEnabled=false, so Vercel Git no longer deploys main. With this switch unset or malformed there is no production path at all — which used to fail silently as a skipped job. Set the repository variable to 'true' (Settings -> Secrets and variables -> Actions -> Variables) to release, or restore git.deploymentEnabled."
+              exit 1
+              ;;
+          esac
+
       - name: Checkout exact CI-tested SHA
+        if: steps.release.outputs.enabled == 'true'
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ github.sha }}
@@ -721,6 +762,7 @@ jobs:
           persist-credentials: false
 
       - name: Use repository Node version
+        if: steps.release.outputs.enabled == 'true'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
@@ -728,6 +770,7 @@ jobs:
 
       - name: Refuse stale main SHA before build
         id: latest
+        if: steps.release.outputs.enabled == 'true'
         shell: bash
         env:
           TESTED_SHA: ${{ github.sha }}
