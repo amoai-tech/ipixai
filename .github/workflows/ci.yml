@@ -112,8 +112,9 @@ jobs:
       - run: supabase db reset --local
       - run: PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium
       # scripts/run-approval-001-e2e.mjs refuses any non-loopback Supabase
-      # target, seeds e2e/support/approval-001-tenant-fixtures.sql, then runs
-      # playwright.approval.config.ts (which starts Next against the local stack).
+      # target, mints its fixture users/orgs/brands over the local Supabase APIs
+      # (`pg` + GoTrue admin), then runs playwright.approval.config.ts (which
+      # starts Next against the local stack). No `psql` client required.
       - run: npm run e2e:approval
       # These tests hold real authenticated local sessions; keep reports
       # runner-local rather than publishing them as public artifacts.

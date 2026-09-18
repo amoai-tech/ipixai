@@ -6,7 +6,7 @@
  *
  *   supabase status  →  verify the target is LOOPBACK ONLY
  *   [--reset]        →  supabase db reset --local (clean, deterministic schema)
- *   seed             →  e2e/support/approval-001-tenant-fixtures.sql
+ *   seed             →  local fixture users + orgs/members/brands (via `pg`)
  *   playwright       →  playwright.approval.config.ts (starts Next with local env)
  *
  * Safety: the ambient shell in this repo can export HOSTED Supabase values
@@ -21,9 +21,9 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
+import pg from "pg";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const FIXTURES = "e2e/support/approval-001-tenant-fixtures.sql";
 const CONFIG = "playwright.approval.config.ts";
 const BASE_URL = process.env.IPI1084_BASE_URL ?? "http://localhost:3016";
 const RESET = process.argv.includes("--reset");
@@ -164,16 +164,79 @@ async function ensureFixtureUsers() {
 
 await ensureFixtureUsers();
 
-console.log(`run-approval-001-e2e: seeding ${FIXTURES}`);
-const seed = spawnSync("psql", [dbUrl, "-v", "ON_ERROR_STOP=1", "-q", "-f", FIXTURES], {
-  cwd: ROOT,
-  stdio: ["ignore", "inherit", "inherit"],
-});
-if (seed.status !== 0) fail("fixture seeding failed");
+/**
+ * Org / membership / brand fixtures for the browser proof.
+ *
+ * The three auth users are NOT created here — ensureFixtureUsers() above mints
+ * them through GoTrue's admin API, because hand-built auth.users/auth.identities
+ * rows are GoTrue-schema sensitive (they verified locally but failed in CI with
+ * `500 {"code":"unexpected_failure","message":"Database error querying schema"}`).
+ * The organizations.owner_id foreign key below also proves those users exist.
+ *
+ * Executed through `pg` rather than an external `psql` process: `pg` is already
+ * a direct dependency and is what the spec uses for its own assertions, so the
+ * runner no longer requires a PostgreSQL client to be installed. Keeping the
+ * fixture SQL here also keeps it out of the SQL linter, which otherwise applies
+ * T-SQL dialect rules to it (e.g. suggesting `SET NOCOUNT ON`, invalid in
+ * Postgres).
+ *
+ *   Org A  iPix 1084 Org A   editor-a (owner) + viewer-a (viewer) + Brand A
+ *   Org B  iPix 1084 Org B   orgb     (owner)                     + Brand B
+ *
+ * Local-only credential for these throwaway accounts (FIXTURE_PASSWORD above).
+ * It is not a secret and never reaches a hosted environment.
+ *
+ * Must match e2e/support/approval-001-fixtures.ts.
+ */
+const FIXTURE_SQL = `
+begin;
+
+insert into public.organizations (id, name, slug, type, owner_id)
+values
+  ('10840000-0000-4000-8000-00000000000a', 'iPix 1084 Org A', 'ipix-1084-org-a', 'brand', '10840000-0000-4000-8000-000000000001'),
+  ('10840000-0000-4000-8000-00000000000b', 'iPix 1084 Org B', 'ipix-1084-org-b', 'brand', '10840000-0000-4000-8000-000000000003')
+on conflict (id) do update
+  set name = excluded.name, owner_id = excluded.owner_id, updated_at = now();
+
+-- Explicit and idempotent, including the viewer row the hosted fixtures cannot provide.
+insert into public.org_members (org_id, user_id, role)
+values
+  ('10840000-0000-4000-8000-00000000000a', '10840000-0000-4000-8000-000000000001', 'owner'),
+  ('10840000-0000-4000-8000-00000000000a', '10840000-0000-4000-8000-000000000002', 'viewer'),
+  ('10840000-0000-4000-8000-00000000000b', '10840000-0000-4000-8000-000000000003', 'owner')
+on conflict (org_id, user_id) do update set role = excluded.role;
+
+-- One brand per org — the review is authorized against the brand's org.
+insert into public.brands (id, user_id, name, org_id)
+values
+  ('10840000-0000-4000-8000-0000000000aa', '10840000-0000-4000-8000-000000000001', 'IPI-1084 Brand A', '10840000-0000-4000-8000-00000000000a'),
+  ('10840000-0000-4000-8000-0000000000bb', '10840000-0000-4000-8000-000000000003', 'IPI-1084 Brand B', '10840000-0000-4000-8000-00000000000b')
+on conflict (id) do update
+  set name = excluded.name, user_id = excluded.user_id, org_id = excluded.org_id, updated_at = now();
+
+commit;
+`;
+
+async function seedFixtures() {
+  const client = new pg.Client({ connectionString: dbUrl });
+  await client.connect();
+  try {
+    await client.query(FIXTURE_SQL);
+  } finally {
+    await client.end();
+  }
+  console.log("run-approval-001-e2e: seeded orgs, memberships and brands");
+}
+
+try {
+  await seedFixtures();
+} catch (error) {
+  fail(`fixture seeding failed: ${error instanceof Error ? error.message : "unknown error"}`);
+}
 
 // Override the ambient (hosted) env for the Playwright process AND the Next
-// server Playwright starts. `psql`/`supabase` above already used the loopback
-// DB_URL explicitly, so nothing here can reach a hosted project.
+// server Playwright starts. `supabase` and the `pg` connection above already
+// used the loopback URL explicitly, so nothing here can reach a hosted project.
 const childEnv = {
   ...process.env,
   NEXT_PUBLIC_SUPABASE_URL: apiUrl,

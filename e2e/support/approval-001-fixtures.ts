@@ -1,10 +1,10 @@
 /**
  * IPI-1084 · APPROVAL-001 — PR 2b browser-proof fixture constants.
  *
- * Mirror of `approval-001-tenant-fixtures.sql` (the seeding source of truth).
- * Change both together: the spec signs in with these credentials and reads the
- * brand by id, so any drift fails loudly on the first request instead of
- * silently passing.
+ * Mirror of the fixture SQL/ids in `scripts/run-approval-001-e2e.mjs` (the
+ * seeding source of truth). Change both together: the spec signs in with these
+ * credentials and reads the brand by id, so any drift fails loudly on the first
+ * request instead of silently passing.
  *
  * These accounts exist only in a local `supabase start` database. The hosted QA
  * environment has two isolated owners with zero brands and no viewer
