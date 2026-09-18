@@ -26,12 +26,22 @@ When documentation conflicts, prefer:
 5. Linear for status, ownership, and blockers;
 6. `docs/archive/` only as historical evidence.
 
+
+## Execution ownership
+
+| Belongs in Markdown | Belongs in Linear |
+|---|---|
+| Architecture and accepted decisions | Active tasks and sequencing |
+| Durable product requirements | Current completion percentages |
+| Setup and operational runbooks | Current blockers and assignees |
+| Stable technical contracts | Current implementation status |
+
 ## Rules
 
 - Do not use Markdown as a second task tracker; Linear owns live task state.
 - Keep one current entry point per domain and archive dated plans/audits when they stop being authoritative.
 - Current technical claims should cite code, installed types, tests, or an accepted ADR where practical.
 - Historical files stay readable under `docs/archive/`, but they are not implementation authority.
-- Run `npm run docs:check` after changing active documentation.
+- Run `npm run docs:check` after changing active documentation. The check also prevents removed Mintlify files and fully archived top-level docs trees from being recreated.
 
 Repository: https://github.com/amoai-tech/ipixai
