@@ -3,9 +3,21 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 const MIGRATION_PATH = "../supabase/migrations/20260918000000_ipi1084_shoot_plan_approval.sql";
+const SERVICE_READ_MIGRATION_PATH =
+  "../supabase/migrations/20260918000001_ipi1084_plan_approval_service_read.sql";
+const DECIDE_ACL_MIGRATION_PATH =
+  "../supabase/migrations/20260918000002_ipi1084_decide_revoke_service_role.sql";
 
 async function migration(): Promise<string> {
   return readFile(new URL(MIGRATION_PATH, import.meta.url), "utf8");
+}
+
+async function serviceReadMigration(): Promise<string> {
+  return readFile(new URL(SERVICE_READ_MIGRATION_PATH, import.meta.url), "utf8");
+}
+
+async function decideAclMigration(): Promise<string> {
+  return readFile(new URL(DECIDE_ACL_MIGRATION_PATH, import.meta.url), "utf8");
 }
 
 describe("IPI-1084 · APPROVAL-001 — exact-revision approval record", () => {
@@ -159,5 +171,26 @@ describe("IPI-1084 · APPROVAL-001 — exact-revision approval record", () => {
       decideBody.indexOf("SUPERSEDED_REVISION"),
     );
     expect(sql).toContain("create extension if not exists pgcrypto with schema extensions");
+  });
+
+  it("grants the workflow's durable re-read to service_role without widening the decision", async () => {
+    const sql = await serviceReadMigration();
+    expect(sql).toContain("revoke all on function public.get_shoot_plan_approval(uuid) from public;");
+    expect(sql).toContain("revoke all on function public.get_shoot_plan_approval(uuid) from anon;");
+    expect(sql).toContain(
+      "grant execute on function public.get_shoot_plan_approval(uuid) to service_role;",
+    );
+    // The read migration must not touch the decision function's ACL.
+    expect(sql).not.toContain("decide_shoot_plan_revision");
+  });
+
+  it("revokes the human decision from service_role so no service caller can approve", async () => {
+    const sql = await decideAclMigration();
+    expect(sql).toContain(
+      "revoke all on function public.decide_shoot_plan_revision(uuid, integer, text, text, text, text) from service_role;",
+    );
+    // Forward-only narrowing: it must not re-grant anything.
+    expect(sql).not.toMatch(/grant execute/i);
+    expect(sql).not.toMatch(/insert into|update |delete from/i);
   });
 });
