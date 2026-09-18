@@ -680,3 +680,117 @@ jobs:
           functions/brand-intelligence/index.ts
           functions/start-brand-crawl/index.ts
           functions/firecrawl-webhook/index.ts
+
+  # IPI-1229 · VERCEL-OPT-001 — Production deployment stays inside the same
+  # trusted CI run that tested this exact main SHA. The explicit repository
+  # variable is the cutover switch: keep it false while Vercel Git owns
+  # Production, then arm it only after the replacement path is certified and
+  # Vercel Git is disconnected.
+  vercel-production:
+    needs:
+      - build
+      - playwright-e2e
+      - playwright-ai-smoke
+      - planner-default-acl
+      - media-harden-acl
+      - plans-001-read-contract-acl
+      - claim-concurrency
+      - cloudinary-webhook-rpc
+      - sb-sec-010-acl
+      - block-brand-org-change-acl
+      - supabase-fresh-replay
+      - edge-deno
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/main' &&
+      vars.VERCEL_ACTIONS_PRODUCTION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    concurrency:
+      group: vercel-production
+      cancel-in-progress: false
+    steps:
+      - name: Checkout exact CI-tested SHA
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Use repository Node version
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Refuse stale main SHA before build
+        id: latest
+        shell: bash
+        env:
+          TESTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          latest_sha="$(git rev-parse origin/main)"
+          if [ "$TESTED_SHA" != "$latest_sha" ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping stale CI SHA $TESTED_SHA; latest main is $latest_sha"
+            exit 0
+          fi
+          echo "deploy=true" >> "$GITHUB_OUTPUT"
+
+      - name: Require Vercel deployment credential
+        id: credentials
+        if: steps.latest.outputs.deploy == 'true'
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::VERCEL_ACTIONS_PRODUCTION_ENABLED is true but VERCEL_TOKEN is missing."
+            exit 1
+          fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Install pinned Vercel CLI
+        if: steps.latest.outputs.deploy == 'true' && steps.credentials.outputs.configured == 'true'
+        run: npm install --global vercel@59.23.1
+
+      - name: Pull Production environment
+        if: steps.latest.outputs.deploy == 'true' && steps.credentials.outputs.configured == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build exact SHA for Production
+        if: steps.latest.outputs.deploy == 'true' && steps.credentials.outputs.configured == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy exact latest SHA to Production
+        if: steps.latest.outputs.deploy == 'true' && steps.credentials.outputs.configured == 'true'
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          TESTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          latest_sha="$(git rev-parse origin/main)"
+          if [ "$TESTED_SHA" != "$latest_sha" ]; then
+            echo "Skipping deploy: tested SHA $TESTED_SHA is no longer latest main ($latest_sha)."
+            exit 0
+          fi
+          vercel deploy --prebuilt --prod \
+            --meta githubCommitSha="$TESTED_SHA" \
+            --meta githubCommitRef=main \
+            --token="$VERCEL_TOKEN"

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -11,26 +11,22 @@ function expectNoAutomaticPreviewTrigger(source: string) {
 }
 
 describe("IPI-1229 Vercel deployment ownership", () => {
-  it("deploys Production only after successful main push CI at the exact tested SHA", () => {
-    const source = read(".github/workflows/vercel-production.yml");
+  it("deploys Production from the same trusted CI run that tested main", () => {
+    const source = read(".github/workflows/ci.yml");
 
-    expect(source).toContain("workflow_run:");
-    expect(source).toContain('workflows: ["CI"]');
-    expect(source).toContain("branches: [main]");
-    expect(source).toContain("types: [completed]");
-    expect(source).toContain("github.event.workflow_run.conclusion == 'success'");
-    expect(source).toContain("github.event.workflow_run.event == 'push'");
-    expect(source).toContain("ref: ${{ github.event.workflow_run.head_sha }}");
-    expect(source).toContain("git rev-parse origin/main");
-    expect(source).toContain("steps.latest.outputs.deploy == 'true'");
+    expect(existsSync(path.resolve(root, ".github/workflows/vercel-production.yml"))).toBe(false);
+    expect(source).not.toContain("workflow_run:");
+    expect(source).toContain("  vercel-production:");
+    expect(source).toContain("playwright-e2e");
+    expect(source).toContain("supabase-fresh-replay");
+    expect(source).toContain("github.event_name == 'push'");
+    expect(source).toContain("github.event_name == 'workflow_dispatch'");
+    expect(source).toContain("github.ref == 'refs/heads/main'");
+    expect(source).toContain("VERCEL_ACTIONS_PRODUCTION_ENABLED == 'true'");
+    expect(source).toContain("ref: ${{ github.sha }}");
+    expect(source.match(/git rev-parse origin\/main/g)?.length).toBeGreaterThanOrEqual(2);
     expect(source).toContain("id: credentials");
     expect(source).toContain("steps.credentials.outputs.configured == 'true'");
-    expect(source).toContain("id: ownership");
-    expect(source).toContain("VERCEL_ACTIONS_PRODUCTION_ENABLED: ${{ vars.VERCEL_ACTIONS_PRODUCTION_ENABLED }}");
-    expect(source).toContain("steps.ownership.outputs.enabled == 'true'");
-    expect(source).toContain("github.event.workflow_run.event == 'workflow_dispatch'");
-    expect(source.match(/git rev-parse origin\/main/g)?.length).toBeGreaterThanOrEqual(2);
-    expect(source).toContain("permissions:\n  contents: read");
     expect(source).toContain("vercel@59.23.1");
     expect(source).toContain("vercel pull --yes --environment=production");
     expect(source).toContain("vercel build --prod");
