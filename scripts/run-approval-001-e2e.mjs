@@ -75,8 +75,20 @@ if (!LOOPBACK.test(BASE_URL)) {
   fail(`refusing to run: IPI1084_BASE_URL is not local (${BASE_URL})`);
 }
 
-if (RESET) {
-  console.log("run-approval-001-e2e: supabase db reset --local");
+// An explicit port is required so the port probe, the Next server Playwright
+// starts, and Playwright's own readiness probe all target the SAME origin. With
+// `http://localhost` the config would start Next on its default port while the
+// probe waited on :80.
+const parsedBaseUrl = new URL(BASE_URL);
+if (!parsedBaseUrl.port) {
+  fail(
+    `IPI1084_BASE_URL must include an explicit port (e.g. http://localhost:3016) so the ` +
+      `readiness probe, the Next server and Playwright all target the same origin.`,
+  );
+}
+const port = parsedBaseUrl.port;
+
+if (RESET) {  console.log("run-approval-001-e2e: supabase db reset --local");
   const reset = spawnSync("supabase", ["db", "reset", "--local"], { cwd: ROOT, stdio: "inherit" });
   if (reset.status !== 0) fail("`supabase db reset --local` failed");
 }
@@ -90,7 +102,6 @@ if (RESET) {
  * Supabase env or older code, silently pointing this "local-only" proof at the
  * wrong target.
  */
-const port = new URL(BASE_URL).port || (BASE_URL.startsWith("https:") ? "443" : "80");
 const listener = await new Promise((resolve) => {
   const socket = net.connect({ host: "127.0.0.1", port: Number(port) });
   socket.once("connect", () => {

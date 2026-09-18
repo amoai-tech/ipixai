@@ -16,14 +16,29 @@ import { defineConfig, devices } from "@playwright/test";
  */
 
 const baseURL = process.env.IPI1084_BASE_URL ?? "http://localhost:3016";
-const port = new URL(baseURL).port || "3016";
 
-// Port is optional: `http://localhost` is just as local as `http://localhost:3016`.
+// Port is optional in the host check so `http://localhost` is recognised as
+// local, but an explicit port is then REQUIRED below: the Next server, this
+// config's readiness probe and the browser must all target the same origin.
 if (!/^http:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(baseURL)) {
   throw new Error(
     `IPI1084_BASE_URL "${baseURL}" is not a local http origin — this proof must never run against a hosted target.`,
   );
 }
+
+let parsedBaseURL: URL;
+try {
+  parsedBaseURL = new URL(baseURL);
+} catch {
+  throw new Error(`IPI1084_BASE_URL "${baseURL}" is not a valid URL`);
+}
+if (!parsedBaseURL.port) {
+  throw new Error(
+    `IPI1084_BASE_URL "${baseURL}" must include an explicit port (e.g. http://localhost:3016) ` +
+      `so the Next server, Playwright's readiness probe and the browser all target the same origin.`,
+  );
+}
+const port = parsedBaseURL.port;
 
 export default defineConfig({
   testDir: "./e2e",
