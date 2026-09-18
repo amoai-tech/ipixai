@@ -1,4 +1,4 @@
-import { LibSQLStore } from "@mastra/libsql";
+import { InMemoryStore } from "@mastra/core/storage";
 import { Memory } from "@mastra/memory";
 import { describe, expect, it } from "vitest";
 
@@ -15,9 +15,8 @@ import {
 
 function isolatedMemory() {
   return new Memory({
-    storage: new LibSQLStore({
+    storage: new InMemoryStore({
       id: `thread-persist-${crypto.randomUUID()}`,
-      url: ":memory:",
     }),
   });
 }

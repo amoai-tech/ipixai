@@ -1,5 +1,5 @@
 import { resolveAssetOrgAccess } from "@/lib/auth/asset-access";
-import { getVerifiedOperatorForRequest } from "@/lib/auth/copilot-hooks";
+import { getVerifiedOperatorForRequest } from "@/lib/auth/operator-auth";
 import { unauthorizedResponse } from "@/lib/auth/unauthorized";
 import { runAssetQA } from "@/lib/asset-qa/service";
 import { jsonError } from "@/lib/http/json-response";

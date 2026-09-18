@@ -46,7 +46,7 @@ const authMocks = vi.hoisted(() => ({
   getVerifiedOperatorForRequest: vi.fn(),
 }));
 
-vi.mock("../src/lib/auth/copilot-hooks", () => ({
+vi.mock("../src/lib/auth/operator-auth", () => ({
   getVerifiedOperatorForRequest: authMocks.getVerifiedOperatorForRequest,
 }));
 

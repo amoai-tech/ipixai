@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { getVerifiedOperatorFromCookies } from "@/lib/auth/copilot-hooks";
+import { getVerifiedOperatorFromCookies } from "@/lib/auth/operator-auth";
 import {
   listMembershipOrgIdsFromServerClient,
   resolveRuntimeTenant,

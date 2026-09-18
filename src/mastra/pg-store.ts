@@ -1,7 +1,7 @@
 import { parseIntoClientConfig } from "pg-connection-string";
 import { Pool, type PoolConfig } from "pg";
+import { InMemoryStore } from "@mastra/core/storage";
 import { PostgresStore } from "@mastra/pg";
-import { LibSQLStore } from "@mastra/libsql";
 import { SUPABASE_PROD_CA_2021 } from "./supabase-prod-ca-2021";
 
 declare global {
@@ -13,7 +13,7 @@ declare global {
 }
 
 const MISSING_URL_WARNING =
-  "MASTRA_DATABASE_URL is unset; Planner threads use in-memory LibSQL and will not survive restart. Copy MASTRA_DATABASE_URL from .env.example (local Docker only).";
+  "MASTRA_DATABASE_URL is unset; Planner threads use Mastra in-memory storage and will not survive restart. Copy MASTRA_DATABASE_URL from .env.example (local Docker only).";
 
 const HOSTED_MISSING_URL =
   "IPIX_MASTRA_HOSTED requires MASTRA_DATABASE_URL; refusing in-memory storage";
@@ -174,7 +174,7 @@ export function assertSafeMastraDatabaseUrl(
 }
 
 /**
- * Local: missing URL is LibSQL. Hosted: missing or unapproved URL throws.
+ * Local: missing URL uses Mastra core in-memory storage. Hosted: missing or unapproved URL throws.
  * Never returns a URL that failed the guard.
  */
 export function requireMastraPostgresUrl(
@@ -219,10 +219,7 @@ export function assertMastraProofWritesAllowed(
 export function createMastraStorage() {
   const url = requireMastraPostgresUrl();
   if (!url) {
-    return new LibSQLStore({
-      id: "mastra-storage",
-      url: ":memory:",
-    });
+    return new InMemoryStore({ id: "mastra-storage" });
   }
   return getMastraPostgresStore(url);
 }
@@ -230,10 +227,7 @@ export function createMastraStorage() {
 export function createAgentMemoryStorage() {
   const url = requireMastraPostgresUrl();
   if (!url) {
-    return new LibSQLStore({
-      id: "weather-agent-memory",
-      url: "file::memory:",
-    });
+    return new InMemoryStore({ id: "weather-agent-memory" });
   }
   return getMastraPostgresStore(url);
 }

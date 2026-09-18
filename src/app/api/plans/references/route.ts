@@ -1,4 +1,4 @@
-import { getVerifiedOperatorForRequest } from "@/lib/auth/copilot-hooks";
+import { getVerifiedOperatorForRequest } from "@/lib/auth/operator-auth";
 import { unauthorizedResponse } from "@/lib/auth/unauthorized";
 import { loadShotReferenceCatalog } from "@/lib/shoot/shot-type-references";
 
