@@ -2,7 +2,7 @@
 
 Canonical repository skill tree: `.claude/skills/`. Cursor also loads `.cursor/skills` → symlink to the same tree.
 
-Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Cursor rules: `.cursor/rules/`.
+AI runtime SSOT: `docs/copilotkit-mastra/README.md`. Cursor rules: `.cursor/rules/`.
 
 ---
 

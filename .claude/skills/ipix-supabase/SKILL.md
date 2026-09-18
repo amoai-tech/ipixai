@@ -12,7 +12,7 @@ metadata:
     - "supabase/**"
     - "**/*.sql"
     - "src/lib/supabase*"
-    - "docs/mastra/supabase-mastra.md"
+    - "docs/data/README.md"
 ---
 
 # ipix-supabase — Supabase hub
@@ -92,7 +92,7 @@ supabase, RLS, auth.uid, edge function, Deno.serve, verify_jwt, storage bucket, 
 | **Policy** | Local fresh-replay (`supabase start` / `db reset --local`) is the proven verification method — CI-enforced via the `supabase-fresh-replay` job on every PR (see IPI-1162). In the normal workflow, do **not** manually run `supabase db push --linked`, `supabase migration repair`, or `supabase db reset --linked` against production; production migration application is owned by the reviewed merge/deploy path. |
 | **Commerce** | **Mercur** — never duplicate product/order tables in Supabase |
 
-Mastra schema notes: [`docs/mastra/supabase-mastra.md`](../../../docs/mastra/supabase-mastra.md)  
+Mastra schema contract: [`docs/mastra/db-001-matrix.md`](../../../docs/mastra/db-001-matrix.md)
 Old operator repo (read-only reference): `/home/sk/ipix/supabase/`
 
 ### MCP / CLI trust

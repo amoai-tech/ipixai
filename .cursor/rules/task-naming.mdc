@@ -29,8 +29,8 @@ alwaysApply: true
 
 | Track | Lookup |
 |-------|--------|
-| Mastra conversion | `docs/mastra/10-mastra-convert.md`, `docs/mastra/mastra-plan.md` |
-| Host / Cursor load | `docs/cursor/linux-audit.md` |
+| Mastra runtime | `docs/copilotkit-mastra/README.md`, `docs/mastra/runtime-family.md` |
+| Host / Cursor load | `docs/archive/cursor/linux-audit.md` (historical evidence) |
 | Any IPI task | Live Linear issue **title** |
 
 If unsure of the title, read the SSOT or Linear before citing the ID.

@@ -208,7 +208,7 @@ flowchart TB
 
 **Write path `[REQUIRED]`:** Browser JWT → CopilotKit → Mastra **read/compute/propose** → GenUI → operator Approve → `SECURITY DEFINER` RPC (`REVOKE` from `anon`) → domain row + audit.
 
-**Memory `[REQUIRED]`:** `resourceId` built **server-side** as `org:{orgId}::user:{userId}` (live double-colon contract in `docs/mastra/supabase-mastra.md`). Do not switch to a single colon without migrating existing strings. `disableInit: true` in production; migrations own `mastra.*` DDL.
+**Memory `[REQUIRED]`:** `resourceId` built **server-side** as `org:{orgId}::user:{userId}` (current server contract in `src/lib/auth/verified-operator.ts`). Do not switch to a single colon without migrating existing strings. `disableInit: true` in production; migrations own `mastra.*` DDL.
 
 ---
 

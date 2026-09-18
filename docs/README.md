@@ -1,32 +1,37 @@
 # iPix documentation
 
-Use this folder as a router to current truth, not as a second task tracker.
+This is the GitHub-native documentation home for iPix. Use these files for current product and architecture truth; use Linear for live execution status.
 
-| Need | Source of truth |
+| Need | Current source |
 |---|---|
 | Product requirements | [prd.md](./prd.md) |
 | Routes and phases | [sitemap.md](./sitemap.md) |
 | Now → Next → Later | [roadmap.md](./roadmap.md) |
 | Current task status / blockers | [Linear v2-ipix](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues) |
-| Architecture decisions | [ADR 001](./adr/001-node-first.md) and the `adr/` folder |
-| AI runtime | [copilotkit-mastra/index.md](./copilotkit-mastra/index.md) · [mastra/10-mastra-convert.md](./mastra/10-mastra-convert.md) |
-| Data / Supabase | [data/index.md](./data/index.md) |
-| Media / Cloudinary | [cloudinary/index.md](./cloudinary/index.md) |
-| Full docs audit | [docs-index.md](./docs-index.md) |
+| Architecture decisions | [adr/README.md](./adr/README.md) |
+| AI runtime | [copilotkit-mastra/README.md](./copilotkit-mastra/README.md) |
+| Data / Supabase | [data/README.md](./data/README.md) |
+| Media / Cloudinary | [cloudinary/README.md](./cloudinary/README.md) |
+| Documentation map | [docs-index.md](./docs-index.md) |
+| Historical evidence | [archive/README.md](./archive/README.md) |
 
-## Source-of-truth rule
+## Source-of-truth order
 
-When documentation conflicts with implementation, prefer:
+When documentation conflicts, prefer:
 
 1. live runtime / current repository and installed types;
-2. prd.md + sitemap.md;
+2. `docs/prd.md` + `docs/sitemap.md`;
 3. accepted ADRs;
-4. living domain docs;
-5. Linear for status and blockers;
-6. archived audits/plans only as historical evidence.
+4. living domain READMEs and technical contracts;
+5. Linear for status, ownership, and blockers;
+6. `docs/archive/` only as historical evidence.
 
-Historical migration plans and point-in-time audits are useful evidence, but they are not current architecture authority.
+## Rules
 
-## Repository
+- Do not use Markdown as a second task tracker; Linear owns live task state.
+- Keep one current entry point per domain and archive dated plans/audits when they stop being authoritative.
+- Current technical claims should cite code, installed types, tests, or an accepted ADR where practical.
+- Historical files stay readable under `docs/archive/`, but they are not implementation authority.
+- Run `npm run docs:check` after changing active documentation.
 
-https://github.com/amoai-tech/ipixai
+Repository: https://github.com/amoai-tech/ipixai
