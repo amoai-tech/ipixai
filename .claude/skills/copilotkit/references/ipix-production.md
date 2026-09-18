@@ -72,7 +72,7 @@ Sign in → session cookie set
 
 - Runtime: `src/app/api/copilotkit/[[...slug]]/route.ts`
 - Operator auth gate: `src/app/app/layout.tsx` → `requireAppWorkspace()`
-- CopilotKit mount/provider: `src/app/planner-app.tsx`
+- CopilotKit mount/provider: `src/components/operator-panel/operator-panel.tsx` (IPI-1225 · PLANNER-ROUTE-RETIRE-001 deleted `src/app/planner-app.tsx`; `/app`'s embedded Production Copilot is the only mount now)
 - Mount decision: `src/lib/auth/copilot-mount.ts`
 - Verified operator/resource identity: `src/lib/auth/verified-operator.ts`
 - Example env: verify current root env documentation before changing variables

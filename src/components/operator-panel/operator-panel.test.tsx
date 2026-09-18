@@ -239,10 +239,9 @@ describe("OperatorPanel", () => {
     // Persistent CopilotKit chat dock — center workspace, not the rail.
     expect(screen.getByTestId("operator-chat-dock")).toBeDefined();
     await waitFor(() => expect(screen.getByTestId("copilot-chat-stub")).toBeDefined());
-    const plannerLinks = screen.getAllByRole("link", { name: "Open Planner" });
-    expect(plannerLinks.length).toBeGreaterThan(0);
-    expect(plannerLinks.every((link) => link.getAttribute("href") === "/planner")).toBe(true);
-    expect(plannerLinks.every((link) => link.getAttribute("target") === "_blank")).toBe(true);
+    // IPI-1225 · PLANNER-ROUTE-RETIRE-001 — /app is the single production
+    // Planner surface now; no separate "Open Planner" escape hatch.
+    expect(screen.queryByRole("link", { name: "Open Planner" })).toBeNull();
     for (const item of OPERATOR_NAV) {
       expect(screen.getByRole("link", { name: item.label })).toBeDefined();
     }

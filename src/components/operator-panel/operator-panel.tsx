@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type CSSProperties, type Ref } from "react";
 import { CopilotChat, CopilotKit, useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { navItemIsActive, OPERATOR_NAV } from "./nav";
@@ -150,8 +150,8 @@ function portfolioWelcomeText(pathname: string, stats: WorkspaceStats | null): s
 
 /**
  * IPI-1217 · COPILOT-APP-DOCK-002 — resolve the same tenant-scoped persisted
- * thread `/planner` already uses (see planner-threads-drawer.tsx) before
- * mounting CopilotChat. Without an explicit threadId here, CopilotChat never
+ * thread `/api/planner/threads` already exposes before mounting CopilotChat.
+ * Without an explicit threadId here, CopilotChat never
  * showed a response: the network run completed but the visible chat stayed
  * empty (proven live, see IPI-1217). This is the same bootstrap contract,
  * without the thread-list UI — `/app` only needs one stable conversation
@@ -189,9 +189,8 @@ function usePlannerThreadBootstrap() {
         };
         // response.json() is itself async — the component can have
         // unmounted (or a retry can have superseded this attempt) while it
-        // was pending. Same guard planner-threads-drawer.tsx already uses
-        // after its own await, so a resolved-too-late response can't still
-        // write localStorage/state for a request nothing is waiting on.
+        // was pending, so a resolved-too-late response can't still write
+        // localStorage/state for a request nothing is waiting on.
         if (controller.signal.aborted) return;
         // Only the resourceId the server actually returns is trusted —
         // never a client-supplied one — so a stored thread from a previous
@@ -256,8 +255,7 @@ function ResolvedChatDock({
   onReady?: (ready: boolean) => void;
 }) {
   const stats = useWorkspaceStats();
-  // Called unconditionally (rules of hooks) — same pattern
-  // planner-threads-drawer.tsx already uses. Once the operator sends the
+  // Called unconditionally (rules of hooks). Once the operator sends the
   // first message, agent.messages.length flips to >0 and the welcome
   // banner below hides itself, matching how CopilotChat's own
   // (now-unreachable) welcome screen used to behave via messages.length.
@@ -288,7 +286,7 @@ function ResolvedChatDock({
   // (TenantAbortRunner extends InMemoryAgentRunner, not a persisting one)
   // doesn't guarantee. RestoreMastraHistory pulls the authoritative
   // Mastra/Postgres messages for this thread and calls agent.setMessages(...)
-  // directly — no second persistence path, reusing /planner's proven one.
+  // directly — no second persistence path.
   // It's mounted here even while !restoreSettled specifically so its own
   // effect actually runs and can call onSettled; only the visible chat
   // surface below is held back until then. Only for an existing thread: a
@@ -662,26 +660,6 @@ function ProductionCopilotPanel({
   );
 }
 
-function OpenPlannerLink({
-  className,
-  onClick,
-}: {
-  className?: string;
-  onClick?: () => void;
-}) {
-  return (
-    <Link
-      href="/planner"
-      target="_blank"
-      rel="noreferrer"
-      className={className}
-      onClick={onClick}
-    >
-      Open Planner
-    </Link>
-  );
-}
-
 export function OperatorPanel({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
@@ -734,9 +712,8 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
   };
 
   // useSingleEndpoint={false} matches the multi-route
-  // /api/copilotkit/[[...slug]] handler (see planner-app.tsx's own
-  // provider) — the v1-compat bridge otherwise defaults to a single
-  // transport and 404s. Auth is server-side on the route itself
+  // /api/copilotkit/[[...slug]] handler — the v1-compat bridge otherwise
+  // defaults to a single transport and 404s. Auth is server-side on the route itself
   // (requirePlannerResourceId re-verifies the same AUTH-002 session that
   // already gated this page), so no client handshake is needed here.
   // showDevConsole / enableInspector explicitly off: their default dev-
@@ -808,10 +785,6 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
           })}
         </ul>
         <div className={styles.footer}>
-          <OpenPlannerLink
-            className={cn(buttonVariants({ variant: "secondary", size: "sm" }), styles.signOut)}
-            onClick={() => setNavOpen(false)}
-          />
           <form action="/auth/sign-out" method="post">
             <Button type="submit" variant="ghost" size="sm" className={styles.signOut}>
               Sign out
