@@ -7,49 +7,73 @@ import { plannerThreadStorageKey } from "@/mastra/thread-types";
 
 type MqListener = (event: MediaQueryListEvent) => void;
 
-function mockMobileNav(matches: boolean) {
-  let listener: MqListener | null = null;
-  const mq = {
-    matches,
-    media: "(max-width: 767px)",
-    addEventListener: (_event: string, cb: MqListener) => {
-      listener = cb;
-    },
-    removeEventListener: (_event: string, cb: MqListener) => {
-      if (listener === cb) listener = null;
-    },
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
-    emit(next: boolean) {
-      this.matches = next;
-      listener?.({ matches: next } as MediaQueryListEvent);
-    },
-    hasListener() {
-      return listener !== null;
-    },
-  };
+const MOBILE_NAV_QUERY = "(max-width: 767px)";
+const COPILOT_COMPACT_QUERY = "(max-width: 1023px)";
+
+function parseMaxWidth(query: string): number | null {
+  const match = /max-width:\s*(\d+)px/.exec(query);
+  return match ? Number(match[1]) : null;
+}
+
+/** Simulates window.matchMedia against one numeric viewport width, so the
+ *  nav's own MOBILE_NAV_QUERY (767px) and the panel's COPILOT_COMPACT_QUERY
+ *  (1023px) — a real ~900px tablet width matches the second but not the
+ *  first — resolve consistently for one simulated width, instead of a
+ *  single hardcoded "767" string match. */
+function mockViewportWidth(px: number) {
+  const registry = new Map<string, { matches: boolean; listeners: Set<MqListener> }>();
+
+  function entryFor(query: string) {
+    let entry = registry.get(query);
+    if (!entry) {
+      const maxWidth = parseMaxWidth(query);
+      entry = { matches: maxWidth !== null && px <= maxWidth, listeners: new Set() };
+      registry.set(query, entry);
+    }
+    return entry;
+  }
 
   Object.defineProperty(window, "matchMedia", {
     writable: true,
     configurable: true,
     value: (query: string) => {
-      if (!query.includes("767")) {
-        return {
-          matches: false,
-          media: query,
-          addEventListener: () => {},
-          removeEventListener: () => {},
-          addListener: () => {},
-          removeListener: () => {},
-          dispatchEvent: () => false,
-        };
-      }
-      return mq;
+      const entry = entryFor(query);
+      return {
+        get matches() {
+          return entry.matches;
+        },
+        media: query,
+        addEventListener: (_event: string, cb: MqListener) => {
+          entry.listeners.add(cb);
+        },
+        removeEventListener: (_event: string, cb: MqListener) => {
+          entry.listeners.delete(cb);
+        },
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      };
     },
   });
 
-  return mq;
+  return {
+    // Mirrors a real window resize: every registered query re-evaluates
+    // against the new width, same as the browser would.
+    setWidth(next: number) {
+      px = next;
+      for (const [query, entry] of registry) {
+        const maxWidth = parseMaxWidth(query);
+        const changed = (maxWidth !== null && px <= maxWidth) !== entry.matches;
+        entry.matches = maxWidth !== null && px <= maxWidth;
+        if (changed) {
+          for (const cb of entry.listeners) cb({ matches: entry.matches } as MediaQueryListEvent);
+        }
+      }
+    },
+    hasListener(query: string) {
+      return (registry.get(query)?.listeners.size ?? 0) > 0;
+    },
+  };
 }
 
 vi.mock("./operator-panel.module.css", () => ({
@@ -69,13 +93,21 @@ vi.mock("./operator-panel.module.css", () => ({
 // Resettable (vi.hoisted) rather than a plain arrow function so individual
 // tests can simulate an in-progress conversation via mockReturnValueOnce —
 // operator-panel.tsx's isNewThread welcome banner is also gated on this.
+const addMessageMock = vi.hoisted(() => vi.fn());
 const useAgentMock = vi.hoisted(() =>
-  vi.fn(() => ({ agent: { messages: [] as unknown[] } })),
+  vi.fn(() => ({
+    agent: { messages: [] as unknown[], addMessage: addMessageMock, isRunning: false },
+  })),
 );
+
+const runAgentMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 
 vi.mock("@copilotkit/react-core/v2", () => ({
   CopilotKit: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useAgent: useAgentMock,
+  // IPI-1224: insight buttons send via agent.addMessage + copilotkit.runAgent
+  // (the documented agent-access pattern) — stubbed the same shape here.
+  useCopilotKit: () => ({ copilotkit: { runAgent: runAgentMock } }),
   // IPI-1084 registers the ShootPlan review HITL renderer inside the provider.
   // These tests assert the shell/nav/rail, so the registration is a no-op here.
   useHumanInTheLoop: () => {},
@@ -169,9 +201,21 @@ function mockThreadsFetch(
 beforeEach(() => {
   mockThreadsFetch();
   window.localStorage.clear();
-  useAgentMock.mockReturnValue({ agent: { messages: [] } });
+  addMessageMock.mockReset();
+  runAgentMock.mockReset();
+  runAgentMock.mockResolvedValue(undefined);
+  useAgentMock.mockReturnValue({
+    agent: { messages: [], addMessage: addMessageMock, isRunning: false },
+  });
   restoreAutoSettle.current = true;
   capturedOnSettled.current = null;
+  // mockViewportWidth overrides window.matchMedia via Object.defineProperty,
+  // not vi.stubGlobal — vi.unstubAllGlobals() in afterEach below doesn't
+  // touch it, so a mobile/tablet-simulating test would otherwise leak that
+  // override into whichever test runs next. Reset to a safe "always
+  // desktop, never matches" default before every test; a test that needs
+  // a narrower viewport calls mockViewportWidth(px) itself.
+  mockViewportWidth(Number.POSITIVE_INFINITY);
 });
 
 afterEach(() => {
@@ -188,7 +232,10 @@ describe("OperatorPanel", () => {
     );
     expect(screen.getByTestId("operator-panel")).toBeDefined();
     expect(screen.getByText("Workspace body")).toBeDefined();
-    expect(screen.getByTestId("intelligence-rail")).toBeDefined();
+    // No real WorkspaceStats reported here — the pinned rail is omitted
+    // entirely rather than rendering an empty styled bar (see the
+    // dedicated "omits the pinned rail entirely..." test below).
+    expect(screen.queryByTestId("intelligence-rail")).toBeNull();
     // Persistent CopilotKit chat dock — center workspace, not the rail.
     expect(screen.getByTestId("operator-chat-dock")).toBeDefined();
     await waitFor(() => expect(screen.getByTestId("copilot-chat-stub")).toBeDefined());
@@ -201,45 +248,83 @@ describe("OperatorPanel", () => {
     }
   });
 
-  it("expands and collapses the Planner chat dock without remounting the chat", async () => {
+  it("opens and closes the Production Copilot panel without remounting the chat", async () => {
     render(
       <OperatorPanel>
         <p>Workspace body</p>
       </OperatorPanel>,
     );
 
-    const dock = screen.getByTestId("operator-chat-dock");
+    const panel = screen.getByTestId("operator-chat-dock");
     const chat = await screen.findByTestId("copilot-chat-stub");
-    const expand = screen.getByRole("button", { name: "Expand chat" });
 
-    expect(dock.getAttribute("data-expanded")).toBe("false");
-    expect(expand.getAttribute("aria-expanded")).toBe("false");
-    expect(expand.getAttribute("aria-controls")).toBe("operator-chat-panel");
+    // Open by default — see operator-panel.tsx's copilotOpen comment: the
+    // required playwright-ai-smoke/gate-9 e2e specs interact with the
+    // composer immediately after navigation with no "open" step of their
+    // own, and the acceptance criteria never mandate a closed default.
+    expect(panel.getAttribute("data-open")).toBe("true");
+    const closeButton = screen.getByRole("button", { name: "Close Copilot" });
+    // "Open Copilot" is the only control visible while closed; the panel's
+    // own ✕ is the only control visible while open (Final Design state
+    // machine) — so the open button doesn't exist while already open.
+    expect(screen.queryByRole("button", { name: "✦ Open Copilot" })).toBeNull();
 
-    fireEvent.click(expand);
+    fireEvent.click(closeButton);
 
-    expect(dock.getAttribute("data-expanded")).toBe("true");
-    expect(screen.getByRole("button", { name: "Collapse chat" }).getAttribute("aria-expanded")).toBe("true");
+    expect(panel.getAttribute("data-open")).toBe("false");
+    // Chat stays mounted even while closed — only CSS/inert toggles, so a
+    // real conversation is never torn down just by closing the panel.
     expect(screen.getByTestId("copilot-chat-stub")).toBe(chat);
 
-    fireEvent.click(screen.getByRole("button", { name: "Collapse chat" }));
+    const openButton = screen.getByRole("button", { name: "✦ Open Copilot" });
+    expect(openButton.getAttribute("aria-expanded")).toBe("false");
+    expect(openButton.getAttribute("aria-controls")).toBe("operator-chat-panel");
 
-    expect(dock.getAttribute("data-expanded")).toBe("false");
+    fireEvent.click(openButton);
+
+    expect(panel.getAttribute("data-open")).toBe("true");
     expect(screen.getByTestId("copilot-chat-stub")).toBe(chat);
   });
 
-  it("rail shows the generic copy when no real workspace stats have been reported", () => {
+  it("restores focus to Open Copilot after a user closes the panel", async () => {
     render(
       <OperatorPanel>
         <p>Workspace body</p>
       </OperatorPanel>,
     );
-    expect(
-      within(screen.getByTestId("intelligence-rail")).getByText(
-        "Planner chat stays in its own screen. Open it without replacing this workspace.",
-      ),
-    ).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Close Copilot" }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "✦ Open Copilot" })),
+    );
+  });
+
+  it("closes the Copilot panel automatically on mobile instead of covering the dashboard on load", async () => {
+    mockViewportWidth(390);
+    render(
+      <OperatorPanel>
+        <p>Workspace body</p>
+      </OperatorPanel>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("operator-chat-dock").getAttribute("data-open")).toBe("false"),
+    );
+    expect(screen.getByRole("button", { name: "✦ Open Copilot" })).toBeDefined();
+    // Mobile auto-close is a background effect, not a user-initiated close —
+    // it must never steal focus on page load.
+    expect(document.activeElement).not.toBe(screen.getByRole("button", { name: "✦ Open Copilot" }));
+  });
+
+  it("omits the pinned rail entirely when there are no insights, instead of an empty styled bar", () => {
+    render(
+      <OperatorPanel>
+        <p>Workspace body</p>
+      </OperatorPanel>,
+    );
+    // Not just empty — absent. An unconditionally-rendered pinnedBar would
+    // show a blank padded strip on every route without real stats yet.
+    expect(screen.queryByTestId("intelligence-rail")).toBeNull();
     expect(screen.queryByTestId("intelligence-workspace-stats")).toBeNull();
+    expect(screen.queryByTestId("intelligence-brand-context")).toBeNull();
   });
 
   it("rail shows real derived brand/shoot counts once the dashboard page reports them", () => {
@@ -375,6 +460,94 @@ describe("OperatorPanel", () => {
     expect(within(rail).queryByText(/activity/i)).toBeNull();
   });
 
+  it("submits a clickable insight to the same agent and blocks competing runs", async () => {
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={2} shootCount={1} />
+      </OperatorPanel>,
+    );
+
+    const insight = screen.getByTestId("intelligence-workspace-stats") as HTMLButtonElement;
+    await waitFor(() => expect(insight.disabled).toBe(false));
+    fireEvent.click(insight);
+    expect(addMessageMock).toHaveBeenCalledTimes(1);
+    expect(addMessageMock.mock.calls[0]?.[0]).toMatchObject({
+      role: "user",
+      content: "Give me an overview of my current shoots.",
+    });
+    expect(runAgentMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("ask()'s own guard blocks a run even when the disabled attribute hasn't caught up yet", async () => {
+    // The real useAgent() here isn't subscribed to OnRunStatusChanged, so
+    // agent.isRunning flipping true doesn't necessarily trigger a re-render
+    // — the disabled attribute (computed at last render) can stay stale
+    // while the live agent object already says isRunning. Mutating the
+    // *same* mocked agent object in place (not swapping mockReturnValue,
+    // which would force a fresh disabled=true render and only prove the
+    // native disabled-button behavior) reproduces exactly that gap, so this
+    // proves ask()'s own internal guard — not the disabled attribute — is
+    // what actually stops the click.
+    const agent = { messages: [] as unknown[], addMessage: addMessageMock, isRunning: false };
+    useAgentMock.mockReturnValue({ agent });
+
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={2} shootCount={1} />
+      </OperatorPanel>,
+    );
+
+    const insight = screen.getByTestId("intelligence-workspace-stats") as HTMLButtonElement;
+    await waitFor(() => expect(insight.disabled).toBe(false));
+
+    agent.isRunning = true;
+    // Still enabled from React's perspective — no re-render has happened.
+    expect(insight.disabled).toBe(false);
+
+    fireEvent.click(insight);
+    expect(addMessageMock).not.toHaveBeenCalled();
+    expect(runAgentMock).not.toHaveBeenCalled();
+  });
+
+  it("intelligence drawer moves focus to Back on open, and Escape returns it to the opener", async () => {
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={2} shootCount={1} />
+      </OperatorPanel>,
+    );
+
+    const opener = await screen.findByRole("button", { name: "View all intelligence →" });
+    fireEvent.click(opener);
+
+    const dialog = screen.getByRole("dialog", { name: "All intelligence" });
+    const backButton = within(dialog).getByRole("button", { name: "← Back" });
+    await waitFor(() => expect(document.activeElement).toBe(backButton));
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByTestId("intelligence-drawer")).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+
+  it("closes the intelligence drawer when the panel itself closes, so it doesn't reappear on reopen", async () => {
+    // The panel is never unmounted on close, so drawerOpen would otherwise
+    // survive a close/reopen cycle unchanged and reappear over the
+    // conversation with no new click from the user.
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={2} shootCount={1} />
+      </OperatorPanel>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "View all intelligence →" }));
+    expect(screen.getByTestId("intelligence-drawer")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close Copilot" }));
+    await waitFor(() => expect(screen.queryByTestId("intelligence-drawer")).toBeNull());
+
+    fireEvent.click(screen.getByRole("button", { name: "✦ Open Copilot" }));
+    expect(screen.queryByTestId("intelligence-drawer")).toBeNull();
+  });
+
   it("toggles mobile navigation open and closed", () => {
     render(
       <OperatorPanel>
@@ -389,7 +562,7 @@ describe("OperatorPanel", () => {
   });
 
   it("makes closed mobile navigation inert and restores it when open", async () => {
-    mockMobileNav(true);
+    mockViewportWidth(390);
     render(
       <OperatorPanel>
         <p>Body</p>
@@ -404,7 +577,7 @@ describe("OperatorPanel", () => {
   });
 
   it("updates inert when the breakpoint changes and removes the listener on unmount", async () => {
-    const mq = mockMobileNav(true);
+    const mq = mockViewportWidth(390);
     const { unmount } = render(
       <OperatorPanel>
         <p>Body</p>
@@ -412,13 +585,35 @@ describe("OperatorPanel", () => {
     );
     const nav = document.getElementById("operator-nav");
     await waitFor(() => expect(nav?.hasAttribute("inert")).toBe(true));
-    expect(mq.hasListener()).toBe(true);
+    expect(mq.hasListener(MOBILE_NAV_QUERY)).toBe(true);
 
-    mq.emit(false);
+    mq.setWidth(1280);
     await waitFor(() => expect(nav?.hasAttribute("inert")).toBe(false));
 
     unmount();
-    expect(mq.hasListener()).toBe(false);
+    expect(mq.hasListener(MOBILE_NAV_QUERY)).toBe(false);
+  });
+
+  it("closes the Copilot panel on a tablet-width viewport (nav stays a normal grid column)", async () => {
+    // The panel-compact breakpoint (1023px) is deliberately wider than the
+    // nav's own mobile breakpoint (767px) — a real ~900px tablet crosses
+    // the first without crossing the second, and the two behaviors must
+    // stay independent: only the Copilot panel reacts here.
+    const mq = mockViewportWidth(900);
+    render(
+      <OperatorPanel>
+        <p>Workspace body</p>
+      </OperatorPanel>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("operator-chat-dock").getAttribute("data-open")).toBe("false"),
+    );
+    expect(screen.getByRole("button", { name: "✦ Open Copilot" })).toBeDefined();
+    expect(mq.hasListener(COPILOT_COMPACT_QUERY)).toBe(true);
+    // Nav is untouched at this width — no off-canvas/inert behavior.
+    const nav = document.getElementById("operator-nav");
+    expect(nav?.hasAttribute("inert")).toBe(false);
+    expect(mq.hasListener(MOBILE_NAV_QUERY)).toBe(true);
   });
 });
 
@@ -558,7 +753,11 @@ describe("PlannerChatDock thread bootstrap (IPI-1217)", () => {
     // signal CopilotChat's own (now-unreachable) welcome screen used to key
     // off, so PlannerChatDock mirrors it here.
     useAgentMock.mockReturnValue({
-      agent: { messages: [{ id: "m1", role: "user", content: "hi" }] },
+      agent: {
+        messages: [{ id: "m1", role: "user", content: "hi" }],
+        addMessage: addMessageMock,
+        isRunning: false,
+      },
     });
 
     render(
