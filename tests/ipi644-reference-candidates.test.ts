@@ -267,6 +267,8 @@ function makeDeps(overrides: Partial<ReferenceLibraryDeps> = {}): ReferenceLibra
     stderr: vi.fn(),
     readManifest: vi.fn(async () => manifestWith([validCandidate()])),
     fileExists: vi.fn(() => true),
+    listDirectory: vi.fn(() => []),
+    readFileBytes: vi.fn(() => null),
     listProviderCandidates: vi.fn(async () => []),
     uploadCandidate: vi.fn(async () => validUploaded()),
     destroyCandidate: vi.fn(async () => {}),

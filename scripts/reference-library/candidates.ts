@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { v2 as cloudinary } from "cloudinary";
@@ -16,6 +16,7 @@ import {
   type UploadedReferenceAsset,
 } from "@/lib/shoot/reference-candidates";
 import type { Database } from "@/lib/supabase/database.types";
+import { commandPreflight } from "./preflight";
 
 // IPI-644 · SHOOT-DATA-002C — curated shot-reference candidate pipeline.
 //
@@ -36,6 +37,8 @@ cloudinary.config({
 });
 
 const SEARCH_PAGE_SIZE = 500;
+const DEFAULT_MANIFEST_PATH = "scripts/reference-library/manifest.json";
+const DEFAULT_CANDIDATE_DIR = "assets/reference-candidates";
 
 type UploadCandidateParams = ReturnType<typeof buildCandidateUploadParams>;
 
@@ -65,6 +68,8 @@ export interface ReferenceLibraryDeps {
   stderr(message: string): void;
   readManifest(path: string): Promise<unknown>;
   fileExists(path: string): boolean;
+  listDirectory(directory: string): string[];
+  readFileBytes(path: string): Uint8Array | null;
   listProviderCandidates(): Promise<ProviderReferenceCandidate[]>;
   uploadCandidate(file: string, params: UploadCandidateParams): Promise<UploadedReferenceAsset>;
   destroyCandidate(publicId: string): Promise<void>;
@@ -321,6 +326,7 @@ function usage(deps: ReferenceLibraryDeps): number {
   deps.log(
     [
       "usage: reference-library [command]",
+      "  preflight [manifest] [--keys k1,k2] [--dir dir]      READ-ONLY gate: verify every candidate before upload",
       "  prepare [manifest]                                  validate + confirm candidate files exist",
       "  upload [manifest] [--replace]                       upload authenticated candidates (never approves)",
       "  validate                                            verify uploaded candidate identities",
@@ -488,6 +494,20 @@ export async function runCli(argv: string[], deps: ReferenceLibraryDeps): Promis
   const first = positional[0] ?? "";
   try {
     switch (command) {
+      case "preflight": {
+        const keys = stringFlag(flags, "keys");
+        return commandPreflight(
+          first || DEFAULT_MANIFEST_PATH,
+          keys
+            ? keys
+                .split(",")
+                .map((key) => key.trim())
+                .filter(Boolean)
+            : null,
+          stringFlag(flags, "dir") ?? DEFAULT_CANDIDATE_DIR,
+          deps,
+        );
+      }
       case "prepare":
         return first ? commandPrepare(first, deps) : usage(deps);
       case "upload":
@@ -520,6 +540,24 @@ export function createRuntimeDeps(): ReferenceLibraryDeps {
     readManifest: async (path) => JSON.parse(await readFile(resolve(path), "utf8")) as unknown,
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- operator-supplied manifest path
     fileExists: (path) => existsSync(resolve(path)),
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- operator-supplied candidate directory
+    listDirectory: (directory) => {
+      try {
+        return readdirSync(resolve(directory), { withFileTypes: true })
+          .filter((entry) => entry.isFile())
+          .map((entry) => entry.name);
+      } catch {
+        return [];
+      }
+    },
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- operator-supplied candidate path
+    readFileBytes: (path) => {
+      try {
+        return new Uint8Array(readFileSync(resolve(path)));
+      } catch {
+        return null;
+      }
+    },
     listProviderCandidates: listProviderCandidatesFromCloudinary,
     uploadCandidate: uploadCandidateToCloudinary,
     destroyCandidate: destroyCandidateInCloudinary,

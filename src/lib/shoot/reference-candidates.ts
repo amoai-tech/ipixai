@@ -90,7 +90,8 @@ export type ReferenceApprovedMapping = {
 export type ReferenceCandidateFailureReason =
   | "invalid_manifest"
   | "invalid_candidate"
-  | "duplicate_reference_key";
+  | "duplicate_reference_key"
+  | "placeholder_provenance";
 
 export type ReferenceMediaFailureReason =
   | "missing_identity"
@@ -172,6 +173,23 @@ function normalizeFormat(value: unknown): string | null {
   return (ALLOWED_CANDIDATE_FORMATS as readonly string[]).includes(format) ? format : null;
 }
 
+const BARE_PROVENANCE_PATTERN =
+  /^(extern|cloudinary|todo|pending|xxx|replace|change[_\s-]?me|unknown|n\/a|none)$/i;
+const LEADING_MARKER_PATTERN = /^(replace|change[_\s-]?me|todo|pending|xxx)/i;
+const UNFINISHED_MARKER_PATTERN = /(^|\s)(todo|pending|tbd|fixme|xxx)(\s|$)/i;
+
+/**
+ * Provenance must say where an image actually came from. These three rules reject
+ * placeholder/generic values without rejecting legitimate provenance that merely
+ * mentions a provider by name (for example an existing Cloudinary library asset).
+ */
+export function isAcceptableProvenanceSource(value: string): boolean {
+  if (BARE_PROVENANCE_PATTERN.test(value)) return false;
+  if (LEADING_MARKER_PATTERN.test(value)) return false;
+  if (UNFINISHED_MARKER_PATTERN.test(value)) return false;
+  return true;
+}
+
 function parseCandidate(
   value: unknown,
   index: number,
@@ -191,6 +209,14 @@ function parseCandidate(
       ok: false,
       reason: "invalid_candidate",
       detail: `candidate[${index}] (${referenceKey}) needs file and provenanceSource`,
+    };
+  }
+
+  if (!isAcceptableProvenanceSource(provenanceSource)) {
+    return {
+      ok: false,
+      reason: "placeholder_provenance",
+      detail: `candidate[${index}] (${referenceKey}) needs factual provenanceSource, not a placeholder value`,
     };
   }
 

@@ -63,3 +63,8 @@ graphify-out/cache/
 supabase/.temp/
 # Playwright CLI output (may contain credentials)
 .playwright-cli/
+
+# reference-library candidate binaries + working manifest (operator-local; never committed)
+# keep scripts/reference-library/manifest.example.json tracked as the documented shape
+/assets/reference-candidates/
+/scripts/reference-library/manifest.json
