@@ -4739,6 +4739,17 @@ export type Database = {
         }
         Returns: Json
       }
+      decide_shoot_plan_revision: {
+        Args: {
+          p_approval_id: string
+          p_decision: string
+          p_idempotency_key: string
+          p_note?: string
+          p_plan_hash: string
+          p_revision: number
+        }
+        Returns: Json
+      }
       expire_stale_bookings: { Args: never; Returns: number }
       expire_stale_brand_analysis: { Args: never; Returns: number }
       get_booking: { Args: { p_booking_id: string }; Returns: Json }
@@ -4761,6 +4772,10 @@ export type Database = {
       get_or_create_shortlist: { Args: { p_org_id: string }; Returns: string }
       get_own_talent_profile: { Args: never; Returns: Json }
       get_shoot_detail: { Args: { p_shoot_id: string }; Returns: Json }
+      get_shoot_plan_approval: {
+        Args: { p_approval_id: string }
+        Returns: Json
+      }
       get_shot_reference_media: {
         Args: { p_reference_id: string }
         Returns: {
@@ -5040,6 +5055,17 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      stage_shoot_plan_revision: {
+        Args: {
+          p_agent_thread_id?: string
+          p_brand_id: string
+          p_expires_at?: string
+          p_plan: Json
+          p_staged_by: string
+          p_workflow_run_id: string
+        }
+        Returns: Json
+      }
       toggle_shortlist_item: {
         Args: {
           p_add: boolean
