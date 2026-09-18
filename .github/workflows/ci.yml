@@ -690,6 +690,7 @@ jobs:
     needs:
       - build
       - playwright-e2e
+      - playwright-approval-tenant
       - playwright-ai-smoke
       - planner-default-acl
       - media-harden-acl
