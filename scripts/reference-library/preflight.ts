@@ -45,6 +45,7 @@ export function createLocalFileDeps(): Pick<PreflightDeps, "listDirectory" | "re
   return {
     listDirectory: async (directory) => {
       try {
+        // eslint-disable-next-line security/detect-non-literal-fs-filename -- operator-supplied candidate directory
         const entries = await readdir(resolve(directory), { withFileTypes: true });
         return entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
       } catch {
@@ -53,6 +54,7 @@ export function createLocalFileDeps(): Pick<PreflightDeps, "listDirectory" | "re
     },
     readFileBytes: async (path) => {
       try {
+        // eslint-disable-next-line security/detect-non-literal-fs-filename -- operator-supplied candidate path
         return new Uint8Array(await readFile(resolve(path)));
       } catch {
         return null;
@@ -143,20 +145,22 @@ async function checkCandidateFile(
   return { reasons, summary };
 }
 
-async function readManifestOrReport(manifestPath: string, deps: PreflightDeps): Promise<ReferenceCandidateManifest | null> {
+type ManifestRead = { ok: true; manifest: ReferenceCandidateManifest } | { ok: false };
+
+async function readManifestOrReport(manifestPath: string, deps: PreflightDeps): Promise<ManifestRead> {
   let raw: unknown;
   try {
     raw = await deps.readManifest(manifestPath);
   } catch {
     deps.stderr(`preflight: manifest not readable at ${manifestPath}`);
-    return null;
+    return { ok: false };
   }
   const parsed = parseReferenceCandidateManifest(raw);
   if (!parsed.ok) {
     deps.stderr(`preflight: manifest invalid (${parsed.reason}): ${parsed.detail}`);
-    return null;
+    return { ok: false };
   }
-  return parsed.manifest;
+  return { ok: true, manifest: parsed.manifest };
 }
 
 function selectCandidates(
@@ -195,10 +199,10 @@ export async function commandPreflight(
   directory: string,
   deps: PreflightDeps,
 ): Promise<number> {
-  const manifest = await readManifestOrReport(manifestPath, deps);
-  if (!manifest) return 1;
+  const manifestRead = await readManifestOrReport(manifestPath, deps);
+  if (!manifestRead.ok) return 1;
 
-  const { selected, failures } = selectCandidates(manifest, keys);
+  const { selected, failures } = selectCandidates(manifestRead.manifest, keys);
   const { catalogKeys, approvedKeys, catalogSize } = await loadKeySets(deps);
 
   let passed = 0;
