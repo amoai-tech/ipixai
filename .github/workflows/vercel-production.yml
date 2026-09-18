@@ -17,7 +17,8 @@ jobs:
   deploy:
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
+      (github.event.workflow_run.event == 'push' ||
+       github.event.workflow_run.event == 'workflow_dispatch') &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -51,9 +52,23 @@ jobs:
           fi
           echo "deploy=true" >> "$GITHUB_OUTPUT"
 
+      - name: Check Actions Production ownership arm
+        id: ownership
+        if: steps.latest.outputs.deploy == 'true'
+        shell: bash
+        env:
+          VERCEL_ACTIONS_PRODUCTION_ENABLED: ${{ vars.VERCEL_ACTIONS_PRODUCTION_ENABLED }}
+        run: |
+          if [ "$VERCEL_ACTIONS_PRODUCTION_ENABLED" = "true" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Actions Production ownership is not armed; existing Vercel Git integration remains authoritative."
+          fi
+
       - name: Check Vercel deployment credential
         id: credentials
-        if: steps.latest.outputs.deploy == 'true'
+        if: steps.latest.outputs.deploy == 'true' && steps.ownership.outputs.enabled == 'true'
         shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -66,11 +81,11 @@ jobs:
           fi
 
       - name: Install pinned Vercel CLI
-        if: steps.latest.outputs.deploy == 'true' && steps.credentials.outputs.configured == 'true'
+        if: steps.latest.outputs.deploy == 'true' && steps.ownership.outputs.enabled == 'true' && steps.credentials.outputs.configured == 'true'
         run: npm install --global vercel@59.23.1
 
       - name: Pull Production environment
-        if: steps.latest.outputs.deploy == 'true' && steps.credentials.outputs.configured == 'true'
+        if: steps.latest.outputs.deploy == 'true' && steps.ownership.outputs.enabled == 'true' && steps.credentials.outputs.configured == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
@@ -78,7 +93,7 @@ jobs:
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 
       - name: Build exact SHA for Production
-        if: steps.latest.outputs.deploy == 'true' && steps.credentials.outputs.configured == 'true'
+        if: steps.latest.outputs.deploy == 'true' && steps.ownership.outputs.enabled == 'true' && steps.credentials.outputs.configured == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
@@ -86,14 +101,21 @@ jobs:
         run: vercel build --prod --token="$VERCEL_TOKEN"
 
       - name: Deploy exact SHA to Production
-        if: steps.latest.outputs.deploy == 'true' && steps.credentials.outputs.configured == 'true'
+        if: steps.latest.outputs.deploy == 'true' && steps.ownership.outputs.enabled == 'true' && steps.credentials.outputs.configured == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
           TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: >-
-          vercel deploy --prebuilt --prod
-          --meta githubCommitSha="$TESTED_SHA"
-          --meta githubCommitRef=main
-          --token="$VERCEL_TOKEN"
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          latest_sha="$(git rev-parse origin/main)"
+          if [ "$TESTED_SHA" != "$latest_sha" ]; then
+            echo "Skipping deploy: tested SHA $TESTED_SHA is no longer latest main ($latest_sha)."
+            exit 0
+          fi
+          vercel deploy --prebuilt --prod \
+            --meta githubCommitSha="$TESTED_SHA" \
+            --meta githubCommitRef=main \
+            --token="$VERCEL_TOKEN"

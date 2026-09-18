@@ -25,6 +25,11 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(source).toContain("steps.latest.outputs.deploy == 'true'");
     expect(source).toContain("id: credentials");
     expect(source).toContain("steps.credentials.outputs.configured == 'true'");
+    expect(source).toContain("id: ownership");
+    expect(source).toContain("VERCEL_ACTIONS_PRODUCTION_ENABLED: ${{ vars.VERCEL_ACTIONS_PRODUCTION_ENABLED }}");
+    expect(source).toContain("steps.ownership.outputs.enabled == 'true'");
+    expect(source).toContain("github.event.workflow_run.event == 'workflow_dispatch'");
+    expect(source.match(/git rev-parse origin\/main/g)?.length).toBeGreaterThanOrEqual(2);
     expect(source).toContain("permissions:\n  contents: read");
     expect(source).toContain("vercel@59.23.1");
     expect(source).toContain("vercel pull --yes --environment=production");
