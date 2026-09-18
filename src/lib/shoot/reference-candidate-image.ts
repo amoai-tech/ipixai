@@ -135,12 +135,15 @@ function sniffWebp(bytes: Uint8Array): CandidateImageHeader | null {
 }
 
 function sniffAvif(bytes: Uint8Array): CandidateImageHeader | null {
-  if (bytes.length < 32) return null;
+  if (bytes.length < 16) return null;
   if (!matchesAscii(bytes, 4, "ftyp")) return null;
 
   const majorBrand = asciiAt(bytes, 8, 4)?.toLowerCase() ?? "";
   if (majorBrand !== "avif" && majorBrand !== "avis") {
-    const compatibleBrands = (asciiAt(bytes, 16, 32) ?? "").toLowerCase();
+    // Read only the compatible-brand bytes that are actually present; an ftyp box may
+    // declare fewer than the 32 bytes this parser would ideally inspect.
+    const brandBytes = Math.max(0, Math.min(32, bytes.length - 16));
+    const compatibleBrands = (asciiAt(bytes, 16, brandBytes) ?? "").toLowerCase();
     if (majorBrand !== "mif1" || (!compatibleBrands.includes("avif") && !compatibleBrands.includes("avis"))) {
       return null;
     }
@@ -149,6 +152,10 @@ function sniffAvif(bytes: Uint8Array): CandidateImageHeader | null {
   const limit = bytes.length - 16;
   for (let index = 0; index <= limit; index += 1) {
     if (!matchesAscii(bytes, index, "ispe")) continue;
+    // `ispe` is a FullBox: the 4 bytes after the box type are version + flags and must be
+    // zero. Skipping non-zero matches stops compressed frame data (a legal mdat-before-meta
+    // layout) from being mistaken for the real dimension box.
+    if (readUint32BE(bytes, index + 4) !== 0) continue;
     return header("avif", readUint32BE(bytes, index + 8), readUint32BE(bytes, index + 12));
   }
   return null;

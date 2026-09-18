@@ -6,7 +6,7 @@
  * thresholds live here in the repository instead of an operator's scratch directory.
  */
 import { readdir, readFile } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 
 import { sniffCandidateImageHeader } from "@/lib/shoot/reference-candidate-image";
 import {
@@ -125,11 +125,16 @@ async function checkCandidateFile(
 
   const fileName = matches[0];
   const reasons: string[] = [];
-  if (basename(candidate.file) !== fileName) {
-    reasons.push(`manifest file ${basename(candidate.file)} does not match ${fileName}`);
+  // The file that gets validated must be the exact file the manifest declares; comparing
+  // basenames alone would let a same-named file in `--dir` pass preflight while `upload`
+  // later reads a different path.
+  const declaredPath = resolve(candidate.file);
+  const checkedPath = resolve(join(directory, fileName));
+  if (declaredPath !== checkedPath) {
+    reasons.push(`manifest file ${candidate.file} does not match ${join(directory, fileName)}`);
   }
 
-  const bytes = await deps.readFileBytes(join(directory, fileName));
+  const bytes = await deps.readFileBytes(checkedPath);
   if (!bytes) return { reasons: [...reasons, "candidate file is not readable"], summary: key };
 
   const header = sniffCandidateImageHeader(bytes);

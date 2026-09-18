@@ -44,6 +44,32 @@ function textBytes(text: string): Uint8Array {
   return new Uint8Array(Buffer.from(text, "utf8"));
 }
 
+/** ISOBMFF `ispe` FullBox: size(4) type(4) version+flags(4) width(4) height(4). */
+function ispeBox(width: number, height: number, versionFlags = 0): number[] {
+  return [
+    0x00, 0x00, 0x00, 0x14, 0x69, 0x73, 0x70, 0x65,
+    (versionFlags >>> 24) & 0xff, (versionFlags >>> 16) & 0xff, (versionFlags >>> 8) & 0xff, versionFlags & 0xff,
+    (width >>> 24) & 0xff, (width >>> 16) & 0xff, (width >>> 8) & 0xff, width & 0xff,
+    (height >>> 24) & 0xff, (height >>> 16) & 0xff, (height >>> 8) & 0xff, height & 0xff,
+  ];
+}
+
+function ftypBox(majorBrand: string, compatibleBrands: string[]): number[] {
+  const brands = compatibleBrands.flatMap((brand) => [...brand].map((char) => char.charCodeAt(0)));
+  const size = 16 + brands.length;
+  return [
+    (size >>> 24) & 0xff, (size >>> 16) & 0xff, (size >>> 8) & 0xff, size & 0xff,
+    0x66, 0x74, 0x79, 0x70,
+    ...[...majorBrand].map((char) => char.charCodeAt(0)),
+    0x00, 0x00, 0x00, 0x00,
+    ...brands,
+  ];
+}
+
+function avifBytes(width: number, height: number, majorBrand = "avif"): Uint8Array {
+  return new Uint8Array([...ftypBox(majorBrand, ["avif", "mif1", "miaf"]), ...ispeBox(width, height)]);
+}
+
 function candidate(overrides: Record<string, unknown> = {}) {
   return {
     referenceKey: KEY,
@@ -142,6 +168,25 @@ describe("candidate image sniffing", () => {
   it("returns null for bytes that are not an accepted image", () => {
     expect(sniffCandidateImageHeader(textBytes("this is not an image at all, just prose"))).toBeNull();
   });
+
+  it("reads AVIF dimensions from the ispe box at type+8 (width) and type+12 (height)", () => {
+    expect(sniffCandidateImageHeader(avifBytes(1234, 5678))).toEqual({ format: "avif", width: 1234, height: 5678 });
+  });
+
+  it("accepts a valid AVIF whose ftyp box is shorter than 48 bytes", () => {
+    const shortFtyp = new Uint8Array([...ftypBox("mif1", ["avif"]), ...ispeBox(1024, 768)]);
+    expect(shortFtyp.length).toBe(40);
+    expect(sniffCandidateImageHeader(shortFtyp)).toEqual({ format: "avif", width: 1024, height: 768 });
+  });
+
+  it("ignores a decoy ispe box whose version and flags are not zero", () => {
+    const decoy = new Uint8Array([
+      ...ftypBox("avif", ["avif", "mif1", "miaf"]),
+      ...ispeBox(1, 1, 1),
+      ...ispeBox(1234, 5678),
+    ]);
+    expect(sniffCandidateImageHeader(decoy)).toEqual({ format: "avif", width: 1234, height: 5678 });
+  });
 });
 
 describe("commandPreflight", () => {
@@ -169,6 +214,14 @@ describe("commandPreflight", () => {
 
   it("fails when the manifest file name does not match the candidate on disk", async () => {
     const deps = makePreflightDeps({ listDirectory: vi.fn(async () => [`${KEY}.png`]) });
+    expect(await commandPreflight(MANIFEST_PATH, null, DIR, deps)).toBe(1);
+    expect(joined(deps.stderr as ReturnType<typeof vi.fn>)).toContain("does not match");
+  });
+
+  it("fails when the manifest declares the same file name in a different directory", async () => {
+    const deps = makePreflightDeps({
+      readManifest: vi.fn(async () => manifestWith([candidate({ file: `/tmp/elsewhere/${KEY}.jpg` })])),
+    });
     expect(await commandPreflight(MANIFEST_PATH, null, DIR, deps)).toBe(1);
     expect(joined(deps.stderr as ReturnType<typeof vi.fn>)).toContain("does not match");
   });
