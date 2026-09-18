@@ -68,6 +68,38 @@ function planFieldValue(value: unknown): string | null {
   return scalar(record.value);
 }
 
+/** `shotListResult.shots[]` → card rows, dropping any row with no real description. */
+function parseShots(shotListResult: Record<string, unknown> | null): ProductionPlanCardShot[] {
+  const rows = Array.isArray(shotListResult?.shots) ? shotListResult.shots : [];
+  return rows
+    .map((entry, index) => {
+      const record = asRecord(entry) ?? {};
+      return {
+        shotNumber: typeof record.shotNumber === "number" ? record.shotNumber : index + 1,
+        description: scalar(record.description) ?? "",
+        angle: scalar(record.angle),
+      };
+    })
+    .filter((shot) => shot.description.length > 0);
+}
+
+/** `deliverablesResult.deliverables[]` → card rows, dropping any row missing both channel and format. */
+function parseDeliverables(
+  deliverablesResult: Record<string, unknown> | null,
+): ProductionPlanCardDeliverable[] {
+  const rows = Array.isArray(deliverablesResult?.deliverables) ? deliverablesResult.deliverables : [];
+  return rows
+    .map((entry) => {
+      const record = asRecord(entry) ?? {};
+      return {
+        channel: scalar(record.channel) ?? "",
+        format: scalar(record.format) ?? "",
+        quantity: typeof record.quantity === "number" ? record.quantity : 0,
+      };
+    })
+    .filter((row) => row.channel.length > 0 && row.format.length > 0);
+}
+
 /**
  * Projects an unknown `composeShootPlan` result into the card's view model, or
  * `null` when the value isn't shaped like a `ShootPlan` at all (malformed/
@@ -85,34 +117,11 @@ export function describeProductionPlanCard(plan: unknown): ProductionPlanCardVie
     : [];
 
   const shotListResult = asRecord(root.shotListResult);
-  const shotRows = Array.isArray(shotListResult?.shots) ? shotListResult.shots : [];
-  const shots: ProductionPlanCardShot[] = shotRows
-    .map((entry, index) => {
-      const record = asRecord(entry) ?? {};
-      const description = scalar(record.description) ?? "";
-      return {
-        shotNumber: typeof record.shotNumber === "number" ? record.shotNumber : index + 1,
-        description,
-        angle: scalar(record.angle),
-      };
-    })
-    .filter((shot) => shot.description.length > 0);
+  const shots = parseShots(shotListResult);
   const totalShots = typeof shotListResult?.totalShots === "number" ? shotListResult.totalShots : null;
 
   const deliverablesResult = asRecord(root.deliverablesResult);
-  const deliverableRows = Array.isArray(deliverablesResult?.deliverables)
-    ? deliverablesResult.deliverables
-    : [];
-  const deliverables: ProductionPlanCardDeliverable[] = deliverableRows
-    .map((entry) => {
-      const record = asRecord(entry) ?? {};
-      return {
-        channel: scalar(record.channel) ?? "",
-        format: scalar(record.format) ?? "",
-        quantity: typeof record.quantity === "number" ? record.quantity : 0,
-      };
-    })
-    .filter((row) => row.channel.length > 0 && row.format.length > 0);
+  const deliverables = parseDeliverables(deliverablesResult);
   // Required: the displayed count is the canonical quantity-weighted total,
   // never `deliverables.length` (a row count) — omitted entirely when the
   // real tool result doesn't carry it, rather than falling back to a count
