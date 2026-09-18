@@ -19,6 +19,7 @@
  * Usage: npm run e2e:approval [-- --reset]
  */
 import { execFileSync, spawnSync } from "node:child_process";
+import net from "node:net";
 import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -78,6 +79,35 @@ if (RESET) {
   console.log("run-approval-001-e2e: supabase db reset --local");
   const reset = spawnSync("supabase", ["db", "reset", "--local"], { cwd: ROOT, stdio: "inherit" });
   if (reset.status !== 0) fail("`supabase db reset --local` failed");
+}
+
+/**
+ * Fail closed if something already listens on the proof port.
+ *
+ * playwright.approval.config.ts sets `reuseExistingServer: false`, so a stale
+ * listener would otherwise surface as an opaque Playwright startup error — and
+ * reusing it would be worse: that server may have been started with HOSTED
+ * Supabase env or older code, silently pointing this "local-only" proof at the
+ * wrong target.
+ */
+const port = new URL(BASE_URL).port || (BASE_URL.startsWith("https:") ? "443" : "80");
+const listener = await new Promise((resolve) => {
+  const socket = net.connect({ host: "127.0.0.1", port: Number(port) });
+  socket.once("connect", () => {
+    socket.destroy();
+    resolve(true);
+  });
+  socket.once("error", () => resolve(false));
+  socket.setTimeout(2000, () => {
+    socket.destroy();
+    resolve(false);
+  });
+});
+if (listener) {
+  fail(
+    `something is already listening on ${BASE_URL}. Stop it (this proof must start its own ` +
+      `server with the local Supabase env) or run with a free port via IPI1084_BASE_URL.`,
+  );
 }
 
 /**
@@ -158,6 +188,9 @@ const childEnv = {
   COPILOTKIT_TELEMETRY_DISABLED: "true",
   IPI1084_BASE_URL: BASE_URL,
   IPI1084_LOCAL_DB_URL: dbUrl,
+  // Used by the spec to stage through the REAL service-role client (the same
+  // privilege boundary the workflow uses), rather than a superuser connection.
+  IPI1084_SERVICE_ROLE_KEY: serviceRoleKey,
   PATH: `${ROOT}/node_modules/.bin:${process.env.PATH ?? ""}`,
 };
 

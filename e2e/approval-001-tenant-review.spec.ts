@@ -1,4 +1,5 @@
 import { test, expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
 import { Client } from "pg";
 
 import { signInWithCredentials } from "./support/login";
@@ -80,36 +81,71 @@ async function approvalRow(approvalId: string): Promise<ApprovalRow | null> {
   });
 }
 
-async function shootApplicationRowCount(): Promise<number> {
+/**
+ * A content-and-identity fingerprint of every Shoot application table.
+ *
+ * A row count alone would miss an update, or a delete+reinsert that preserves
+ * the total. This folds each table's row count together with an ordered digest
+ * of every row's full contents, so any insert, delete, update or identity swap
+ * changes the fingerprint.
+ */
+async function shootApplicationFingerprint(): Promise<string> {
   return withDb(async (client) => {
-    const { rows } = await client.query<{ total: string }>(
-      `select (
-         (select count(*) from shoot.shoots)
-         + (select count(*) from shoot.shot_list)
-         + (select count(*) from shoot.shoot_deliverables)
-       )::text as total`,
+    const { rows } = await client.query<{ fingerprint: string }>(
+      `select
+         (select count(*) from shoot.shoots)::text
+         || '|' || coalesce((select md5(string_agg(md5(s::text), '|' order by s.id::text)) from shoot.shoots s), '-')
+         || '|' || (select count(*) from shoot.shot_list)::text
+         || '|' || coalesce((select md5(string_agg(md5(l::text), '|' order by l.id::text)) from shoot.shot_list l), '-')
+         || '|' || (select count(*) from shoot.shoot_deliverables)::text
+         || '|' || coalesce((select md5(string_agg(md5(d::text), '|' order by d.id::text)) from shoot.shoot_deliverables d), '-')
+         as fingerprint`,
     );
-    return Number(rows[0].total);
+    return rows[0].fingerprint;
   });
+}
+
+/**
+ * The real service-role Supabase client — the same privilege boundary the
+ * workflow's staging step uses. Staging through `pg` as the connection
+ * superuser would bypass the service_role EXECUTE grant entirely and prove
+ * nothing about the production path.
+ */
+function serviceRoleClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.IPI1084_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL / IPI1084_SERVICE_ROLE_KEY are missing — run this spec through " +
+        "`npm run e2e:approval` (scripts/run-approval-001-e2e.mjs).",
+    );
+  }
+  if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(url)) {
+    throw new Error("refusing to use a service-role key against a non-local Supabase URL");
+  }
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
 /** Stages a revision through the real service-role RPC (used to simulate run loss). */
 async function stageViaRpc(
   workflowRunId: string,
 ): Promise<{ approvalId: string; revision: number; planHash: string }> {
-  return withDb(async (client) => {
-    const { rows } = await client.query<{ staged: Record<string, unknown> }>(
-      `select public.stage_shoot_plan_revision($1, $2, $3::jsonb, $4, null, null) as staged`,
-      [ORG_A_EDITOR.brandId, workflowRunId, JSON.stringify(REVIEW_PLAN), ORG_A_EDITOR.userId],
-    );
-    const staged = rows[0].staged;
-    expect(staged.ok, `staging failed: ${JSON.stringify(staged)}`).toBe(true);
-    return {
-      approvalId: String(staged.approvalId),
-      revision: Number(staged.revision),
-      planHash: String(staged.planHash),
-    };
+  const { data, error } = await serviceRoleClient().rpc("stage_shoot_plan_revision", {
+    p_brand_id: ORG_A_EDITOR.brandId,
+    p_workflow_run_id: workflowRunId,
+    p_plan: REVIEW_PLAN,
+    p_staged_by: ORG_A_EDITOR.userId,
+    p_agent_thread_id: null,
+    p_expires_at: null,
   });
+  expect(error, `service-role staging failed: ${error?.message ?? "unknown"}`).toBeNull();
+  const staged = data as Record<string, unknown>;
+  expect(staged.ok, `staging failed: ${JSON.stringify(staged)}`).toBe(true);
+  return {
+    approvalId: String(staged.approvalId),
+    revision: Number(staged.revision),
+    planHash: String(staged.planHash),
+  };
 }
 
 type Actor = { context: BrowserContext; page: Page };
@@ -181,10 +217,10 @@ test.describe.configure({ mode: "serial" });
 let editor: Actor;
 let viewer: Actor;
 let orgB: Actor;
-let shootRowsBefore = 0;
+let shootFingerprintBefore = "";
 
 test.beforeAll(async ({ browser }) => {
-  shootRowsBefore = await shootApplicationRowCount();
+  shootFingerprintBefore = await shootApplicationFingerprint();
   editor = await signInActor(browser, ORG_A_EDITOR.email);
   viewer = await signInActor(browser, ORG_A_VIEWER.email);
   orgB = await signInActor(browser, ORG_B_OWNER.email);
@@ -435,8 +471,9 @@ test("a decision whose workflow run is gone stays durable and retry-safe", async
 });
 
 test("the whole browser journey wrote zero Shoot rows", async () => {
-  const after = await shootApplicationRowCount();
-  expect(after, "shoot.shoots / shot_list / shoot_deliverables must be untouched").toBe(
-    shootRowsBefore,
-  );
+  const after = await shootApplicationFingerprint();
+  expect(
+    after,
+    "shoot.shoots / shot_list / shoot_deliverables row counts and row contents must be untouched",
+  ).toBe(shootFingerprintBefore);
 });
