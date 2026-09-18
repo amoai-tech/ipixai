@@ -414,6 +414,31 @@ describe("summarizeTraces", () => {
     expect(report.complete).toBe(false);
   });
 
+  it("counts zero-byte traced files in `files` without inflating `bytes`", () => {
+    const { root, outputDir } = createBuild({
+      sources: ["src/page.ts"],
+      reals: { "login.func": ["src/page.ts"] },
+    });
+    // A real, zero-byte traced file, referenced only by an api function.
+    fs.writeFileSync(path.join(root, "src/zero.ts"), "");
+    writeRawFunc(
+      outputDir,
+      "api/health.func",
+      JSON.stringify({ filePathMap: { "src/zero.ts": "src/zero.ts" } }),
+    );
+
+    const report = summarizeTraces(outputDir);
+
+    // Presence is counted even though the file contributes no bytes...
+    expect(report.api.files).toBe(1);
+    expect(report.api.bytes).toBe(0);
+    // ...and the api-only path is still detected. A byte-total comparison could not see
+    // this: bytes(union) === bytes(page) is true here, so it would have claimed the
+    // invariant held while an api path was absent from the page union.
+    expect(report.pageIsSupersetOfApi).toBe(false);
+    expect(report.union.files).toBe(report.page.files + 1);
+  });
+
   it("throws a helpful error when the directory is not a build output", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "ipix-trace-notbuild-"));
     tempDirs.push(root);
@@ -424,9 +449,9 @@ describe("summarizeTraces", () => {
 
 describe("isPageSupersetOfApi", () => {
   it("requires PATH membership, not equal byte totals", () => {
-    // Comparing totals cannot see a zero-byte api-only path: union and page total are
-    // both 100. `summarizeTraces` filters zero-byte files before they reach either map,
-    // so this invariant can only be exercised directly.
+    // Comparing totals cannot see a zero-byte api-only path: union and page totals are
+    // both 100 while the api path is absent from the page union. summarizeTraces now
+    // tracks zero-byte files, so this is also proven end-to-end in the zero-byte test.
     const page = new Map([["src/page.ts", 100]]);
     const api = new Map([
       ["src/page.ts", 100],

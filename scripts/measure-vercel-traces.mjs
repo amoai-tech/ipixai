@@ -311,8 +311,11 @@ export function readFunctionTrace(functionDir, projectRoot) {
       missing += 1;
       continue;
     }
-    const previous = trace.get(candidate) ?? 0;
-    if (size > previous) trace.set(candidate, size);
+    const previous = trace.get(candidate);
+    // Zero-byte files are REAL traced files and must be counted in `files`, even though
+    // they add 0 bytes. `size > previous` alone dropped them (0 > 0 is false), which
+    // under-counted `files`. Keeping the max still de-duplicates repeats.
+    if (previous === undefined || size > previous) trace.set(candidate, size);
   }
   return { trace, missing, invalid: null };
 }
@@ -352,11 +355,12 @@ function familyStats(page, api, pageOnly, name) {
 /**
  * The page union must contain every api trace path.
  *
- * Comparing byte totals (`bytes(union) === bytes(page)`) happens to agree with this
- * today only because zero-byte files are filtered out before reaching either map, so an
- * api-only entry can never contribute zero bytes. That is an accidental coupling — the
- * arithmetic stops expressing the invariant the moment zero-byte entries are tracked.
- * Stating it as a membership test removes the coupling.
+ * Comparing byte totals (`bytes(union) === bytes(page)`) is NOT equivalent: a traced
+ * file may legitimately be zero bytes, so an api-only entry adds presence without
+ * adding bytes and the totals still match. The arithmetic only ever appeared to agree
+ * while zero-byte files were dropped before insertion — an accidental coupling, and one
+ * that no longer holds now that zero-byte files are tracked. Membership is stated
+ * directly instead.
  */
 export function isPageSupersetOfApi(page, api) {
   for (const file of api.keys()) {
@@ -388,8 +392,9 @@ function accumulateBuckets(logical, resolved, brokenSet, traceFor) {
     else pageFunctions += 1;
 
     for (const [file, size] of trace) {
-      const previous = bucket.get(file) ?? 0;
-      if (size > previous) bucket.set(file, size);
+      const previous = bucket.get(file);
+      // Same zero-byte rule as readFunctionTrace: presence counts, bytes may be 0.
+      if (previous === undefined || size > previous) bucket.set(file, size);
     }
 
     if (kind === "page") {
