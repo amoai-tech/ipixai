@@ -237,11 +237,13 @@ function ResolvedChatDock({
   threadId,
   isNewThread,
   composerContainerRef,
+  onReady,
 }: {
   pathname: string;
   threadId: string;
   isNewThread: boolean;
   composerContainerRef?: Ref<HTMLDivElement>;
+  onReady?: (ready: boolean) => void;
 }) {
   const stats = useWorkspaceStats();
   // Called unconditionally (rules of hooks) — same pattern
@@ -257,6 +259,17 @@ function ResolvedChatDock({
   // agent.setMessages(...) call and silently drop the new message. A
   // genuinely new thread has nothing to restore, so it starts settled.
   const [restoreSettled, setRestoreSettled] = useState(isNewThread);
+
+  // Only enable contextual Insight commands after the exact threaded chat is
+  // mounted and history restore has settled. Child effects run before this
+  // parent effect, so CopilotChat has already assigned its resolved threadId
+  // to the shared `default` agent by the time `ready=true` is published.
+  useEffect(() => {
+    onReady?.(restoreSettled);
+    return () => {
+      onReady?.(false);
+    };
+  }, [onReady, restoreSettled]);
 
   // An explicit threadId makes CopilotChat *connect* to the live stream
   // (the IPI-1217 fix — proven live), but connectAgent() alone doesn't
@@ -331,9 +344,11 @@ function ResolvedChatDock({
 function PlannerChatDock({
   pathname,
   composerContainerRef,
+  onReady,
 }: {
   pathname: string;
   composerContainerRef?: Ref<HTMLDivElement>;
+  onReady?: (ready: boolean) => void;
 }) {
   const { threadId, isNewThread, threadError, retry } = usePlannerThreadBootstrap();
 
@@ -363,6 +378,7 @@ function PlannerChatDock({
       threadId={threadId}
       isNewThread={isNewThread}
       composerContainerRef={composerContainerRef}
+      onReady={onReady}
     />
   );
 }
@@ -378,7 +394,7 @@ function IntelligenceDrawer({ contextLine, insights, onBack, onAsk, askDisabled 
   contextLine: string;
   insights: Insight[];
   onBack: () => void;
-  onAsk: (question: string) => void;
+  onAsk: (_question: string) => void;
   askDisabled: boolean;
 }) {
   return (
@@ -437,6 +453,7 @@ function ProductionCopilotPanel({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [composerElement, setComposerElement] = useState<HTMLDivElement | null>(null);
   const [composerHeight, setComposerHeight] = useState(0);
+  const [chatReady, setChatReady] = useState(false);
   const { agent } = useAgent({ agentId: "default" });
   const { copilotkit } = useCopilotKit();
 
@@ -465,7 +482,7 @@ function ProductionCopilotPanel({
   // while a run is active so a contextual Insight cannot start a competing
   // agent run or duplicate a user's in-flight request.
   const ask = (question: string) => {
-    if (agent.isRunning) return;
+    if (!chatReady || agent.isRunning) return;
     setDrawerOpen(false);
     agent.addMessage({ id: crypto.randomUUID(), role: "user", content: question });
     void copilotkit.runAgent({ agent }).catch((error) => {
@@ -511,8 +528,10 @@ function ProductionCopilotPanel({
             type="button"
             className={styles.insightButton}
             data-testid={insight.testId}
-            disabled={!insight.question || agent.isRunning}
-            onClick={() => insight.question && ask(insight.question)}
+            disabled={!insight.question || !chatReady || agent.isRunning}
+            onClick={() => {
+              if (insight.question) ask(insight.question);
+            }}
           >
             {insight.text}
           </button>
@@ -541,14 +560,18 @@ function ProductionCopilotPanel({
             unmounted for the drawer — the drawer overlays it instead — so
             the conversation subtree and its thread subscription stay alive
             the whole time the drawer is open. */}
-        <PlannerChatDock pathname={pathname} composerContainerRef={setComposerElement} />
+        <PlannerChatDock
+          pathname={pathname}
+          composerContainerRef={setComposerElement}
+          onReady={setChatReady}
+        />
         {drawerOpen && (
           <IntelligenceDrawer
             contextLine={contextLine}
             insights={insights}
             onBack={() => setDrawerOpen(false)}
             onAsk={ask}
-            askDisabled={Boolean(agent.isRunning)}
+            askDisabled={!chatReady || Boolean(agent.isRunning)}
           />
         )}
       </div>
@@ -691,7 +714,9 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
             className={styles.openCopilotButton}
             aria-expanded={copilotOpen}
             aria-controls="operator-chat-panel"
-            onClick={() => setCopilotOpen(true)}
+            onClick={() => {
+              setCopilotOpen(true);
+            }}
           >
             ✦ Open Copilot
           </Button>

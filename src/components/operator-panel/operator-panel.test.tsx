@@ -403,7 +403,8 @@ describe("OperatorPanel", () => {
       </OperatorPanel>,
     );
 
-    const insight = screen.getByTestId("intelligence-workspace-stats");
+    const insight = screen.getByTestId("intelligence-workspace-stats") as HTMLButtonElement;
+    await waitFor(() => expect(insight.disabled).toBe(false));
     fireEvent.click(insight);
     expect(addMessageMock).toHaveBeenCalledTimes(1);
     expect(addMessageMock.mock.calls[0]?.[0]).toMatchObject({

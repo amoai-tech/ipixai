@@ -255,7 +255,6 @@
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
-  height: 100%;
 }
 
 .panelWelcome {
@@ -265,7 +264,6 @@
 .panelChat {
   flex: 1;
   min-height: 0;
-  height: 100%;
 }
 
 /* CopilotKit v2 Slots (SlotValue<C> = C | string | Partial<ComponentProps
