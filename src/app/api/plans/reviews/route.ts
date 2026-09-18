@@ -78,8 +78,8 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const { mastra } = await import("@/mastra");
-    const workflow = mastra.getWorkflow(
+    const { getMastra } = await import("@/mastra/runtime");
+    const workflow = getMastra().getWorkflow(
       SHOOT_PLAN_REVIEW_WORKFLOW_ID,
     ) as unknown as ReviewStarter;
     const run = await workflow.createRun();
