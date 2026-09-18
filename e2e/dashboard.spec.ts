@@ -122,6 +122,15 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     await expect(page.getByText("Review approvals")).toHaveCount(0);
   });
 
+  test("Planner dock disables its height transition for reduced-motion users @T1224motion", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/app");
+
+    const dock = page.getByTestId("operator-chat-dock");
+    await expect(dock).toBeVisible();
+    await expect.poll(() => dock.evaluate((element) => getComputedStyle(element).transitionDuration)).toBe("0s");
+  });
+
   test("Planner dock expands for long answers and collapses without taking over desktop @T1224dock", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "chromium", "geometry assertion is desktop-only");
 
