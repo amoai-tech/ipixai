@@ -70,6 +70,57 @@ function avifBytes(width: number, height: number, majorBrand = "avif"): Uint8Arr
   return new Uint8Array([...ftypBox(majorBrand, ["avif", "mif1", "miaf"]), ...ispeBox(width, height)]);
 }
 
+function ascii(value: string): number[] {
+  return [...value].map((char) => char.charCodeAt(0));
+}
+
+function webpContainer(fourCc: string): Uint8Array {
+  const bytes = new Uint8Array(30);
+  bytes.set(ascii("RIFF"), 0);
+  bytes.set(ascii("WEBP"), 8);
+  bytes.set(ascii(fourCc), 12);
+  return bytes;
+}
+
+/** WebP lossy "VP8 ": start code 9D 01 2A at 23-25, 14-bit dims at 26 (w) and 28 (h). */
+function webpVp8Bytes(width: number, height: number): Uint8Array {
+  const bytes = webpContainer("VP8 ");
+  bytes[23] = 0x9d;
+  bytes[24] = 0x01;
+  bytes[25] = 0x2a;
+  bytes[26] = width & 0xff;
+  bytes[27] = (width >> 8) & 0xff;
+  bytes[28] = height & 0xff;
+  bytes[29] = (height >> 8) & 0xff;
+  return bytes;
+}
+
+/** WebP lossless "VP8L": 0x2F signature at 20, 14-bit dims packed into the uint32 at 21. */
+function webpVp8lBytes(width: number, height: number): Uint8Array {
+  const bytes = webpContainer("VP8L");
+  bytes[20] = 0x2f;
+  const bits = (width - 1) | ((height - 1) << 14);
+  bytes[21] = bits & 0xff;
+  bytes[22] = (bits >>> 8) & 0xff;
+  bytes[23] = (bits >>> 16) & 0xff;
+  bytes[24] = (bits >>> 24) & 0xff;
+  return bytes;
+}
+
+/** WebP extended "VP8X": 24-bit (dimension - 1) at 24 (w) and 27 (h). */
+function webpVp8xBytes(width: number, height: number): Uint8Array {
+  const bytes = webpContainer("VP8X");
+  const storedWidth = width - 1;
+  const storedHeight = height - 1;
+  bytes[24] = storedWidth & 0xff;
+  bytes[25] = (storedWidth >>> 8) & 0xff;
+  bytes[26] = (storedWidth >>> 16) & 0xff;
+  bytes[27] = storedHeight & 0xff;
+  bytes[28] = (storedHeight >>> 8) & 0xff;
+  bytes[29] = (storedHeight >>> 16) & 0xff;
+  return bytes;
+}
+
 function candidate(overrides: Record<string, unknown> = {}) {
   return {
     referenceKey: KEY,
@@ -187,6 +238,24 @@ describe("candidate image sniffing", () => {
     ]);
     expect(sniffCandidateImageHeader(decoy)).toEqual({ format: "avif", width: 1234, height: 5678 });
   });
+
+  it("reads WebP dimensions from all three chunk variants", () => {
+    expect(sniffCandidateImageHeader(webpVp8Bytes(1200, 1600))).toEqual({ format: "webp", width: 1200, height: 1600 });
+    expect(sniffCandidateImageHeader(webpVp8lBytes(1024, 768))).toEqual({ format: "webp", width: 1024, height: 768 });
+    expect(sniffCandidateImageHeader(webpVp8xBytes(2268, 4032))).toEqual({ format: "webp", width: 2268, height: 4032 });
+  });
+
+  it("rejects a WebP container whose inner signature is wrong", () => {
+    const badStartCode = webpVp8Bytes(1200, 1600);
+    badStartCode[24] = 0x00;
+    expect(sniffCandidateImageHeader(badStartCode)).toBeNull();
+
+    const badLosslessSignature = webpVp8lBytes(1024, 768);
+    badLosslessSignature[20] = 0x00;
+    expect(sniffCandidateImageHeader(badLosslessSignature)).toBeNull();
+
+    expect(sniffCandidateImageHeader(webpContainer("VP8 "))).toBeNull();
+  });
 });
 
 describe("commandPreflight", () => {
@@ -197,6 +266,20 @@ describe("commandPreflight", () => {
     expect(output).toContain("PREFLIGHT PASSED");
     expect(output).toContain(`PASS ${KEY}`);
     expect(output).toContain("No upload and no approval was performed by this command.");
+  });
+
+  it("passes a valid WebP candidate through the whole gate", async () => {
+    const deps = makePreflightDeps({
+      listDirectory: vi.fn(async () => [`${KEY}.webp`]),
+      readFileBytes: vi.fn(async () => webpVp8lBytes(1600, 900)),
+      readManifest: vi.fn(async () => manifestWith([candidate({ file: `${DIR}/${KEY}.webp` })])),
+    });
+    expect(await commandPreflight(MANIFEST_PATH, null, DIR, deps)).toBe(0);
+    const output = joined(deps.log as ReturnType<typeof vi.fn>);
+    expect(output).toContain("PREFLIGHT PASSED");
+    expect(output).toContain(`PASS ${KEY}`);
+    expect(output).toContain("1600x900");
+    expect(output).toContain("webp");
   });
 
   it("fails when no candidate file exists for a requested key", async () => {
