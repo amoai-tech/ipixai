@@ -1,0 +1,265 @@
+import path from "node:path";
+import { test, expect, type Page } from "@playwright/test";
+
+import { createCleanContext } from "./support/context";
+import { contextForSavedRole } from "./support/login";
+
+const orgBFile = path.resolve(__dirname, "../playwright/.auth/org-b.json");
+
+/**
+ * IPI-1217 · COPILOT-APP-DOCK-002 — gate 9: live Org A / Org B Planner-thread
+ * isolation on the canonical `/app` surface.
+ *
+ * The deterministic route/unit coverage in tests/access-001.test.ts mocks the
+ * session and Mastra memory. This spec drives the real `/api/planner/threads`
+ * endpoints through two real signed-in Supabase sessions in two real,
+ * single-member organizations (usera@ipix.co → iPix QA Org A,
+ * userb@ipix.co → iPix QA Org B), so the deny path is proven end to end:
+ * session cookie → requirePlannerResourceId → thread ACL → Mastra memory.
+ *
+ * Invariant under test: threadId *locates*, the stored Mastra `resourceId`
+ * (`org:{orgId}::user:{userId}`) *authorizes*. A foreign caller must therefore
+ * be denied even when it presents Org A's exact threadId.
+ *
+ * Org A's thread is created by a real message through the real `/app` dock
+ * (the same acceptance path planner-journey.spec.ts uses), because the thread
+ * must genuinely exist in Mastra memory for a deny to mean anything. That
+ * costs one real model call, so this file lives in the `chromium-ai-smoke`
+ * project and is excluded from the deterministic `chromium` suite.
+ *
+ * Asserts on one specific threadId and one unique message marker — never on
+ * thread counts, which grow every run against these shared QA accounts.
+ */
+test.use({ trace: "off", screenshot: "off" });
+test.setTimeout(240_000);
+// Never retry: a retry re-sends the real, paid model request.
+test.describe.configure({ retries: 0 });
+
+type PlannerThreadRow = { id: string; title: string };
+type PlannerChatMessage = { id: string; role: string; content: string };
+
+const THREADS_API = "/api/planner/threads";
+const REPLY_TIMEOUT_MS = 120_000;
+
+async function listThreads(page: Page): Promise<{
+  resourceId: string;
+  threads: PlannerThreadRow[];
+}> {
+  const response = await page.request.get(THREADS_API);
+  expect(
+    response.status(),
+    "GET /api/planner/threads should succeed for a signed-in, single-org operator",
+  ).toBe(200);
+  return (await response.json()) as { resourceId: string; threads: PlannerThreadRow[] };
+}
+
+function readThreadMessages(page: Page, threadId: string) {
+  return page.request.get(`${THREADS_API}/${encodeURIComponent(threadId)}/messages`);
+}
+
+test(
+  "org A vs org B: Planner thread API stays tenant-isolated live on /app",
+  async ({ browser, page }) => {
+    // ---- Org A: the default authenticated fixture (storageState from auth.setup.ts)
+    await page.goto("/app");
+    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    const dock = page.getByTestId("operator-chat-dock");
+    await expect(dock).toBeVisible();
+
+    const before = await listThreads(page);
+    expect(before.resourceId, "Org A should resolve a server-derived resourceId").toBeTruthy();
+    const priorThreadIds = new Set(before.threads.map((thread) => thread.id));
+
+    // ---- Step 3: create ONE specific Planner thread through the real dock.
+    const runMarker = `iso-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const textarea = page.getByTestId("copilot-chat-textarea");
+    await textarea.click();
+    await textarea.fill(`Reply with only the word "acknowledged". [${runMarker}]`);
+    await page.getByTestId("copilot-send-button").click();
+
+    // Identify the newly created thread by diffing the server's own list —
+    // more robust than depending on CopilotKit's message test-ids on /app.
+    let orgAThreadId: string | null = null;
+    const deadline = Date.now() + REPLY_TIMEOUT_MS;
+    while (Date.now() < deadline && !orgAThreadId) {
+      const current = await listThreads(page);
+      const created = current.threads.find((thread) => !priorThreadIds.has(thread.id));
+      if (created) orgAThreadId = created.id;
+      else await page.waitForTimeout(1_000);
+    }
+    expect(
+      orgAThreadId,
+      "a real message through /app should have created a new Planner thread",
+    ).toBeTruthy();
+
+    // The thread must carry this run's own message — otherwise a later Org B
+    // deny would be a false positive against an empty thread.
+    let orgAMessages: PlannerChatMessage[] = [];
+    while (Date.now() < deadline) {
+      const response = await readThreadMessages(page, orgAThreadId!);
+      if (response.status() === 200) {
+        const body = (await response.json()) as {
+          threadId: string;
+          messages: PlannerChatMessage[];
+        };
+        if (body.messages.some((message) => message.content.includes(runMarker))) {
+          orgAMessages = body.messages;
+          break;
+        }
+      }
+      await page.waitForTimeout(1_000);
+    }
+    expect(
+      orgAMessages.some((message) => message.content.includes(runMarker)),
+      "Org A's own thread must contain this run's marker before we assert a deny",
+    ).toBe(true);
+    expect(orgAMessages.length, "Org A's thread must expose message ids").toBeGreaterThan(0);
+    const orgAMessageIds = orgAMessages.map((message) => message.id);
+
+    // ---- Step 4: a completely isolated context authenticated as Org B.
+    const { page: orgBPage, close: closeOrgB } = await contextForSavedRole(
+      browser,
+      orgBFile,
+      "Missing playwright/.auth/org-b.json — set E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B in .env.test",
+    );
+
+    try {
+      await orgBPage.goto("/app");
+
+      // ---- Step 5: Org B's listing must not contain Org A's specific thread.
+      const orgB = await listThreads(orgBPage);
+      expect(
+        orgB.resourceId,
+        "Org A and Org B must resolve different resourceIds (different org + user)",
+      ).not.toBe(before.resourceId);
+      expect(
+        orgB.threads.some((thread) => thread.id === orgAThreadId),
+        "tenant leak: Org B's /api/planner/threads listing includes Org A's thread",
+      ).toBe(false);
+
+      // ---- Steps 6 & 7: read Org A's exact threadId as Org B → denied, no data.
+      const forbidden = await readThreadMessages(orgBPage, orgAThreadId!);
+      expect(
+        forbidden.ok(),
+        `Org B must not successfully read Org A's Planner thread; status=${forbidden.status()}`,
+      ).toBe(false);
+      expect(
+        forbidden.status(),
+        "a foreign thread read must be denied by the thread ACL (403 thread_forbidden)",
+      ).toBe(403);
+
+      const forbiddenText = await forbidden.text();
+      expect(
+        JSON.parse(forbiddenText),
+        "denial should be the explicit thread_forbidden contract, not a generic error",
+      ).toMatchObject({ error: "forbidden", reason: "thread_forbidden" });
+      // The deny body must not carry any Org A conversation.
+      expect(
+        Object.keys(JSON.parse(forbiddenText) as object).includes("messages"),
+        "deny response must not include a messages payload",
+      ).toBe(false);
+      expect(
+        forbiddenText.includes(runMarker),
+        "tenant leak: Org A's message content appeared in Org B's denial response",
+      ).toBe(false);
+      for (const messageId of orgAMessageIds) {
+        expect(
+          forbiddenText.includes(messageId),
+          `Org A message id ${messageId} leaked into Org B's denial response`,
+        ).toBe(false);
+      }
+
+      // Org B can still read its own (empty) list — the deny above is
+      // authorization, not a broken session.
+      const orgBAfter = await listThreads(orgBPage);
+      expect(
+        orgBAfter.threads.some((thread) => thread.id === orgAThreadId),
+        "tenant leak: Org B acquired Org A's thread after the denied read",
+      ).toBe(false);
+
+      // ---- Browser-level restore attempt: plant Org A's threadId in Org B's
+      // OWN resource-scoped storage key and reload /app. This is the real-world
+      // stale/foreign-bookmark attack the resolver exists to stop: the UI must
+      // mint a fresh thread rather than adopt (and render) Org A's conversation.
+      const orgBKey = await orgBPage.evaluate(
+        () =>
+          Object.keys(window.localStorage).find((key) =>
+            key.startsWith("ipix.planner.threadId:"),
+          ) ?? null,
+      );
+      expect(
+        orgBKey,
+        "Org B should have its own resource-scoped planner storage key after bootstrapping",
+      ).toBeTruthy();
+      expect(
+        orgBKey,
+        "Org B's storage key must be scoped to Org B's own resourceId, not Org A's",
+      ).not.toBe(`ipix.planner.threadId:${before.resourceId}`);
+
+      await orgBPage.evaluate(
+        ([key, id]) => window.localStorage.setItem(key, id),
+        [orgBKey!, orgAThreadId!],
+      );
+      await orgBPage.reload();
+      await expect(orgBPage.getByTestId("operator-chat-dock")).toBeVisible({ timeout: 30_000 });
+
+      // The bootstrap is async (fetch threads → resolve → write back), so poll
+      // rather than reading once on mount: resolvePlannerThreadId returns a
+      // fresh crypto.randomUUID() for a stored id that is absent from this
+      // resource's own list, and the panel then persists that fresh id.
+      await expect
+        .poll(
+          () => orgBPage.evaluate((key) => window.localStorage.getItem(key), orgBKey!),
+          {
+            timeout: 30_000,
+            message:
+              "tenant leak: Org B's UI adopted Org A's threadId instead of minting a fresh thread",
+          },
+        )
+        .not.toBe(orgAThreadId);
+      await expect(
+        orgBPage.getByText(runMarker),
+        "tenant leak: Org B restored Org A's conversation content in the browser",
+      ).toHaveCount(0);
+    } finally {
+      await closeOrgB();
+    }
+
+    // ---- Org A retains access after Org B's attempt (no destructive side effect).
+    const orgAAfter = await readThreadMessages(page, orgAThreadId!);
+    expect(
+      orgAAfter.status(),
+      "Org A lost access to its own Planner thread after Org B's attempt",
+    ).toBe(200);
+  },
+);
+
+test("planner thread API rejects unauthenticated requests", async ({ browser }) => {
+  // createCleanContext is mandatory here: browser.newContext() inherits the
+  // project's `use.storageState`, which would silently make this an
+  // *authenticated* Org A request and turn a real 401 into a false 200.
+  const context = await createCleanContext(browser);
+  try {
+    const page = await context.newPage();
+
+    const cookies = await context.cookies();
+    expect(cookies, "the unauthenticated context must carry no cookies").toHaveLength(0);
+
+    const list = await page.request.get(THREADS_API);
+    expect(
+      list.status(),
+      "unauthenticated GET /api/planner/threads must be rejected with 401",
+    ).toBe(401);
+    expect(await list.json()).toMatchObject({ error: "unauthorized" });
+
+    const read = await page.request.get(
+      `${THREADS_API}/00000000-0000-0000-0000-000000000000/messages`,
+    );
+    expect(
+      read.status(),
+      "unauthenticated thread read must be rejected with 401",
+    ).toBe(401);
+  } finally {
+    await context.close();
+  }
+});
