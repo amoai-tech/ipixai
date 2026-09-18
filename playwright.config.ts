@@ -84,13 +84,18 @@ export default defineConfig({
         /production-smoke\.spec\.ts/,
         /planner-journey\.spec\.ts/,
         /copilot-intelligence-isolation\.spec\.ts/,
+        /planner-thread-isolation\.spec\.ts/,
         // Local-stack only (see the global testIgnore note above).
         /approval-001-tenant-review\.spec\.ts/,
       ],
     },
     {
       name: "chromium-ai-smoke",
-      testMatch: [/planner-journey\.spec\.ts/, /copilot-intelligence-isolation\.spec\.ts/],
+      testMatch: [
+        /planner-journey\.spec\.ts/,
+        /copilot-intelligence-isolation\.spec\.ts/,
+        /planner-thread-isolation\.spec\.ts/,
+      ],
       use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/user.json" },
       dependencies: ["setup"],
     },
@@ -118,6 +123,7 @@ export default defineConfig({
         /planner-journey\.spec\.ts/,
         /session-reuse\.spec\.ts/,
         /copilot-intelligence-isolation\.spec\.ts/,
+        /planner-thread-isolation\.spec\.ts/,
         // Local-stack only (see the global testIgnore note above).
         /approval-001-tenant-review\.spec\.ts/,
       ],
