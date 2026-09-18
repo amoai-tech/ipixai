@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { test, expect, type Page } from "@playwright/test";
 
@@ -71,7 +72,7 @@ test(
     const priorThreadIds = new Set(before.threads.map((thread) => thread.id));
 
     // ---- Step 3: create ONE specific Planner thread through the real dock.
-    const runMarker = `iso-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const runMarker = `iso-${Date.now()}-${randomUUID().slice(0, 8)}`;
     const textarea = page.getByTestId("copilot-chat-textarea");
     await textarea.click();
     await textarea.fill(`Reply with only the word "acknowledged". [${runMarker}]`);
@@ -91,13 +92,17 @@ test(
       orgAThreadId,
       "a real message through /app should have created a new Planner thread",
     ).toBeTruthy();
+    if (!orgAThreadId) {
+      throw new Error("a real message through /app did not create a Planner thread");
+    }
+    const ownedOrgAThreadId = orgAThreadId;
 
     // The thread must carry this run's own message — otherwise a later Org B
     // deny would be a false positive against an empty thread.
     let orgAMessages: PlannerChatMessage[] = [];
     const messageDeadline = Date.now() + REPLY_TIMEOUT_MS;
     while (Date.now() < messageDeadline) {
-      const response = await readThreadMessages(page, orgAThreadId!);
+      const response = await readThreadMessages(page, ownedOrgAThreadId);
       if (response.status() === 200) {
         const body = (await response.json()) as {
           threadId: string;
@@ -134,12 +139,12 @@ test(
         "Org A and Org B must resolve different resourceIds (different org + user)",
       ).not.toBe(before.resourceId);
       expect(
-        orgB.threads.some((thread) => thread.id === orgAThreadId),
+        orgB.threads.some((thread) => thread.id === ownedOrgAThreadId),
         "tenant leak: Org B's /api/planner/threads listing includes Org A's thread",
       ).toBe(false);
 
       // ---- Steps 6 & 7: read Org A's exact threadId as Org B → denied, no data.
-      const forbidden = await readThreadMessages(orgBPage, orgAThreadId!);
+      const forbidden = await readThreadMessages(orgBPage, ownedOrgAThreadId);
       expect(
         forbidden.ok(),
         `Org B must not successfully read Org A's Planner thread; status=${forbidden.status()}`,
@@ -150,15 +155,20 @@ test(
       ).toBe(403);
 
       const forbiddenText = await forbidden.text();
+      const forbiddenBody = JSON.parse(forbiddenText) as {
+        error?: string;
+        reason?: string;
+        messages?: unknown;
+      };
       expect(
-        JSON.parse(forbiddenText),
+        forbiddenBody,
         "denial should be the explicit thread_forbidden contract, not a generic error",
       ).toMatchObject({ error: "forbidden", reason: "thread_forbidden" });
       // The deny body must not carry any Org A conversation.
       expect(
-        Object.keys(JSON.parse(forbiddenText) as object).includes("messages"),
+        forbiddenBody.messages,
         "deny response must not include a messages payload",
-      ).toBe(false);
+      ).toBeUndefined();
       expect(
         forbiddenText.includes(runMarker),
         "tenant leak: Org A's message content appeared in Org B's denial response",
@@ -174,7 +184,7 @@ test(
       // authorization, not a broken session.
       const orgBAfter = await listThreads(orgBPage);
       expect(
-        orgBAfter.threads.some((thread) => thread.id === orgAThreadId),
+        orgBAfter.threads.some((thread) => thread.id === ownedOrgAThreadId),
         "tenant leak: Org B acquired Org A's thread after the denied read",
       ).toBe(false);
 
@@ -182,24 +192,33 @@ test(
       // OWN resource-scoped storage key and reload /app. This is the real-world
       // stale/foreign-bookmark attack the resolver exists to stop: the UI must
       // mint a fresh thread rather than adopt (and render) Org A's conversation.
-      const orgBKey = await orgBPage.evaluate(
-        () =>
-          Object.keys(window.localStorage).find((key) =>
-            key.startsWith("ipix.planner.threadId:"),
-          ) ?? null,
-      );
-      expect(
-        orgBKey,
-        "Org B should have its own resource-scoped planner storage key after bootstrapping",
-      ).toBeTruthy();
+      const findOrgBKey = () =>
+        orgBPage.evaluate(
+          () =>
+            Object.keys(window.localStorage).find((key) =>
+              key.startsWith("ipix.planner.threadId:"),
+            ) ?? null,
+        );
+      await expect
+        .poll(findOrgBKey, {
+          timeout: 30_000,
+          message: "Org B should persist its resource-scoped planner storage key",
+        })
+        .not.toBeNull();
+      const orgBKey = await findOrgBKey();
+      if (!orgBKey) {
+        throw new Error("Org B planner storage key was not initialized");
+      }
       expect(
         orgBKey,
         "Org B's storage key must be scoped to Org B's own resourceId, not Org A's",
       ).not.toBe(`ipix.planner.threadId:${before.resourceId}`);
 
       await orgBPage.evaluate(
-        ([key, id]) => window.localStorage.setItem(key, id),
-        [orgBKey!, orgAThreadId!],
+        ([key, id]) => {
+          window.localStorage.setItem(key, id);
+        },
+        [orgBKey, ownedOrgAThreadId],
       );
       await orgBPage.reload();
       await expect(orgBPage.getByTestId("operator-chat-dock")).toBeVisible({ timeout: 30_000 });
@@ -213,9 +232,9 @@ test(
           async () => {
             const value = await orgBPage.evaluate(
               (key) => window.localStorage.getItem(key),
-              orgBKey!,
+              orgBKey,
             );
-            return typeof value === "string" && value.length > 0 && value !== orgAThreadId;
+            return typeof value === "string" && value.length > 0 && value !== ownedOrgAThreadId;
           },
           {
             timeout: 30_000,
@@ -233,7 +252,7 @@ test(
     }
 
     // ---- Org A retains access after Org B's attempt (no destructive side effect).
-    const orgAAfter = await readThreadMessages(page, orgAThreadId!);
+    const orgAAfter = await readThreadMessages(page, ownedOrgAThreadId);
     expect(
       orgAAfter.status(),
       "Org A lost access to its own Planner thread after Org B's attempt",
