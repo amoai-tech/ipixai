@@ -5,11 +5,16 @@ import { createMastraStorage } from "./pg-store";
 import { brandIntelligenceWorkflow } from "./workflows/brand-intelligence";
 import { shootPlanReviewWorkflow } from "./workflows/shoot-plan-review";
 
-const LOG_LEVEL = (process.env.LOG_LEVEL as LogLevel) || "info";
 let cachedMastra: Mastra | undefined;
 
 export function getMastra(): Mastra {
   if (cachedMastra) return cachedMastra;
+
+  // Read inside the factory, not at module scope: importing this module must do
+  // nothing at all. A module-scope read would also freeze the value at import
+  // time, so a later `vi.stubEnv("LOG_LEVEL", ...)` would be silently ignored.
+  const logLevel = (process.env.LOG_LEVEL as LogLevel) || "info";
+
   cachedMastra = new Mastra({
     agents: { default: getProductionPlannerAgent() },
     workflows: {
@@ -17,7 +22,7 @@ export function getMastra(): Mastra {
       "shoot-plan-review": shootPlanReviewWorkflow,
     },
     storage: createMastraStorage(),
-    logger: new ConsoleLogger({ level: LOG_LEVEL }),
+    logger: new ConsoleLogger({ level: logLevel }),
   });
   return cachedMastra;
 }

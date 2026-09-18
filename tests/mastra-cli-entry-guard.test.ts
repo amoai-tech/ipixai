@@ -17,11 +17,13 @@ const SRC = fileURLToPath(new URL("../src", import.meta.url));
  * One careless `import { mastra } from "@/mastra"` re-breaks it, and it would
  * only surface in a full `vercel build`. Hence this scan.
  *
- * BOTH import forms must be caught. A static-only pattern misses real call
- * sites — measured on `4c2ba455`: 3 static + 4 dynamic.
+ * THREE import forms must be caught. A static-only pattern misses real call
+ * sites — measured on `4c2ba455`: 3 static + 4 dynamic — and a pattern without
+ * the side-effect form misses `import "@/mastra";`, which also evaluates the
+ * CLI entry and restores the failure.
  */
 const BARE_CLI_ENTRY =
-  /(?:\bfrom\s*["']@\/mastra["']|\bimport\(\s*["']@\/mastra["']\s*\))/;
+  /(?:\bfrom\s*["']@\/mastra["']|\bimport\s*["']@\/mastra["']|\bimport\(\s*["']@\/mastra["']\s*\))/;
 
 // The CLI boundary file is the only place allowed to touch the entry — and today
 // it does not even need the specifier (it uses a relative "./runtime").
@@ -66,16 +68,23 @@ describe("IPI-1231 · no application module imports the Mastra CLI entry", () =>
     ).toEqual([]);
   });
 
-  it("the scan catches both import forms and tolerates the runtime specifiers", () => {
-    // The two forms that MUST be caught.
+  it("the scan catches all three import forms and tolerates the runtime specifiers", () => {
+    // The three forms that MUST be caught.
     expect(BARE_CLI_ENTRY.test('import { mastra } from "@/mastra";')).toBe(true);
     expect(BARE_CLI_ENTRY.test("const { mastra } = await import('@/mastra');")).toBe(true);
-    // A static-only pattern would miss this — the defect this test exists to prevent.
+    // Side-effect form: evaluates the CLI entry and restores the build failure.
+    expect(BARE_CLI_ENTRY.test('import "@/mastra";')).toBe(true);
+    // A plain string that merely mentions the specifier is not an import.
+    expect(BARE_CLI_ENTRY.test('const specifier = "@/mastra";')).toBe(false);
+
+    // A static-only pattern would miss the dynamic form — the defect this test exists to prevent.
     expect(/from\s*["']@\/mastra["']/.test('await import("@/mastra")')).toBe(false);
 
     // The allowed specifiers must NOT match, or the guard becomes noise.
     expect(BARE_CLI_ENTRY.test('import { getMastra } from "@/mastra/runtime";')).toBe(false);
     expect(BARE_CLI_ENTRY.test('import { getProductionPlannerAgent } from "@/mastra/agents";')).toBe(false);
     expect(BARE_CLI_ENTRY.test('import type { PlannerChatMessage } from "@/mastra/thread-types";')).toBe(false);
+    // Side-effect import of an ALLOWED specifier must also pass.
+    expect(BARE_CLI_ENTRY.test('import "@/mastra/runtime";')).toBe(false);
   });
 });
