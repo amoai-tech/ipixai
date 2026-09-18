@@ -5,22 +5,23 @@ description: "iPix V2 product requirements: CopilotKit, Mastra, HITL writes, Cor
 
 # iPix V2 — Product Requirements Document
 
-**Status:** Master specification · Baseline V2  
-**Date:** 2026-08-24  
-**Author:** iPix Core Architecture Team  
-**Repository:** [amoai-tech/ipixai](https://github.com/amoai-tech/ipixai) (`this repository`)  
+**Status:** Master specification · Baseline V2
+**Baseline date:** 2026-08-24
+**Last verified against current repo:** 2026-09-17
+**Author:** iPix Core Architecture Team
+**Repository:** [amoai-tech/ipixai](https://github.com/amoai-tech/ipixai) (`this repository`)
 **This file is the product SSOT.** Other PRDs are companions or drafts.
 
 | Document | Role |
 |---|---|
 | **This page** (`docs/prd.md`) | Product requirements master |
 | **[Product sitemap](./sitemap.md)** | Product routes and phases (not HTML prototype counts) |
-| **[Execution backlog](todo-draft.md)** | Repo check-off order (Linear is status SSOT) |
-| **[Legacy route audit](./design/SITEMAP-V2.md)** | Legacy React audit that informed the sitemap |
-| **[ADR index](./adr/README.md)** | Accepted architecture decisions |
+| **[Live execution board](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues)** | Task status, blockers, ownership, and current execution |
+| **[Documentation inventory](./docs-index.md)** | Keep / Update / Archive / Remove map for all docs assets |
+| **[ADR 001](./adr/001-node-first.md)** | Start of the accepted architecture decision set |
 | internal architecture annex (not published) | Long-form architecture annex |
-| internal alternate draft (not published) | Alternate draft — **do not treat as SSOT** (CopilotKit / OpenAI-first wording is stale vs this repo) |
-| [Rebuild strategy](./ipix-plan.md) | Rebuild strategy (clean runtime + reuse domain) |
+| internal alternate draft (not published) | Alternate draft — **do not treat as SSOT** |
+| historical migration/rebuild plans | Preserved in Git as evidence; not current architecture authority |
 
 The numbered rebuild guides (`docs/01`–`14`) remain historical. This PRD is the V2 product SSOT.
 
@@ -51,9 +52,9 @@ When docs, legacy code, and runtime disagree:
 
 ### 1.2 Stack truth (this repo)
 
-**Today `[VERIFIED]`:** Next.js App Router + CopilotKit v2 (`/api/copilotkit`) + AG-UI (`@ag-ui/mastra`) + Mastra. Persistence is **in-memory** (`LibSQLStore` `url: ":memory:"` in `src/mastra/index.ts`). Without `COPILOTKIT_LICENSE_KEY` the route uses `InMemoryAgentRunner`. `identifyUser` is still the starter stub `id: "demo-user"`.
+**Today `[VERIFIED]`:** Next.js App Router + CopilotKit v2 (`/api/copilotkit`) + AG-UI + Mastra are implemented. The current package family is Next.js `16.1.2`, CopilotKit `1.68.1`, `@ag-ui/mastra` `1.1.4`, and `@mastra/core` `1.63.2`. Hosted Mastra uses guarded `PostgresStore` storage in the private `mastra` schema (`schemaName: "mastra"`, `disableInit: true`) when `MASTRA_DATABASE_URL` is configured; hosted mode fails closed if that database is missing or unapproved. Local development may fall back to in-memory LibSQL. CopilotKit identity/resource scope is derived server-side by the authenticated planner session; the old `demo-user` bootstrap path is gone.
 
-**Core target `[REQUIRED]` (not verified in this repo yet):**
+**Production runtime shape `[REQUIRED]`:**
 
 ```text
 Next.js App Router (Node / Vercel)
@@ -66,7 +67,7 @@ Next.js App Router (Node / Vercel)
 
 - **Chat/UI runtime:** CopilotKit (`@copilotkit/*`) — not a custom Worker Copilot SSE shim.
 - **Dev:** `npm run dev:ui` (port 3000) and `npm run dev:agent` (port 4111) in **separate** terminals. Combined `npm run dev` is blocked (**DEV-STAB-001**).
-- **Media:** Cloudinary signed uploads — layer PRD [cloudinary/prd.md](./cloudinary/prd.md) (ADR-005). **IPI-1108** is **Todo**; packages not on the lockfile yet. Do not invent a second CDN pipeline.
+- **Media:** Cloudinary is the media layer. The `cloudinary` and `next-cloudinary` packages are installed, and signed-upload/webhook API routes exist under `src/app/api/cloudinary/`. Remaining media task status belongs to Linear. Do not invent a second CDN pipeline.
 - **Models:** OpenAI SDK in the starter today; production routing via Cloudflare AI Gateway (Gemini failover) `[PROPOSED]`.
 
 ---
@@ -80,7 +81,7 @@ Fashion production runs on spreadsheets, email, and tools that do not know Brand
 ### 2.1 Pillars
 
 1. **Vercel + Node `[VERIFIED]`** — ADR-001. CopilotKit/Mastra host is **Vercel**. Cloudflare = DNS/CDN/WAF (and optional AI Gateway later). **Workers are not the AI host** — **IPI-1121** is future.
-2. **Supabase tenancy `[REQUIRED]`** — ADR-003. Org from membership, server-side. Fail closed. Not verified while `identifyUser` returns `demo-user`.
+2. **Supabase tenancy `[REQUIRED]`** — ADR-003. Org from membership, server-side. Fail closed. The CopilotKit route now derives operator/resource identity from the verified session; cross-org release certification remains a test requirement.
 3. **Mastra memory vs domain `[VERIFIED]`** — ADR-002. `mastra.*` is conversation/traces; `shoot.*` / `planner.*` / `talent.*` / `crm.*` are product truth.
 4. **HITL writes `[REQUIRED]`** — Approval cards → RPC. No agent `INSERT` into domain tables.
 
@@ -149,7 +150,7 @@ Planner ACL (ADR-008 `[PROPOSED]`): `owner > manager > contributor > viewer`.
 
 ## 6. Journeys
 
-1. **Brand DNA `[MVP]`** — URL → crawl/vision → `BrandDNACard` → Approve → `promote_brand_draft` RPC. Fail: manual intake + upload. Not Core (Core is persist + thin `/app/planner` only).
+1. **Brand DNA `[MVP]`** — URL → crawl/vision → `BrandDNACard` → Approve → `promote_brand_draft` RPC. Fail: manual intake + upload. Not Core (Core is persist + thin `/planner` only).
 2. **3-gate shoot `[MVP]`** — Deliverables → shot list → budget → `commit_shoot_draft` → `shoot.*` + `planner.instances`. **Not** Core.
 3. **Production DAG `[MVP UI; schema Core-ready]`** — Topological shift on slip; cycle detection before write.
 4. **Talent + booking `[MVP]`** — Separate routes: `/app/matching/talent/[id]/book` and `/app/bookings/[id]`. **Not** Shoot Wizard `flow=booking`.
@@ -165,12 +166,12 @@ Canonical routes: **[Product sitemap](./sitemap.md)**.
 
 | Phase | Authenticated surfaces |
 |---|---|
-| **Core** | `/login` (minimal) + **`/app/planner` only** — no Operator Shell, no Command Center |
-| **MVP** | Shell + `/app`, `/app/brand`, `/app/shoots`, campaigns, assets, preview, matching/book, bookings, CRM, inbox, settings, `/onboarding` |
+| **Core** | `/login` (minimal) + **`/planner` only** — no Operator Shell, no Command Center |
+| **MVP** | Shell + `/app`, `/app/brands`, `/app/shoots`, campaigns, assets, preview, matching/book, bookings, CRM, inbox, settings, `/onboarding` |
 | **Post-MVP** | `/app/analytics`, `/app/plans/*` (legacy production workspace), talent self-serve |
 | **Advanced** | Catalog, collections, PDP, events, collab graph |
 
-This repo today: **one** starter route (`src/app/page.tsx`). HTML in `Universal-design-prompt-4/Pages/` is design reference, not “built product.”
+This repo today already includes marketing/auth/onboarding pages, authenticated operator routes, brands, shoots, plans, the Planner, and API routes. HTML in `Universal-design-prompt-4/Pages/` remains design reference; route files and verified runtime behavior determine what is actually implemented.
 
 ---
 
@@ -239,7 +240,7 @@ Existing iPix project — no greenfield DB.
 
 ## 11. HITL and audit `[REQUIRED]`
 
-Agents **may:** RLS-scoped read, deterministic compute, GenUI proposal, Mastra memory write, request approval.  
+Agents **may:** RLS-scoped read, deterministic compute, GenUI proposal, Mastra memory write, request approval.
 Agents **must not:** create shoots, send booking offers, sign budgets, move CRM stages, send external mail/WhatsApp.
 
 Every approval + commit: `org_id`, `user_id`, `proposal_id`, `version`, `action_type`, `created_at`, target table/id.
@@ -254,11 +255,11 @@ WCAG 2.1 AA. Full keyboard. Semantic landmarks + `aria-live` on streams. Breakpo
 
 ## 13. Phases (must match sitemap)
 
-**Dependency:** Supabase harden → Auth/org → Mastra PostgresStore gold → CopilotKit → **thin `/app/planner`** → Operator Shell → Brand/Shoots → Wizard/CRM/Booking.
+**Dependency:** Supabase harden → Auth/org → Mastra PostgresStore gold → CopilotKit → **thin `/planner`** → Operator Shell → Brand/Shoots → Wizard/CRM/Booking.
 
 | Phase | Name | In | Out |
 |---|---|---|---|
-| 0 / Core | Persistence + Planner proof | Pin CopilotKit/Mastra bundle; `PostgresStore`; `TEST-PERSIST-UUID`; Org B 403; `/app/planner` compute tools | Operator Shell, Command Center, CRM, booking writes |
+| 0 / Core | Persistence + Planner proof | Pin CopilotKit/Mastra bundle; `PostgresStore`; `TEST-PERSIST-UUID`; Org B 403; `/planner` compute tools | Operator Shell, Command Center, CRM, booking writes |
 | 1 / MVP spine | Shell + Brand + Shoots | Zeely tokens, nav, intel panel, chat **rebuilt** on CopilotKit, Brand, Shoots list/detail | Worker chat dock copy-paste |
 | 2 / MVP complete | Wizard + CRM + booking + media | 3-gate wizard, Brand crawl, CRM six screens, matching + booking routes, Cloudinary signed upload | `/app/plans` mutations, talent two-sided |
 | 3 / Post-MVP | Plans workspace + analytics + talent | `/app/plans`, analytics honesty, availability, role dashboards | Worker AI host unless gold exists |
@@ -351,7 +352,7 @@ Do not claim production-ready without a labeled verification level (unit / build
 | Auth / tenancy | `IPI-TBD · AUTH-002 — Session/org, RLS/RPC, cross-tenant 403` |
 | Planner agent | `IPI-TBD · AGENT-003 — Production Planner compute tools + JWT reads` |
 | Operator UI | `IPI-TBD · UI-004 — Shell + CopilotKit dock rebuild + ApprovalCard` |
-| Planner page | `IPI-TBD · PLAN-005 — Thin /app/planner Core page; /app/plans later` |
+| Planner page | `IPI-TBD · PLAN-005 — Thin /planner Core page; /app/plans later` |
 | MVP flows | `IPI-TBD · FLOW-006 — 3-gate shoot, brand crawl, Cloudinary, booking routes` |
 
 Replace `IPI-TBD` with the live Linear identifier when the issue exists. No bare `CORE-001` in roadmaps.
@@ -379,7 +380,7 @@ Reuse ~domain/UI; drop ~runtime glue. Do not rebuild 40 screens from blank.
 
 ## 21. Readiness
 
-- **SSOT:** this file + `SITEMAP.md` + accepted ADRs.  
-- **Core gate:** AC-01 + AC-02 before Operator Shell.  
-- **Do not** `supabase db push --linked` with un-ledgered baseline dumps.  
+- **SSOT:** this file + `sitemap.md` + accepted ADRs.
+- **Core gate:** AC-01 + AC-02 before Operator Shell.
+- **Do not** `supabase db push --linked` with un-ledgered baseline dumps.
 - Companion PRDs that treat HTML prototypes as shipped product (“31 screens built”) or that prescribe a custom Worker Copilot SSE runtime are **stale** relative to this repo.
