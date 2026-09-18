@@ -4,6 +4,7 @@ import { test, expect, type Page } from "@playwright/test";
 
 import { createCleanContext } from "./support/context";
 import { contextForSavedRole } from "./support/login";
+import { plannerThreadStorageKey } from "../src/mastra/thread-types";
 
 const orgBFile = path.resolve(__dirname, "../playwright/.auth/org-b.json");
 
@@ -63,39 +64,85 @@ test(
   async ({ browser, page }) => {
     // ---- Org A: the default authenticated fixture (storageState from auth.setup.ts)
     await page.goto("/app");
+    // Mirror planner-journey.spec.ts's proven /app sequence exactly: wait
+    // for PlannerChatDock's own restore gate (ResolvedChatDock in
+    // operator-panel.tsx renders only this status, withholding CopilotChat
+    // — and therefore copilot-chat-textarea/copilot-send-button — until
+    // RestoreMastraHistory's onSettled fires) before touching the composer.
+    // Verified live: without this wait, sending into a resumed thread (this
+    // shared QA account almost always has one once any earlier /app test in
+    // this CI job has run) could complete the POST .../agent/default/run
+    // call (200 OK) without the new message ever landing in Mastra's
+    // durable store — while the identical wait-then-click sequence below,
+    // copied from planner-journey.spec.ts, persisted correctly every time.
+    await expect(page.getByRole("status", { name: "Loading conversation…" })).toHaveCount(0, {
+      timeout: 30_000,
+    });
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
     const dock = page.getByTestId("operator-chat-dock");
     await expect(dock).toBeVisible();
 
     const before = await listThreads(page);
     expect(before.resourceId, "Org A should resolve a server-derived resourceId").toBeTruthy();
-    const priorThreadIds = new Set(before.threads.map((thread) => thread.id));
 
-    // ---- Step 3: create ONE specific Planner thread through the real dock.
-    const runMarker = `iso-${Date.now()}-${randomUUID().slice(0, 8)}`;
-    const textarea = page.getByTestId("copilot-chat-textarea");
-    await textarea.click();
-    await textarea.fill(`Reply with only the word "acknowledged". [${runMarker}]`);
-    await page.getByTestId("copilot-send-button").click();
-
-    // Identify the newly created thread by diffing the server's own list —
-    // more robust than depending on CopilotKit's message test-ids on /app.
+    // Resolve the thread PlannerChatDock's own bootstrap actually pins,
+    // instead of waiting for a "new" entry to appear in the thread list.
+    // resolvePlannerThreadId() (src/mastra/thread-types.ts) *resumes* an
+    // existing owned thread (rows[0]) whenever localStorage has no stored
+    // id — every fresh Playwright context does, since auth.setup.ts's saved
+    // storageState never visits /app — rather than always minting a new
+    // one; it only mints fresh when the resource owns zero threads. On this
+    // shared, long-lived QA account that's only true for the very first
+    // AI-smoke test to touch Org A in a given server process: once
+    // planner-journey.spec.ts's /app tests (which run first — see
+    // playwright.config.ts's chromium-ai-smoke project) have created a
+    // thread, this test's own context resumes THAT thread instead of a new
+    // one, so diffing the list for a "new" id never resolves and times out
+    // even though the app is behaving exactly as designed. Read back the
+    // same resource-scoped storage key the UI persists (the same pattern
+    // planner-journey.spec.ts already uses via getStoredPlannerThreadId)
+    // so this test works whether Org A's thread is fresh or resumed.
+    const orgAStorageKey = plannerThreadStorageKey(before.resourceId);
     let orgAThreadId: string | null = null;
-    const deadline = Date.now() + REPLY_TIMEOUT_MS;
-    while (Date.now() < deadline && !orgAThreadId) {
-      const current = await listThreads(page);
-      const created = current.threads.find((thread) => !priorThreadIds.has(thread.id));
-      if (created) orgAThreadId = created.id;
-      else await page.waitForTimeout(1_000);
+    const resolveDeadline = Date.now() + REPLY_TIMEOUT_MS;
+    while (Date.now() < resolveDeadline && !orgAThreadId) {
+      orgAThreadId = await page.evaluate(
+        (key) => window.localStorage.getItem(key),
+        orgAStorageKey,
+      );
+      if (!orgAThreadId) await page.waitForTimeout(500);
     }
     expect(
       orgAThreadId,
-      "a real message through /app should have created a new Planner thread",
+      "PlannerChatDock should resolve and persist a threadId for Org A",
     ).toBeTruthy();
     if (!orgAThreadId) {
-      throw new Error("a real message through /app did not create a Planner thread");
+      throw new Error("PlannerChatDock did not resolve a threadId for Org A");
     }
     const ownedOrgAThreadId = orgAThreadId;
+
+    // ---- Step 3: send a message through the real dock into that thread so
+    // the deny path below is proven against a thread that genuinely carries
+    // content, not an empty one.
+    const runMarker = `iso-${Date.now()}-${randomUUID().slice(0, 8)}`;
+    const messageText = `Reply with only the word "acknowledged". [${runMarker}]`;
+    const textarea = page.getByTestId("copilot-chat-textarea");
+    await textarea.click();
+    await textarea.fill(messageText);
+    await page.getByTestId("copilot-send-button").click();
+    // CopilotKit's send button briefly doubles as a "Stop" control while the
+    // agent's isRunning flag still reads true (e.g. while reconnecting to a
+    // resumed thread — see TenantAbortRunner.connect()) and calls onStop()
+    // instead of submitting (CopilotChatInput's handleSendButtonClick).
+    // Verified live: a click landing in that window leaves the typed text
+    // sitting unsent in the textarea. Its Enter-key handler only stops on
+    // Enter when there's no text to send, so it reliably submits even
+    // during that window — use it as a fallback only if the click above
+    // didn't actually clear the box, rather than always bypassing the real
+    // (and normally working — see planner-journey.spec.ts) click path.
+    if ((await textarea.inputValue()) === messageText) {
+      await textarea.press("Enter");
+    }
 
     // The thread must carry this run's own message — otherwise a later Org B
     // deny would be a false positive against an empty thread.
