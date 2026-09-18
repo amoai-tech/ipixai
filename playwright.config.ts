@@ -39,7 +39,10 @@ export default defineConfig({
   testDir: "./e2e",
   // Production smoke has its own guarded config and must never run as part of
   // the normal localhost/Preview certification suite.
-  testIgnore: /production-smoke\.spec\.ts/,
+  // approval-001-tenant-review is the IPI-1084 local-stack proof: it needs the
+  // local Supabase fixtures, so it belongs to playwright.approval.config.ts
+  // (npm run e2e:approval) and must never run against these hosted accounts.
+  testIgnore: [/production-smoke\.spec\.ts/, /approval-001-tenant-review\.spec\.ts/],
   // End cleanly before the 15-minute GitHub Actions hard stop so reporters
   // and traces have time to flush instead of being killed mid-write.
   globalTimeout: process.env.CI ? 12 * 60_000 : undefined,
@@ -82,6 +85,8 @@ export default defineConfig({
         /planner-journey\.spec\.ts/,
         /copilot-intelligence-isolation\.spec\.ts/,
         /planner-thread-isolation\.spec\.ts/,
+        // Local-stack only (see the global testIgnore note above).
+        /approval-001-tenant-review\.spec\.ts/,
       ],
     },
     {
@@ -119,6 +124,8 @@ export default defineConfig({
         /session-reuse\.spec\.ts/,
         /copilot-intelligence-isolation\.spec\.ts/,
         /planner-thread-isolation\.spec\.ts/,
+        // Local-stack only (see the global testIgnore note above).
+        /approval-001-tenant-review\.spec\.ts/,
       ],
     },
   ],
