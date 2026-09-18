@@ -58,6 +58,8 @@ vi.mock("@copilotkit/react-core/v2", () => ({
   // IPI-1217: PlannerChatDock now also calls useAgent() for its welcome-copy
   // gating — needed here too or the real hook throws on the undefined mock.
   useAgent: () => ({ agent: { messages: [] } }),
+  // IPI-1084 registers the ShootPlan review HITL renderer inside the provider.
+  useHumanInTheLoop: () => {},
   CopilotChat: () => createElement("div", { "data-testid": "copilot-chat-stub" }),
 }));
 

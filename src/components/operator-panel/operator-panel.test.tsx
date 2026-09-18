@@ -76,6 +76,9 @@ const useAgentMock = vi.hoisted(() =>
 vi.mock("@copilotkit/react-core/v2", () => ({
   CopilotKit: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useAgent: useAgentMock,
+  // IPI-1084 registers the ShootPlan review HITL renderer inside the provider.
+  // These tests assert the shell/nav/rail, so the registration is a no-op here.
+  useHumanInTheLoop: () => {},
   CopilotChat: ({
     labels,
     threadId,
