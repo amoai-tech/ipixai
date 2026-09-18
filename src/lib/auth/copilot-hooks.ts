@@ -16,7 +16,6 @@ import {
 } from "./unauthorized";
 import { getVerifiedOperatorForRequest } from "./operator-auth";
 
-export { getVerifiedOperatorForRequest, getVerifiedOperatorFromCookies } from "./operator-auth";
 
 export async function identifyOperator(request: Request) {
   const operator = await getVerifiedOperatorForRequest(request);

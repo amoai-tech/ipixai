@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { getVerifiedOperatorForRequest } from "@/lib/auth/copilot-hooks";
+import { getVerifiedOperatorForRequest } from "@/lib/auth/operator-auth";
 import { badRequestResponse, unauthorizedResponse } from "@/lib/auth/unauthorized";
 import { jsonError } from "@/lib/http/json-response";
 import { authorizePlanReviewEditor } from "@/lib/shoot/plan-review-authorization";
