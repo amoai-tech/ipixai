@@ -103,19 +103,15 @@ test(
     // planner-journey.spec.ts already uses via getStoredPlannerThreadId)
     // so this test works whether Org A's thread is fresh or resumed.
     const orgAStorageKey = plannerThreadStorageKey(before.resourceId);
-    let orgAThreadId: string | null = null;
-    const resolveDeadline = Date.now() + REPLY_TIMEOUT_MS;
-    while (Date.now() < resolveDeadline && !orgAThreadId) {
-      orgAThreadId = await page.evaluate(
-        (key) => window.localStorage.getItem(key),
-        orgAStorageKey,
-      );
-      if (!orgAThreadId) await page.waitForTimeout(500);
-    }
-    expect(
-      orgAThreadId,
-      "PlannerChatDock should resolve and persist a threadId for Org A",
-    ).toBeTruthy();
+    const readOrgAThreadId = () =>
+      page.evaluate((key) => window.localStorage.getItem(key), orgAStorageKey);
+    await expect
+      .poll(readOrgAThreadId, {
+        timeout: REPLY_TIMEOUT_MS,
+        message: "PlannerChatDock should resolve and persist a threadId for Org A",
+      })
+      .not.toBeNull();
+    const orgAThreadId = await readOrgAThreadId();
     if (!orgAThreadId) {
       throw new Error("PlannerChatDock did not resolve a threadId for Org A");
     }
@@ -139,33 +135,40 @@ test(
     // Enter when there's no text to send, so it reliably submits even
     // during that window — use it as a fallback only if the click above
     // didn't actually clear the box, rather than always bypassing the real
-    // (and normally working — see planner-journey.spec.ts) click path.
-    if ((await textarea.inputValue()) === messageText) {
+    // (and normally working — see planner-journey.spec.ts) click path. Wait
+    // for the clear via an assertion (not an immediate one-shot read): send()
+    // clears the textarea through a React state update, which can lag a
+    // beat behind the click — reading inputValue() synchronously right
+    // after risks a false "still has text" and firing Enter as well,
+    // double-sending the message.
+    try {
+      await expect(textarea).toHaveValue("", { timeout: 5_000 });
+    } catch {
       await textarea.press("Enter");
     }
 
     // The thread must carry this run's own message — otherwise a later Org B
     // deny would be a false positive against an empty thread.
     let orgAMessages: PlannerChatMessage[] = [];
-    const messageDeadline = Date.now() + REPLY_TIMEOUT_MS;
-    while (Date.now() < messageDeadline) {
-      const response = await readThreadMessages(page, ownedOrgAThreadId);
-      if (response.status() === 200) {
-        const body = (await response.json()) as {
-          threadId: string;
-          messages: PlannerChatMessage[];
-        };
-        if (body.messages.some((message) => message.content.includes(runMarker))) {
+    await expect
+      .poll(
+        async () => {
+          const response = await readThreadMessages(page, ownedOrgAThreadId);
+          if (response.status() !== 200) return false;
+          const body = (await response.json()) as {
+            threadId: string;
+            messages: PlannerChatMessage[];
+          };
+          if (!body.messages.some((message) => message.content.includes(runMarker))) return false;
           orgAMessages = body.messages;
-          break;
-        }
-      }
-      await page.waitForTimeout(1_000);
-    }
-    expect(
-      orgAMessages.some((message) => message.content.includes(runMarker)),
-      "Org A's own thread must contain this run's marker before we assert a deny",
-    ).toBe(true);
+          return true;
+        },
+        {
+          timeout: REPLY_TIMEOUT_MS,
+          message: "Org A's own thread must contain this run's marker before we assert a deny",
+        },
+      )
+      .toBe(true);
     expect(orgAMessages.length, "Org A's thread must expose message ids").toBeGreaterThan(0);
     const orgAMessageIds = orgAMessages.map((message) => message.id);
 
@@ -201,12 +204,16 @@ test(
         "a foreign thread read must be denied by the thread ACL (403 thread_forbidden)",
       ).toBe(403);
 
-      const forbiddenText = await forbidden.text();
-      const forbiddenBody = JSON.parse(forbiddenText) as {
+      const forbiddenBody = (await forbidden.json()) as {
         error?: string;
         reason?: string;
         messages?: unknown;
       };
+      // Playwright's APIResponse buffers the body, so .text() below re-reads
+      // the same response rather than consuming a stream .json() already
+      // drained — needed separately for the raw-content leak checks, which
+      // must catch a leak anywhere in the body, not just in typed fields.
+      const forbiddenText = await forbidden.text();
       expect(
         forbiddenBody,
         "denial should be the explicit thread_forbidden contract, not a generic error",
