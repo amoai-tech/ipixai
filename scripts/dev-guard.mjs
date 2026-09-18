@@ -4,13 +4,25 @@
  * Usage:
  *   node scripts/dev-guard.mjs --port 3000 -- next dev --turbopack
  *   node scripts/dev-guard.mjs --port 3000 --port 4111 -- next build
+ *
+ * When the Mastra agent port is requested, the child also inherits a loopback
+ * MASTRA_HOST default so `mastra dev` cannot expose its unauthenticated
+ * tool-execute API to the local network. See resolveChildEnv below.
  */
 import net from "node:net";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawn, execFileSync } from "node:child_process";
+
+const scriptPath = fileURLToPath(import.meta.url);
+
+/** `mastra dev` serves Studio plus an unauthenticated tool-execute API on this port. */
+const AGENT_PORT = 4111;
+const LOOPBACK_HOST = "127.0.0.1";
 
 const PORT_ROLE = {
   3000: "UI (next)",
-  4111: "agent (mastra)",
+  [AGENT_PORT]: "agent (mastra)",
 };
 
 function parseArgs(argv) {
@@ -77,42 +89,94 @@ function describeListener(port) {
   }
 }
 
-const { ports, command } = parseArgs(process.argv.slice(2));
-
-const busy = [];
-for (const port of ports) {
-  if (await portInUse(port)) {
-    busy.push(port);
-  }
+/**
+ * Pin the Mastra dev server to loopback.
+ *
+ * `mastra dev` serves Studio AND an unauthenticated tool-execute API. With no
+ * `server.host` configured, Mastra hands `hostname: undefined` to the Node
+ * listener, which binds EVERY interface while the startup banner still prints
+ * "localhost". Measured on origin/main@2d19790:
+ *
+ *   LISTEN 0 511 *:4111 *:*        +  "Studio: http://localhost:4111"
+ *
+ * IPI-1231's split entry (`src/mastra/index.ts` exports the instance returned by
+ * `getMastra()` rather than an inline `new Mastra({ server })` configuration)
+ * leaves the CLI no `server` literal to read, so the documented
+ * `server: { host }` config cannot be used here. The installed deployer resolves
+ * the bind as `serverOptions?.host ?? process.env.MASTRA_HOST ?? "localhost"`
+ * (@mastra/deployer 1.63.2, dist/server/index.js), so MASTRA_HOST is honoured.
+ * An explicit operator MASTRA_HOST always wins.
+ *
+ * Only the agent-port child is affected; the UI child keeps the inherited env.
+ */
+export function resolveChildEnv(ports, env = process.env) {
+  if (!ports.includes(AGENT_PORT)) return env;
+  return { ...env, MASTRA_HOST: env.MASTRA_HOST ?? LOOPBACK_HOST };
 }
 
-if (busy.length > 0) {
-  for (const port of busy) {
-    const role = PORT_ROLE[port] ?? "service";
-    const who = describeListener(port);
+export async function runDevGuard(argv = process.argv.slice(2)) {
+  const { ports, command } = parseArgs(argv);
+
+  const busy = [];
+  for (const port of ports) {
+    if (await portInUse(port)) {
+      busy.push(port);
+    }
+  }
+
+  if (busy.length > 0) {
+    for (const port of busy) {
+      const role = PORT_ROLE[port] ?? "service";
+      const who = describeListener(port);
+      console.error(
+        `dev-guard: port ${port} (${role}) is already listening [${who}].`,
+      );
+    }
     console.error(
-      `dev-guard: port ${port} (${role}) is already listening [${who}].`,
+      "Stop that process before running this command. UI is :3000. Agent is :4111.",
     );
+    return 1;
   }
-  console.error(
-    "Stop that process before running this command. UI is :3000. Agent is :4111.",
-  );
-  process.exit(1);
+
+  const child = spawn(command[0], command.slice(1), {
+    stdio: "inherit",
+    env: resolveChildEnv(ports),
+    shell: false,
+  });
+
+  for (const sig of ["SIGINT", "SIGTERM"]) {
+    process.on(sig, () => child.kill(sig));
+  }
+
+  return await new Promise((resolve) => {
+    // `error` and `exit` can BOTH fire for the same child (a spawn failure emits
+    // `error`, and `exit` may follow), so they share one settle guard.
+    let settled = false;
+    const settle = (code) => {
+      if (settled) return;
+      settled = true;
+      resolve(code);
+    };
+
+    // A failure to spawn (ENOENT for a missing executable, EACCES for a
+    // non-executable one) is emitted as an `error` event on the child. With no
+    // listener Node rethrows it as an unhandled 'error' event and the guard dies
+    // with a raw stack trace instead of reporting the failure normally.
+    child.on("error", (error) => {
+      console.error(`dev-guard: failed to start ${command[0]}: ${error.message}`);
+      settle(1);
+    });
+
+    child.on("exit", (code, signal) => {
+      if (signal) {
+        settle(1);
+        return;
+      }
+      settle(code ?? 1);
+    });
+  });
 }
 
-const child = spawn(command[0], command.slice(1), {
-  stdio: "inherit",
-  env: process.env,
-  shell: false,
-});
-
-child.on("exit", (code, signal) => {
-  if (signal) {
-    process.exit(1);
-  }
-  process.exit(code ?? 1);
-});
-
-for (const sig of ["SIGINT", "SIGTERM"]) {
-  process.on(sig, () => child.kill(sig));
+if (path.resolve(process.argv[1] ?? "") === scriptPath) {
+  process.exit(await runDevGuard());
 }
