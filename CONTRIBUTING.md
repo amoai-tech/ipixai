@@ -1,6 +1,6 @@
 # Contributing
 
-Canonical repository: [amo-tech-ai/ipix](https://github.com/amo-tech-ai/ipix).
+Canonical repository: [amoai-tech/ipixai](https://github.com/amoai-tech/ipixai).
 
 ## Local development
 
