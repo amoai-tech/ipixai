@@ -62,8 +62,8 @@ function makePreflightDeps(overrides: Partial<PreflightDeps> = {}): PreflightDep
     log: vi.fn(),
     stderr: vi.fn(),
     readManifest: vi.fn(async () => manifestWith([candidate()])),
-    listDirectory: vi.fn(() => [`${KEY}.jpg`]),
-    readFileBytes: vi.fn(() => jpegBytes(1600, 2400)),
+    listDirectory: vi.fn(async () => [`${KEY}.jpg`]),
+    readFileBytes: vi.fn(async () => jpegBytes(1600, 2400)),
     loadCatalog: vi.fn(async () => [{ id: "ref-uuid-1", referenceKey: KEY }]),
     loadApprovedMappings: vi.fn(async () => []),
     ...overrides,
@@ -155,44 +155,44 @@ describe("commandPreflight", () => {
   });
 
   it("fails when no candidate file exists for a requested key", async () => {
-    const deps = makePreflightDeps({ listDirectory: vi.fn(() => []) });
+    const deps = makePreflightDeps({ listDirectory: vi.fn(async () => []) });
     expect(await commandPreflight(MANIFEST_PATH, null, DIR, deps)).toBe(1);
     expect(joined(deps.stderr as ReturnType<typeof vi.fn>)).toContain("no candidate file found");
     expect(joined(deps.stderr as ReturnType<typeof vi.fn>)).toContain("STOP: do not upload.");
   });
 
   it("fails on ambiguous candidate files", async () => {
-    const deps = makePreflightDeps({ listDirectory: vi.fn(() => [`${KEY}.jpg`, `${KEY}.png`]) });
+    const deps = makePreflightDeps({ listDirectory: vi.fn(async () => [`${KEY}.jpg`, `${KEY}.png`]) });
     expect(await commandPreflight(MANIFEST_PATH, null, DIR, deps)).toBe(1);
     expect(joined(deps.stderr as ReturnType<typeof vi.fn>)).toContain("ambiguous");
   });
 
   it("fails when the manifest file name does not match the candidate on disk", async () => {
-    const deps = makePreflightDeps({ listDirectory: vi.fn(() => [`${KEY}.png`]) });
+    const deps = makePreflightDeps({ listDirectory: vi.fn(async () => [`${KEY}.png`]) });
     expect(await commandPreflight(MANIFEST_PATH, null, DIR, deps)).toBe(1);
     expect(joined(deps.stderr as ReturnType<typeof vi.fn>)).toContain("does not match");
   });
 
   it("fails when the candidate file cannot be read", async () => {
-    const deps = makePreflightDeps({ readFileBytes: vi.fn(() => null) });
+    const deps = makePreflightDeps({ readFileBytes: vi.fn(async () => null) });
     expect(await commandPreflight(MANIFEST_PATH, null, DIR, deps)).toBe(1);
     expect(joined(deps.stderr as ReturnType<typeof vi.fn>)).toContain("not readable");
   });
 
   it("fails when the bytes are not an image", async () => {
-    const deps = makePreflightDeps({ readFileBytes: vi.fn(() => textBytes("not an image")) });
+    const deps = makePreflightDeps({ readFileBytes: vi.fn(async () => textBytes("not an image")) });
     expect(await commandPreflight(MANIFEST_PATH, null, DIR, deps)).toBe(1);
     expect(joined(deps.stderr as ReturnType<typeof vi.fn>)).toContain("not a valid jpg/png/webp/avif image");
   });
 
   it("fails when the extension disagrees with the detected format", async () => {
-    const deps = makePreflightDeps({ readFileBytes: vi.fn(() => pngBytes(1600, 2400)) });
+    const deps = makePreflightDeps({ readFileBytes: vi.fn(async () => pngBytes(1600, 2400)) });
     expect(await commandPreflight(MANIFEST_PATH, null, DIR, deps)).toBe(1);
     expect(joined(deps.stderr as ReturnType<typeof vi.fn>)).toContain("does not match detected format");
   });
 
   it("fails when the short edge is below the minimum", async () => {
-    const deps = makePreflightDeps({ readFileBytes: vi.fn(() => jpegBytes(1600, 400)) });
+    const deps = makePreflightDeps({ readFileBytes: vi.fn(async () => jpegBytes(1600, 400)) });
     expect(await commandPreflight(MANIFEST_PATH, null, DIR, deps)).toBe(1);
     expect(joined(deps.stderr as ReturnType<typeof vi.fn>)).toContain("short edge must be at least");
   });
@@ -200,7 +200,7 @@ describe("commandPreflight", () => {
   it("fails when the file exceeds the maximum size", async () => {
     const oversized = new Uint8Array(MAX_CANDIDATE_BYTES + 1);
     oversized.set(jpegBytes(1600, 2400));
-    const deps = makePreflightDeps({ readFileBytes: vi.fn(() => oversized) });
+    const deps = makePreflightDeps({ readFileBytes: vi.fn(async () => oversized) });
     expect(await commandPreflight(MANIFEST_PATH, null, DIR, deps)).toBe(1);
     expect(joined(deps.stderr as ReturnType<typeof vi.fn>)).toContain("bytes must be between");
   });
