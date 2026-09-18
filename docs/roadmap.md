@@ -86,4 +86,4 @@ The immediate goal is one trustworthy end-to-end operator experience, not broad 
 - [AI runtime](./copilotkit-mastra/index.md)
 - [Data architecture](./data/index.md)
 - [Media architecture](./cloudinary/index.md)
-- [Documentation inventory](./DOCS-INDEX.md)
+- [Documentation inventory](./docs-index.md)

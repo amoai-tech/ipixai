@@ -17,7 +17,7 @@ description: "iPix V2 product requirements: CopilotKit, Mastra, HITL writes, Cor
 | **This page** (`docs/prd.md`) | Product requirements master |
 | **[Product sitemap](./sitemap.md)** | Product routes and phases (not HTML prototype counts) |
 | **[Live execution board](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues)** | Task status, blockers, ownership, and current execution |
-| **[Documentation inventory](./DOCS-INDEX.md)** | Keep / Update / Archive / Remove map for all docs assets |
+| **[Documentation inventory](./docs-index.md)** | Keep / Update / Archive / Remove map for all docs assets |
 | **[ADR 001](./adr/001-node-first.md)** | Start of the accepted architecture decision set |
 | internal architecture annex (not published) | Long-form architecture annex |
 | internal alternate draft (not published) | Alternate draft — **do not treat as SSOT** |
@@ -150,7 +150,7 @@ Planner ACL (ADR-008 `[PROPOSED]`): `owner > manager > contributor > viewer`.
 
 ## 6. Journeys
 
-1. **Brand DNA `[MVP]`** — URL → crawl/vision → `BrandDNACard` → Approve → `promote_brand_draft` RPC. Fail: manual intake + upload. Not Core (Core is persist + thin `/app/planner` only).
+1. **Brand DNA `[MVP]`** — URL → crawl/vision → `BrandDNACard` → Approve → `promote_brand_draft` RPC. Fail: manual intake + upload. Not Core (Core is persist + thin `/planner` only).
 2. **3-gate shoot `[MVP]`** — Deliverables → shot list → budget → `commit_shoot_draft` → `shoot.*` + `planner.instances`. **Not** Core.
 3. **Production DAG `[MVP UI; schema Core-ready]`** — Topological shift on slip; cycle detection before write.
 4. **Talent + booking `[MVP]`** — Separate routes: `/app/matching/talent/[id]/book` and `/app/bookings/[id]`. **Not** Shoot Wizard `flow=booking`.
@@ -166,7 +166,7 @@ Canonical routes: **[Product sitemap](./sitemap.md)**.
 
 | Phase | Authenticated surfaces |
 |---|---|
-| **Core** | `/login` (minimal) + **`/app/planner` only** — no Operator Shell, no Command Center |
+| **Core** | `/login` (minimal) + **`/planner` only** — no Operator Shell, no Command Center |
 | **MVP** | Shell + `/app`, `/app/brands`, `/app/shoots`, campaigns, assets, preview, matching/book, bookings, CRM, inbox, settings, `/onboarding` |
 | **Post-MVP** | `/app/analytics`, `/app/plans/*` (legacy production workspace), talent self-serve |
 | **Advanced** | Catalog, collections, PDP, events, collab graph |
@@ -255,11 +255,11 @@ WCAG 2.1 AA. Full keyboard. Semantic landmarks + `aria-live` on streams. Breakpo
 
 ## 13. Phases (must match sitemap)
 
-**Dependency:** Supabase harden → Auth/org → Mastra PostgresStore gold → CopilotKit → **thin `/app/planner`** → Operator Shell → Brand/Shoots → Wizard/CRM/Booking.
+**Dependency:** Supabase harden → Auth/org → Mastra PostgresStore gold → CopilotKit → **thin `/planner`** → Operator Shell → Brand/Shoots → Wizard/CRM/Booking.
 
 | Phase | Name | In | Out |
 |---|---|---|---|
-| 0 / Core | Persistence + Planner proof | Pin CopilotKit/Mastra bundle; `PostgresStore`; `TEST-PERSIST-UUID`; Org B 403; `/app/planner` compute tools | Operator Shell, Command Center, CRM, booking writes |
+| 0 / Core | Persistence + Planner proof | Pin CopilotKit/Mastra bundle; `PostgresStore`; `TEST-PERSIST-UUID`; Org B 403; `/planner` compute tools | Operator Shell, Command Center, CRM, booking writes |
 | 1 / MVP spine | Shell + Brand + Shoots | Zeely tokens, nav, intel panel, chat **rebuilt** on CopilotKit, Brand, Shoots list/detail | Worker chat dock copy-paste |
 | 2 / MVP complete | Wizard + CRM + booking + media | 3-gate wizard, Brand crawl, CRM six screens, matching + booking routes, Cloudinary signed upload | `/app/plans` mutations, talent two-sided |
 | 3 / Post-MVP | Plans workspace + analytics + talent | `/app/plans`, analytics honesty, availability, role dashboards | Worker AI host unless gold exists |
@@ -352,7 +352,7 @@ Do not claim production-ready without a labeled verification level (unit / build
 | Auth / tenancy | `IPI-TBD · AUTH-002 — Session/org, RLS/RPC, cross-tenant 403` |
 | Planner agent | `IPI-TBD · AGENT-003 — Production Planner compute tools + JWT reads` |
 | Operator UI | `IPI-TBD · UI-004 — Shell + CopilotKit dock rebuild + ApprovalCard` |
-| Planner page | `IPI-TBD · PLAN-005 — Thin /app/planner Core page; /app/plans later` |
+| Planner page | `IPI-TBD · PLAN-005 — Thin /planner Core page; /app/plans later` |
 | MVP flows | `IPI-TBD · FLOW-006 — 3-gate shoot, brand crawl, Cloudinary, booking routes` |
 
 Replace `IPI-TBD` with the live Linear identifier when the issue exists. No bare `CORE-001` in roadmaps.

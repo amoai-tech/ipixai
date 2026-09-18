@@ -12,7 +12,7 @@ Use this folder as a router to current truth, not as a second task tracker.
 | AI runtime | [copilotkit-mastra/index.md](./copilotkit-mastra/index.md) · [mastra/10-mastra-convert.md](./mastra/10-mastra-convert.md) |
 | Data / Supabase | [data/index.md](./data/index.md) |
 | Media / Cloudinary | [cloudinary/index.md](./cloudinary/index.md) |
-| Full docs audit | [DOCS-INDEX.md](./DOCS-INDEX.md) |
+| Full docs audit | [docs-index.md](./docs-index.md) |
 
 ## Source-of-truth rule
 

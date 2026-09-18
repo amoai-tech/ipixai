@@ -7,7 +7,7 @@ Supabase/Postgres owns durable iPix application truth. RLS and server-derived or
 | Product boundary | [Product requirements](../prd.md) |
 | Forward-only migration contract | [IPI-1040 runbook](../supabase/ipi-1040-forward-migrations.md) |
 | Schema reconciliation / recovery | [IPI-1161 runbook](../supabase/ipi-1161-reconciliation-deployment.md) |
-| Documentation audit | [Docs inventory](../DOCS-INDEX.md) |
+| Documentation audit | [Docs inventory](../docs-index.md) |
 | Live task status | [Linear v2-ipix](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues) |
 
 ## Rules
@@ -19,4 +19,4 @@ Supabase/Postgres owns durable iPix application truth. RLS and server-derived or
 - `mastra.*` owns AI memory/runtime state; domain tables own product truth.
 - Documentation work must not mutate production data.
 
-Historical Supabase audits remain in Git and are indexed in [DOCS-INDEX.md](../DOCS-INDEX.md), but they are not current architecture authority.
+Historical Supabase audits remain in Git and are indexed in [docs-index.md](../docs-index.md), but they are not current architecture authority.

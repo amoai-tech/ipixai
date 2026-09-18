@@ -11,7 +11,7 @@ The current application has `cloudinary` and `next-cloudinary` installed and has
 | Media requirements | [prd.md](./prd.md) |
 | Official repositories/examples | [official-repos.md](./official-repos.md) |
 | Master product requirements | [../prd.md](../prd.md) |
-| Documentation audit | [../DOCS-INDEX.md](../DOCS-INDEX.md) |
+| Documentation audit | [../docs-index.md](../docs-index.md) |
 | Live task status | [Linear v2-ipix](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues) |
 
 ## Rules

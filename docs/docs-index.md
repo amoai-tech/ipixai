@@ -32,7 +32,7 @@ Average readiness score: 78/100.
 | File | Title / role | Decision | Score | Last commit | Broken links | Why |
 |---|---|:---:|---:|---|---:|---|
 | docs/.mintignore | Mintlify publication boundary | KEEP | 98/100 | 2026-09-17 | 0 | Keeps historical/stale docs in Git while excluding them from the published docs site |
-| docs/DOCS-INDEX.md | iPix documentation inventory | KEEP | 98/100 | 2026-09-17 | 0 | P0 governance index for documentation assets |
+| docs/docs-index.md | iPix documentation inventory | KEEP | 98/100 | 2026-09-17 | 0 | P0 governance index for documentation assets |
 | docs/MIGRATE/01-MIGRATE.md | Full task order + Lumina reuse map | ARCHIVE | 62/100 | 2026-09-03 | 0 | Migration-era plan/task copy |
 | docs/MIGRATE/02-adapt.md | 1. Biggest missing reuse: Intelligence Panel | ARCHIVE | 62/100 | 2026-09-03 | 0 | Migration-era plan/task copy |
 | docs/MIGRATE/03-linear-tasks-adapt.md | New task I recommend | ARCHIVE | 62/100 | 2026-09-03 | 0 | Migration-era plan/task copy |

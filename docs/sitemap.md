@@ -1,6 +1,6 @@
 ---
 title: "Product sitemap"
-description: "iPix V2 routes and phases. Core is /app/planner only; booking is not the shoot wizard."
+description: "iPix V2 routes and phases. Core is /planner only; booking is not the shoot wizard."
 ---
 
 # iPix V2 — Product sitemap
@@ -14,10 +14,10 @@ description: "iPix V2 routes and phases. Core is /app/planner only; booking is n
 |---|---|
 | **This file** | Routes, phases, nav, booking vs shoot |
 | [Live execution board](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues) | Task status, blockers, and current execution |
-| [Documentation inventory](./DOCS-INDEX.md) | Current Keep / Update / Archive / Remove map; legacy route audits are historical evidence |
+| [Documentation inventory](./docs-index.md) | Current Keep / Update / Archive / Remove map; legacy route audits are historical evidence |
 | `Universal-design-prompt-4/Pages/*.dc.html` | Visual SCR mockups (not “built in this repo”) |
 
-**This repo today `[VERIFIED]`:** real Next.js routes exist for marketing/auth/onboarding, `/app`, `/app/brands`, `/app/shoots`, `/app/plans`, and `/app/planner`, plus API routes. HTML prototypes remain design reference; route files and verified runtime behavior determine what is shipped.
+**This repo today `[VERIFIED]`:** real Next.js routes exist for marketing/auth/onboarding, `/app`, `/app/brands`, `/app/shoots`, `/app/plans`, and `/planner`, plus API routes. HTML prototypes remain design reference; route files and verified runtime behavior determine what is shipped.
 
 ---
 
@@ -27,7 +27,7 @@ Two different “Planner” names:
 
 | Name | What it is | Phase |
 |---|---|---|
-| **AI Production Planner** | CopilotKit + Mastra `production-planner` on `/app/planner` | **Core** (only authenticated product page) |
+| **AI Production Planner** | CopilotKit + Mastra `production-planner` on `/planner` | **Core** (only authenticated product page) |
 | **Production workspace** | Timeline / Kanban / Calendar around `planner.*` | **Post-MVP** as `/app/plans` (legacy `/app/planner` hub) |
 
 **Core does not include** Operator Shell, Command Center, CRM, or booking writes.
@@ -41,7 +41,7 @@ The previous root `SITEMAP.md` (2026-07-06) was wrong as a product map. These ru
 | Topic | Old (incorrect) | V2 (this file) |
 |---|---|---|
 | What “built” means | 31 HTML screens 🟢 | React routes and verified behavior in **this** repo; legacy/design files are reference only |
-| Core surface | Implied full operator app | **`/app/planner` only** |
+| Core surface | Implied full operator app | **`/planner` only** |
 | Brand | `/app/brands` | `/app/brands` |
 | Shoot create | `/app/shoots/new` | `/app/shoots/new` |
 | Onboarding | `/onboarding` and `/onboarding` mixed | `/onboarding` |
@@ -64,6 +64,7 @@ The previous root `SITEMAP.md` (2026-07-06) was wrong as a product map. These ru
 PUBLIC
 /
 ├── login                      # Core: minimal auth
+├── planner                    # CORE — AI Production Planner (authenticated)
 ├── signup
 └── (optional) pricing         # not in MVP nav
 
@@ -72,7 +73,6 @@ PUBLIC
 
 APP
 /app                           # MVP Command Center — skip in Core
-├── planner                    # CORE — AI Production Planner (only Core page)
 ├── brand
 │   └── [id]
 ├── shoots
@@ -121,7 +121,7 @@ flowchart TD
   end
 
   subgraph core [CORE — no Operator Shell]
-    AIPlanner["/app/planner"]
+    AIPlanner["/planner"]
     Login --> AIPlanner
   end
 
@@ -184,7 +184,7 @@ Status = V2 intent, not HTML completeness.
 | Phase | Route | Job | Design SCR (HTML) |
 |---|---|---|---|
 | Core | `/login` | Auth | — |
-| Core | `/app/planner` | AI Production Planner | SCR-32–35 (workspace visuals; Core UI is thin) |
+| Core | `/planner` | AI Production Planner | SCR-32–35 (workspace visuals; Core UI is thin) |
 | MVP | `/signup` | Signup | — |
 | MVP | `/onboarding` | Brand DNA funnel | SCR-11 |
 | MVP | `/app` | Command Center | SCR-01 |
@@ -212,7 +212,7 @@ Status = V2 intent, not HTML completeness.
 
 ## 5. Navigation
 
-**Core:** no rail. Authenticated user lands on `/app/planner`.
+**Core:** no rail. Authenticated user lands on `/planner`.
 
 **MVP desktop rail:** Home · Brands · Shoots · Matching · Assets · Campaigns · Inbox · CRM · Planner. CRM expands to Companies / Contacts / Pipeline. Settings in user menu.
 
@@ -230,7 +230,7 @@ Status = V2 intent, not HTML completeness.
 - **Shoot:** `/app/shoots` → `/app/shoots/new` → `/app/shoots/[id]` → `/app/assets`
 - **Booking:** `/app/matching` → `/app/matching/talent/[id]` → `.../book` → `/app/bookings/[id]` → crew on shoot detail
 - **CRM:** `/app/crm/companies/[id]` (`brand_id` → brand detail) · pipeline won → ApprovalCard → brand
-- **Core proof:** `/login` → `/app/planner` → persist + restart + Org B 403 (PRD AC-01, AC-02)
+- **Core proof:** `/login` → `/planner` → persist + restart + Org B 403 (PRD AC-01, AC-02)
 
 ---
 
