@@ -11,10 +11,10 @@ This repo does **not** have old iPix `docs/process/` or `AGENTS.md` yet. Use:
 
 | Doc | Use for |
 |-----|---------|
-| `docs/mastra/10-mastra-convert.md` | What to port from old Mastra |
-| `docs/mastra/mastra-plan.md` | Core → MVP → Post-MVP |
-| `docs/mastra/supabase-mastra.md` | `mastra` schema |
-| `docs/cursor/linux-audit.md` | Host OOM / DEV-STAB-001 |
+| `docs/copilotkit-mastra/README.md` | Current CopilotKit + Mastra runtime contract |
+| `docs/roadmap.md` | Now → Next → Later product direction |
+| `docs/mastra/db-001-matrix.md` | `mastra` Postgres schema contract |
+| `docs/archive/cursor/linux-audit.md` | Historical host OOM / DEV-STAB-001 evidence |
 
 ## What goes where
 

@@ -108,7 +108,7 @@ Rules:
 - **Dev:** `npm run dev:agent` (`:4111`) and `npm run dev:ui` (`:3000`) separately — never combined `npm run dev`.
 - **MCP:** pass `projectPath` only to tools whose schema requires it and use this repo root. Do not pass it to `mastraDocs`.
 
-`docs/mastra/10-mastra-convert.md` is historical migration research, not current architecture SSOT.
+`docs/archive/mastra/10-mastra-convert.md` is historical migration research. Current AI runtime authority starts at `docs/copilotkit-mastra/README.md`.
 
 ## Lumina → iPix adaptation rule
 
