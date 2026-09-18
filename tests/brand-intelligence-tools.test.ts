@@ -31,10 +31,10 @@ vi.mock("@/lib/supabase/env", () => ({
   }),
 }));
 
-vi.mock("@/mastra", () => ({
-  mastra: {
+vi.mock("@/mastra/runtime", () => ({
+  getMastra: () => ({
     getWorkflow: mocks.getWorkflow,
-  },
+  }),
 }));
 
 import { approveDraft, startBrandAnalysis } from "@/mastra/tools/brand-intelligence";

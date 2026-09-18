@@ -89,9 +89,9 @@ export const startBrandAnalysis = createTool({
   inputSchema: StartBrandAnalysisInputSchema,
   outputSchema: StartBrandAnalysisOutputSchema,
   // Explicit return type breaks a circular type-inference chain: this file's
-  // tool types feed agents/index.ts -> mastra/index.ts, and the dynamic
-  // `import("@/mastra")` below type-depends on mastra/index.ts in turn.
-  // Without an annotation here, tsc reports every symbol in the cycle as
+  // tool types feed agents/index.ts -> mastra/runtime.ts, and the dynamic
+  // `import("@/mastra/runtime")` below type-depends on mastra/runtime.ts in
+  // turn. Without an annotation here, tsc reports every symbol in the cycle as
   // implicit `any` (TS7022).
   execute: async (
     inputData,
@@ -99,8 +99,8 @@ export const startBrandAnalysis = createTool({
     const accessToken = requireAccessToken();
     const operatorId = await resolveOperatorId(accessToken);
 
-    const { mastra } = await import("@/mastra");
-    const workflow = mastra.getWorkflow("brand-intelligence");
+    const { getMastra } = await import("@/mastra/runtime");
+    const workflow = getMastra().getWorkflow("brand-intelligence");
     const run = await workflow.createRun();
     const { runId } = await run.startAsync({
       inputData: { brandId: inputData.brandId, actorId: operatorId },
@@ -134,7 +134,7 @@ export const approveDraft = createTool({
   inputSchema: ApproveDraftInputSchema,
   outputSchema: ApproveDraftOutputSchema,
   // See startBrandAnalysis above — explicit return type breaks the same
-  // circular-inference chain through the dynamic `import("@/mastra")` below.
+  // circular-inference chain through the dynamic `import("@/mastra/runtime")`.
   execute: async (
     inputData,
   ): Promise<{ ok: boolean; approved: boolean; message: string }> => {
@@ -255,8 +255,8 @@ export const approveDraft = createTool({
         `(${detail}).`,
     });
 
-    const { mastra } = await import("@/mastra");
-    const workflow = mastra.getWorkflow("brand-intelligence");
+    const { getMastra } = await import("@/mastra/runtime");
+    const workflow = getMastra().getWorkflow("brand-intelligence");
 
     let runState: Awaited<ReturnType<typeof workflow.getWorkflowRunById>>;
     try {
