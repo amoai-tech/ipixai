@@ -1,49 +1,53 @@
 ---
 title: "iPix Documentation"
-description: "The source of truth for rebuilding iPix with CopilotKit, Mastra, Supabase, and Cloudflare."
+description: "Current product, architecture, data, media, and engineering sources of truth for iPix."
 icon: "camera"
 ---
 
-# Build iPix from the verified foundation
+# iPix documentation
 
-iPix is an AI-powered production platform for planning shoots, managing brands, coordinating talent, and delivering media.
-
-This documentation explains what to keep from the proven product, what to rebuild, and how to ship the new system safely.
-
-## Start here
+Start with the current product truth. Historical migration plans and audits are evidence, not implementation authority.
 
 <CardGroup cols={2}>
-  <Card title="Product requirements" icon="clipboard-list" href="/docs/prd">
-    V2 PRD: HITL writes, Core planner-only, CopilotKit + Mastra on Node.
+  <Card title="Product requirements" icon="clipboard-list" href="/prd">
+    Canonical V2 product requirements, ownership boundaries, HITL writes, and phase scope.
   </Card>
-  <Card title="Product sitemap" icon="map" href="/docs/sitemap">
-    Routes and phases. Booking is not the shoot wizard. Core is /app/planner.
+  <Card title="Product sitemap" icon="map" href="/sitemap">
+    Canonical routes and Core / MVP / post-MVP placement.
   </Card>
-  <Card title="Master rebuild plan" icon="route" href="/docs/README">
-    Read the architecture decision, migration gates, and implementation sequence.
+  <Card title="Roadmap" icon="route" href="/roadmap">
+    Outcome order: what belongs Now, Next, and Later. Linear owns live task status.
   </Card>
-  <Card title="Execution backlog" icon="list-check" href="/docs/todo">
-    Check-off order for v2-ipix. Live Linear is status SSOT.
+  <Card title="Architecture decisions" icon="gavel" href="/adr/001-node-first">
+    Accepted decisions for hosting, tenancy, memory, and runtime compatibility.
   </Card>
-  <Card title="Task roadmap" icon="list-check" href="/docs/12-task-roadmap">
-    Follow the ordered work needed to build and verify the new iPix foundation.
+  <Card title="AI runtime" icon="brain" href="/copilotkit-mastra/index">
+    CopilotKit + AG-UI + Mastra runtime guidance and current integration references.
   </Card>
-  <Card title="Mastra conversion" icon="brain" href="/docs/mastra/10-mastra-convert">
-    See what agent and workflow logic moves into the new Mastra runtime.
+  <Card title="Data architecture" icon="database" href="/data/index">
+    Supabase schemas, tenancy, RLS, migrations, and data ownership.
   </Card>
-  <Card title="Data architecture" icon="database" href="/docs/data/README">
-    Review the verified Supabase schemas, security boundaries, and storage model.
+  <Card title="Media architecture" icon="image" href="/cloudinary/index">
+    Cloudinary upload, webhook, delivery, and Supabase media-truth boundaries.
+  </Card>
+  <Card title="Docs inventory" icon="list-check" href="/docs-index">
+    Per-file Keep / Update / Archive / Remove decisions before any deletion.
   </Card>
 </CardGroup>
 
-## Core architecture
+## Authority order
 
-The rebuild uses a clean Next.js foundation with CopilotKit and Mastra, while keeping proven iPix product logic and Supabase data contracts.
+1. Live runtime, current repository, and installed types.
+2. prd.md + sitemap.md.
+3. Accepted ADRs.
+4. Living domain architecture docs.
+5. Linear for status and blockers.
+6. Historical audits and migration plans for evidence only.
 
 <Note>
-The current production application stays independent until persistence, authorization, and tenant-isolation tests pass in preview.
+The repository is no longer a pre-implementation rebuild. The current app has real Next.js routes, CopilotKit runtime wiring, Mastra agents/tools/workflows, Supabase integration, and Cloudinary dependencies. Rebuild-era documents must not override current code.
 </Note>
 
 ## Repository
 
-The canonical source is [amoai-tech/ipixai](https://github.com/amoai-tech/ipixai) on the `main` branch.
+[amoai-tech/ipixai](https://github.com/amoai-tech/ipixai)
