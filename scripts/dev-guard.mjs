@@ -99,8 +99,9 @@ function describeListener(port) {
  *
  *   LISTEN 0 511 *:4111 *:*        +  "Studio: http://localhost:4111"
  *
- * IPI-1231's split entry (`src/mastra/index.ts` only re-exports `getMastra()`)
- * leaves the CLI no `new Mastra({ server })` literal to read, so the documented
+ * IPI-1231's split entry (`src/mastra/index.ts` exports the instance returned by
+ * `getMastra()` rather than an inline `new Mastra({ server })` configuration)
+ * leaves the CLI no `server` literal to read, so the documented
  * `server: { host }` config cannot be used here. The installed deployer resolves
  * the bind as `serverOptions?.host ?? process.env.MASTRA_HOST ?? "localhost"`
  * (@mastra/deployer 1.63.2, dist/server/index.js), so MASTRA_HOST is honoured.
@@ -148,12 +149,30 @@ export async function runDevGuard(argv = process.argv.slice(2)) {
   }
 
   return await new Promise((resolve) => {
+    // `error` and `exit` can BOTH fire for the same child (a spawn failure emits
+    // `error`, and `exit` may follow), so they share one settle guard.
+    let settled = false;
+    const settle = (code) => {
+      if (settled) return;
+      settled = true;
+      resolve(code);
+    };
+
+    // A failure to spawn (ENOENT for a missing executable, EACCES for a
+    // non-executable one) is emitted as an `error` event on the child. With no
+    // listener Node rethrows it as an unhandled 'error' event and the guard dies
+    // with a raw stack trace instead of reporting the failure normally.
+    child.on("error", (error) => {
+      console.error(`dev-guard: failed to start ${command[0]}: ${error.message}`);
+      settle(1);
+    });
+
     child.on("exit", (code, signal) => {
       if (signal) {
-        resolve(1);
+        settle(1);
         return;
       }
-      resolve(code ?? 1);
+      settle(code ?? 1);
     });
   });
 }
