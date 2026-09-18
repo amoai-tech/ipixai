@@ -103,11 +103,17 @@ describe("IPI-1229 bundle boundaries", () => {
     for (const path of [
       "src/lib/auth/app-shell.ts",
       "src/lib/auth/redirect-if-authenticated.ts",
-      "src/app/planner/page.tsx",
     ]) {
       expect(source(path)).not.toContain("copilot-hooks");
       expect(source(path)).toMatch(/operator-auth/);
     }
+
+    // IPI-1225 · PLANNER-ROUTE-RETIRE-001 — /planner is now a bare redirect
+    // to /app with zero auth logic of its own (auth/tenant gating is /app's
+    // own layout's job via app-shell.ts, already covered above), so it has
+    // no operator-auth import to assert — only the CopilotKit-independence
+    // invariant still applies to it.
+    expect(source("src/app/planner/page.tsx")).not.toContain("copilot-hooks");
   });
 
   it("keeps runtime storage and production dependencies free of LibSQL", () => {

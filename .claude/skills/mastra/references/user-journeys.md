@@ -64,12 +64,15 @@ For each task fill this table before implementation and again before Done:
 
 **Current status:** executable now.
 
-Current path:
+Current path (IPI-1225 · PLANNER-ROUTE-RETIRE-001 retired `/planner` to a
+compatibility redirect — `/app` is the single production Planner surface and
+has no "New thread" control, so it restores the resource's persisted thread
+rather than guaranteeing a fresh one):
 
 ```text
 Operator logs in
-→ /planner
-→ new isolated thread
+→ /app
+→ resolved thread (fresh or restored — /app has no "New" control)
 → prompt asks for a budget / planning action
 → CopilotKit sends request to /api/copilotkit
 → server derives authenticated resourceId
@@ -84,8 +87,8 @@ Operator logs in
 
 Required proof:
 
-- [ ] signed-in operator reaches `/planner`;
-- [ ] new thread is unique to the run;
+- [ ] signed-in operator reaches `/app`;
+- [ ] the resolved thread id is unique to this resource, whether fresh or restored;
 - [ ] authenticated product route uses server-derived resource ID;
 - [ ] canonical `production-planner` is active; no weather/demo agent;
 - [ ] expected tool is available and schema-valid;

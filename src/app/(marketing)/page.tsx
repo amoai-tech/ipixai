@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { canonicalUrl } from "@/lib/site";
 import { MarketingHomePage } from "@/components/marketing/home-page";
 
-// Public marketing homepage at the root. The Planner now lives at /planner
-// (authenticated operator route); /app remains the Command Center. Marketing
-// chrome is scoped to this route group and never wraps operator routes.
+// Public marketing homepage at the root. The Production Planner lives at
+// /app (the single production Planner surface — IPI-1225 retired /planner
+// to a compatibility redirect). Marketing chrome is scoped to this route
+// group and never wraps operator routes.
 export const metadata: Metadata = {
   title: { absolute: "iPix — AI-Powered Content Studio for Fashion Brands" },
   description:
