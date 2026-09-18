@@ -13,6 +13,7 @@ import styles from "./operator-panel.module.css";
 import { useWorkspaceStats, WorkspaceStatsProvider } from "./workspace-stats";
 import type { WorkspaceStats } from "./workspace-stats";
 import { RestoreMastraHistory } from "@/components/restore-mastra-history";
+import { ShootPlanReviewHitl } from "@/components/shoot/shoot-plan-review-hitl";
 import {
   plannerThreadStorageKey,
   resolvePlannerThreadId,
@@ -370,6 +371,10 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
       enableInspector={false}
       publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_PUBLIC_LICENSE_KEY}
     >
+      {/* IPI-1084 · APPROVAL-001 — HITL plan review. Renders inside this
+          existing provider (no second runtime) and only produces the review
+          card when the agent requests a plan review. */}
+      <ShootPlanReviewHitl />
       <div className={styles.shell} data-testid="operator-panel">
       <div className={styles.menuBar}>
         <Button

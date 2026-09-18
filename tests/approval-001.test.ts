@@ -3,9 +3,21 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 const MIGRATION_PATH = "../supabase/migrations/20260918000000_ipi1084_shoot_plan_approval.sql";
+const SERVICE_READ_MIGRATION_PATH =
+  "../supabase/migrations/20260918000001_ipi1084_plan_approval_service_read.sql";
+const DECIDE_ACL_MIGRATION_PATH =
+  "../supabase/migrations/20260918000002_ipi1084_decide_revoke_service_role.sql";
 
 async function migration(): Promise<string> {
   return readFile(new URL(MIGRATION_PATH, import.meta.url), "utf8");
+}
+
+async function serviceReadMigration(): Promise<string> {
+  return readFile(new URL(SERVICE_READ_MIGRATION_PATH, import.meta.url), "utf8");
+}
+
+async function decideAclMigration(): Promise<string> {
+  return readFile(new URL(DECIDE_ACL_MIGRATION_PATH, import.meta.url), "utf8");
 }
 
 describe("IPI-1084 · APPROVAL-001 — exact-revision approval record", () => {
@@ -159,5 +171,66 @@ describe("IPI-1084 · APPROVAL-001 — exact-revision approval record", () => {
       decideBody.indexOf("SUPERSEDED_REVISION"),
     );
     expect(sql).toContain("create extension if not exists pgcrypto with schema extensions");
+  });
+
+  it("grants the workflow a bounded service-side proof read without widening the decision", async () => {
+    const sql = await serviceReadMigration();
+    // The org-scoped read fails closed with UNAUTHENTICATED for a session-less
+    // service-role caller, so granting it EXECUTE was ineffective and is undone.
+    expect(sql).toContain("revoke all on function public.get_shoot_plan_approval(uuid) from service_role;");
+    expect(sql).not.toContain(
+      "grant execute on function public.get_shoot_plan_approval(uuid) to service_role;",
+    );
+
+    // A dedicated, bounded proof read is what the workflow actually calls.
+    expect(sql).toContain("create or replace function public.get_shoot_plan_approval_proof(");
+    expect(sql).toContain(
+      "revoke all on function public.get_shoot_plan_approval_proof(uuid) from authenticated;",
+    );
+    expect(sql).toContain(
+      "grant execute on function public.get_shoot_plan_approval_proof(uuid) to service_role;",
+    );
+
+    const proofBody = sql.slice(
+      sql.indexOf("create or replace function public.get_shoot_plan_approval_proof("),
+      sql.indexOf("comment on function public.get_shoot_plan_approval_proof"),
+    );
+    // It must not gate on a session it does not have.
+    expect(proofBody).not.toContain("auth.uid()");
+    expect(proofBody).not.toContain("UNAUTHENTICATED");
+    // It returns the proof fields and never the plan body or a user id.
+    for (const field of [
+      "'approvalId', v_row.id",
+      "'brandId', v_row.brand_id",
+      "'workflowRunId', v_row.workflow_run_id",
+      "'revision', v_row.revision",
+      "'planHash', v_row.plan_hash",
+      "'status', v_row.status",
+      "'decision', v_row.status",
+      "'hashMatches'",
+      "'isCurrent'",
+    ]) {
+      expect(proofBody).toContain(field);
+    }
+    expect(proofBody).not.toContain("'plan', v_row.plan");
+    expect(proofBody).not.toContain("decided_by");
+    expect(proofBody).not.toContain("decision_note");
+
+    // SECURITY DEFINER + a pinned empty search_path are load-bearing.
+    expect(proofBody).toContain("security definer");
+    expect(proofBody).toContain("set search_path = ''");
+
+    // The read migration must not touch the decision function's ACL.
+    expect(sql).not.toContain("decide_shoot_plan_revision");
+  });
+
+  it("revokes the human decision from service_role so no service caller can approve", async () => {
+    const sql = await decideAclMigration();
+    expect(sql).toContain(
+      "revoke all on function public.decide_shoot_plan_revision(uuid, integer, text, text, text, text) from service_role;",
+    );
+    // Forward-only narrowing: it must not re-grant anything.
+    expect(sql).not.toMatch(/grant execute/i);
+    expect(sql).not.toMatch(/insert into|update |delete from/i);
   });
 });
