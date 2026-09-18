@@ -150,8 +150,8 @@ function portfolioWelcomeText(pathname: string, stats: WorkspaceStats | null): s
 
 /**
  * IPI-1217 · COPILOT-APP-DOCK-002 — resolve the same tenant-scoped persisted
- * thread `/planner` already uses (see planner-threads-drawer.tsx) before
- * mounting CopilotChat. Without an explicit threadId here, CopilotChat never
+ * thread `/api/planner/threads` already exposes before mounting CopilotChat.
+ * Without an explicit threadId here, CopilotChat never
  * showed a response: the network run completed but the visible chat stayed
  * empty (proven live, see IPI-1217). This is the same bootstrap contract,
  * without the thread-list UI — `/app` only needs one stable conversation
@@ -189,9 +189,8 @@ function usePlannerThreadBootstrap() {
         };
         // response.json() is itself async — the component can have
         // unmounted (or a retry can have superseded this attempt) while it
-        // was pending. Same guard planner-threads-drawer.tsx already uses
-        // after its own await, so a resolved-too-late response can't still
-        // write localStorage/state for a request nothing is waiting on.
+        // was pending, so a resolved-too-late response can't still write
+        // localStorage/state for a request nothing is waiting on.
         if (controller.signal.aborted) return;
         // Only the resourceId the server actually returns is trusted —
         // never a client-supplied one — so a stored thread from a previous
@@ -256,8 +255,7 @@ function ResolvedChatDock({
   onReady?: (ready: boolean) => void;
 }) {
   const stats = useWorkspaceStats();
-  // Called unconditionally (rules of hooks) — same pattern
-  // planner-threads-drawer.tsx already uses. Once the operator sends the
+  // Called unconditionally (rules of hooks). Once the operator sends the
   // first message, agent.messages.length flips to >0 and the welcome
   // banner below hides itself, matching how CopilotChat's own
   // (now-unreachable) welcome screen used to behave via messages.length.
@@ -288,7 +286,7 @@ function ResolvedChatDock({
   // (TenantAbortRunner extends InMemoryAgentRunner, not a persisting one)
   // doesn't guarantee. RestoreMastraHistory pulls the authoritative
   // Mastra/Postgres messages for this thread and calls agent.setMessages(...)
-  // directly — no second persistence path, reusing /planner's proven one.
+  // directly — no second persistence path.
   // It's mounted here even while !restoreSettled specifically so its own
   // effect actually runs and can call onSettled; only the visible chat
   // surface below is held back until then. Only for an existing thread: a

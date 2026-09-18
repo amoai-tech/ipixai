@@ -259,7 +259,7 @@ WCAG 2.1 AA. Full keyboard. Semantic landmarks + `aria-live` on streams. Breakpo
 
 | Phase | Name | In | Out |
 |---|---|---|---|
-| 0 / Core | Persistence + Planner proof | Pin CopilotKit/Mastra bundle; `PostgresStore`; `TEST-PERSIST-UUID`; Org B 403; `/planner` compute tools | Operator Shell, Command Center, CRM, booking writes |
+| 0 / Core | Persistence + Planner proof | Pin CopilotKit/Mastra bundle; `PostgresStore`; `TEST-PERSIST-UUID`; Org B 403; Planner compute tools through `/app` Production Copilot | Operator Shell, Command Center, CRM, booking writes |
 | 1 / MVP spine | Shell + Brand + Shoots | Zeely tokens, nav, intel panel, chat **rebuilt** on CopilotKit, Brand, Shoots list/detail | Worker chat dock copy-paste |
 | 2 / MVP complete | Wizard + CRM + booking + media | 3-gate wizard, Brand crawl, CRM six screens, matching + booking routes, Cloudinary signed upload | `/app/plans` mutations, talent two-sided |
 | 3 / Post-MVP | Plans workspace + analytics + talent | `/app/plans`, analytics honesty, availability, role dashboards | Worker AI host unless gold exists |
