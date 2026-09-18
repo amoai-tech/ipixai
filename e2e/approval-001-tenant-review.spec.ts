@@ -8,6 +8,7 @@ import {
   EDITED_REVIEW_PLAN,
   LOCAL_E2E_PASSWORD,
   ORG_A_EDITOR,
+  ORG_A_OWNER,
   ORG_A_VIEWER,
   ORG_B_OWNER,
   REVIEW_PLAN,
@@ -78,6 +79,21 @@ async function approvalRow(approvalId: string): Promise<ApprovalRow | null> {
       [approvalId],
     );
     return rows[0] ?? null;
+  });
+}
+
+/**
+ * The actor's real org role. Asserted before any decision so the proof can never
+ * silently rest on the wrong role — in particular the positive actor must be an
+ * `editor`, not the org `owner`, because `is_org_editor_or_above` accepts both.
+ */
+async function orgRole(userId: string, orgId: string): Promise<string | null> {
+  return withDb(async (client) => {
+    const { rows } = await client.query<{ role: string }>(
+      `select role from public.org_members where user_id = $1 and org_id = $2`,
+      [userId, orgId],
+    );
+    return rows[0]?.role ?? null;
   });
 }
 
@@ -231,6 +247,15 @@ test.afterAll(async () => {
 });
 
 test("Org A editor starts a review on the exact revision and approves it", async () => {
+  // Precondition, proven not assumed: the positive actor is a real `editor`.
+  // An owner-based proof would not show that an editor is admitted, since
+  // `is_org_editor_or_above` accepts owner OR editor.
+  expect(ORG_A_EDITOR.role).toBe("editor");
+  expect(await orgRole(ORG_A_EDITOR.userId, ORG_A_EDITOR.orgId)).toBe("editor");
+  // Org A still has a distinct, real owner, so the editor result is not an
+  // artifact of the org having no owner at all.
+  expect(await orgRole(ORG_A_OWNER.userId, ORG_A_OWNER.orgId)).toBe("owner");
+
   const started = await startReview(editor, ORG_A_EDITOR.brandId, REVIEW_PLAN);
   expect(started.status, JSON.stringify(started.body)).toBe(201);
   const { approvalId, revision, planHash, runId } = started.body as {
@@ -281,6 +306,9 @@ test("Org A editor starts a review on the exact revision and approves it", async
 });
 
 test("Org A viewer can read allowed data but cannot decide", async () => {
+  // Precondition, proven not assumed: the denied actor is a real `viewer`.
+  expect(await orgRole(ORG_A_VIEWER.userId, ORG_A_VIEWER.orgId)).toBe("viewer");
+
   const started = await startReview(editor, ORG_A_EDITOR.brandId, REVIEW_PLAN);
   expect(started.status).toBe(201);
   const { approvalId, revision, planHash } = started.body as {

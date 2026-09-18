@@ -16,10 +16,25 @@
 
 export const LOCAL_E2E_PASSWORD = "ipi1084-local-e2e-password";
 
+/**
+ * Org A's owner exists so the organization stays well-formed. It is deliberately
+ * NOT the positive browser actor: `is_org_editor_or_above` accepts owner OR
+ * editor, so the editor — not the owner — must be the actor that proves a
+ * review can be started and decided.
+ */
+export const ORG_A_OWNER = {
+  email: "ipi1084-owner-a@ipix.test",
+  userId: "10840000-0000-4000-8000-000000000004",
+  orgId: "10840000-0000-4000-8000-00000000000a",
+  role: "owner",
+} as const;
+
 export const ORG_A_EDITOR = {
   email: "ipi1084-editor-a@ipix.test",
   userId: "10840000-0000-4000-8000-000000000001",
-  orgId: "10840000-0000-4000-8000-00000000000a",
+  orgId: ORG_A_OWNER.orgId,
+  /** Enforced by the DB fixture and re-asserted by the spec before any decision. */
+  role: "editor",
   brandId: "10840000-0000-4000-8000-0000000000aa",
 } as const;
 
@@ -27,6 +42,7 @@ export const ORG_A_VIEWER = {
   email: "ipi1084-viewer-a@ipix.test",
   userId: "10840000-0000-4000-8000-000000000002",
   orgId: ORG_A_EDITOR.orgId,
+  role: "viewer",
 } as const;
 
 export const ORG_B_OWNER = {

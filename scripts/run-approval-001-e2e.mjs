@@ -111,15 +111,21 @@ if (listener) {
 }
 
 /**
- * Mint the three fixture users through GoTrue's own admin API.
+ * Mint the fixture users through GoTrue's own admin API.
  *
  * Hand-built auth.users/auth.identities rows verify locally but fail in CI with
  * `500 {"code":"unexpected_failure","message":"Database error querying schema"}`
  * because they depend on GoTrue's exact schema expectations. The admin API is
  * the canonical way to create a password user and stays correct across GoTrue
  * versions. Must match e2e/support/approval-001-fixtures.ts.
+ *
+ * Org A deliberately has BOTH an owner and a distinct `editor`: the positive
+ * browser actor must be a real editor, because `is_org_editor_or_above` accepts
+ * owner OR editor and an owner-based proof would not show that an editor can
+ * start and decide a review.
  */
 const FIXTURE_USERS = [
+  { id: "10840000-0000-4000-8000-000000000004", email: "ipi1084-owner-a@ipix.test" },
   { id: "10840000-0000-4000-8000-000000000001", email: "ipi1084-editor-a@ipix.test" },
   { id: "10840000-0000-4000-8000-000000000002", email: "ipi1084-viewer-a@ipix.test" },
   { id: "10840000-0000-4000-8000-000000000003", email: "ipi1084-orgb@ipix.test" },
@@ -180,8 +186,8 @@ await ensureFixtureUsers();
  * T-SQL dialect rules to it (e.g. suggesting `SET NOCOUNT ON`, invalid in
  * Postgres).
  *
- *   Org A  iPix 1084 Org A   editor-a (owner) + viewer-a (viewer) + Brand A
- *   Org B  iPix 1084 Org B   orgb     (owner)                     + Brand B
+ *   Org A  iPix 1084 Org A   owner-a (owner) + editor-a (editor) + viewer-a (viewer) + Brand A
+ *   Org B  iPix 1084 Org B   orgb    (owner)                                        + Brand B
  *
  * Local-only credential for these throwaway accounts (FIXTURE_PASSWORD above).
  * It is not a secret and never reaches a hosted environment.
@@ -193,15 +199,17 @@ begin;
 
 insert into public.organizations (id, name, slug, type, owner_id)
 values
-  ('10840000-0000-4000-8000-00000000000a', 'iPix 1084 Org A', 'ipix-1084-org-a', 'brand', '10840000-0000-4000-8000-000000000001'),
+  ('10840000-0000-4000-8000-00000000000a', 'iPix 1084 Org A', 'ipix-1084-org-a', 'brand', '10840000-0000-4000-8000-000000000004'),
   ('10840000-0000-4000-8000-00000000000b', 'iPix 1084 Org B', 'ipix-1084-org-b', 'brand', '10840000-0000-4000-8000-000000000003')
 on conflict (id) do update
   set name = excluded.name, owner_id = excluded.owner_id, updated_at = now();
 
--- Explicit and idempotent, including the viewer row the hosted fixtures cannot provide.
+-- Explicit and idempotent. Org A keeps a real owner (org integrity) alongside a
+-- distinct editor — the editor, not the owner, is the positive browser actor.
 insert into public.org_members (org_id, user_id, role)
 values
-  ('10840000-0000-4000-8000-00000000000a', '10840000-0000-4000-8000-000000000001', 'owner'),
+  ('10840000-0000-4000-8000-00000000000a', '10840000-0000-4000-8000-000000000004', 'owner'),
+  ('10840000-0000-4000-8000-00000000000a', '10840000-0000-4000-8000-000000000001', 'editor'),
   ('10840000-0000-4000-8000-00000000000a', '10840000-0000-4000-8000-000000000002', 'viewer'),
   ('10840000-0000-4000-8000-00000000000b', '10840000-0000-4000-8000-000000000003', 'owner')
 on conflict (org_id, user_id) do update set role = excluded.role;
