@@ -53,6 +53,24 @@ function testIdFor(decision: Decision): string {
   return `review-${decision.replace(/_/g, "-")}`;
 }
 
+/**
+ * Explicit lookup rather than an index into a record: `decision` is already the
+ * constrained `Decision` union, and the exhaustive switch keeps the label set
+ * total if the union ever grows.
+ */
+function decisionLabel(decision: Decision): string {
+  switch (decision) {
+    case "approved":
+      return DECISION_LABELS.approved;
+    case "rejected":
+      return DECISION_LABELS.rejected;
+    case "changes_requested":
+      return DECISION_LABELS.changes_requested;
+    case "cancelled":
+      return DECISION_LABELS.cancelled;
+  }
+}
+
 function errorText(body: unknown): string {
   if (typeof body !== "object" || body === null) return "";
   const record = body as { reason?: unknown; error?: unknown };
@@ -312,7 +330,7 @@ export function ShootPlanReview({
                 disabled={busy !== null}
                 className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium text-gray-900 disabled:opacity-50"
               >
-                {busy === decision ? "Recording…" : DECISION_LABELS[decision]}
+                {busy === decision ? "Recording…" : decisionLabel(decision)}
               </button>
             ),
           )}

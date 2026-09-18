@@ -378,6 +378,15 @@ describe("ShootPlanReview — multiple references", () => {
 });
 
 describe("ShootPlanReview — decisions", () => {
+  it("labels every decision button from the exhaustive lookup", () => {
+    renderReview();
+
+    expect(screen.getByTestId("review-approved").textContent).toBe("Approve plan");
+    expect(screen.getByTestId("review-rejected").textContent).toBe("Reject plan");
+    expect(screen.getByTestId("review-changes-requested").textContent).toBe("Request changes");
+    expect(screen.getByTestId("review-cancelled").textContent).toBe("Cancel review");
+  });
+
   it.each([
     ["approved", "review-approved"],
     ["rejected", "review-rejected"],
