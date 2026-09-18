@@ -67,7 +67,7 @@ Next.js App Router (Node / Vercel)
 
 - **Chat/UI runtime:** CopilotKit (`@copilotkit/*`) — not a custom Worker Copilot SSE shim.
 - **Dev:** `npm run dev:ui` (port 3000) and `npm run dev:agent` (port 4111) in **separate** terminals. Combined `npm run dev` is blocked (**DEV-STAB-001**).
-- **Media:** Cloudinary is the media layer. The `cloudinary` and `next-cloudinary` packages are installed, and signed-upload/webhook API routes exist under `src/app/api/cloudinary/`. Remaining media task status belongs to Linear. Do not invent a second CDN pipeline.
+- **Media:** Cloudinary is the media layer. The `cloudinary` Node SDK plus a server-only config module (`src/lib/cloudinary/`) drive signed uploads and webhooks, with the signing/webhook API routes under `src/app/api/cloudinary/`. `next-cloudinary` is **not** installed — the React SDK is deliberately not used; the client never holds the API secret. Remaining media task status belongs to Linear. Do not invent a second CDN pipeline.
 - **Models:** OpenAI SDK in the starter today; production routing via Cloudflare AI Gateway (Gemini failover) `[PROPOSED]`.
 
 ---
