@@ -499,6 +499,15 @@ function ProductionCopilotPanel({
   useEffect(() => {
     if (!drawerOpen) drawerOpenerRef.current?.focus();
   }, [drawerOpen]);
+  // The panel itself is never unmounted on close (see the no-remount
+  // contract above), so drawerOpen would otherwise survive a close/reopen
+  // cycle unchanged — open the drawer, close the panel, reopen it, and the
+  // drawer would reappear immediately over the conversation with no new
+  // click from the user. The drawer is conceptually scoped to one open
+  // session of the panel, not persistent across it closing.
+  useEffect(() => {
+    if (!open) setDrawerOpen(false);
+  }, [open]);
   const [composerElement, setComposerElement] = useState<HTMLDivElement | null>(null);
   const [composerHeight, setComposerHeight] = useState(0);
   const [chatReady, setChatReady] = useState(false);
@@ -584,22 +593,26 @@ function ProductionCopilotPanel({
         </div>
       </div>
 
-      <div className={styles.pinnedBar} data-testid="intelligence-rail">
-        {insights.map((insight) => (
-          <button
-            key={insight.id}
-            type="button"
-            className={styles.insightButton}
-            data-testid={insight.testId}
-            disabled={!insight.question || !chatReady || agent.isRunning}
-            onClick={() => {
-              if (insight.question) ask(insight.question);
-            }}
-          >
-            {insight.text}
-          </button>
-        ))}
-        {insights.length > 0 && (
+      {/* Conditionally rendered — an unconditional empty pinnedBar (padding,
+          background, border-bottom) would show as a visible blank strip on
+          every route besides /app-with-loaded-stats, since insights is []
+          everywhere else. */}
+      {insights.length > 0 && (
+        <div className={styles.pinnedBar} data-testid="intelligence-rail">
+          {insights.map((insight) => (
+            <button
+              key={insight.id}
+              type="button"
+              className={styles.insightButton}
+              data-testid={insight.testId}
+              disabled={!insight.question || !chatReady || agent.isRunning}
+              onClick={() => {
+                if (insight.question) ask(insight.question);
+              }}
+            >
+              {insight.text}
+            </button>
+          ))}
           <button
             type="button"
             className={styles.viewAllIntelligence}
@@ -610,8 +623,8 @@ function ProductionCopilotPanel({
           >
             View all intelligence →
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <div
         className={styles.panelBody}

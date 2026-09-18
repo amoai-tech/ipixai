@@ -209,6 +209,13 @@ beforeEach(() => {
   });
   restoreAutoSettle.current = true;
   capturedOnSettled.current = null;
+  // mockViewportWidth overrides window.matchMedia via Object.defineProperty,
+  // not vi.stubGlobal — vi.unstubAllGlobals() in afterEach below doesn't
+  // touch it, so a mobile/tablet-simulating test would otherwise leak that
+  // override into whichever test runs next. Reset to a safe "always
+  // desktop, never matches" default before every test; a test that needs
+  // a narrower viewport calls mockViewportWidth(px) itself.
+  mockViewportWidth(Number.POSITIVE_INFINITY);
 });
 
 afterEach(() => {
@@ -225,7 +232,10 @@ describe("OperatorPanel", () => {
     );
     expect(screen.getByTestId("operator-panel")).toBeDefined();
     expect(screen.getByText("Workspace body")).toBeDefined();
-    expect(screen.getByTestId("intelligence-rail")).toBeDefined();
+    // No real WorkspaceStats reported here — the pinned rail is omitted
+    // entirely rather than rendering an empty styled bar (see the
+    // dedicated "omits the pinned rail entirely..." test below).
+    expect(screen.queryByTestId("intelligence-rail")).toBeNull();
     // Persistent CopilotKit chat dock — center workspace, not the rail.
     expect(screen.getByTestId("operator-chat-dock")).toBeDefined();
     await waitFor(() => expect(screen.getByTestId("copilot-chat-stub")).toBeDefined());
@@ -304,13 +314,15 @@ describe("OperatorPanel", () => {
     expect(document.activeElement).not.toBe(screen.getByRole("button", { name: "✦ Open Copilot" }));
   });
 
-  it("rail shows no insights when no real workspace stats have been reported", () => {
+  it("omits the pinned rail entirely when there are no insights, instead of an empty styled bar", () => {
     render(
       <OperatorPanel>
         <p>Workspace body</p>
       </OperatorPanel>,
     );
-    expect(screen.getByTestId("intelligence-rail")).toBeDefined();
+    // Not just empty — absent. An unconditionally-rendered pinnedBar would
+    // show a blank padded strip on every route without real stats yet.
+    expect(screen.queryByTestId("intelligence-rail")).toBeNull();
     expect(screen.queryByTestId("intelligence-workspace-stats")).toBeNull();
     expect(screen.queryByTestId("intelligence-brand-context")).toBeNull();
   });
@@ -514,6 +526,26 @@ describe("OperatorPanel", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByTestId("intelligence-drawer")).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+
+  it("closes the intelligence drawer when the panel itself closes, so it doesn't reappear on reopen", async () => {
+    // The panel is never unmounted on close, so drawerOpen would otherwise
+    // survive a close/reopen cycle unchanged and reappear over the
+    // conversation with no new click from the user.
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={2} shootCount={1} />
+      </OperatorPanel>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "View all intelligence →" }));
+    expect(screen.getByTestId("intelligence-drawer")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close Copilot" }));
+    await waitFor(() => expect(screen.queryByTestId("intelligence-drawer")).toBeNull());
+
+    fireEvent.click(screen.getByRole("button", { name: "✦ Open Copilot" }));
+    expect(screen.queryByTestId("intelligence-drawer")).toBeNull();
   });
 
   it("toggles mobile navigation open and closed", () => {
