@@ -34,14 +34,11 @@ const nextConfig: NextConfig = {
     cpus: 4,
     memoryBasedWorkersCount: true,
   },
-  // NOTE: the former `env.NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED` block was
-  // removed — it derived a client flag from COPILOTKIT_LICENSE_TOKEN at build
-  // time, but that derived variable had zero consumers in src/ and in every
-  // installed package, and COPILOTKIT_LICENSE_TOKEN is not configured in any
-  // Vercel environment. It therefore evaluated to "false" unconditionally while
-  // forcing an unnecessary build-time read of a secret.
-  // `typescript.ignoreBuildErrors` was also removed so a Vercel build can no
-  // longer ship type errors on its own; CI `npm run typecheck` is the gate.
+  // No `env` block: it previously derived a dead NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED
+  // flag from COPILOTKIT_LICENSE_TOKEN at build time (zero consumers, and the
+  // secret is not set in any Vercel environment), forcing a needless build-time
+  // secret read. No `typescript.ignoreBuildErrors` either — CI `npm run typecheck`
+  // is the gate, so the Vercel build must not silently swallow type errors.
 };
 
 export default nextConfig;
