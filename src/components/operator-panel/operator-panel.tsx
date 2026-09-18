@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties, type Ref } from "react";
 import { CopilotChat, CopilotKit, useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -236,10 +236,12 @@ function ResolvedChatDock({
   pathname,
   threadId,
   isNewThread,
+  composerContainerRef,
 }: {
   pathname: string;
   threadId: string;
   isNewThread: boolean;
+  composerContainerRef?: Ref<HTMLDivElement>;
 }) {
   const stats = useWorkspaceStats();
   // Called unconditionally (rules of hooks) — same pattern
@@ -316,7 +318,7 @@ function ResolvedChatDock({
           labels={{ welcomeMessageText: portfolioWelcomeText(pathname, stats) }}
           messageView={{ className: styles.panelMessageView }}
           scrollView={{ className: styles.panelScrollView }}
-          input={{ className: styles.panelInput }}
+          input={{ className: styles.panelInput, containerRef: composerContainerRef }}
         />
       </div>
     </div>
@@ -326,7 +328,13 @@ function ResolvedChatDock({
 /** Reads WorkspaceStats from inside the provider (OperatorPanel's own body
  *  sits above it in the tree, so it can't call the hook directly) and hands
  *  CopilotChat portfolio-aware welcome copy instead of a static string. */
-function PlannerChatDock({ pathname }: { pathname: string }) {
+function PlannerChatDock({
+  pathname,
+  composerContainerRef,
+}: {
+  pathname: string;
+  composerContainerRef?: Ref<HTMLDivElement>;
+}) {
   const { threadId, isNewThread, threadError, retry } = usePlannerThreadBootstrap();
 
   if (threadError) {
@@ -348,7 +356,15 @@ function PlannerChatDock({ pathname }: { pathname: string }) {
     );
   }
 
-  return <ResolvedChatDock key={threadId} pathname={pathname} threadId={threadId} isNewThread={isNewThread} />;
+  return (
+    <ResolvedChatDock
+      key={threadId}
+      pathname={pathname}
+      threadId={threadId}
+      isNewThread={isNewThread}
+      composerContainerRef={composerContainerRef}
+    />
+  );
 }
 
 /** "View all intelligence" overlay — a plain absolutely-positioned layer
@@ -358,11 +374,12 @@ function PlannerChatDock({ pathname }: { pathname: string }) {
  *  Real per-area sections (Missing Shots, Approval Status, ...) are owned by
  *  IPI-1140 and later per-area tickets — stubbed here, per this ticket's
  *  explicit "Intelligence data is out of this ticket's Done" scope note. */
-function IntelligenceDrawer({ contextLine, insights, onBack, onAsk }: {
+function IntelligenceDrawer({ contextLine, insights, onBack, onAsk, askDisabled }: {
   contextLine: string;
   insights: Insight[];
   onBack: () => void;
   onAsk: (question: string) => void;
+  askDisabled: boolean;
 }) {
   return (
     <div className={styles.intelligenceDrawer} data-testid="intelligence-drawer">
@@ -382,7 +399,7 @@ function IntelligenceDrawer({ contextLine, insights, onBack, onAsk }: {
             type="button"
             className={styles.insightButton}
             data-testid={insight.testId}
-            disabled={!insight.question}
+            disabled={!insight.question || askDisabled}
             onClick={() => insight.question && onAsk(insight.question)}
           >
             {insight.text}
@@ -418,16 +435,42 @@ function ProductionCopilotPanel({
   const stats = useWorkspaceStats();
   const { contextLine, insights } = useIntelligence(pathname, stats);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [composerElement, setComposerElement] = useState<HTMLDivElement | null>(null);
+  const [composerHeight, setComposerHeight] = useState(0);
   const { agent } = useAgent({ agentId: "default" });
   const { copilotkit } = useCopilotKit();
 
+  // The CopilotKit input auto-grows. Measure its real outer container so the
+  // intelligence drawer can stop above the composer at every height instead
+  // of relying on a brittle fixed reserve. Installed 1.68.1 exposes
+  // input.containerRef specifically for this outer positioning container.
+  useEffect(() => {
+    if (!composerElement) {
+      setComposerHeight(0);
+      return;
+    }
+    const updateHeight = () => {
+      setComposerHeight(composerElement.getBoundingClientRect().height);
+    };
+    updateHeight();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(composerElement);
+    return () => observer.disconnect();
+  }, [composerElement]);
+
   // Local UI-state side effect only — not a thread/runtime change. Sends on
   // the same explicit threadId CopilotChat is already mounted against, via
-  // the documented agent-access pattern (agent.addMessage + runAgent).
+  // the documented agent-access pattern (agent.addMessage + runAgent). Guard
+  // while a run is active so a contextual Insight cannot start a competing
+  // agent run or duplicate a user's in-flight request.
   const ask = (question: string) => {
+    if (agent.isRunning) return;
     setDrawerOpen(false);
     agent.addMessage({ id: crypto.randomUUID(), role: "user", content: question });
-    void copilotkit.runAgent({ agent });
+    void copilotkit.runAgent({ agent }).catch((error) => {
+      console.error("ProductionCopilotPanel: insight run failed", error);
+    });
   };
 
   return (
@@ -468,7 +511,7 @@ function ProductionCopilotPanel({
             type="button"
             className={styles.insightButton}
             data-testid={insight.testId}
-            disabled={!insight.question}
+            disabled={!insight.question || agent.isRunning}
             onClick={() => insight.question && ask(insight.question)}
           >
             {insight.text}
@@ -481,7 +524,14 @@ function ProductionCopilotPanel({
         )}
       </div>
 
-      <div className={styles.panelBody}>
+      <div
+        className={styles.panelBody}
+        style={
+          composerHeight > 0
+            ? ({ "--copilot-composer-height": `${composerHeight}px` } as CSSProperties)
+            : undefined
+        }
+      >
         {/* agentId="default" resolves to productionPlannerAgent
             (src/mastra/agents/index.ts, IPI-1048 · PLANNER-001). Welcome
             copy is portfolio-aware (portfolioWelcomeText, above) — display
@@ -491,13 +541,14 @@ function ProductionCopilotPanel({
             unmounted for the drawer — the drawer overlays it instead — so
             the conversation subtree and its thread subscription stay alive
             the whole time the drawer is open. */}
-        <PlannerChatDock pathname={pathname} />
+        <PlannerChatDock pathname={pathname} composerContainerRef={setComposerElement} />
         {drawerOpen && (
           <IntelligenceDrawer
             contextLine={contextLine}
             insights={insights}
             onBack={() => setDrawerOpen(false)}
             onAsk={ask}
+            askDisabled={Boolean(agent.isRunning)}
           />
         )}
       </div>

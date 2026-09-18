@@ -214,9 +214,14 @@
   cursor: pointer;
 }
 
-.insightButton:hover {
+.insightButton:hover:not(:disabled) {
   color: var(--color-text-primary);
   text-decoration: underline;
+}
+
+.insightButton:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 .viewAllIntelligence {
@@ -247,7 +252,9 @@
 
 .panelChatShell {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
+  min-height: 0;
   height: 100%;
 }
 
@@ -278,15 +285,14 @@
   margin: 0 0.75rem 0.75rem;
 }
 
-/* Overlays only the conversation area, never the composer: CopilotChatInput
-   sits in a single-line row well under this reserve in the common case.
-   ponytail: fixed reserve instead of a measured composer height — good
-   enough while the composer stays a simple textarea; revisit with a
-   ResizeObserver if multi-line composer growth ever gets clipped. */
+/* Overlays only the conversation area, never the composer. CopilotKit's
+   textarea auto-grows, so ProductionCopilotPanel measures the real input
+   container through the installed v2 input.containerRef slot and publishes
+   its height here. The 0.75rem term preserves panelInput's bottom margin. */
 .intelligenceDrawer {
   position: absolute;
   inset: 0;
-  bottom: 4.5rem;
+  bottom: calc(var(--copilot-composer-height, 4.5rem) + 0.75rem);
   z-index: 4;
   overflow-y: auto;
   background: var(--color-bg-card);

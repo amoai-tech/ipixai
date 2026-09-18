@@ -69,11 +69,14 @@ vi.mock("./operator-panel.module.css", () => ({
 // Resettable (vi.hoisted) rather than a plain arrow function so individual
 // tests can simulate an in-progress conversation via mockReturnValueOnce —
 // operator-panel.tsx's isNewThread welcome banner is also gated on this.
+const addMessageMock = vi.hoisted(() => vi.fn());
 const useAgentMock = vi.hoisted(() =>
-  vi.fn(() => ({ agent: { messages: [] as unknown[], addMessage: vi.fn() } })),
+  vi.fn(() => ({
+    agent: { messages: [] as unknown[], addMessage: addMessageMock, isRunning: false },
+  })),
 );
 
-const runAgentMock = vi.hoisted(() => vi.fn());
+const runAgentMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 
 vi.mock("@copilotkit/react-core/v2", () => ({
   CopilotKit: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -174,7 +177,12 @@ function mockThreadsFetch(
 beforeEach(() => {
   mockThreadsFetch();
   window.localStorage.clear();
-  useAgentMock.mockReturnValue({ agent: { messages: [], addMessage: vi.fn() } });
+  addMessageMock.mockReset();
+  runAgentMock.mockReset();
+  runAgentMock.mockResolvedValue(undefined);
+  useAgentMock.mockReturnValue({
+    agent: { messages: [], addMessage: addMessageMock, isRunning: false },
+  });
   restoreAutoSettle.current = true;
   capturedOnSettled.current = null;
 });
@@ -388,6 +396,41 @@ describe("OperatorPanel", () => {
     expect(within(rail).queryByText(/activity/i)).toBeNull();
   });
 
+  it("submits a clickable insight to the same agent and blocks competing runs", async () => {
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={2} shootCount={1} />
+      </OperatorPanel>,
+    );
+
+    const insight = screen.getByTestId("intelligence-workspace-stats");
+    fireEvent.click(insight);
+    expect(addMessageMock).toHaveBeenCalledTimes(1);
+    expect(addMessageMock.mock.calls[0]?.[0]).toMatchObject({
+      role: "user",
+      content: "Give me an overview of my current shoots.",
+    });
+    expect(runAgentMock).toHaveBeenCalledTimes(1);
+
+    cleanup();
+    addMessageMock.mockReset();
+    runAgentMock.mockReset();
+    useAgentMock.mockReturnValue({
+      agent: { messages: [], addMessage: addMessageMock, isRunning: true },
+    });
+
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={2} shootCount={1} />
+      </OperatorPanel>,
+    );
+    const runningInsight = screen.getByTestId("intelligence-workspace-stats") as HTMLButtonElement;
+    expect(runningInsight.disabled).toBe(true);
+    fireEvent.click(runningInsight);
+    expect(addMessageMock).not.toHaveBeenCalled();
+    expect(runAgentMock).not.toHaveBeenCalled();
+  });
+
   it("toggles mobile navigation open and closed", () => {
     render(
       <OperatorPanel>
@@ -571,7 +614,11 @@ describe("PlannerChatDock thread bootstrap (IPI-1217)", () => {
     // signal CopilotChat's own (now-unreachable) welcome screen used to key
     // off, so PlannerChatDock mirrors it here.
     useAgentMock.mockReturnValue({
-      agent: { messages: [{ id: "m1", role: "user", content: "hi" }], addMessage: vi.fn() },
+      agent: {
+        messages: [{ id: "m1", role: "user", content: "hi" }],
+        addMessage: addMessageMock,
+        isRunning: false,
+      },
     });
 
     render(
