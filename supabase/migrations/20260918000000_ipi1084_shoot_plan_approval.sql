@@ -74,6 +74,43 @@ create trigger trg_shoot_plan_approvals_updated_at
   before update on shoot.shoot_plan_approvals
   for each row execute function public.handle_updated_at();
 
+-- The revision identity is immutable. A decision may only move status and the
+-- decision columns; the approved artifact itself can never be rewritten in place
+-- (editing stages a new revision row instead). Same proven pattern as the IPI-644
+-- reference_key lock, so a stray service_role UPDATE cannot retro-fit an approval
+-- onto different plan bytes.
+create or replace function shoot.shoot_plan_approvals_lock_identity()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.brand_id is distinct from old.brand_id
+     or new.workflow_run_id is distinct from old.workflow_run_id
+     or new.revision is distinct from old.revision
+     or new.plan is distinct from old.plan
+     or new.plan_hash is distinct from old.plan_hash then
+    raise exception 'shoot_plan_approvals revision identity is immutable (revision %)', old.revision
+      using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function shoot.shoot_plan_approvals_lock_identity() from public;
+revoke all on function shoot.shoot_plan_approvals_lock_identity() from anon;
+revoke all on function shoot.shoot_plan_approvals_lock_identity() from authenticated;
+
+-- Only the SECURITY DEFINER RPCs write this table; no client role needs direct
+-- DML, so the default service_role write grants are removed too.
+revoke insert, update, delete on table shoot.shoot_plan_approvals from service_role;
+
+drop trigger if exists trg_shoot_plan_approvals_lock_identity on shoot.shoot_plan_approvals;
+create trigger trg_shoot_plan_approvals_lock_identity
+  before update on shoot.shoot_plan_approvals
+  for each row execute function shoot.shoot_plan_approvals_lock_identity();
+
 alter table shoot.shoot_plan_approvals enable row level security;
 
 drop policy if exists shoot_plan_approvals_select_org on shoot.shoot_plan_approvals;
@@ -124,6 +161,10 @@ begin
   if not exists (select 1 from public.brands b where b.id = p_brand_id) then
     return jsonb_build_object('ok', false, 'code', 'NOT_FOUND', 'detail', 'brand not found');
   end if;
+  if p_staged_by is not null
+     and not exists (select 1 from auth.users u where u.id = p_staged_by) then
+    return jsonb_build_object('ok', false, 'code', 'INVALID_INPUT', 'detail', 'staged_by is not a known user');
+  end if;
 
   v_plan_hash := encode(extensions.digest(p_plan::text, 'sha256'), 'hex');
 
@@ -150,6 +191,8 @@ begin
 exception
   when unique_violation then
     return jsonb_build_object('ok', false, 'code', 'REVISION_CONFLICT', 'detail', 'a revision was staged concurrently; retry');
+  when foreign_key_violation then
+    return jsonb_build_object('ok', false, 'code', 'INVALID_INPUT', 'detail', 'staged_by is not a known user');
   when data_exception then
     return jsonb_build_object('ok', false, 'code', 'INVALID_INPUT');
 end;
@@ -209,34 +252,56 @@ begin
     return jsonb_build_object('ok', false, 'code', 'NOT_FOUND');
   end if;
 
+  -- Deciding a plan review is an editor/owner action: a viewer membership is
+  -- not sufficient authority to approve or reject an AI plan.
   if not exists (
     select 1 from public.brands b
-     where b.id = v_row.brand_id and public.is_org_member(b.org_id)
+     where b.id = v_row.brand_id and public.is_org_editor_or_above(b.org_id)
   ) then
-    return jsonb_build_object('ok', false, 'code', 'FORBIDDEN');
+    return jsonb_build_object('ok', false, 'code', 'FORBIDDEN', 'detail', 'only an owner or editor of the brand org may decide');
   end if;
 
   v_request_hash := encode(
     extensions.digest(
-      (p_approval_id::text || '|' || p_revision::text || '|' || p_plan_hash || '|'
-        || p_decision || '|' || coalesce(p_note, ''))::text,
+      jsonb_build_array(p_approval_id, p_revision, p_plan_hash, p_decision, p_note)::text,
       'sha256'
     ),
     'hex'
   );
 
+  -- Replay is scoped to the deciding operator: the same idempotency key from a
+  -- different actor is a conflict, never someone else's replayed payload.
   if v_row.idempotency_key is not null and v_row.idempotency_key = p_idempotency_key then
-    if v_row.request_hash = v_request_hash then
+    if v_row.decided_by = v_actor and v_row.request_hash = v_request_hash then
       return jsonb_set(coalesce(v_row.result_payload, '{}'::jsonb), '{replayed}', 'true'::jsonb);
     end if;
     return jsonb_build_object('ok', false, 'code', 'IDEMPOTENCY_CONFLICT');
+  end if;
+
+  -- Only the newest staged revision may be decided. Staging a newer revision
+  -- supersedes every earlier one, so an approval can never be recorded against a
+  -- plan the operator is no longer looking at.
+  if exists (
+    select 1 from shoot.shoot_plan_approvals newer
+     where newer.workflow_run_id = v_row.workflow_run_id
+       and newer.revision > v_row.revision
+  ) then
+    return jsonb_build_object(
+      'ok', false,
+      'code', 'SUPERSEDED_REVISION',
+      'detail', 'a newer revision has been staged; decide the current revision instead',
+      'currentRevision', (
+        select max(newer.revision) from shoot.shoot_plan_approvals newer
+         where newer.workflow_run_id = v_row.workflow_run_id
+      )
+    );
   end if;
 
   if v_row.revision <> p_revision or v_row.plan_hash <> p_plan_hash then
     return jsonb_build_object(
       'ok', false,
       'code', 'STALE_REVISION',
-      'detail', 'the plan changed after it was rendered; reload the current revision',
+      'detail', 'the reviewed revision is no longer current; reload before deciding',
       'currentRevision', v_row.revision,
       'currentPlanHash', v_row.plan_hash,
       'status', v_row.status
@@ -288,7 +353,7 @@ end;
 $$;
 
 comment on function public.decide_shoot_plan_revision(uuid, integer, text, text, text, text) is
-  'IPI-1084 — records one authorised decision bound to the exact reviewed revision and plan_hash. Fails closed with STALE_REVISION / ALREADY_DECIDED / EXPIRED / FORBIDDEN / IDEMPOTENCY_CONFLICT and performs ZERO Shoot writes. authenticated only.';
+  'IPI-1084 — records one authorised decision bound to the exact reviewed revision and plan_hash. Owner/editor (org) authority only. Fails closed with SUPERSEDED_REVISION / STALE_REVISION / ALREADY_DECIDED / EXPIRED / FORBIDDEN / IDEMPOTENCY_CONFLICT and performs ZERO Shoot writes. authenticated only.';
 
 -- ---------------------------------------------------------------------------
 -- get_shoot_plan_approval: org-scoped read of one revision (UI + downstream
@@ -338,6 +403,10 @@ begin
     'revision', v_row.revision,
     'planHash', v_row.plan_hash,
     'hashMatches', v_recomputed = v_row.plan_hash,
+    'isCurrent', v_row.revision = (
+      select max(newer.revision) from shoot.shoot_plan_approvals newer
+       where newer.workflow_run_id = v_row.workflow_run_id
+    ),
     'status', v_row.status,
     'plan', v_row.plan,
     'decisionNote', v_row.decision_note,
@@ -350,7 +419,13 @@ end;
 $$;
 
 comment on function public.get_shoot_plan_approval(uuid) is
-  'IPI-1084 — org-scoped read of one ShootPlan revision with a recomputed hashMatches proof. authenticated only.';
+  'IPI-1084 — org-scoped read of one ShootPlan revision with a recomputed hashMatches proof and an isCurrent flag. authenticated only.';
+
+-- Staging concurrency contract: the unique (workflow_run_id, revision) constraint
+-- is the compare-and-set guard. A concurrent stage of the same next revision is
+-- rejected with REVISION_CONFLICT and the caller retries once — the retry re-reads
+-- max(revision) and stages the following number, so no revision is ever lost or
+-- overwritten. Only the newest revision can be decided (SUPERSEDED_REVISION).
 
 revoke all on function public.stage_shoot_plan_revision(uuid, text, jsonb, uuid, text, timestamptz) from public;
 revoke all on function public.stage_shoot_plan_revision(uuid, text, jsonb, uuid, text, timestamptz) from anon;

@@ -78,18 +78,66 @@ describe("IPI-1084 · APPROVAL-001 — exact-revision approval record", () => {
     const sql = await migration();
     const definerCount = sql.match(/security definer/g) ?? [];
     const searchPathCount = sql.match(/set search_path = ''/g) ?? [];
-    expect(definerCount.length).toBe(3);
-    expect(searchPathCount.length).toBe(3);
+    expect(definerCount.length).toBe(4);
+    expect(searchPathCount.length).toBe(4);
   });
 
   it("performs ZERO Shoot application writes and reuses no foreign approval table", async () => {
     const sql = await migration();
     expect(sql).not.toMatch(/insert into shoot\.shoots/i);
     expect(sql).not.toMatch(/insert into shoot\.shoot_deliverables/i);
+    // shoot.shot_list is the real table (verified against pg_tables on a fresh
+    // replay); guard the near-miss spelling too so a typo cannot slip through.
     expect(sql).not.toMatch(/insert into shoot\.shot_list/i);
+    expect(sql).not.toMatch(/insert into shoot\.shoot_list/i);
     expect(sql).not.toMatch(/commit_shoot_draft/);
     expect(sql).not.toMatch(/(from|into|references|update|join)\s+planner\.gate_approvals/i);
     expect(sql).not.toMatch(/(from|into|references|update|join)\s+brand_profile_approvals/i);
     expect(sql).not.toMatch(/(from|into|references|update|join)\s+planner\.events/i);
+  });
+
+  it("requires owner/editor authority to decide, not a viewer membership", async () => {
+    const sql = await migration();
+    expect(sql).toContain("public.is_org_editor_or_above(b.org_id)");
+    // The read path stays member-level; only the decision is elevated.
+    expect(sql).toContain("public.is_org_member(b.org_id)");
+    const decideBody = sql.slice(
+      sql.indexOf("create or replace function public.decide_shoot_plan_revision"),
+      sql.indexOf("comment on function public.decide_shoot_plan_revision"),
+    );
+    expect(decideBody).toContain("public.is_org_editor_or_above(b.org_id)");
+    expect(decideBody).not.toContain("public.is_org_member(b.org_id)");
+  });
+
+  it("blocks a superseded revision and reports whether a revision is current", async () => {
+    const sql = await migration();
+    expect(sql).toContain("'SUPERSEDED_REVISION'");
+    expect(sql).toContain("newer.revision > v_row.revision");
+    expect(sql).toContain("'isCurrent'");
+  });
+
+  it("scopes idempotent replay to the deciding operator", async () => {
+    const sql = await migration();
+    expect(sql).toContain("v_row.decided_by = v_actor and v_row.request_hash = v_request_hash");
+  });
+
+  it("fails staged_by typed instead of raising a raw foreign-key error", async () => {
+    const sql = await migration();
+    expect(sql).toContain("'staged_by is not a known user'");
+    expect(sql).toContain("when foreign_key_violation then");
+    expect(sql).toContain("from auth.users u where u.id = p_staged_by");
+  });
+
+  it("makes the staged revision identity immutable and stops direct client writes", async () => {
+    const sql = await migration();
+    expect(sql).toContain("shoot.shoot_plan_approvals_lock_identity");
+    expect(sql).toContain("revision identity is immutable");
+    expect(sql).toContain("trg_shoot_plan_approvals_lock_identity");
+    expect(sql).toContain("revoke insert, update, delete on table shoot.shoot_plan_approvals from service_role");
+  });
+
+  it("documents the REVISION_CONFLICT retry contract", async () => {
+    const sql = await migration();
+    expect(sql).toContain("the caller retries once");
   });
 });
