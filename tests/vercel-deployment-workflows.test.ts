@@ -72,6 +72,25 @@ function needsOf(block: string[]) {
 const isContinueOnError = (block: string[]) =>
   block.some((line) => /^ {4}continue-on-error:\s*true\s*$/.test(line));
 
+/**
+ * The JOB-level `if:` condition of one job, flattened to a single string.
+ *
+ * Only the 4-space-indented `if:` counts — step conditions are 8-space indented,
+ * so they cannot be mistaken for the job condition.
+ */
+function jobConditionOf(block: string[]) {
+  const at = block.findIndex((line) => /^ {4}if:/.test(line));
+  if (at < 0) return "";
+
+  const inline = /^ {4}if:\s*(.*)$/.exec(block[at])?.[1] ?? "";
+  const parts = inline ? [inline] : [];
+  for (const line of block.slice(at + 1)) {
+    if (!/^ {6}\S/.test(line)) break;
+    parts.push(line.trim());
+  }
+  return parts.join(" ");
+}
+
 function expectNoAutomaticPreviewTrigger(source: string) {
   expect(source).not.toMatch(/^\s{2}push:/m);
   expect(source).not.toMatch(/^\s{2}pull_request:/m);
@@ -129,6 +148,7 @@ describe("IPI-1229 Vercel deployment ownership", () => {
 
   it("deploys Production from the same trusted CI run that tested main", () => {
     const source = read(".github/workflows/ci.yml");
+    const production = blockOf(workflowJobs(source), "vercel-production");
 
     expect(existsSync(path.resolve(root, ".github/workflows/vercel-production.yml"))).toBe(false);
     expect(source).not.toContain("workflow_run:");
@@ -136,7 +156,9 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(source).toContain("github.event_name == 'push'");
     expect(source).toContain("github.event_name == 'workflow_dispatch'");
     expect(source).toContain("github.ref == 'refs/heads/main'");
-    expect(source).toContain("VERCEL_ACTIONS_PRODUCTION_ENABLED == 'true'");
+    // The release switch must never gate the job itself — see the
+    // "fails loudly when the Production release switch is unset" test.
+    expect(jobConditionOf(production)).not.toContain("VERCEL_ACTIONS_PRODUCTION_ENABLED");
     expect(source).toContain("ref: ${{ github.sha }}");
     expect(source.match(/git rev-parse origin\/main/g)?.length).toBeGreaterThanOrEqual(2);
     expect(source).toContain("id: credentials");
@@ -145,6 +167,29 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(source).toContain("vercel pull --yes --environment=production");
     expect(source).toContain("vercel build --prod");
     expect(source).toContain("vercel deploy --prebuilt --prod");
+  });
+
+  it("fails loudly when the Production release switch is unset instead of skipping", () => {
+    const jobs = workflowJobs(read(".github/workflows/ci.yml"));
+    const production = blockOf(jobs, "vercel-production");
+    const block = production.join("\n");
+
+    // Regression (PR #214 review): the switch used to live in the job-level `if:`.
+    // A job-level condition reports conclusion=skipped, which is not a failure — so
+    // once vercel.json removed the Vercel Git fallback, an unset variable silently
+    // stopped every production release while main CI stayed green.
+    expect(jobConditionOf(production)).not.toContain("VERCEL_ACTIONS_PRODUCTION_ENABLED");
+
+    // The switch is read inside the job...
+    expect(block).toContain("PRODUCTION_ENABLED: ${{ vars.VERCEL_ACTIONS_PRODUCTION_ENABLED }}");
+    // ...an unset or malformed value is an explicit ::error that fails the job...
+    expect(block).toMatch(/must be exactly 'true' or 'false'/);
+    expect(block).toMatch(/::error/);
+    expect(block).toMatch(/exit 1/);
+    // ...a deliberate 'false' stays visible rather than silent...
+    expect(block).toMatch(/::warning/);
+    // ...and the deploy pipeline only runs after the switch validated as enabled.
+    expect(block).toContain("steps.release.outputs.enabled == 'true'");
   });
 
   it("creates Preview deployments only by manual exact-SHA dispatch with branch-scoped env", () => {
