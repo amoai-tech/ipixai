@@ -7,7 +7,7 @@ metadata:
     - 'Universal-design-prompt-4/tasks/screens/**'
     - 'Universal-design-prompt-4/tasks/screens/wireframes/**'
     - 'Universal-design-prompt-4/Pages/**'
-    - 'docs/design/**'
+    - 'Universal-design-prompt-4/docs/design/**'
   triggers:
     - wireframe
     - lo-fi
