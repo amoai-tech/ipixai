@@ -33,7 +33,7 @@ afterEach(() => {
   supabaseMock.tables = {};
 });
 
-import { productionPlannerAgent } from "../src/mastra/agents";
+import { getProductionPlannerAgent } from "../src/mastra/agents";
 import { loadChannelSpecs } from "../src/lib/shoot/channel-specs";
 import {
   EstimateShootBudgetInputSchema,
@@ -682,7 +682,7 @@ describe("no forbidden imports in the four planning tools", () => {
 
 describe("Planner integration", () => {
   it("the canonical Production Planner exposes the four planning tools, IPI-1081's composeShootPlan, plus the two brand-intelligence tools (IPI-1093)", async () => {
-    const tools = await productionPlannerAgent.listTools();
+    const tools = await getProductionPlannerAgent().listTools();
     expect(Object.keys(tools).sort()).toEqual(
       [
         "approveDraft",

@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
-import { mastra } from "@/mastra";
+import { getMastra } from "@/mastra/runtime";
 
 export const runtime = "nodejs";
 
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const workflow = mastra.getWorkflow("brand-intelligence");
+    const workflow = getMastra().getWorkflow("brand-intelligence");
     const run = await workflow.createRun({ runId: body.runId });
     const result = await run.resume({
       resumeData: {

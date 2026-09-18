@@ -27,7 +27,7 @@ vi.mock(
 );
 
 import { MastraLanguageModelV2Mock, simulateReadableStream } from "@mastra/core/test-utils/llm-mock";
-import { productionPlannerAgent } from "../src/mastra/agents";
+import { getProductionPlannerAgent } from "../src/mastra/agents";
 import { PLANNING_ONLY_TOOLS, resolveActiveTools } from "../src/mastra/planner-tool-gate";
 import type { ComposeShootPlanInput } from "../src/mastra/tools/compose-shoot-plan";
 import { ShootPlanSchema } from "../src/mastra/tools/plan-schema";
@@ -148,7 +148,7 @@ function toolNamesFor(model: MastraLanguageModelV2Mock): string[] {
 
 afterEach(() => {
   resetSupabaseMock();
-  productionPlannerAgent.__resetToOriginalModel();
+  getProductionPlannerAgent().__resetToOriginalModel();
   vi.restoreAllMocks();
 });
 
@@ -167,11 +167,11 @@ describe("Production Planner runtime — one NL brief executes composeShootPlan"
     supabaseMock.rows = TRUSTED_ROWS;
     supabaseMock.tables = CHANNEL_SPEC_TABLES;
     const model = scriptedModel(COMPOSE_ARGS, "Here is your shoot plan.");
-    productionPlannerAgent.__updateModel({ model });
+    getProductionPlannerAgent().__updateModel({ model });
 
     let captured: { toolName: string; result: unknown; isError?: boolean } | null = null;
 
-    const stream = await productionPlannerAgent.stream([{ role: "user", content: PLAN_001_BRIEF }], {
+    const stream = await getProductionPlannerAgent().stream([{ role: "user", content: PLAN_001_BRIEF }], {
       maxSteps: 3,
     });
     for await (const chunk of stream.fullStream) {
@@ -207,10 +207,10 @@ describe("Production Planner runtime — one NL brief executes composeShootPlan"
     supabaseMock.rows = [];
     supabaseMock.tables = CHANNEL_SPEC_TABLES;
     const model = scriptedModel(COMPOSE_ARGS, "I need more inputs.");
-    productionPlannerAgent.__updateModel({ model });
+    getProductionPlannerAgent().__updateModel({ model });
 
     let captured: { result: unknown } | null = null;
-    const stream = await productionPlannerAgent.stream([{ role: "user", content: PLAN_001_BRIEF }], {
+    const stream = await getProductionPlannerAgent().stream([{ role: "user", content: PLAN_001_BRIEF }], {
       maxSteps: 3,
     });
     for await (const chunk of stream.fullStream) {

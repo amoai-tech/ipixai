@@ -27,8 +27,8 @@ const mastraMocks = vi.hoisted(() => ({
   getWorkflow: vi.fn(),
 }));
 
-vi.mock("@/mastra", () => ({
-  mastra: { getWorkflow: mastraMocks.getWorkflow },
+vi.mock("@/mastra/runtime", () => ({
+  getMastra: () => ({ getWorkflow: mastraMocks.getWorkflow }),
 }));
 
 import { POST as startReview } from "../src/app/api/plans/reviews/route";

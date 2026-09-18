@@ -22,7 +22,12 @@ export const AgentState = z.object({
 // unchanged from the starter weather agent it replaces.
 // IPI-1049 · TOOL-001 added the four compute-only planning tools below —
 // see src/mastra/tools/planning.ts for the reuse/adaptation evidence.
-export const productionPlannerAgent = new Agent({
+let cachedAgent: Agent | undefined;
+
+export function getProductionPlannerAgent(): Agent {
+  if (cachedAgent) return cachedAgent;
+
+  const agent = new Agent({
   id: "production-planner",
   name: "Production Planner",
   model: openai("gpt-5.6-luna"),
@@ -79,13 +84,12 @@ You also have two brand-intelligence tools: startBrandAnalysis and approveDraft.
  * If the caller already passed activeTools in options (e.g. a test override),
  * that is honoured rather than overridden.
  */
-{
-  const origStream: typeof productionPlannerAgent.stream =
-    productionPlannerAgent.stream.bind(productionPlannerAgent);
-  productionPlannerAgent.stream = wrapPlannerStreamWithToolGate(origStream);
+  const origStream: typeof agent.stream = agent.stream.bind(agent);
+  agent.stream = wrapPlannerStreamWithToolGate(origStream);
 
-  const origResume: typeof productionPlannerAgent.resumeStream =
-    productionPlannerAgent.resumeStream.bind(productionPlannerAgent);
-  productionPlannerAgent.resumeStream =
-    wrapPlannerResumeStreamWithToolGate(origResume);
+  const origResume: typeof agent.resumeStream = agent.resumeStream.bind(agent);
+  agent.resumeStream = wrapPlannerResumeStreamWithToolGate(origResume);
+
+  cachedAgent = agent;
+  return agent;
 }

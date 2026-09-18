@@ -33,7 +33,7 @@ import {
   type ComposeShootPlanInput,
 } from "../src/mastra/tools/compose-shoot-plan";
 import { ShootPlanSchema } from "../src/mastra/tools/plan-schema";
-import { productionPlannerAgent } from "../src/mastra/agents";
+import { getProductionPlannerAgent } from "../src/mastra/agents";
 
 const REF_PDP_FLAT_LAY = {
   id: "ref-1",
@@ -280,7 +280,7 @@ describe("composeShootPlan", () => {
 
 describe("composeShootPlan tool registration", () => {
   it("is registered on the Production Planner with input/output schemas enforced", async () => {
-    const tools = await productionPlannerAgent.listTools();
+    const tools = await getProductionPlannerAgent().listTools();
     const tool = tools.composeShootPlan as { inputSchema?: unknown; outputSchema?: unknown };
     expect(tool).toBeDefined();
     expect(tool.inputSchema).toBeTruthy();

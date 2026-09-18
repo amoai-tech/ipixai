@@ -1,6 +1,6 @@
 import type { MastraMemory } from "@mastra/core/memory";
 
-import { mastra } from "@/mastra";
+import { getMastra } from "@/mastra/runtime";
 import type { PlannerChatMessage, PlannerThreadRow } from "@/mastra/thread-types";
 
 export type { PlannerChatMessage, PlannerThreadRow };
@@ -50,7 +50,7 @@ export function splitRunThreadIds(resourceId: string, clientThreadId: string) {
 export async function getPlannerMemory(): Promise<MastraMemory | undefined> {
   // Resolve through the registry (not a direct agent import) so `default` stays
   // the single source of truth for which agent instance the runtime uses.
-  return mastra.getAgent("default").getMemory();
+  return getMastra().getAgent("default").getMemory();
 }
 
 export async function ensureMastraThread(
