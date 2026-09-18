@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
-import { getVerifiedOperatorFromCookies } from "./copilot-hooks";
+import { getVerifiedOperatorFromCookies } from "./operator-auth";
 import { postAuthDestinationFor } from "./post-auth-destination";
 import { listMembershipOrgIdsFromServerClient } from "./runtime-org";
 import { plannerSurfaceFor } from "./verified-operator";

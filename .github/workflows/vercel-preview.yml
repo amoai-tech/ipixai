@@ -1,0 +1,97 @@
+name: Vercel Exact-SHA Preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Exact 40-character Git SHA to certify
+        required: true
+        type: string
+      branch:
+        description: Source branch for branch-scoped Preview environment variables
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-preview-${{ inputs.sha }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact requested SHA
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Use repository Node version
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Verify SHA belongs to declared branch
+        shell: bash
+        env:
+          SHA: ${{ inputs.sha }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "sha must be an exact 40-character Git SHA" >&2
+            exit 1
+          fi
+          git check-ref-format --branch "$BRANCH" >/dev/null
+          git fetch --no-tags origin "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
+          git merge-base --is-ancestor "$SHA" "origin/$BRANCH"
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@59.23.1
+
+      - name: Pull branch-scoped Preview environment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          BRANCH: ${{ inputs.branch }}
+        run: >-
+          vercel pull --yes --environment=preview
+          --git-branch="$BRANCH"
+          --token="$VERCEL_TOKEN"
+
+      - name: Build exact SHA Preview artifact
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: vercel build --token="$VERCEL_TOKEN"
+
+      - name: Deploy exact SHA Preview
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          SHA: ${{ inputs.sha }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          set -euo pipefail
+          deployment_url="$(vercel deploy --prebuilt \
+            --meta githubCommitSha="$SHA" \
+            --meta githubCommitRef="$BRANCH" \
+            --token="$VERCEL_TOKEN")"
+          echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+          echo "Preview: $deployment_url"
+
+      - name: Inspect deployed Preview
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        run: vercel inspect "$DEPLOYMENT_URL" --token="$VERCEL_TOKEN"

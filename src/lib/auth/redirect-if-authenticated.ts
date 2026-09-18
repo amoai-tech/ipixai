@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { getVerifiedOperatorFromCookies } from "./copilot-hooks";
+import { getVerifiedOperatorFromCookies } from "./operator-auth";
 import { postAuthDestinationFor } from "./post-auth-destination";
 import { listMembershipOrgIdsFromServerClient } from "./runtime-org";
 import { createClient } from "@/lib/supabase/server";

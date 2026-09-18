@@ -87,7 +87,6 @@ describe("IPI-1042 runtime family", () => {
     };
     const core = require("@mastra/core/package.json") as { version: string };
     const memory = require("@mastra/memory/package.json") as { version: string };
-    const libsql = require("@mastra/libsql/package.json") as { version: string };
     const client = require("@mastra/client-js/package.json") as { version: string };
     const cli = require("mastra/package.json") as { version: string };
     const agui = require("@ag-ui/mastra/package.json") as { version: string };
@@ -97,7 +96,6 @@ describe("IPI-1042 runtime family", () => {
     expect(pg.version).toBe("1.22.2");
     expect(core.version).toBe("1.63.2");
     expect(memory.version).toBe("1.28.1");
-    expect(libsql.version).toBe("1.22.2");
     expect(client.version).toBe("1.42.4");
     expect(cli.version).toBe("1.27.2");
     expect(agui.version).toBe("1.1.4");
@@ -145,13 +143,10 @@ describe("IPI-1042 runtime family", () => {
     expect(routeSrc).not.toMatch(/ToolSearchProcessor|search_tools|load_tool/);
   });
 
-  it("LibSQL fallback constructors still work without MASTRA_DATABASE_URL", async () => {
-    const { LibSQLStore } = await import("@mastra/libsql");
-    const storage = new LibSQLStore({ id: "mastra-storage", url: ":memory:" });
-    const memory = new LibSQLStore({
-      id: "weather-agent-memory",
-      url: "file::memory:",
-    });
+  it("Mastra core in-memory fallback constructors work without MASTRA_DATABASE_URL", async () => {
+    const { InMemoryStore } = await import("@mastra/core/storage");
+    const storage = new InMemoryStore({ id: "mastra-storage" });
+    const memory = new InMemoryStore({ id: "weather-agent-memory" });
     expect(storage).toBeDefined();
     expect(memory).toBeDefined();
   });

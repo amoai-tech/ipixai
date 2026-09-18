@@ -1,4 +1,4 @@
-import { getVerifiedOperatorForRequest } from "@/lib/auth/copilot-hooks";
+import { getVerifiedOperatorForRequest } from "@/lib/auth/operator-auth";
 import {
   listMembershipOrgIdsFromServerClient,
   resolveRuntimeTenant,

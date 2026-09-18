@@ -81,7 +81,7 @@ vi.mock("next/headers", () => ({
   cookies: () => ({ getAll: () => [], set: () => {} }),
 }));
 
-vi.mock("../src/lib/auth/copilot-hooks", () => ({
+vi.mock("../src/lib/auth/operator-auth", () => ({
   getVerifiedOperatorFromCookies,
 }));
 
