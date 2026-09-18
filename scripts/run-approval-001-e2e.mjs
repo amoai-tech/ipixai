@@ -80,6 +80,60 @@ if (RESET) {
   if (reset.status !== 0) fail("`supabase db reset --local` failed");
 }
 
+/**
+ * Mint the three fixture users through GoTrue's own admin API.
+ *
+ * Hand-built auth.users/auth.identities rows verify locally but fail in CI with
+ * `500 {"code":"unexpected_failure","message":"Database error querying schema"}`
+ * because they depend on GoTrue's exact schema expectations. The admin API is
+ * the canonical way to create a password user and stays correct across GoTrue
+ * versions. Must match e2e/support/approval-001-fixtures.ts.
+ */
+const FIXTURE_USERS = [
+  { id: "10840000-0000-4000-8000-000000000001", email: "ipi1084-editor-a@ipix.test" },
+  { id: "10840000-0000-4000-8000-000000000002", email: "ipi1084-viewer-a@ipix.test" },
+  { id: "10840000-0000-4000-8000-000000000003", email: "ipi1084-orgb@ipix.test" },
+];
+const FIXTURE_PASSWORD = "ipi1084-local-e2e-password";
+
+async function ensureFixtureUsers() {
+  const headers = {
+    apikey: serviceRoleKey,
+    authorization: `Bearer ${serviceRoleKey}`,
+    "content-type": "application/json",
+  };
+  for (const user of FIXTURE_USERS) {
+    const create = await fetch(`${apiUrl}/auth/v1/admin/users`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        id: user.id,
+        email: user.email,
+        password: FIXTURE_PASSWORD,
+        email_confirm: true,
+      }),
+    });
+    if (create.ok) continue;
+    const body = await create.text();
+    // Re-runs and a dirty local database must converge rather than fail: the
+    // user already exists, so restore the password/confirmation instead.
+    const update = await fetch(`${apiUrl}/auth/v1/admin/users/${user.id}`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ password: FIXTURE_PASSWORD, email_confirm: true }),
+    });
+    if (!update.ok) {
+      fail(
+        `could not create or update fixture user ${user.email}: ` +
+          `create ${create.status} ${body.slice(0, 200)} / update ${update.status}`,
+      );
+    }
+  }
+  console.log(`run-approval-001-e2e: ensured ${FIXTURE_USERS.length} fixture auth users`);
+}
+
+await ensureFixtureUsers();
+
 console.log(`run-approval-001-e2e: seeding ${FIXTURES}`);
 const seed = spawnSync("psql", [dbUrl, "-v", "ON_ERROR_STOP=1", "-q", "-f", FIXTURES], {
   cwd: ROOT,

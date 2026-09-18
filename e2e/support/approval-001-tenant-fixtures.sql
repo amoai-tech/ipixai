@@ -8,77 +8,28 @@
 --
 -- These fixtures are therefore seeded only into the local `supabase start`
 -- stack, where writes are sanctioned, and the seeding runner refuses any
--- non-loopback database host. Every actor below signs in through the real
--- /login UI against real GoTrue, so RLS, the RPC privilege split and the
--- authenticated routes are exercised exactly as in production.
---
--- Fixed UUIDs keep the proof deterministic; the spec references no row by
--- discovery, so a missing fixture fails loudly instead of silently passing.
+-- non-loopback database host. Every actor signs in through the real /login UI
+-- against real GoTrue, so RLS, the RPC privilege split and the authenticated
+-- routes are exercised exactly as in production.
 --
 --   Org A  iPix 1084 Org A   editor-a (owner)  + viewer-a (viewer)  + Brand A
 --   Org B  iPix 1084 Org B   orgb     (owner)                       + Brand B
 --
--- Local-only credential for these throwaway accounts. It is not a secret and
--- never reaches a hosted environment.
+-- The three auth users are NOT created here. They are created (or repaired)
+-- through GoTrue's own admin API by scripts/run-approval-001-e2e.mjs, because a
+-- hand-built auth.users/auth.identities row is GoTrue-version sensitive: it
+-- verifies locally but fails in CI with
+-- `500 {"code":"unexpected_failure","message":"Database error querying schema"}`.
+-- The admin API is the canonical, version-stable way to mint a password user.
+--
+-- Local-only credential for these throwaway accounts (see the runner). It is
+-- not a secret and never reaches a hosted environment.
 
 begin;
 
 -- ---------------------------------------------------------------------------
--- Actors
---
--- `instance_id` must be the zero UUID: GoTrue's user lookup filters on it, so a
--- NULL instance_id makes every real password sign-in fail with the generic
--- "Invalid login credentials" even though the bcrypt hash verifies. The token
--- columns are left NULL (GoTrue's own default) for the same reason. bcrypt cost
--- 10 matches what GoTrue writes itself.
--- ---------------------------------------------------------------------------
-insert into auth.users (
-  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
-)
-values
-  (
-    '10840000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000',
-    'authenticated', 'authenticated',
-    'ipi1084-editor-a@ipix.test', extensions.crypt('ipi1084-local-e2e-password', extensions.gen_salt('bf', 10)), now(),
-    '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"IPI-1084 Org A Editor"}'::jsonb,
-    now(), now()
-  ),
-  (
-    '10840000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000',
-    'authenticated', 'authenticated',
-    'ipi1084-viewer-a@ipix.test', extensions.crypt('ipi1084-local-e2e-password', extensions.gen_salt('bf', 10)), now(),
-    '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"IPI-1084 Org A Viewer"}'::jsonb,
-    now(), now()
-  ),
-  (
-    '10840000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000000',
-    'authenticated', 'authenticated',
-    'ipi1084-orgb@ipix.test', extensions.crypt('ipi1084-local-e2e-password', extensions.gen_salt('bf', 10)), now(),
-    '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"IPI-1084 Org B Owner"}'::jsonb,
-    now(), now()
-  )
-on conflict (id) do update
-  set encrypted_password = excluded.encrypted_password,
-      instance_id = excluded.instance_id,
-      email_confirmed_at = excluded.email_confirmed_at,
-      updated_at = now();
-
--- The email identity row GoTrue needs in order to complete a password grant.
-insert into auth.identities (id, provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
-select u.id, u.id::text, u.id,
-       jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true, 'phone_verified', false),
-       'email', now(), now(), now()
-from auth.users u
-where u.id in (
-  '10840000-0000-4000-8000-000000000001',
-  '10840000-0000-4000-8000-000000000002',
-  '10840000-0000-4000-8000-000000000003'
-)
-on conflict (provider_id, provider) do nothing;
-
--- ---------------------------------------------------------------------------
--- Organizations (the auto-add-owner trigger seeds the owner membership)
+-- Organizations (the auto-add-owner trigger seeds the owner membership).
+-- The owner_id foreign key also proves the runner's users exist.
 -- ---------------------------------------------------------------------------
 insert into public.organizations (id, name, slug, type, owner_id)
 values
