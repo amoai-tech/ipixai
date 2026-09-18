@@ -33,6 +33,8 @@
     "next.config.ts",
     "vitest.config.ts",
     "playwright.config.ts",
+    "playwright.approval.config.ts",
+    "playwright.production.config.ts",
     "channels.mts",
     "channel-host.mts",
     ".next/types/**/*.ts",
