@@ -22,6 +22,12 @@ import {
 
 // Keep in sync with operator-panel.module.css @media (max-width: 767px)
 const MOBILE_NAV = "(max-width: 767px)";
+// Keep in sync with operator-panel.module.css's 1023px panel-compact block.
+// Deliberately wider than MOBILE_NAV: a permanent 400-520px side column
+// plus the 14rem nav leaves the workspace unusably narrow well before true
+// mobile (a real ~900px tablet width crushes it to a couple hundred px) —
+// only the Copilot panel reacts to this breakpoint, not the nav.
+const COPILOT_COMPACT = "(max-width: 1023px)";
 
 /** Single source of truth for "N brand(s) · N shoot(s)" — the pinned bar and
  *  the chat welcome each rendered their own brandNoun/shootNoun before this,
@@ -32,17 +38,21 @@ function formatPortfolioCounts(stats: Pick<WorkspaceStats, "brandCount" | "shoot
   return `${stats.brandCount} ${brandNoun} · ${stats.shootCount} ${shootNoun}`;
 }
 
-function useMobileNav() {
-  const [isMobile, setIsMobile] = useState(false);
+function useMatchMedia(query: string) {
+  const [matches, setMatches] = useState(false);
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
-    const mq = window.matchMedia(MOBILE_NAV);
-    const sync = () => setIsMobile(mq.matches);
+    const mq = window.matchMedia(query);
+    const sync = () => setMatches(mq.matches);
     sync();
     mq.addEventListener("change", sync);
     return () => mq.removeEventListener("change", sync);
-  }, []);
-  return isMobile;
+  }, [query]);
+  return matches;
+}
+
+function useMobileNav() {
+  return useMatchMedia(MOBILE_NAV);
 }
 
 /**
@@ -672,22 +682,26 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
   // works fully — this only changes which state loads first.
   const [copilotOpen, setCopilotOpen] = useState(true);
   const isMobile = useMobileNav();
+  const isCopilotCompact = useMatchMedia(COPILOT_COMPACT);
   const navInert = isMobile && !navOpen;
 
-  // Mobile renders the panel as a full-height sheet (operator-panel.module
-  // .css .panelOpenMobile), so an open-by-default panel there would cover
-  // the entire dashboard on first load — close it the moment mobile is
-  // detected. useMobileNav() starts false and flips true after its own
-  // mount-time matchMedia check, so this only fires once real mobile is
-  // confirmed, not on the SSR/first-paint guess. Desktop keeps the open
-  // default (see copilotOpen's own comment) since this effect never fires
-  // there. Required playwright-ai-smoke/gate-9 specs run their own
-  // "chromium-ai-smoke" desktop-viewport project and explicitly testIgnore
-  // this file's mobile-chromium project (playwright.config.ts), so they
-  // never observe this auto-close.
+  // Below COPILOT_COMPACT (1023px — wider than the nav's own 767px mobile
+  // breakpoint) the panel renders as a full-height sheet, not a permanent
+  // grid column (operator-panel.module.css's 1023px block), so an open-by-
+  // default panel there would either cover the dashboard (mobile) or leave
+  // the workspace a few hundred px wide behind a permanently-reserved
+  // column (tablet, before that CSS block existed) — close it the moment
+  // the breakpoint is crossed. useMatchMedia() starts false and flips true
+  // after its own mount-time check, so this only fires once the real
+  // viewport is confirmed, not on the SSR/first-paint guess. Desktop keeps
+  // the open default (see copilotOpen's own comment) since this effect
+  // never fires there. Required playwright-ai-smoke/gate-9 specs run their
+  // own "chromium-ai-smoke" desktop-viewport project and explicitly
+  // testIgnore this file's mobile-chromium project (playwright.config.ts),
+  // so they never observe this auto-close.
   useEffect(() => {
-    if (isMobile) setCopilotOpen(false);
-  }, [isMobile]);
+    if (isCopilotCompact) setCopilotOpen(false);
+  }, [isCopilotCompact]);
 
   // Restore focus to the reopening control after a user-initiated close —
   // `inert` on the now-closed panel would otherwise drop focus to <body>.

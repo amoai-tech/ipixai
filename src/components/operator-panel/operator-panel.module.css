@@ -346,6 +346,44 @@
   display: none;
 }
 
+/* Copilot compact breakpoint — keep in sync with COPILOT_COMPACT in
+   operator-panel.tsx. Deliberately wider than the nav's own 767px mobile
+   breakpoint below: a permanent 400-520px side column plus the 14rem nav
+   leaves the workspace unusably narrow well before true mobile — e.g. a
+   real ~900px tablet width crushes it to a couple hundred px, which
+   IPI-1224's "workspace remains independently usable" requirement rules
+   out. Only the panel changes here (overlay/sheet instead of a permanent
+   grid column) — the nav keeps its own 14rem grid column and its own
+   767px off-canvas breakpoint untouched. */
+@media (max-width: 1023px) {
+  .shellPanelOpen {
+    grid-template-columns: auto 1fr 0;
+  }
+
+  .panel {
+    position: fixed;
+    z-index: 25;
+    inset: 0;
+    border-left: none;
+    transform: translateY(100%);
+    visibility: hidden;
+    transition:
+      transform var(--duration-fast) ease,
+      visibility var(--duration-fast);
+  }
+
+  .panelOpenMobile {
+    transform: translateY(0);
+    visibility: visible;
+  }
+}
+
+@media (max-width: 1023px) and (prefers-reduced-motion: reduce) {
+  .panel {
+    transition: none;
+  }
+}
+
 @media (max-width: 767px) {
   .shell,
   .shellPanelOpen {
@@ -375,25 +413,6 @@
     visibility: visible;
   }
 
-  /* Do not squeeze the 400px desktop sidebar into mobile (IPI-1224 Mobile
-     section) — a full-height sheet instead, same mounted panel/thread. */
-  .panel {
-    position: fixed;
-    z-index: 25;
-    inset: 0;
-    border-left: none;
-    transform: translateY(100%);
-    visibility: hidden;
-    transition:
-      transform var(--duration-fast) ease,
-      visibility var(--duration-fast);
-  }
-
-  .panelOpenMobile {
-    transform: translateY(0);
-    visibility: visible;
-  }
-
   .backdrop {
     display: block;
     position: fixed;
@@ -401,11 +420,5 @@
     z-index: 15;
     border: 0;
     background: rgb(0 0 0 / 0.35);
-  }
-}
-
-@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
-  .panel {
-    transition: none;
   }
 }

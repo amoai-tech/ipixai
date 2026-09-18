@@ -7,49 +7,73 @@ import { plannerThreadStorageKey } from "@/mastra/thread-types";
 
 type MqListener = (event: MediaQueryListEvent) => void;
 
-function mockMobileNav(matches: boolean) {
-  let listener: MqListener | null = null;
-  const mq = {
-    matches,
-    media: "(max-width: 767px)",
-    addEventListener: (_event: string, cb: MqListener) => {
-      listener = cb;
-    },
-    removeEventListener: (_event: string, cb: MqListener) => {
-      if (listener === cb) listener = null;
-    },
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
-    emit(next: boolean) {
-      this.matches = next;
-      listener?.({ matches: next } as MediaQueryListEvent);
-    },
-    hasListener() {
-      return listener !== null;
-    },
-  };
+const MOBILE_NAV_QUERY = "(max-width: 767px)";
+const COPILOT_COMPACT_QUERY = "(max-width: 1023px)";
+
+function parseMaxWidth(query: string): number | null {
+  const match = /max-width:\s*(\d+)px/.exec(query);
+  return match ? Number(match[1]) : null;
+}
+
+/** Simulates window.matchMedia against one numeric viewport width, so the
+ *  nav's own MOBILE_NAV_QUERY (767px) and the panel's COPILOT_COMPACT_QUERY
+ *  (1023px) — a real ~900px tablet width matches the second but not the
+ *  first — resolve consistently for one simulated width, instead of a
+ *  single hardcoded "767" string match. */
+function mockViewportWidth(px: number) {
+  const registry = new Map<string, { matches: boolean; listeners: Set<MqListener> }>();
+
+  function entryFor(query: string) {
+    let entry = registry.get(query);
+    if (!entry) {
+      const maxWidth = parseMaxWidth(query);
+      entry = { matches: maxWidth !== null && px <= maxWidth, listeners: new Set() };
+      registry.set(query, entry);
+    }
+    return entry;
+  }
 
   Object.defineProperty(window, "matchMedia", {
     writable: true,
     configurable: true,
     value: (query: string) => {
-      if (!query.includes("767")) {
-        return {
-          matches: false,
-          media: query,
-          addEventListener: () => {},
-          removeEventListener: () => {},
-          addListener: () => {},
-          removeListener: () => {},
-          dispatchEvent: () => false,
-        };
-      }
-      return mq;
+      const entry = entryFor(query);
+      return {
+        get matches() {
+          return entry.matches;
+        },
+        media: query,
+        addEventListener: (_event: string, cb: MqListener) => {
+          entry.listeners.add(cb);
+        },
+        removeEventListener: (_event: string, cb: MqListener) => {
+          entry.listeners.delete(cb);
+        },
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      };
     },
   });
 
-  return mq;
+  return {
+    // Mirrors a real window resize: every registered query re-evaluates
+    // against the new width, same as the browser would.
+    setWidth(next: number) {
+      px = next;
+      for (const [query, entry] of registry) {
+        const maxWidth = parseMaxWidth(query);
+        const changed = (maxWidth !== null && px <= maxWidth) !== entry.matches;
+        entry.matches = maxWidth !== null && px <= maxWidth;
+        if (changed) {
+          for (const cb of entry.listeners) cb({ matches: entry.matches } as MediaQueryListEvent);
+        }
+      }
+    },
+    hasListener(query: string) {
+      return (registry.get(query)?.listeners.size ?? 0) > 0;
+    },
+  };
 }
 
 vi.mock("./operator-panel.module.css", () => ({
@@ -265,7 +289,7 @@ describe("OperatorPanel", () => {
   });
 
   it("closes the Copilot panel automatically on mobile instead of covering the dashboard on load", async () => {
-    mockMobileNav(true);
+    mockViewportWidth(390);
     render(
       <OperatorPanel>
         <p>Workspace body</p>
@@ -506,7 +530,7 @@ describe("OperatorPanel", () => {
   });
 
   it("makes closed mobile navigation inert and restores it when open", async () => {
-    mockMobileNav(true);
+    mockViewportWidth(390);
     render(
       <OperatorPanel>
         <p>Body</p>
@@ -521,7 +545,7 @@ describe("OperatorPanel", () => {
   });
 
   it("updates inert when the breakpoint changes and removes the listener on unmount", async () => {
-    const mq = mockMobileNav(true);
+    const mq = mockViewportWidth(390);
     const { unmount } = render(
       <OperatorPanel>
         <p>Body</p>
@@ -529,13 +553,35 @@ describe("OperatorPanel", () => {
     );
     const nav = document.getElementById("operator-nav");
     await waitFor(() => expect(nav?.hasAttribute("inert")).toBe(true));
-    expect(mq.hasListener()).toBe(true);
+    expect(mq.hasListener(MOBILE_NAV_QUERY)).toBe(true);
 
-    mq.emit(false);
+    mq.setWidth(1280);
     await waitFor(() => expect(nav?.hasAttribute("inert")).toBe(false));
 
     unmount();
-    expect(mq.hasListener()).toBe(false);
+    expect(mq.hasListener(MOBILE_NAV_QUERY)).toBe(false);
+  });
+
+  it("closes the Copilot panel on a tablet-width viewport (nav stays a normal grid column)", async () => {
+    // The panel-compact breakpoint (1023px) is deliberately wider than the
+    // nav's own mobile breakpoint (767px) — a real ~900px tablet crosses
+    // the first without crossing the second, and the two behaviors must
+    // stay independent: only the Copilot panel reacts here.
+    const mq = mockViewportWidth(900);
+    render(
+      <OperatorPanel>
+        <p>Workspace body</p>
+      </OperatorPanel>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("operator-chat-dock").getAttribute("data-open")).toBe("false"),
+    );
+    expect(screen.getByRole("button", { name: "✦ Open Copilot" })).toBeDefined();
+    expect(mq.hasListener(COPILOT_COMPACT_QUERY)).toBe(true);
+    // Nav is untouched at this width — no off-canvas/inert behavior.
+    const nav = document.getElementById("operator-nav");
+    expect(nav?.hasAttribute("inert")).toBe(false);
+    expect(mq.hasListener(MOBILE_NAV_QUERY)).toBe(true);
   });
 });
 

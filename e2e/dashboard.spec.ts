@@ -126,18 +126,21 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
   // first wherever the resulting state actually matters to the test.
   async function ensureCopilotOpen(page: import("@playwright/test").Page) {
     const dock = page.getByTestId("operator-chat-dock");
-    // Desktop mounts with data-open="true" immediately; mobile mounts the
-    // same way and then closes itself a render or two later, once
-    // useMobileNav()'s matchMedia check settles (see operator-panel.tsx's
-    // isMobile-auto-close effect). A single getAttribute() read right after
-    // page.goto() can land in that gap and observe the still-true initial
-    // value before it flips — this then skips the click and the panel stays
-    // closed for the rest of the test. Wait for the real settled state on
-    // mobile viewports (Playwright's own 767px breakpoint match — kept in
-    // sync with operator-panel.tsx's MOBILE_NAV, same duplication that file
+    // Desktop mounts with data-open="true" immediately; anything at or
+    // below the panel-compact breakpoint mounts the same way and then
+    // closes itself a render or two later, once useMatchMedia()'s
+    // COPILOT_COMPACT check settles (see operator-panel.tsx's isCopilot
+    // Compact-auto-close effect — 1023px, wider than the nav's own 767px
+    // mobile breakpoint, since a permanent 400-520px column plus the nav
+    // crushes the workspace well before true mobile). A single
+    // getAttribute() read right after page.goto() can land in that gap and
+    // observe the still-true initial value before it flips — this then
+    // skips the click and the panel stays closed for the rest of the test.
+    // Wait for the real settled state at or below that width (kept in sync
+    // with operator-panel.tsx's COPILOT_COMPACT, same duplication that file
     // already carries against its own CSS module) before deciding.
-    const isMobileViewport = (page.viewportSize()?.width ?? Number.POSITIVE_INFINITY) <= 767;
-    if (isMobileViewport) {
+    const isCompactViewport = (page.viewportSize()?.width ?? Number.POSITIVE_INFINITY) <= 1023;
+    if (isCompactViewport) {
       await expect(dock).toHaveAttribute("data-open", "false", { timeout: NAV_TIMEOUT_MS });
     }
     if ((await dock.getAttribute("data-open")) !== "true") {
@@ -185,6 +188,49 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     const viewportHeight = page.viewportSize()?.height ?? 0;
     expect(box?.height ?? 0).toBeGreaterThan(viewportHeight * 0.8);
     await expect(composer).toBeVisible();
+  });
+
+  test("a tablet-width viewport keeps the workspace usable instead of crushing it beside a permanent panel @T1224tablet", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "chromium", "geometry assertion is desktop-engine-only");
+
+    // Real ~900px tablet width: wider than the nav's 767px mobile
+    // breakpoint (nav stays a normal 14rem grid column, no hamburger), but
+    // narrower than the point where a permanent 400-520px side column plus
+    // that nav would leave only a couple hundred px of actual workspace —
+    // the exact gap this breakpoint exists to close.
+    await page.setViewportSize({ width: 900, height: 800 });
+    await page.goto("/app");
+
+    // Closed by default at this width (same reasoning as mobile) — the
+    // workspace gets the viewport's full remaining width, not squeezed
+    // beside a panel that never goes away.
+    const dock = page.getByTestId("operator-chat-dock");
+    await expect(dock).toHaveAttribute("data-open", "false", { timeout: NAV_TIMEOUT_MS });
+    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    const mainBox = await page.getByRole("heading", { name: "Dashboard" }).boundingBox();
+    expect(mainBox).not.toBeNull();
+    // Comfortably more than the ~144px a permanent nav+panel would leave at
+    // this width if the panel didn't switch to an overlay here.
+    expect((mainBox?.x ?? 0) + (mainBox?.width ?? 0)).toBeGreaterThan(400);
+
+    // Opening it renders as an overlay/sheet (operator-panel.module.css's
+    // 1023px block — position: fixed, inset: 0), not a 400-520px column
+    // that permanently steals width from the workspace.
+    await page.getByRole("button", { name: "✦ Open Copilot" }).click();
+    await expect(dock).toHaveAttribute("data-open", "true");
+    const openBox = await dock.boundingBox();
+    expect(openBox).not.toBeNull();
+    expect(openBox?.width ?? 0).toBeGreaterThan(700); // covers the viewport, not a narrow column
+    const composer = dock.getByTestId("copilot-chat-textarea");
+    await expect(composer).toBeVisible({ timeout: NAV_TIMEOUT_MS });
+
+    // Closing restores full workspace access.
+    await page.getByRole("button", { name: "Close Copilot" }).click();
+    await expect(dock).toHaveAttribute("data-open", "false");
+    await page.getByRole("heading", { name: "Quick links" }).scrollIntoViewIfNeeded();
+    await expect(page.getByRole("button", { name: "✦ Open Copilot" })).toBeVisible();
   });
 
   // IPI-1149 · DASH-MAIN-002 — portfolio-aware chat welcome + pinned
