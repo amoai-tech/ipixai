@@ -134,11 +134,11 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
 
     await page.getByRole("button", { name: "Expand chat" }).click();
     await expect(dock).toHaveAttribute("data-expanded", "true");
-    await expect.poll(async () => (await dock.boundingBox())?.height ?? 0).toBeGreaterThan(compact!.height);
+    await expect.poll(async () => (await dock.boundingBox())?.height ?? 0).toBeGreaterThan(compact?.height ?? 0);
 
     const expanded = await dock.boundingBox();
     expect(expanded).not.toBeNull();
-    expect(expanded!.height).toBeLessThanOrEqual(page.viewportSize()!.height * 0.7 + 2);
+    expect(expanded?.height ?? 0).toBeLessThanOrEqual((page.viewportSize()?.height ?? 0) * 0.7 + 2);
     await expect(composer).toBeVisible();
 
     await page.getByRole("button", { name: "Collapse chat" }).click();
@@ -216,10 +216,10 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
 
     await page.getByRole("button", { name: "Expand chat" }).click();
     await expect(dock).toHaveAttribute("data-expanded", "true");
-    await expect.poll(async () => (await dock.boundingBox())?.height ?? 0).toBeGreaterThan(compact!.height);
+    await expect.poll(async () => (await dock.boundingBox())?.height ?? 0).toBeGreaterThan(compact?.height ?? 0);
     const expanded = await dock.boundingBox();
     expect(expanded).not.toBeNull();
-    expect(expanded!.height).toBeLessThanOrEqual(500 * 0.7 + 2);
+    expect(expanded?.height ?? 0).toBeLessThanOrEqual((page.viewportSize()?.height ?? 0) * 0.7 + 2);
     await expect(composer).toBeVisible();
 
     await page.getByRole("button", { name: "Collapse chat" }).click();

@@ -436,7 +436,7 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
       <main className={styles.main}>
         <div className={styles.mainScroll}>{children}</div>
         <div
-          className={`${styles.chatDock} ${chatExpanded ? styles.chatDockExpanded : ""}`}
+          className={cn(styles.chatDock, chatExpanded && styles.chatDockExpanded)}
           data-testid="operator-chat-dock"
           data-expanded={chatExpanded ? "true" : "false"}
         >
@@ -448,7 +448,9 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
               size="sm"
               aria-expanded={chatExpanded}
               aria-controls="operator-chat-panel"
-              onClick={() => setChatExpanded((expanded) => !expanded)}
+              onClick={() => {
+                setChatExpanded((expanded) => !expanded);
+              }}
             >
               {chatExpanded ? "Collapse chat" : "Expand chat"}
             </Button>
