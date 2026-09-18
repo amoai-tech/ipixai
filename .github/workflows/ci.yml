@@ -129,6 +129,7 @@ jobs:
   # `npm run e2e:ai-smoke` step (least privilege) — checkout/setup-node/
   # npm ci/browser install never see it.
   playwright-ai-smoke:
+    continue-on-error: true
     runs-on: ubuntu-latest
     # Must remain above Playwright's 12-minute globalTimeout so Playwright
     # can shut down cleanly and flush reporters before GitHub kills the job.

@@ -55,6 +55,15 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(source).not.toContain("vercel deploy --prebuilt --prod");
   });
 
+  it("keeps hosted AI smoke advisory so provider failures do not block Production", () => {
+    const source = read(".github/workflows/ci.yml");
+    const start = source.indexOf("  playwright-ai-smoke:");
+    const end = source.indexOf("\n  planner-default-acl:", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(source.slice(start, end)).toContain("continue-on-error: true");
+  });
+
   it("pins the deploy runtime to the same Node major certified by CI", () => {
     const pkg = JSON.parse(read("package.json")) as { engines?: { node?: string } };
     const nvmrc = read(".nvmrc").trim();
