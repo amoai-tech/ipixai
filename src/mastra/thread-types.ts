@@ -1,8 +1,23 @@
-export type PlannerChatMessage = {
+/** A `composeShootPlan` tool call recorded on an assistant message — the
+ *  AG-UI/CopilotKit `AssistantMessage.toolCalls[]` shape, narrowed to what
+ *  IPI-1233 · PLAN-CARD-001 needs to replay the structured Plan Card after
+ *  reload (see `mastraMessagesToChat` in thread-persistence.ts). */
+export type PlannerToolCall = {
   id: string;
-  role: "user" | "assistant";
-  content: string;
+  type: "function";
+  function: { name: string; arguments: string };
 };
+
+/** Mirrors the 3 AG-UI `Message` roles `agent.setMessages()` actually needs to
+ *  replay a conversation: plain text (user/assistant), and — only for the
+ *  handful of tools IPI-1233 preserves rich history for — the paired
+ *  assistant `toolCalls` + `tool` result message a structured renderer reads
+ *  back. Every other historical tool call still collapses to assistant text,
+ *  same as before. */
+export type PlannerChatMessage =
+  | { id: string; role: "user"; content: string }
+  | { id: string; role: "assistant"; content: string; toolCalls?: PlannerToolCall[] }
+  | { id: string; role: "tool"; toolCallId: string; content: string };
 
 export type PlannerThreadRow = {
   id: string;

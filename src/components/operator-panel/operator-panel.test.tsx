@@ -111,6 +111,9 @@ vi.mock("@copilotkit/react-core/v2", () => ({
   // IPI-1084 registers the ShootPlan review HITL renderer inside the provider.
   // These tests assert the shell/nav/rail, so the registration is a no-op here.
   useHumanInTheLoop: () => {},
+  // IPI-1233 registers the composeShootPlan named renderer inside the same
+  // provider — same no-op treatment as useHumanInTheLoop above.
+  useRenderTool: () => {},
   CopilotChat: ({
     labels,
     threadId,

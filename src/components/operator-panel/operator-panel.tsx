@@ -13,6 +13,7 @@ import styles from "./operator-panel.module.css";
 import { useWorkspaceStats, WorkspaceStatsProvider } from "./workspace-stats";
 import type { WorkspaceStats } from "./workspace-stats";
 import { RestoreMastraHistory } from "@/components/restore-mastra-history";
+import { ComposeShootPlanRenderer } from "@/components/shoot/compose-shoot-plan-renderer";
 import { ShootPlanReviewHitl } from "@/components/shoot/shoot-plan-review-hitl";
 import {
   plannerThreadStorageKey,
@@ -734,6 +735,10 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
           existing provider (no second runtime) and only produces the review
           card when the agent requests a plan review. */}
       <ShootPlanReviewHitl />
+      {/* IPI-1233 · PLAN-CARD-001 — named composeShootPlan renderer. Renders
+          inside this same existing provider; every other message/tool keeps
+          CopilotKit's default rendering. */}
+      <ComposeShootPlanRenderer />
       <div className={cn(styles.shell, copilotOpen && styles.shellPanelOpen)} data-testid="operator-panel">
       <div className={styles.menuBar}>
         <Button
