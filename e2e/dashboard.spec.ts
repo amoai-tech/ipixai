@@ -127,6 +127,8 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
 
     await page.goto("/app");
     const dock = page.getByTestId("operator-chat-dock");
+    const composer = dock.getByTestId("copilot-chat-textarea");
+    await expect(composer).toBeVisible({ timeout: NAV_TIMEOUT_MS });
     const compact = await dock.boundingBox();
     expect(compact).not.toBeNull();
 
@@ -137,6 +139,7 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     const expanded = await dock.boundingBox();
     expect(expanded).not.toBeNull();
     expect(expanded!.height).toBeLessThanOrEqual(page.viewportSize()!.height * 0.7 + 2);
+    await expect(composer).toBeVisible();
 
     await page.getByRole("button", { name: "Collapse chat" }).click();
     await expect(dock).toHaveAttribute("data-expanded", "false");
@@ -206,6 +209,8 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     await page.getByRole("heading", { name: "Quick links" }).scrollIntoViewIfNeeded();
     const dock = page.getByTestId("operator-chat-dock");
     await expect(dock).toBeVisible();
+    const composer = dock.getByTestId("copilot-chat-textarea");
+    await expect(composer).toBeVisible({ timeout: NAV_TIMEOUT_MS });
     const compact = await dock.boundingBox();
     expect(compact).not.toBeNull();
 
@@ -215,6 +220,7 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     const expanded = await dock.boundingBox();
     expect(expanded).not.toBeNull();
     expect(expanded!.height).toBeLessThanOrEqual(500 * 0.7 + 2);
+    await expect(composer).toBeVisible();
 
     await page.getByRole("button", { name: "Collapse chat" }).click();
     await expect(dock).toHaveAttribute("data-expanded", "false");
