@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -69,17 +70,101 @@ import { fileURLToPath } from "node:url";
  * TRUST MODEL / PATH HANDLING
  * ---------------------------
  * `--save` and `--compare` accept filesystem paths from the operator invoking this
- * script, and those paths are used as given (resolved, but not confined to the repo).
- * That is deliberate: the caller already runs with the same filesystem access as the
- * script, so a repo-root restriction would add no real security while breaking
- * legitimate usage such as `--save /tmp/ipix-baseline.json`. If these paths ever come
- * from untrusted input (an HTTP handler, a CI variable an attacker controls), revisit
- * this decision before reusing the script there.
+ * script. They are validated by `validatePath` before any read or write: the resolved
+ * target must sit inside the repository or inside a temp directory. That is an
+ * ACCIDENT guard, not a security boundary — the operator already has the same
+ * filesystem access as this script — but it means a mistyped or copy-pasted path
+ * cannot silently overwrite something unrelated, and the `fs` calls only ever receive
+ * a checked path.
+ *
+ * A legitimately different baseline location is an explicit opt-in:
+ *   MEASURE_TRACES_ALLOW_DIRS=/data/baselines:/mnt/ci npm run measure:traces -- --save ...
+ *
+ * `--project-root` is NOT restricted: it is a read-only source root, and a wrong value
+ * can only make files look missing (which the measurement already reports as invalid).
  */
 
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(scriptPath), "..");
 const MIB = 1024 * 1024;
+
+/**
+ * Realpath of the nearest existing ancestor of `target`, with the not-yet-existing
+ * remainder re-appended.
+ *
+ * A `--save` target does not exist yet, so `realpathSync` on it would throw. Resolving
+ * the ancestor instead means a symlinked checkout, `/tmp` vs `/private/tmp` on macOS,
+ * or a symlink pointing out of an allowed directory are all compared as the filesystem
+ * actually resolves them — not as the argument string is spelled.
+ */
+function realResolvedTarget(target) {
+  let current = path.resolve(target);
+  const tail = [];
+  for (;;) {
+    try {
+      const real = fs.realpathSync(current);
+      return tail.length === 0 ? real : path.join(real, ...tail.reverse());
+    } catch {
+      const parent = path.dirname(current);
+      if (parent === current) return path.resolve(target); // reached the FS root
+      tail.push(path.basename(current));
+      current = parent;
+    }
+  }
+}
+
+/** Containment roots a `--save` / `--compare` target is allowed to resolve into. */
+export function allowedPathRoots(env = process.env) {
+  const roots = [repoRoot, os.tmpdir(), "/tmp"];
+  const extra = env.MEASURE_TRACES_ALLOW_DIRS;
+  if (extra) roots.push(...extra.split(path.delimiter).filter(Boolean));
+
+  const resolved = [];
+  for (const root of roots) {
+    try {
+      // A root that does not exist cannot contain anything, so it is dropped rather
+      // than trusted as a prefix.
+      resolved.push(fs.realpathSync(path.resolve(root)));
+    } catch {
+      /* not a real directory - ignore */
+    }
+  }
+  return [...new Set(resolved)];
+}
+
+/**
+ * Validate an operator-supplied `--save` / `--compare` path and return its resolved,
+ * symlink-free absolute form.
+ *
+ * Throws (never silently coerces) when the path is empty, contains a NUL byte, or
+ * resolves outside every allowed root.
+ */
+export function validatePath(rawPath, options = {}) {
+  const { label = "path", env = process.env } = options;
+
+  if (typeof rawPath !== "string" || rawPath.trim() === "") {
+    throw new Error(`${label} must be a non-empty path`);
+  }
+  if (rawPath.includes("\0")) {
+    throw new Error(`${label} must not contain a NUL byte`);
+  }
+
+  const target = realResolvedTarget(rawPath);
+  const roots = allowedPathRoots(env);
+  const contained = roots.some((root) =>
+    target === root || target.startsWith(root.endsWith(path.sep) ? root : `${root}${path.sep}`),
+  );
+
+  if (!contained) {
+    throw new Error(
+      `${label} "${rawPath}" resolves to ${target}, which is outside the allowed locations.\n` +
+        `  allowed: ${roots.join(", ")}\n` +
+        "  Use a path inside the repository, or extend the list with\n" +
+        "  MEASURE_TRACES_ALLOW_DIRS (colon-separated) if the baseline belongs elsewhere.",
+    );
+  }
+  return target;
+}
 
 /** Families reported by default. Matched as `node_modules/<name>/` inside a trace path. */
 export const DEFAULT_FAMILIES = [
@@ -319,39 +404,29 @@ function accumulateBuckets(logical, resolved, brokenSet, traceFor) {
 }
 
 /**
- * Build the canonical report for a Vercel build output directory.
- * Throws a helpful error when the directory is not a completed build.
+ * Resolve logical `.func` directories to their authoritative trace.
+ *
+ * Reads and accounts for each PHYSICAL artifact exactly once: 113 logical routes can
+ * share only 5 real artifacts, so counting per logical entry would multiply one
+ * artifact's missing files by the number of symlinks pointing at it.
+ *
+ * Extracted from `summarizeTraces` so the caching/dedup contract is testable on its
+ * own — `reads` exposes how many artifacts were actually parsed, which is the direct
+ * proof that aliases hit the cache instead of re-reading.
  */
-export function summarizeTraces(outputDir, options = {}) {
-  const families = options.families ?? DEFAULT_FAMILIES;
-  const topPageOnly = options.topPageOnly ?? 10;
-  const resolved = path.resolve(outputDir);
+export function createTraceResolver(projectRoot, options = {}) {
+  const { outputDir = projectRoot } = options;
+  const broken = options.broken ?? [];
 
-  if (!fs.existsSync(path.join(resolved, "functions"))) {
-    throw new Error(
-      `No "functions" directory under ${resolved}. ` +
-        "Run `vercel pull --yes --environment=production && vercel build --prod` first.",
-    );
-  }
-
-  const { logical, uniqueDirs, broken } = listFunctionEntries(resolved);
-  // `.vercel/output` lives at <projectRoot>/.vercel/output, so filePathMap values
-  // resolve against the grandparent of the output directory.
-  const projectRoot = path.resolve(resolved, "..", "..");
-  const brokenSet = new Set(broken);
-
-  // Account for each unique artifact exactly ONCE. Counting inside the logical loop
-  // would multiply one physical artifact's missing files by the number of routes that
-  // symlink to it (113 logical routes can share only 5 real artifacts).
-  const traceCache = new Map();
+  const cache = new Map();
   const accounted = new Set();
   const invalidDetails = broken.map((dir) => ({
-    name: toPosix(path.relative(resolved, dir)),
+    name: toPosix(path.relative(outputDir, dir)),
     reason: "broken symlink",
   }));
   let missing = 0;
 
-  const traceFor = (dir) => {
+  const resolve = (dir) => {
     let real;
     try {
       real = fs.realpathSync(dir);
@@ -361,24 +436,50 @@ export function summarizeTraces(outputDir, options = {}) {
     if (!accounted.has(real)) {
       accounted.add(real);
       const record = readFunctionTrace(real, projectRoot);
-      traceCache.set(real, record);
+      cache.set(real, record);
       missing += record.missing;
       if (record.invalid) {
         invalidDetails.push({
-          name: toPosix(path.relative(resolved, dir)),
+          name: toPosix(path.relative(outputDir, dir)),
           reason: record.invalid,
         });
       }
     }
-    return traceCache.get(real);
+    return cache.get(real);
   };
 
-  const { page, api, pageFunctions, apiFunctions, largestPageFunction } = accumulateBuckets(
-    logical,
+  return {
+    resolve,
+    get missing() {
+      return missing;
+    },
+    get invalidDetails() {
+      return invalidDetails;
+    },
+    /** Number of physical artifacts actually read — the cache-hit proof. */
+    get reads() {
+      return cache.size;
+    },
+  };
+}
+
+/** Assemble the canonical report object from the resolved buckets. */
+function buildReport(input) {
+  const {
     resolved,
-    brokenSet,
-    traceFor,
-  );
+    projectRoot,
+    logical,
+    uniqueDirs,
+    page,
+    api,
+    pageFunctions,
+    apiFunctions,
+    largestPageFunction,
+    missing,
+    invalidDetails,
+    families,
+    topPageOnly,
+  } = input;
 
   const union = new Map(page);
   for (const [file, size] of api) if (!union.has(file)) union.set(file, size);
@@ -420,6 +521,55 @@ export function summarizeTraces(outputDir, options = {}) {
     families: families.map((name) => familyStats(page, api, pageOnly, name)),
     topPageOnly: topPageOnlyEntries,
   };
+}
+
+/**
+ * Build the canonical report for a Vercel build output directory.
+ * Throws a helpful error when the directory is not a completed build.
+ *
+ * `options.projectRoot` overrides the derived `<output>/../..` root. Pass it when the
+ * output directory has been moved or copied away from `<projectRoot>/.vercel/output`;
+ * without it every `filePathMap` entry resolves against the wrong base and the
+ * measurement reports every source file as missing (and therefore invalid).
+ */
+export function summarizeTraces(outputDir, options = {}) {
+  const families = options.families ?? DEFAULT_FAMILIES;
+  const topPageOnly = options.topPageOnly ?? 10;
+  const resolved = path.resolve(outputDir);
+
+  if (!fs.existsSync(path.join(resolved, "functions"))) {
+    throw new Error(
+      `No "functions" directory under ${resolved}. ` +
+        "Run `vercel pull --yes --environment=production && vercel build --prod` first.",
+    );
+  }
+
+  const { logical, uniqueDirs, broken } = listFunctionEntries(resolved);
+  // `.vercel/output` normally lives at <projectRoot>/.vercel/output, so filePathMap
+  // values resolve against the grandparent of the output directory — unless the
+  // caller overrides it with --project-root.
+  const projectRoot = options.projectRoot
+    ? path.resolve(options.projectRoot)
+    : path.resolve(resolved, "..", "..");
+
+  const resolver = createTraceResolver(projectRoot, { outputDir: resolved, broken });
+  const buckets = accumulateBuckets(logical, resolved, new Set(broken), resolver.resolve);
+
+  return buildReport({
+    resolved,
+    projectRoot,
+    logical,
+    uniqueDirs,
+    page: buckets.page,
+    api: buckets.api,
+    pageFunctions: buckets.pageFunctions,
+    apiFunctions: buckets.apiFunctions,
+    largestPageFunction: buckets.largestPageFunction,
+    missing: resolver.missing,
+    invalidDetails: resolver.invalidDetails,
+    families,
+    topPageOnly,
+  });
 }
 
 function mib(value) {
@@ -607,6 +757,7 @@ function parseArgs(argv) {
     family: "@shikijs",
     minReductionMiB: null,
     allowMissing: false,
+    projectRoot: null,
     families: [...DEFAULT_FAMILIES],
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -624,6 +775,7 @@ function parseArgs(argv) {
       return value;
     };
     if (arg === "--output") options.output = next();
+    else if (arg === "--project-root") options.projectRoot = next();
     else if (arg === "--json") options.json = true;
     else if (arg === "--save") options.save = next();
     else if (arg === "--compare") options.compare = next();
@@ -651,8 +803,11 @@ function usage() {
     "Usage: node scripts/measure-vercel-traces.mjs [options]",
     "",
     "  --output <dir>          build output dir (default .vercel/output)",
+    "  --project-root <dir>    project root for filePathMap resolution (default <output>/../..)",
+    "                          pass this when the output dir was moved or copied",
     "  --json                  print the raw report as JSON",
-    "  --save <file>           write the report JSON to a file (baseline)",
+    "  --save <file>           write the report JSON to a file (baseline). Must resolve",
+    "                          inside the repo or a temp dir; see MEASURE_TRACES_ALLOW_DIRS",
     "  --compare <file>        compare against a saved baseline report",
     "  --family <name>         family for the comparison (default @shikijs)",
     "  --min-reduction <MiB>   gate: exit 1 unless page-only shrinks by this much",
@@ -677,9 +832,24 @@ export function runMeasurement(argv = process.argv.slice(2)) {
     return 0;
   }
 
+  // Validate operator-supplied paths BEFORE doing any work, so a rejected path fails
+  // fast and the fs calls below only ever receive a checked, resolved path.
+  let savePath = null;
+  let comparePath = null;
+  try {
+    if (options.save) savePath = validatePath(options.save, { label: "--save" });
+    if (options.compare) comparePath = validatePath(options.compare, { label: "--compare" });
+  } catch (error) {
+    console.error(`measure-vercel-traces: ${error.message}`);
+    return 2;
+  }
+
   let report;
   try {
-    report = summarizeTraces(options.output, { families: options.families });
+    report = summarizeTraces(options.output, {
+      families: options.families,
+      projectRoot: options.projectRoot ?? undefined,
+    });
   } catch (error) {
     console.error(`measure-vercel-traces: ${error.message}`);
     return 2;
@@ -688,9 +858,9 @@ export function runMeasurement(argv = process.argv.slice(2)) {
   if (options.json) console.log(JSON.stringify(report, null, 2));
   else console.log(formatReport(report));
 
-  if (options.save) {
-    fs.writeFileSync(path.resolve(options.save), `${JSON.stringify(report, null, 2)}\n`);
-    console.log(`\nbaseline written to ${path.resolve(options.save)}`);
+  if (savePath) {
+    fs.writeFileSync(savePath, `${JSON.stringify(report, null, 2)}\n`);
+    console.log(`\nbaseline written to ${savePath}`);
   }
 
   if (!report.pageIsSupersetOfApi) {
@@ -726,13 +896,12 @@ export function runMeasurement(argv = process.argv.slice(2)) {
     return 1;
   }
 
-  if (options.compare) {
-    const baselinePath = path.resolve(options.compare);
+  if (comparePath) {
     let baseline;
     try {
-      baseline = JSON.parse(fs.readFileSync(baselinePath, "utf8"));
+      baseline = JSON.parse(fs.readFileSync(comparePath, "utf8"));
     } catch (error) {
-      console.error(`measure-vercel-traces: cannot read baseline ${baselinePath}: ${error.message}`);
+      console.error(`measure-vercel-traces: cannot read baseline ${comparePath}: ${error.message}`);
       return 2;
     }
     const result = compareReports(baseline, report, {

@@ -6,11 +6,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   classifyFunction,
   compareReports,
+  createTraceResolver,
   isPageSupersetOfApi,
   listFunctionEntries,
   readFunctionTrace,
   runMeasurement,
   summarizeTraces,
+  validatePath,
 } from "../scripts/measure-vercel-traces.mjs";
 
 const tempDirs: string[] = [];
@@ -669,5 +671,155 @@ describe("runMeasurement CLI contract", () => {
     expect(runMeasurement(["--save"])).toBe(2);
     expect(runMeasurement(["--compare"])).toBe(2);
     expect(runMeasurement(["--families"])).toBe(2);
+  });
+});
+
+describe("createTraceResolver", () => {
+  it("reads each PHYSICAL artifact once even when several logical routes alias it", () => {
+    const { root, outputDir } = createBuild({
+      sources: ["src/a.ts"],
+      reals: { "login.func": ["src/a.ts"] },
+      symlinks: { "app.func": "login.func", "app.rsc.func": "login.func" },
+    });
+    const { logical, broken } = listFunctionEntries(outputDir);
+    const resolver = createTraceResolver(root, { outputDir, broken });
+
+    for (const dir of logical) resolver.resolve(dir);
+
+    expect(logical).toHaveLength(3);
+    // The cache-hit contract, asserted directly: three routes, one physical read.
+    expect(resolver.reads).toBe(1);
+  });
+
+  it("counts a missing file once per physical artifact, not once per alias", () => {
+    const { root, outputDir } = createBuild({
+      sources: ["src/ok.ts"],
+      reals: { "login.func": ["src/ok.ts"] },
+      missingSources: ["node_modules/gone/vanished.js"],
+      symlinks: { "app.func": "login.func" },
+    });
+    const { logical, broken } = listFunctionEntries(outputDir);
+    const resolver = createTraceResolver(root, { outputDir, broken });
+    for (const dir of logical) resolver.resolve(dir);
+
+    expect(resolver.missing).toBe(1);
+  });
+
+  it("records an unusable config once and reports it through invalidDetails", () => {
+    const { outputDir } = createRawRoot("resolver-badcfg");
+    writeRawFunc(outputDir, "login.func", "{ not json");
+    const { logical, broken } = listFunctionEntries(outputDir);
+    const resolver = createTraceResolver(path.dirname(path.dirname(outputDir)), {
+      outputDir,
+      broken,
+    });
+
+    for (const dir of logical) resolver.resolve(dir);
+
+    expect(resolver.invalidDetails).toHaveLength(1);
+    expect(resolver.invalidDetails[0].reason).toBe("unparsable .vc-config.json");
+  });
+});
+
+describe("validatePath (--save / --compare guard)", () => {
+  it("accepts a repository-relative path and returns an absolute resolved form", () => {
+    const resolved = validatePath("baseline.json");
+
+    expect(path.isAbsolute(resolved)).toBe(true);
+    expect(resolved.endsWith("baseline.json")).toBe(true);
+  });
+
+  it("accepts a temp-directory path", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ipix-guard-"));
+    tempDirs.push(dir);
+
+    expect(validatePath(path.join(dir, "before.json"))).toContain("before.json");
+  });
+
+  it("rejects a path outside the repo and temp roots", () => {
+    const outside = fs.mkdtempSync(path.join(os.homedir(), ".ipix-pathguard-"));
+    tempDirs.push(outside);
+    const target = path.join(outside, "baseline.json");
+
+    expect(() => validatePath(target)).toThrow(/outside the allowed locations/);
+  });
+
+  it("accepts the same outside path once explicitly allowlisted", () => {
+    const outside = fs.mkdtempSync(path.join(os.homedir(), ".ipix-pathguard-"));
+    tempDirs.push(outside);
+    const target = path.join(outside, "baseline.json");
+
+    const resolved = validatePath(target, {
+      env: { MEASURE_TRACES_ALLOW_DIRS: outside },
+    });
+
+    // realpath is applied by the guard, so compare against the real prefix.
+    expect(resolved).toBe(path.join(fs.realpathSync(outside), "baseline.json"));
+  });
+
+  it("rejects a symlink that escapes an allowed root", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ipix-escape-"));
+    tempDirs.push(dir);
+    fs.symlinkSync("/etc", path.join(dir, "escape"));
+
+    expect(() => validatePath(path.join(dir, "escape", "passwd"))).toThrow(
+      /outside the allowed locations/,
+    );
+  });
+
+  it("rejects empty, whitespace and NUL-containing paths", () => {
+    expect(() => validatePath("")).toThrow(/non-empty/);
+    expect(() => validatePath("   ")).toThrow(/non-empty/);
+    expect(() => validatePath("bad\0name")).toThrow(/NUL/);
+    expect(() => validatePath(undefined as unknown as string)).toThrow(/non-empty/);
+  });
+
+  it("makes the CLI refuse an out-of-bounds --save instead of writing", () => {
+    const outside = fs.mkdtempSync(path.join(os.homedir(), ".ipix-pathguard-"));
+    tempDirs.push(outside);
+    const target = path.join(outside, "should-not-exist.json");
+
+    expect(runMeasurement(["--save", target, "--json"])).toBe(2);
+    expect(fs.existsSync(target)).toBe(false);
+  });
+});
+
+describe("--project-root override", () => {
+  it("reports the measurement invalid when a moved output dir is measured without it", () => {
+    const { root, outputDir } = createBuild({
+      sources: ["src/a.ts"],
+      reals: { "login.func": ["src/a.ts"] },
+    });
+    const moved = fs.mkdtempSync(path.join(os.tmpdir(), "ipix-moved-"));
+    tempDirs.push(moved);
+    const movedOutput = path.join(moved, "output");
+    fs.cpSync(outputDir, movedOutput, { recursive: true });
+
+    // `<moved>/output/../..` is the temp root, not the build's project root, so every
+    // filePathMap entry resolves to a non-existent path.
+    const withoutRoot = summarizeTraces(movedOutput);
+    expect(withoutRoot.complete).toBe(false);
+    expect(withoutRoot.missingFiles).toBeGreaterThan(0);
+
+    const withRoot = summarizeTraces(movedOutput, { projectRoot: root });
+    expect(withRoot.complete).toBe(true);
+    expect(withRoot.missingFiles).toBe(0);
+    expect(withRoot.projectRoot).toBe(root);
+  });
+
+  it("accepts --project-root on the CLI and flips the exit code", () => {
+    const { root, outputDir } = createBuild({
+      sources: ["src/a.ts"],
+      reals: { "login.func": ["src/a.ts"] },
+    });
+    const moved = fs.mkdtempSync(path.join(os.tmpdir(), "ipix-moved-cli-"));
+    tempDirs.push(moved);
+    const movedOutput = path.join(moved, "output");
+    fs.cpSync(outputDir, movedOutput, { recursive: true });
+
+    expect(runMeasurement(["--output", movedOutput, "--json"])).not.toBe(0);
+    expect(
+      runMeasurement(["--output", movedOutput, "--project-root", root, "--json"]),
+    ).toBe(0);
   });
 });
