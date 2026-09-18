@@ -110,14 +110,47 @@
    simple docked panel, not full-height chat. */
 .chatDock {
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
   /* min() instead of a bare 320px: on a short viewport (mobile, landscape)
      a fixed 320px dock can eat most of the shell now that .shell is
      height:100dvh-bounded — scale it down against the viewport instead of
-     a separate mobile breakpoint. 40dvh stays above 320px on any normal
-     desktop height, so this is a no-op there. */
-  height: min(320px, 40dvh);
+     a separate mobile breakpoint. 40dvh stays above 360px on any normal
+     desktop height, so this is a no-op there. The small increase preserves
+     the compact chat viewport after adding its accessible header. */
+  height: min(360px, 40dvh);
   border-top: 1px solid var(--color-border);
   background: var(--color-bg-card);
+  overflow: hidden;
+  transition: height var(--duration-fast) ease;
+}
+
+.chatDockExpanded {
+  height: min(720px, 70dvh);
+}
+
+.chatDockHeader {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.375rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.chatDockTitle {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.chatDockContent {
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -141,6 +174,12 @@
 .chatDockChat {
   flex: 1;
   min-height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chatDock {
+    transition: none;
+  }
 }
 
 .rail {

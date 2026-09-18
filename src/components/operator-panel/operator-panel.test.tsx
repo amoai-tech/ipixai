@@ -198,6 +198,33 @@ describe("OperatorPanel", () => {
     }
   });
 
+  it("expands and collapses the Planner chat dock without remounting the chat", async () => {
+    render(
+      <OperatorPanel>
+        <p>Workspace body</p>
+      </OperatorPanel>,
+    );
+
+    const dock = screen.getByTestId("operator-chat-dock");
+    const chat = await screen.findByTestId("copilot-chat-stub");
+    const expand = screen.getByRole("button", { name: "Expand chat" });
+
+    expect(dock.getAttribute("data-expanded")).toBe("false");
+    expect(expand.getAttribute("aria-expanded")).toBe("false");
+    expect(expand.getAttribute("aria-controls")).toBe("operator-chat-panel");
+
+    fireEvent.click(expand);
+
+    expect(dock.getAttribute("data-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: "Collapse chat" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByTestId("copilot-chat-stub")).toBe(chat);
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse chat" }));
+
+    expect(dock.getAttribute("data-expanded")).toBe("false");
+    expect(screen.getByTestId("copilot-chat-stub")).toBe(chat);
+  });
+
   it("rail shows the generic copy when no real workspace stats have been reported", () => {
     render(
       <OperatorPanel>
