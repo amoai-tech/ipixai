@@ -1,119 +1,60 @@
-# Official Cloudinary repos — adapt, don’t rebuild
+# Official Cloudinary repositories — reuse before custom code
 
-**Execution order:** [roadmap.md](./roadmap.md) · **requirements:** [prd.md](./prd.md) · **tracker:** [todo.md](./todo.md). Dumps: [../archive/cloudinary/](../archive/cloudinary/).
+Use these sources to verify Cloudinary behavior before creating iPix-specific media infrastructure.
 
-**For:** iPixai V2 media (`docs/cloudinary/`).  
-**Rule:** Console → CLI → MCP → Node SDK → next-cloudinary → examples → custom last.  
-**Do not** `npx create-cloudinary-next` over this repo. **Do not** treat Cloudinary Search / Asset Management as the business database (that stays Supabase).
+| Priority | Official / maintained source | iPix use |
+|---:|---|---|
+| 1 | https://github.com/cloudinary/cloudinary_npm | Node SDK: signing, upload, webhook verification, delivery URLs |
+| 2 | https://github.com/cloudinary-community/next-cloudinary | Next.js UI/integration patterns such as `CldUploadWidget` |
+| 3 | https://github.com/cloudinary-community/cloudinary-examples | Runnable examples; adapt the smallest relevant pattern |
+| 4 | https://github.com/cloudinary/cloudinary-cli | Inspect/configure Cloudinary without custom scripts when supported |
+| 5 | https://github.com/cloudinary/mcp-servers | Cloudinary MCP capabilities and current integration references |
+| 6 | https://github.com/cloudinary/asset-management-js | Administrative asset operations where appropriate; not iPix business truth |
+| 7 | https://github.com/cloudinary/api-schemas | API contracts/schema reference |
 
-Inspect these GitHub trees **before** writing a new helper. Copy patterns and file names, then bind AUTH-002 org + RLS.
+## iPix adaptation rules
 
-**Paste-on-ticket docs (≤5 per Linear issue):** [../links.md](../links.md) — Cloudinary section. This file is **GitHub / example folders** only.
+- Prefer installed package source/types over copied snippets.
+- Reuse the official signing and verification functions rather than hand-rolling cryptography.
+- Use Next.js Route Handlers for iPix server authorization boundaries.
+- Keep tenant ownership, shoot relationships, approvals, and workflow state in Supabase.
+- Treat examples as implementation patterns, not security policy.
+- Do not add another uploader, CDN, or media database unless the current stack demonstrably cannot satisfy the requirement.
 
----
+## Example search order
 
-## How to adapt (instead of custom code)
-
-| Need | Adapt | Do not build |
-| --- | --- | --- |
-| Operator upload UI | `CldUploadWidget` + `signatureEndpoint` / `prepareUploadParams` | Custom dropzone, S3-style multipart, unsigned preset |
-| Sign a browser upload | `cloudinary.utils.api_sign_request` in a Route Handler | Hand-rolled HMAC; Cloudflare Worker signer |
-| Public / marketing image | `CldImage` | Using DAM signed URLs on the marketing site |
-| Private / authenticated DAM | **Server signed-URL helper + named transforms** | Treating `CldImage` as the DAM security boundary |
-| Webhook verify | `cloudinary.utils.verifyNotificationSignature` | Home-grown SHA unless SDK cannot cover EdDSA v2 |
-| Delete | Node `uploader.destroy` + webhook archive | Dual delete UIs |
-| Large files (later) | SDK `upload_large` / widget large upload | Custom chunk protocol |
-| Admin list/search (later) | `asset-management-js` **ops only** | Replacing `listAssets` |
-| Automation (later) | n8n Cloudinary node **or** MediaFlows | In-house job runner for “approve → tag → notify” |
-| Fashion variants (later) | FashionistaAI **eager + poll** pattern | Sync GenAI in the request path |
-
-**iPix adapters (the only custom layer):** trusted org, brand/shoot ownership, `200` after Supabase persist, exact-version approval. Everything else should be SDK/example/legacy COPY+CLEAN.
-
----
-
-## Ranked for iPix (2026-08-31)
-
-Scores: fit for Next.js + signed DAM + less custom code. **Runtime needs 1–3.** Ops: CLI + MCP. Reconcile: asset-management-js. Do not add `cloudinary_js` / `cloudinary-react` to `package.json`.
-
-| Rank | Repo | Score | Use |
-| ---: | --- | ---: | --- |
-| 1 | [cloudinary/cloudinary_npm](https://github.com/cloudinary/cloudinary_npm) | 100 | Sign, webhook verify, upload/destroy, signed URLs |
-| 2 | [cloudinary-community/next-cloudinary](https://github.com/cloudinary-community/next-cloudinary) | 100 | `CldUploadWidget`; `CldImage` public only |
-| 3 | [cloudinary-community/cloudinary-examples](https://github.com/cloudinary-community/cloudinary-examples) | 98 | COPY+CLEAN signed widget + route handler |
-| 4 | [cloudinary/mcp-servers](https://github.com/cloudinary/mcp-servers) | 98 | Inspect before coding; read-only until cutover |
-| 5 | [cloudinary/cloudinary-cli](https://github.com/cloudinary/cloudinary-cli) | 96 | Named transforms, upload, search, Admin |
-| 6 | [cloudinary/asset-management-js](https://github.com/cloudinary/asset-management-js) | 95 | Reconcile list/search — not library SoT |
-| 7 | [cloudinary/api-schemas](https://github.com/cloudinary/api-schemas) | 94 | Contract/types |
-| 8 | [cloudinary-community/cloudinary-util](https://github.com/cloudinary-community/cloudinary-util) | 88 | URL parse/normalize if needed |
-| 9 | [cloudinary/js-url-gen](https://github.com/cloudinary/js-url-gen) | 80 | Only if named transforms cannot express the URL |
-| 10 | [cloudinary/structured-metadata-mcp](https://github.com/cloudinary/structured-metadata-mcp) | 90 | Post-MVP CLD-META |
-| 11 | [cloudinary-devs/product-launch-agent-single-tool](https://github.com/cloudinary-devs/product-launch-agent-single-tool) | 94 | First `findAssets` agent |
-| 12 | [cloudinary-devs/product-launch-agent](https://github.com/cloudinary-devs/product-launch-agent) | 90 | Later campaign agent |
-
-**Reference only (no runtime):** [create-cloudinary-next](https://github.com/cloudinary-devs/create-cloudinary-next) (audit env; **DROP** unsigned preset), [n8n-nodes-cloudinary](https://github.com/cloudinary/n8n-nodes-cloudinary), FashionistaAI, Event-Gallery UX, [auth.md](https://github.com/cloudinary/auth.md).
-
-**Inspect order:** `#1 → #5 → #4 → #2 → #3`. Reconcile: `#6`. Delivery stuck: `#8` then `#9`.
-
----
-
-## Example folders to open first (`cloudinary-examples`)
-
-Prefer Next App Router samples:
-
-| Folder | Use |
-| --- | --- |
-| `examples/nextjs-clduploadwidget-signed` | Primary operator upload |
-| `examples/nextjs-upload-widget-signed` | Same pattern, alternate layout |
-| `examples/nextjs-clduploadwidget` | Widget events/queue only |
-| `examples/nextjs-cldimage` | Library/detail thumbs (public or unsigned **marketing** only) |
-| `examples/nextjs-cldvideoplayer` | Later video |
-| `examples/nextjs-route-handlers-upload` | Sign route shape |
-| `examples/netlify-function-webhook-endpoint` | Webhook **shape** only — implement as Next Route Handler, not Netlify |
-| `examples/react-ts-media-library` | Post-MVP Media Library Widget |
-| `examples/nextjs-server-actions-upload` | **Not** the operator default (server `upload_stream`). Keep widget. |
-
-Official signed-widget tutorial repo: [cloudinary-devs/cld-signed-upload-examples](https://github.com/cloudinary-devs/cld-signed-upload-examples).
-
----
-
-## Task → repo map (inspect before implement)
-
-Docs URLs for the same tickets: [../links.md](../links.md) (Cloudinary section). Open GitHub **and** those docs.
-
-| Task | Open first | Then | Adapt / DROP |
-| --- | --- | --- | --- |
-| **IPI-1108 · CLD-FOUNDATION-001** | Console, [cloudinary-cli](https://github.com/cloudinary/cloudinary-cli), [mcp-servers](https://github.com/cloudinary/mcp-servers) | [cloudinary_npm](https://github.com/cloudinary/cloudinary_npm) README then [next-cloudinary](https://github.com/cloudinary-community/next-cloudinary) | Install; **DROP** unsigned preset; no wrapper unless repeated iPix behavior |
-| **IPI-1109 · MEDIA-DATA-001** | — (Supabase) | mcp-servers read-only if checking live assets | No Cloudinary SDK as SoT |
-| **IPI-1122 · SB-MEDIA-HARDEN-001** | — (Supabase grants/FK) | [control_access_to_media](https://cloudinary.com/documentation/control_access_to_media) so approval ≠ ACL | One forward migration after **1040** |
-| **IPI-1110 · CLD-SIGN-001** | cloudinary_npm `api_sign_request` | `nextjs-clduploadwidget-signed`, `nextjs-route-handlers-upload` | COPY+CLEAN legacy unified sign + AUTH-002 |
-| **IPI-1111 · CLD-WEBHOOK-001** | cloudinary_npm `verifyNotificationSignature` | notifications docs; examples webhook folder as **shape** | Next route; **raw `request.text()` then verify then parse**; `200` after DB write; no catch-all 200; HMAC only in Core |
-| **IPI-1112 · CLD-DELIVERY-001** | cloudinary_npm signed URL + named transforms | legacy `url.ts`; `CldImage` only if a surface is public | Authenticated DAM: signed helper is canonical; js-url-gen only if stuck |
-| **IPI-1113 · CLD-E2E-001** | cloudinary_npm upload + destroy | legacy pipeline script | Disposable asset; no prod customers |
-| **IPI-1114 · CLD-RECONCILE-001** | asset-management-js **or** Admin API in npm | mcp-servers list | Read-only; not Search-as-DB |
-| **IPI-1115 · CLD-CUTOVER-001** | mcp-servers env-config (triggers) | notifications `auth_scheme` | Preview URL first; rollback ipix.co |
-| **IPI-1116 · CLD-UPLOAD-001** | next-cloudinary `CldUploadWidget` | `nextjs-clduploadwidget-signed`; legacy `asset-upload-panel.tsx` | No custom uploader |
-| **IPI-1069 ASSETS-001** | IPI-1112 signed thumbs | Event-Gallery **UX** only | `listAssets` stays Supabase; no public `CldImage` for DAM |
-| **SHOOT-ASSETS-001** | Event-Gallery UX | same widget as upload | `shoot_id` in Supabase |
-| **MEDIA-APPROVAL-001** | — | FashionistaAI polling only if async derivatives later | Approval in Postgres, not Cloudinary ACL |
-| **MEDIA-DELIVERY-001** | npm signed authenticated URLs | next-cloudinary named / legacy `url.ts` | Approved version only |
-| **CLD-VIDEO-001** | `CldVideoPlayer` / `nextjs-cldvideoplayer` | cloudinary-video-player-react | After MVP |
-| **CLD-MLW-001** | `react-ts-media-library` | — | After MVP |
-| **CLD-CHUNK-001** | npm `upload_large` / asset-management-js chunks | widget large | After MVP |
-| **CLD-OPS-001** | mcp-servers + asset-management usage | n8n later | Console + docs, no fake metrics |
-| **CLD-MEDIAFLOWS / n8n** | mcp-servers MediaFlows, n8n-nodes-cloudinary | — | Post-MVP automation |
-| **Fashion AI** | Cloudinary-FashionistaAI | — | Advanced only |
-
-**IPI-1040 · MIGRATION-001** and **IPI-1065 · APP-001** have no Cloudinary GitHub dependency.
-
----
-
-## Cursor inspect order (every Cloudinary PR)
+For upload work:
 
 ```text
-1. This map + Linear task
-2. docs/links.md Cloudinary row for this IPI (≤5 official URLs)
-3. Repo folder in the table above (not archived)
-4. Installed package types in node_modules
-5. Proven COPY+CLEAN from a pinned GitHub source named on the ticket (never implement from local /home/sk/ipix)
-6. Smallest iPix adapter (org/RLS/200-after-write)
+cloudinary_npm
+→ next-cloudinary
+→ cloudinary-examples signed upload examples
+→ existing iPix sign route
+→ smallest missing adapter
 ```
+
+For delivery work:
+
+```text
+cloudinary_npm delivery/signing APIs
+→ current iPix authorization + Supabase asset ownership
+→ named transforms/current delivery policy
+→ smallest missing helper
+```
+
+For webhook work:
+
+```text
+cloudinary_npm verification APIs
+→ current iPix webhook route
+→ durable Supabase write semantics
+→ targeted tests
+```
+
+## Related iPix docs
+
+- [Cloudinary media requirements](./prd.md)
+- [Master product requirements](../prd.md)
+- [Documentation inventory](../DOCS-INDEX.md)
+
+Live task status and ownership remain in [Linear](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues).

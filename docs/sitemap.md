@@ -5,18 +5,19 @@ description: "iPix V2 routes and phases. Core is /app/planner only; booking is n
 
 # iPix V2 — Product sitemap
 
-**Status:** Product route SSOT (aligned with [Product requirements](./prd.md))  
-**Date:** 2026-08-24  
+**Status:** Product route SSOT (aligned with [Product requirements](./prd.md))
+**Baseline date:** 2026-08-24
+**Last verified against current repo:** 2026-09-17
 **This file is the application map for V2.** HTML prototypes are design reference only.
 
 | Source | Use for |
 |---|---|
 | **This file** | Routes, phases, nav, booking vs shoot |
-| [Execution backlog](todo-draft.md) | What to build and in what order (Linear is status SSOT) |
-| [Legacy route audit](./design/SITEMAP-V2.md) | Legacy lumina-studio `page.tsx` audit |
+| [Live execution board](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues) | Task status, blockers, and current execution |
+| [Documentation inventory](./DOCS-INDEX.md) | Current Keep / Update / Archive / Remove map; legacy route audits are historical evidence |
 | `Universal-design-prompt-4/Pages/*.dc.html` | Visual SCR mockups (not “built in this repo”) |
 
-**This repo today `[VERIFIED]`:** one Next.js page (`src/app/page.tsx`). Do not treat 31 SCR HTML files as shipped product.
+**This repo today `[VERIFIED]`:** real Next.js routes exist for marketing/auth/onboarding, `/app`, `/app/brands`, `/app/shoots`, `/app/plans`, and `/app/planner`, plus API routes. HTML prototypes remain design reference; route files and verified runtime behavior determine what is shipped.
 
 ---
 
@@ -39,9 +40,9 @@ The previous root `SITEMAP.md` (2026-07-06) was wrong as a product map. These ru
 
 | Topic | Old (incorrect) | V2 (this file) |
 |---|---|---|
-| What “built” means | 31 HTML screens 🟢 | React routes in **this** repo (1 demo) vs lumina-studio (legacy) |
+| What “built” means | 31 HTML screens 🟢 | React routes and verified behavior in **this** repo; legacy/design files are reference only |
 | Core surface | Implied full operator app | **`/app/planner` only** |
-| Brand | `/app/brand` | `/app/brand` |
+| Brand | `/app/brands` | `/app/brands` |
 | Shoot create | `/app/shoots/new` | `/app/shoots/new` |
 | Onboarding | `/onboarding` and `/onboarding` mixed | `/onboarding` |
 | CRM | `/app/crm/companies` · `/contacts` · schema “not built” | `/app/crm/companies` · `/contacts` · **legacy React is real**; still **MVP not Core** |
@@ -132,8 +133,8 @@ flowchart TD
 
   subgraph mvp [MVP — Operator Shell]
     CC["/app Command Center"]
-    Brand["/app/brand"]
-    BrandD["/app/brand/id"]
+    Brand["/app/brands"]
+    BrandD["/app/brands/id"]
     Shoots["/app/shoots"]
     ShootN["/app/shoots/new"]
     ShootD["/app/shoots/id"]
@@ -187,7 +188,7 @@ Status = V2 intent, not HTML completeness.
 | MVP | `/signup` | Signup | — |
 | MVP | `/onboarding` | Brand DNA funnel | SCR-11 |
 | MVP | `/app` | Command Center | SCR-01 |
-| MVP | `/app/brand` · `/[id]` | Brand list/detail | SCR-02, 03 |
+| MVP | `/app/brands` · `/[id]` | Brand list/detail | SCR-02, 03 |
 | MVP | `/app/shoots` · `/new` · `/[id]` | Shoots + 3-gate wizard | SCR-04, 06, 05 |
 | MVP | `/app/campaigns` | Campaigns | SCR-07 |
 | MVP | `/app/assets` · `/[id]` | Assets | SCR-08 |
@@ -225,7 +226,7 @@ Status = V2 intent, not HTML completeness.
 
 ## 6. Journeys (routes)
 
-- **Brand:** `/onboarding` → `/app` → `/app/brand/[id]`
+- **Brand:** `/onboarding` → `/app` → `/app/brands/[id]`
 - **Shoot:** `/app/shoots` → `/app/shoots/new` → `/app/shoots/[id]` → `/app/assets`
 - **Booking:** `/app/matching` → `/app/matching/talent/[id]` → `.../book` → `/app/bookings/[id]` → crew on shoot detail
 - **CRM:** `/app/crm/companies/[id]` (`brand_id` → brand detail) · pipeline won → ApprovalCard → brand
@@ -252,12 +253,12 @@ Do not cite `Pages/` at repo root, `docs/handoff/SCREEN-REGISTRY.md`, or July �
 
 ## 9. Port order after Core gold
 
-1. Tokens + empty/error/skeleton  
-2. Operator Shell + intelligence panel  
-3. CopilotKit dock rebuild  
-4. Brand list/detail → Shoots list/detail → Command Center (aggregator last)  
-5. Channel preview  
-6. CRM companies + detail  
-7. Matching talent tab  
+1. Tokens + empty/error/skeleton
+2. Operator Shell + intelligence panel
+3. CopilotKit dock rebuild
+4. Brand list/detail → Shoots list/detail → Command Center (aggregator last)
+5. Channel preview
+6. CRM companies + detail
+7. Matching talent tab
 
 Do not port first: 10-step HTML wizard (code is ~6 steps), 13-screen onboarding HTML, paid analytics KPIs, `/app/plans` mutations, availability, role dashboards, SCR-18 as a route.
