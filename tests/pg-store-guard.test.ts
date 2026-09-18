@@ -8,6 +8,7 @@ import {
   HOSTED_MASTRA_POOL_MAX,
   assertMastraProofWritesAllowed,
   assertSafeMastraDatabaseUrl,
+  createAgentMemoryStorage,
   createMastraStorage,
   getMastraPgPool,
   getMastraPostgresStore,
@@ -283,6 +284,14 @@ describe("IPI-1124 hosted URL guard and fail-closed", () => {
     delete process.env.IPIX_MASTRA_HOSTED;
     delete process.env.MASTRA_DATABASE_URL;
     const storage = createMastraStorage();
+    expect(storage).toBeInstanceOf(InMemoryStore);
+    expect(storage).not.toBeInstanceOf(PostgresStore);
+  });
+
+  it("createAgentMemoryStorage: local missing URL returns Mastra core in-memory storage", () => {
+    delete process.env.IPIX_MASTRA_HOSTED;
+    delete process.env.MASTRA_DATABASE_URL;
+    const storage = createAgentMemoryStorage();
     expect(storage).toBeInstanceOf(InMemoryStore);
     expect(storage).not.toBeInstanceOf(PostgresStore);
   });
