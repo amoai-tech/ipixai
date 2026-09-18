@@ -78,6 +78,46 @@ jobs:
       # Supabase sessions. Keep traces/reports runner-local instead of
       # publishing reusable session/network data as public CI artifacts.
 
+  # IPI-1084 · APPROVAL-001 (PR 2b) — real authenticated browser proof for the
+  # ShootPlan review lifecycle: Org A editor allowed, Org A viewer denied, Org B
+  # denied, edit invalidates revision N, reload keeps durable state actionable,
+  # retry is idempotent, a decision survives an unresumable run, and the whole
+  # journey writes zero Shoot rows.
+  #
+  # Deliberately self-contained: local Supabase + local Next + locally seeded
+  # fixtures, so it needs NO repository secrets and cannot touch a hosted
+  # project. That is also why it is a separate job from playwright-e2e (which
+  # signs into the shared hosted QA accounts and must never point at a local DB).
+  # The hosted QA project has no viewer membership and no brands to build this
+  # proof from; provisioning one there would mean writing users into a hosted
+  # project.
+  playwright-approval-tenant:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      COPILOTKIT_TELEMETRY_DISABLED: "true"
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.116.0
+      - run: npm ci
+      - run: supabase start
+      - run: supabase db reset --local
+      - run: PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium
+      # scripts/run-approval-001-e2e.mjs refuses any non-loopback Supabase
+      # target, seeds e2e/support/approval-001-tenant-fixtures.sql, then runs
+      # playwright.approval.config.ts (which starts Next against the local stack).
+      - run: npm run e2e:approval
+      # These tests hold real authenticated local sessions; keep reports
+      # runner-local rather than publishing them as public artifacts.
+
   # Live hosted-AI smoke — deliberately NOT a required merge check (see
   # playwright-e2e above). planner-journey.spec.ts and
   # copilot-intelligence-isolation.spec.ts each make one real, paid GPT-4o
