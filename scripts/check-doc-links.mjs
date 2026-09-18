@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRoot = path.resolve(path.dirname(scriptPath), "..");
-const rootDocs = ["README.md", "prd.md", "SITEMAP.md", "todo.md"];
+const rootPointerDocs = ["README.md", "prd.md", "SITEMAP.md", "todo.md"];
 const obsoleteMintlifyFiles = ["docs/.mintignore", "docs/docs.json", "docs/index.mdx"];
 const deprecatedTopLevelDocsDirs = [
   "docs/MIGRATE",
@@ -58,7 +58,7 @@ function activeMarkdownFiles(root) {
   const docsRoot = path.join(root, "docs");
   return [
     ...walkActiveDocs(docsRoot, path.join(docsRoot, "archive")),
-    ...rootDocs.map((name) => path.join(root, name)).filter(fs.existsSync),
+    ...rootPointerDocs.map((name) => path.join(root, name)).filter(fs.existsSync),
   ];
 }
 export function collectDocumentationFailures(root = defaultRoot) {
@@ -98,8 +98,14 @@ export function collectDocumentationFailures(root = defaultRoot) {
     }
   }
 
+  const absoluteRoot = path.resolve(root);
   for (const deprecatedDir of deprecatedTopLevelDocsDirs) {
-    if (fs.existsSync(path.join(root, deprecatedDir))) {
+    const target = path.resolve(absoluteRoot, deprecatedDir);
+    if (!isInsideRoot(target, absoluteRoot)) {
+      failures.push(`${deprecatedDir} resolves outside the repository root.`);
+      continue;
+    }
+    if (fs.existsSync(target)) {
       failures.push(`${deprecatedDir} should not exist; this top-level docs tree was archived.`);
     }
   }

@@ -47,6 +47,16 @@ describe("documentation link checker", () => {
     );
   });
 
+  it("checks stable root pointer documents such as prd.md and SITEMAP.md", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ipix-docs-check-"));
+    tempDirs.push(root);
+    fs.mkdirSync(path.join(root, "docs"), { recursive: true });
+    fs.writeFileSync(path.join(root, "docs", "README.md"), "# Docs\n");
+    fs.writeFileSync(path.join(root, "prd.md"), "[missing](docs/missing.md)\n");
+
+    expect(collectDocumentationFailures(root)[0]).toContain("prd.md:1");
+  });
+
   it("fails when obsolete Mintlify files are recreated", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "ipix-docs-check-"));
     tempDirs.push(root);

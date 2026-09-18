@@ -32,6 +32,11 @@ Useful verification commands:
 npm run docs:check
 npm run typecheck
 npm test
+```
+
+Before running the production build, stop both development servers so ports `3000` and `4111` are free, then run:
+
+```bash
 npm run build
 ```
 
