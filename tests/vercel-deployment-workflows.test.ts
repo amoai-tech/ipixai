@@ -153,12 +153,14 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(existsSync(path.resolve(root, ".github/workflows/vercel-production.yml"))).toBe(false);
     expect(source).not.toContain("workflow_run:");
     expect(source).toContain("  vercel-production:");
-    expect(source).toContain("github.event_name == 'push'");
-    expect(source).toContain("github.event_name == 'workflow_dispatch'");
-    expect(source).toContain("github.ref == 'refs/heads/main'");
+    // Production is manual-only: a push must never reach this job.
+    const jobCondition = jobConditionOf(production);
+    expect(jobCondition).toContain("github.event_name == 'workflow_dispatch'");
+    expect(jobCondition).not.toContain("github.event_name == 'push'");
+    expect(jobCondition).toContain("github.ref == 'refs/heads/main'");
     // The release switch must never gate the job itself — see the
     // "fails loudly when the Production release switch is unset" test.
-    expect(jobConditionOf(production)).not.toContain("VERCEL_ACTIONS_PRODUCTION_ENABLED");
+    expect(jobCondition).not.toContain("VERCEL_ACTIONS_PRODUCTION_ENABLED");
     expect(source).toContain("ref: ${{ github.sha }}");
     expect(source.match(/git rev-parse origin\/main/g)?.length).toBeGreaterThanOrEqual(2);
     expect(source).toContain("id: credentials");
@@ -167,6 +169,55 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(source).toContain("vercel pull --yes --environment=production");
     expect(source).toContain("vercel build --prod");
     expect(source).toContain("vercel deploy --prebuilt --prod");
+  });
+
+  it("keeps full CI on every merge but never deploys Production from a push", () => {
+    const source = read(".github/workflows/ci.yml");
+
+    // The workflow itself must still run on every merge and PR...
+    expect(source).toMatch(/^on:\s*$/m);
+    expect(source).toMatch(/^ {2}push:\s*$/m);
+    expect(source).toMatch(/^ {4}branches:\s*\[main\]\s*$/m);
+    expect(source).toMatch(/^ {2}pull_request:\s*$/m);
+    // ...and remain manually dispatchable, which is now the ONLY release trigger.
+    expect(source).toMatch(/^ {2}workflow_dispatch:\s*$/m);
+
+    // Regression (PR #214 review): `(github.event_name == 'push' ||
+    // github.event_name == 'workflow_dispatch')` billed one Production
+    // deployment per merge, which is the outcome this task exists to stop.
+    const production = blockOf(workflowJobs(source), "vercel-production");
+    const block = production.join("\n");
+    expect(block).not.toMatch(/github\.event_name\s*==\s*'push'/);
+    expect(block).toMatch(/github\.event_name\s*==\s*'workflow_dispatch'/);
+    expect(jobConditionOf(production)).not.toContain("github.event_name == 'push'");
+  });
+
+  it("keeps manual release runs out of the push run's concurrency group", () => {
+    const source = read(".github/workflows/ci.yml");
+    const production = blockOf(workflowJobs(source), "vercel-production");
+
+    // A normal push must not be able to cancel an in-flight manual release (or
+    // the reverse), so the event name belongs in the top-level group.
+    expect(source).toMatch(
+      /^ {2}group: ci-\$\{\{ github\.workflow \}\}-\$\{\{ github\.ref \}\}-\$\{\{ github\.event_name \}\}\s*$/m,
+    );
+
+    // The Production job keeps its own non-cancelling lock, and stale-main
+    // protection stays the final gate rather than being replaced by concurrency.
+    expect(production.join("\n")).toContain("group: vercel-production");
+    expect(production.join("\n")).toContain("cancel-in-progress: false");
+    expect(source.match(/git rev-parse origin\/main/g)?.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("keeps every Vercel Git deployment disabled", () => {
+    const config = JSON.parse(read("vercel.json")) as {
+      git?: { deploymentEnabled?: unknown };
+    };
+
+    // Regression: restoring `"deploymentEnabled": { "main": true }` would put
+    // Vercel Git back into the release path next to the manual Actions release,
+    // recreating a Production deployment per merge and the Git/CLI duplicate.
+    expect(config.git?.deploymentEnabled).toBe(false);
   });
 
   it("fails loudly when the Production release switch is unset instead of skipping", () => {
