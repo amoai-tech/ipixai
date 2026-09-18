@@ -1,13 +1,13 @@
 ---
 title: "Product sitemap"
-description: "iPix V2 routes and phases. Core is /planner only; booking is not the shoot wizard."
+description: "iPix V2 routes and phases. /app is the single authenticated production surface; booking is not the shoot wizard."
 ---
 
 # iPix V2 — Product sitemap
 
 **Status:** Product route SSOT (aligned with [Product requirements](./prd.md))
 **Baseline date:** 2026-08-24
-**Last verified against current repo:** 2026-09-17
+**Last verified against current repo:** 2026-09-18
 **This file is the application map for V2.** HTML prototypes are design reference only.
 
 | Source | Use for |
@@ -17,20 +17,20 @@ description: "iPix V2 routes and phases. Core is /planner only; booking is not t
 | [Documentation map](./docs-index.md) | Current documentation map; legacy route audits are historical evidence |
 | `Universal-design-prompt-4/Pages/*.dc.html` | Visual SCR mockups (not “built in this repo”) |
 
-**This repo today `[VERIFIED]`:** real Next.js routes exist for marketing/auth/onboarding, `/app`, `/app/brands`, `/app/shoots`, `/app/plans`, and `/planner`, plus API routes. HTML prototypes remain design reference; route files and verified runtime behavior determine what is shipped.
+**This repo today `[VERIFIED]`:** real Next.js routes exist for marketing/auth/onboarding, `/app`, `/app/brands`, `/app/shoots`, `/app/plans`, plus API routes. HTML prototypes remain design reference; route files and verified runtime behavior determine what is shipped.
 
 ---
 
 ## 0. How to read
 
-Two different “Planner” names:
+Production planning now has one user-facing home:
 
 | Name | What it is | Phase |
 |---|---|---|
-| **AI Production Planner** | CopilotKit + Mastra `production-planner` on `/planner` | **Core** (only authenticated product page) |
-| **Production workspace** | Timeline / Kanban / Calendar around `planner.*` | **Post-MVP** as `/app/plans` (legacy `/app/planner` hub) |
+| **Production Copilot** | CopilotKit + Mastra `production-planner` embedded in `/app` | **Core** |
+| **Production workspace** | Timeline / Kanban / Calendar around `planner.*` | **Post-MVP** as `/app/plans` |
 
-**Core does not include** Operator Shell, Command Center, CRM, or booking writes.
+`/app` is the single authenticated operator surface. The Production Copilot lives inside that shell; there is no separate planner product page in the V2 sitemap.
 
 ---
 
@@ -41,7 +41,7 @@ The previous root `SITEMAP.md` (2026-07-06) was wrong as a product map. These ru
 | Topic | Old (incorrect) | V2 (this file) |
 |---|---|---|
 | What “built” means | 31 HTML screens 🟢 | React routes and verified behavior in **this** repo; legacy/design files are reference only |
-| Core surface | Implied full operator app | **`/planner` only** |
+| Core surface | Separate thin AI planning page | **`/app` only** — Operator Shell + Production Copilot |
 | Brand | `/app/brands` | `/app/brands` |
 | Shoot create | `/app/shoots/new` | `/app/shoots/new` |
 | Onboarding | `/onboarding` and `/onboarding` mixed | `/onboarding` |
@@ -50,7 +50,7 @@ The previous root `SITEMAP.md` (2026-07-06) was wrong as a product map. These ru
 | Talent profile | `/app/matching/talent/[id]` as live | Same path in V2; **rebuild** (legacy used `?talentId=` on `/app/talent/profile`) |
 | Catalog / collections / events / `/app/model` / `/app/roster` | In nav or ⚪ | **Dropped from V2 nav** until Advanced |
 | SCR-18 collab | 🟢 and ⚪ in the same doc | Advanced / Inbox covers MVP |
-| Planner HTML SCR-32–35 | Missing from “complete” 31-row table | Core = AI page; workspace = `/app/plans` Post-MVP |
+| Planner HTML SCR-32–35 | Missing from “complete” 31-row table | Production workspace = `/app/plans` Post-MVP; Production Copilot is embedded in `/app` |
 | Prototype path | `Pages/` at repo root | `Universal-design-prompt-4/Pages/` |
 | Settings | Missing | `/app/settings` (MVP) |
 
@@ -64,7 +64,6 @@ The previous root `SITEMAP.md` (2026-07-06) was wrong as a product map. These ru
 PUBLIC
 /
 ├── login                      # Core: minimal auth
-├── planner                    # CORE — AI Production Planner (authenticated)
 ├── signup
 └── (optional) pricing         # not in MVP nav
 
@@ -72,8 +71,8 @@ PUBLIC
                                # drop duplicate /app/onboarding except redirect
 
 APP
-/app                           # MVP Command Center — skip in Core
-├── brand
+/app                           # CORE — single authenticated operator surface + Production Copilot
+├── brands
 │   └── [id]
 ├── shoots
 │   ├── new                    # 3-gate wizard (MVP)
@@ -90,6 +89,8 @@ APP
 │   ├── companies[/id]
 │   ├── contacts[/id]
 │   └── pipeline[/id]
+├── talent
+├── operations
 ├── analytics                  # Post-MVP
 │   └── campaigns
 ├── inbox
@@ -120,9 +121,9 @@ flowchart TD
     Home --> Signup
   end
 
-  subgraph core [CORE — no Operator Shell]
-    AIPlanner["/planner"]
-    Login --> AIPlanner
+  subgraph core [CORE — Operator Shell + Production Copilot]
+    CC["/app Command Center + Production Copilot"]
+    Login --> CC
   end
 
   subgraph mvpOnb [MVP]
@@ -131,8 +132,7 @@ flowchart TD
     Onboard --> CC
   end
 
-  subgraph mvp [MVP — Operator Shell]
-    CC["/app Command Center"]
+  subgraph mvp [MVP]
     Brand["/app/brands"]
     BrandD["/app/brands/id"]
     Shoots["/app/shoots"]
@@ -158,7 +158,6 @@ flowchart TD
     CC --> CRM
     CC --> Inbox
     CC --> Settings
-    CC --> AIPlanner
   end
 
   subgraph post [POST-MVP]
@@ -184,10 +183,9 @@ Status = V2 intent, not HTML completeness.
 | Phase | Route | Job | Design SCR (HTML) |
 |---|---|---|---|
 | Core | `/login` | Auth | — |
-| Core | `/planner` | AI Production Planner | SCR-32–35 (workspace visuals; Core UI is thin) |
+| Core | `/app` | Command Center + Production Copilot | SCR-01 + SCR-32–35 interaction patterns |
 | MVP | `/signup` | Signup | — |
 | MVP | `/onboarding` | Brand DNA funnel | SCR-11 |
-| MVP | `/app` | Command Center | SCR-01 |
 | MVP | `/app/brands` · `/[id]` | Brand list/detail | SCR-02, 03 |
 | MVP | `/app/shoots` · `/new` · `/[id]` | Shoots + 3-gate wizard | SCR-04, 06, 05 |
 | MVP | `/app/campaigns` | Campaigns | SCR-07 |
@@ -212,13 +210,13 @@ Status = V2 intent, not HTML completeness.
 
 ## 5. Navigation
 
-**Core:** no rail. Authenticated user lands on `/planner`.
+**Core:** authenticated user lands on `/app`. The Production Copilot is part of the `/app` shell, not a separate destination.
 
-**MVP desktop rail:** Home · Brands · Shoots · Matching · Assets · Campaigns · Inbox · CRM · Planner. CRM expands to Companies / Contacts / Pipeline. Settings in user menu.
+**Current desktop rail:** Dashboard · Brands · Shoots · Assets · CRM · Talent · Operations · Analytics · Plans. Settings remains outside the primary rail until its dedicated task is delivered.
 
-**MVP chrome:** Nav │ Workspace │ Intelligence (read-only) + CopilotKit dock. Rebuild dock; do not copy Worker `dynamic()` chat.
+**V2 chrome:** Nav │ Workspace │ Production Copilot. Intelligence is a capability inside the Production Copilot/context panel, not a separate chat mode.
 
-**Mobile:** Core and MVP are desktop-first (≥768px). Rebuild bottom nav **Post-MVP** with phone support; do not put a mobile tab bar in MVP while sub-768 viewports are deferred.
+**Mobile:** Core and MVP are desktop-first (≥768px). Rebuild mobile navigation **Post-MVP** with phone support.
 
 **Talent Post-MVP rail:** Dashboard · Offers · Availability · Inbox.
 
@@ -230,16 +228,16 @@ Status = V2 intent, not HTML completeness.
 - **Shoot:** `/app/shoots` → `/app/shoots/new` → `/app/shoots/[id]` → `/app/assets`
 - **Booking:** `/app/matching` → `/app/matching/talent/[id]` → `.../book` → `/app/bookings/[id]` → crew on shoot detail
 - **CRM:** `/app/crm/companies/[id]` (`brand_id` → brand detail) · pipeline won → ApprovalCard → brand
-- **Core proof:** `/login` → `/planner` → persist + restart + Org B 403 (PRD AC-01, AC-02)
+- **Core proof:** `/login` → `/app` → Production Copilot conversation persists across reload/restart → Org B cannot read Org A thread
 
 ---
 
 ## 7. AI surfaces
 
-- **Intelligence panel:** read-only briefing. Never the chat.
-- **CopilotKit dock:** only conversation UI.
-- **Core assistant:** `production-planner` compute tools only.
-- **MVP assistants:** brand, creative, matching, booking (draft only), CRM (draft only).
+- **Production Copilot:** the single conversation surface inside `/app`.
+- **Intelligence:** trusted read-only signals/evidence surfaced inside the Production Copilot and relevant workspace views; never a separate chat mode.
+- **Core assistant:** `production-planner` compute tools inside the Production Copilot.
+- **MVP assistants/capabilities:** brand, creative, matching, booking (draft only), CRM (draft only).
 
 ---
 
@@ -254,11 +252,11 @@ Do not cite `Pages/` at repo root, `docs/handoff/SCREEN-REGISTRY.md`, or July �
 ## 9. Port order after Core gold
 
 1. Tokens + empty/error/skeleton
-2. Operator Shell + intelligence panel
-3. CopilotKit dock rebuild
-4. Brand list/detail → Shoots list/detail → Command Center (aggregator last)
-5. Channel preview
-6. CRM companies + detail
-7. Matching talent tab
+2. Operator Shell + Production Copilot context panel
+3. Brand list/detail → Shoots list/detail → Command Center aggregation
+4. Channel preview
+5. CRM companies + detail
+6. Matching talent tab
+7. Production workspace under `/app/plans`
 
 Do not port first: 10-step HTML wizard (code is ~6 steps), 13-screen onboarding HTML, paid analytics KPIs, `/app/plans` mutations, availability, role dashboards, SCR-18 as a route.
