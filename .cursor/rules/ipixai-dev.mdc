@@ -17,7 +17,7 @@ Combined `npm run dev` is **blocked** (`package.json` exits 1). It was implicate
 | `npm run dev:agent` (port 4111) in another | Stack leftover watchers / 19-worker builds on busy ports |
 | `scripts/dev-guard.mjs` for port checks | `pkill -f node` |
 
-Evidence: `docs/cursor/linux-audit.md`.
+Historical evidence: `docs/archive/cursor/linux-audit.md`.
 
 ## Supabase
 
@@ -27,7 +27,7 @@ Evidence: `docs/cursor/linux-audit.md`.
 
 ## Mastra port
 
-- Follow `docs/mastra/10-mastra-convert.md`.
+- Follow `docs/copilotkit-mastra/README.md`, `docs/mastra/runtime-family.md`, and current code/types. The old conversion plan is archived.
 - First port: Production Planner + compute-only shoot tools + Memory/PostgresStore + `makeMemoryResourceId`.
 - Do **not** copy `/home/sk/ipix/app/src/mastra` wholesale.
 - Do **not** copy Worker/Hyperdrive/ALS/`emitInterruptOutcome`/DurableAgent unless a **current** failure proves they are required.

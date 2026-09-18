@@ -88,7 +88,7 @@ Use this file to jump from a **task or question** to the right **official URL ta
 | --- | --- |
 | Mastra runtime | `src/mastra/` (`npm run dev:agent` → Studio `:4111`) |
 | CopilotKit route | `src/app/api/copilotkit/[[...slug]]/route.ts` |
-| Conversion SSOT | `docs/mastra/10-mastra-convert.md` |
+| AI runtime SSOT | `docs/copilotkit-mastra/README.md` |
 
 ---
 

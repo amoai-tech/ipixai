@@ -83,7 +83,7 @@ The immediate goal is one trustworthy end-to-end operator experience, not broad 
 
 - [Product requirements](./prd.md)
 - [Product sitemap](./sitemap.md)
-- [AI runtime](./copilotkit-mastra/index.md)
-- [Data architecture](./data/index.md)
-- [Media architecture](./cloudinary/index.md)
+- [AI runtime](./copilotkit-mastra/README.md)
+- [Data architecture](./data/README.md)
+- [Media architecture](./cloudinary/README.md)
 - [Documentation inventory](./docs-index.md)

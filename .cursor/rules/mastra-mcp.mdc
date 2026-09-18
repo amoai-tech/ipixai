@@ -8,7 +8,7 @@ alwaysApply: false
 
 **Live config:** `~/.cursor/mcp.json` → server id **`mastra`** (Cursor exposes as **`user-mastra`**).  
 **Official:** [Build with AI](https://mastra.ai/docs/getting-started/build-with-ai) · [mastra.ai/llms.txt](https://mastra.ai/llms.txt)  
-**Conversion SSOT:** `docs/mastra/10-mastra-convert.md`
+**Runtime SSOT:** `docs/copilotkit-mastra/README.md` + `docs/mastra/runtime-family.md`
 
 ## Skills vs MCP
 
@@ -44,7 +44,7 @@ Pass that as `projectPath` on `searchMastraDocs`, `readMastraDocs`, `listMastraP
 
 ## Agent workflow
 
-1. Change under `src/mastra/` → this rule + `docs/mastra/10-mastra-convert.md`.
+1. Change under `src/mastra/` → this rule + `docs/copilotkit-mastra/README.md` + installed types.
 2. Need a doc page → `mastraDocs`.
 3. Need installed API → `searchMastraDocs` / `readMastraDocs` with **this repo’s** `projectPath`.
 4. MCP empty → `https://mastra.ai/docs/....md` or `llms.txt`.

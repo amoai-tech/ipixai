@@ -56,7 +56,7 @@ paste reference bodies here. Each topic folder keeps its own `references/` sub-d
 |------|-------|
 | Mastra agents + workflows (iPix) | [`mastra`](../mastra/SKILL.md) |
 | Improve/validate this skill | [`skill-creator`](../skill-creator/SKILL.md) |
-| iPix Mastra conversion plan | [`docs/mastra/10-mastra-convert.md`](../../../docs/mastra/10-mastra-convert.md) |
+| iPix AI runtime docs | [`docs/copilotkit-mastra/README.md`](../../../docs/copilotkit-mastra/README.md) |
 
 ---
 
