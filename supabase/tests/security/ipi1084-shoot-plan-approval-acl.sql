@@ -12,6 +12,9 @@
 --   * the approval table is org-scoped read-only for authenticated and denies anon
 --   * service_role does not write the table directly; only the RPCs do
 --   * staging is service_role-only, deciding/reading is authenticated-only
+--   * service_role can run the bounded durable proof read, and that read returns
+--     the identity + recomputed hashMatches + isCurrent and nothing else
+--   * service_role can neither execute nor invoke the human decision RPC
 --   * the revision identity (brand/workflow_run/revision/plan/plan_hash) is immutable
 --   * a status-only transition still succeeds
 --   * only the newest staged revision may be decided (SUPERSEDED_REVISION otherwise)
@@ -19,6 +22,8 @@
 --   * an Org B owner/editor cannot read or decide Org A's approval (cross-tenant)
 --   * authenticated cannot insert plan approvals directly
 --   * decide() fails closed with UNAUTHENTICATED when there is no actor
+--   * the whole lifecycle writes ZERO rows to shoot.shoots / shoot.shot_list /
+--     shoot.shoot_deliverables
 
 begin;
 
@@ -31,6 +36,10 @@ declare
   raised boolean := false;
   status_ok boolean := false;
   unauth_code text;
+  service_decision_denied boolean := false;
+  shoot_rows_before bigint;
+  shoot_rows_after bigint;
+  proof jsonb;
 
   editor_a uuid := '00000000-0000-4000-8000-000000000001';
   viewer_a uuid := '00000000-0000-4000-8000-000000000002';
@@ -50,6 +59,14 @@ begin
   if approval is null then
     raise exception 'IPI-1084: shoot.shoot_plan_approvals is missing';
   end if;
+
+  -- Count every Shoot application row the review lifecycle must never create.
+  -- Taken before any approval activity and compared again at the end.
+  select (
+    (select count(*) from shoot.shoots)
+    + (select count(*) from shoot.shot_list)
+    + (select count(*) from shoot.shoot_deliverables)
+  ) into shoot_rows_before;
 
   -- ---- RLS + least privilege on the table ---------------------------------
   if not (select relrowsecurity from pg_class where oid = approval) then
@@ -98,13 +115,15 @@ begin
   -- ---- the RPC surface is role-separated ----------------------------------
   if to_regprocedure('public.stage_shoot_plan_revision(uuid, text, jsonb, uuid, text, timestamptz)') is null
      or to_regprocedure('public.decide_shoot_plan_revision(uuid, integer, text, text, text, text)') is null
-     or to_regprocedure('public.get_shoot_plan_approval(uuid)') is null then
+     or to_regprocedure('public.get_shoot_plan_approval(uuid)') is null
+     or to_regprocedure('public.get_shoot_plan_approval_proof(uuid)') is null then
     raise exception 'IPI-1084: the approval RPC surface is incomplete';
   end if;
 
   if has_function_privilege('anon', 'public.stage_shoot_plan_revision(uuid, text, jsonb, uuid, text, timestamptz)', 'execute')
      or has_function_privilege('anon', 'public.decide_shoot_plan_revision(uuid, integer, text, text, text, text)', 'execute')
-     or has_function_privilege('anon', 'public.get_shoot_plan_approval(uuid)', 'execute') then
+     or has_function_privilege('anon', 'public.get_shoot_plan_approval(uuid)', 'execute')
+     or has_function_privilege('anon', 'public.get_shoot_plan_approval_proof(uuid)', 'execute') then
     raise exception 'IPI-1084: anon must not EXECUTE the approval RPCs';
   end if;
   if has_function_privilege('authenticated', 'public.stage_shoot_plan_revision(uuid, text, jsonb, uuid, text, timestamptz)', 'execute') then
@@ -118,12 +137,29 @@ begin
     raise exception 'IPI-1084: authenticated must EXECUTE the decide and read RPCs';
   end if;
 
-  -- SECURITY DEFINER + pinned empty search_path are load-bearing on all three.
+  -- ---- the service-side durable proof read is narrow and real --------------
+  -- service_role has no session, so the org-scoped read (which checks auth.uid())
+  -- can never serve the workflow; it must not hold EXECUTE at all.
+  if has_function_privilege('service_role', 'public.get_shoot_plan_approval(uuid)', 'execute') then
+    raise exception 'IPI-1084: service_role must not EXECUTE the session-scoped operator read';
+  end if;
+  if not has_function_privilege('service_role', 'public.get_shoot_plan_approval_proof(uuid)', 'execute') then
+    raise exception 'IPI-1084: service_role must EXECUTE the durable proof read';
+  end if;
+  if has_function_privilege('authenticated', 'public.get_shoot_plan_approval_proof(uuid)', 'execute') then
+    raise exception 'IPI-1084: the service proof read must not be reachable by authenticated';
+  end if;
+  -- The human decision is never a service-role action.
+  if has_function_privilege('service_role', 'public.decide_shoot_plan_revision(uuid, integer, text, text, text, text)', 'execute') then
+    raise exception 'IPI-1084: service_role must not EXECUTE the human decision RPC';
+  end if;
+
+  -- SECURITY DEFINER + pinned empty search_path are load-bearing on all four.
   if exists (
     select 1 from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
-      and p.proname in ('stage_shoot_plan_revision', 'decide_shoot_plan_revision', 'get_shoot_plan_approval')
+      and p.proname in ('stage_shoot_plan_revision', 'decide_shoot_plan_revision', 'get_shoot_plan_approval', 'get_shoot_plan_approval_proof')
       and not p.prosecdef
   ) then
     raise exception 'IPI-1084: approval RPCs must stay SECURITY DEFINER';
@@ -132,7 +168,7 @@ begin
     select 1 from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
-      and p.proname in ('stage_shoot_plan_revision', 'decide_shoot_plan_revision', 'get_shoot_plan_approval')
+      and p.proname in ('stage_shoot_plan_revision', 'decide_shoot_plan_revision', 'get_shoot_plan_approval', 'get_shoot_plan_approval_proof')
       and not exists (
         select 1 from unnest(coalesce(p.proconfig, '{}')) cfg where cfg = 'search_path=""'
       )
@@ -327,6 +363,65 @@ begin
   select status = 'pending' into status_ok from shoot.shoot_plan_approvals where id = rev2_id;
   if status_ok is distinct from true then
     raise exception 'IPI-1084: a status-only transition must remain allowed';
+  end if;
+  update shoot.shoot_plan_approvals set status = 'approved' where id = rev2_id;
+
+  -- ---- behavioural: the workflow's service-side durable re-read ------------
+  -- This is the exact call the suspended `awaitDecision` step makes: no session,
+  -- service_role. It must succeed and prove the decision.
+  perform set_config('role', 'service_role', true);
+  perform set_config('request.jwt.claims', '{}', true);
+
+  proof := public.get_shoot_plan_approval_proof(rev2_id);
+  if (proof ->> 'ok')::boolean is not true then
+    raise exception 'IPI-1084: the workflow service read must succeed, got %', proof;
+  end if;
+  if proof ->> 'approvalId' is distinct from rev2_id::text
+     or proof ->> 'brandId' is distinct from brand_a::text
+     or proof ->> 'workflowRunId' is distinct from 'ipi1084-acl-run'
+     or (proof ->> 'revision')::int <> 2
+     or proof ->> 'planHash' is distinct from rev2_hash
+     or proof ->> 'status' is distinct from 'approved'
+     or proof ->> 'decision' is distinct from 'approved'
+     or (proof ->> 'hashMatches')::boolean is not true
+     or (proof ->> 'isCurrent')::boolean is not true then
+    raise exception 'IPI-1084: the workflow service read must return the identity proof, got %', proof;
+  end if;
+  -- Bounded: exactly the proof fields, never the plan body or a user id.
+  if (select count(*) from jsonb_object_keys(proof)) <> 10 then
+    raise exception 'IPI-1084: the workflow service read must be bounded to 10 fields, got %', proof;
+  end if;
+  if proof ? 'plan' or proof ? 'decidedBy' or proof ? 'decisionNote' or proof ? 'agentThreadId' then
+    raise exception 'IPI-1084: the workflow service read must not expose plan/actor fields, got %', proof;
+  end if;
+
+  -- A superseded revision reads back as not current, so the step can fail closed.
+  proof := public.get_shoot_plan_approval_proof(rev1_id);
+  if (proof ->> 'isCurrent')::boolean is not false then
+    raise exception 'IPI-1084: a superseded revision must not read back as current, got %', proof;
+  end if;
+
+  -- The same service_role caller must NOT be able to record a human decision.
+  begin
+    decision := public.decide_shoot_plan_revision(rev2_id, 2, rev2_hash, 'rejected', 'ipi1084-acl-service', null);
+    service_decision_denied := false;
+  exception when insufficient_privilege then
+    service_decision_denied := true;
+  end;
+  if not service_decision_denied then
+    raise exception 'IPI-1084: service_role must not be able to invoke the human decision RPC, got %', decision;
+  end if;
+
+  perform set_config('role', 'postgres', true);
+
+  -- ---- zero Shoot application writes over the whole lifecycle --------------
+  select (
+    (select count(*) from shoot.shoots)
+    + (select count(*) from shoot.shot_list)
+    + (select count(*) from shoot.shoot_deliverables)
+  ) into shoot_rows_after;
+  if shoot_rows_after <> shoot_rows_before then
+    raise exception 'IPI-1084: the approval lifecycle wrote Shoot data (% -> %)', shoot_rows_before, shoot_rows_after;
   end if;
 end
 $$;

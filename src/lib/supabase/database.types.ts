@@ -4776,6 +4776,10 @@ export type Database = {
         Args: { p_approval_id: string }
         Returns: Json
       }
+      get_shoot_plan_approval_proof: {
+        Args: { p_approval_id: string }
+        Returns: Json
+      }
       get_shot_reference_media: {
         Args: { p_reference_id: string }
         Returns: {
