@@ -35,11 +35,19 @@ import { fileURLToPath } from "node:url";
  *    for a symlink, so a naive directory walk silently under-counts. Both the logical
  *    count and the unique-artifact count are reported here.
  *
- * 2. `filePathMap` values are ABSOLUTE paths into `.next/` and `node_modules/`. If
- *    those have changed since the build (a rebuild, an `npm install`, another agent
- *    working in the same checkout), some entries no longer resolve. Sizes then silently
- *    shrink and the number looks like a win. MISSING files are counted and reported,
- *    and a measurement with any missing file is flagged INVALID.
+ * 2. `filePathMap` values are RELATIVE to the build's project root (absolute values are
+ *    also accepted — a real production trace was verified to contain relative ones).
+ *    If `.next/` or `node_modules/` have changed since the build (a rebuild, an
+ *    `npm install`, another agent working in the same checkout), some entries no longer
+ *    resolve. Sizes then silently shrink and the number looks like a win. MISSING files
+ *    are counted and reported, and a measurement with any missing file is flagged
+ *    INVALID.
+ *
+ * 3. Structural damage fails OPEN, not closed. A `.func` whose `.vc-config.json` is
+ *    absent or unparsable, or an output with no logical `.func` entries at all, yields
+ *    an empty trace with zero missing files — which reads as a clean, healthy,
+ *    zero-byte measurement. Such artifacts are therefore counted separately as
+ *    `invalidFunctions`, and `complete` is false whenever that count is non-zero.
  *
  * Because of (2), always build and measure in the same breath, then `--save` the
  * baseline immediately.
@@ -57,6 +65,16 @@ import { fileURLToPath } from "node:url";
  *
  * Producing a build to measure:
  *   vercel pull --yes --environment=production && vercel build --prod
+ *
+ * TRUST MODEL / PATH HANDLING
+ * ---------------------------
+ * `--save` and `--compare` accept filesystem paths from the operator invoking this
+ * script, and those paths are used as given (resolved, but not confined to the repo).
+ * That is deliberate: the caller already runs with the same filesystem access as the
+ * script, so a repo-root restriction would add no real security while breaking
+ * legitimate usage such as `--save /tmp/ipix-baseline.json`. If these paths ever come
+ * from untrusted input (an HTTP handler, a CI variable an attacker controls), revisit
+ * this decision before reusing the script there.
  */
 
 const scriptPath = fileURLToPath(import.meta.url);
@@ -101,13 +119,17 @@ export function classifyFunction(relativePath) {
 /**
  * Enumerate every logical `.func` entry under `<outputDir>/functions`.
  *
- * Returns logical entries (symlinks included) plus the set of unique real
- * directories. `name.endsWith(".func")` is used rather than `isDirectory()` because
- * Vercel emits deduplicated functions as symlinks.
+ * Returns logical entries (symlinks included), the list of unique real directories,
+ * and any entry whose symlink target does not resolve. `name.endsWith(".func")` is used
+ * rather than `isDirectory()` because Vercel emits deduplicated functions as symlinks.
+ *
+ * A broken symlink is reported through `broken` instead of thrown: `realpathSync` would
+ * otherwise abort the whole measurement with a bare ENOENT, which is both unhelpful and
+ * inconsistent with `readFunctionTrace`, which already degrades gracefully.
  */
 export function listFunctionEntries(outputDir) {
   const functionsRoot = path.join(outputDir, "functions");
-  if (!fs.existsSync(functionsRoot)) return { logical: [], uniqueDirs: [] };
+  if (!fs.existsSync(functionsRoot)) return { logical: [], uniqueDirs: [], broken: [] };
 
   const logical = [];
   const walk = (dir) => {
@@ -128,14 +150,37 @@ export function listFunctionEntries(outputDir) {
   };
   walk(functionsRoot);
 
-  const uniqueDirs = [...new Set(logical.map((dir) => fs.realpathSync(dir)))];
-  return { logical: logical.sort(), uniqueDirs };
+  const uniqueDirs = [];
+  const broken = [];
+  const seen = new Set();
+  for (const dir of logical) {
+    let real;
+    try {
+      real = fs.realpathSync(dir);
+    } catch {
+      broken.push(dir);
+      continue;
+    }
+    if (!seen.has(real)) {
+      seen.add(real);
+      uniqueDirs.push(real);
+    }
+  }
+
+  return { logical: logical.sort(), uniqueDirs, broken };
 }
 
 /**
  * Read one `.func` directory's authoritative trace.
- * Returns `{ trace, missing }` where trace is Map<absolute source path, bytes> and
- * missing counts filePathMap entries whose source no longer exists on disk.
+ *
+ * Returns `{ trace, missing, invalid }`:
+ *   - trace   Map<absolute source path, bytes>
+ *   - missing filePathMap entries whose source no longer exists on disk
+ *   - invalid a reason string when the trace metadata is unusable, else null
+ *
+ * `invalid` exists because unusable metadata used to be indistinguishable from a
+ * genuinely empty trace: both produced `{ trace: empty, missing: 0 }`, which downstream
+ * code read as a valid zero-byte measurement.
  *
  * `filePathMap` values are RELATIVE to the build's project root, not absolute — even
  * though several ad-hoc scripts have assumed otherwise and only appeared to work
@@ -146,20 +191,30 @@ export function readFunctionTrace(functionDir, projectRoot) {
   const trace = new Map();
   let missing = 0;
   const configPath = path.join(functionDir, ".vc-config.json");
-  if (!fs.existsSync(configPath)) return { trace, missing };
+  if (!fs.existsSync(configPath)) {
+    return { trace, missing, invalid: "missing .vc-config.json" };
+  }
 
   let config;
   try {
     config = JSON.parse(fs.readFileSync(configPath, "utf8"));
   } catch {
-    return { trace, missing };
+    return { trace, missing, invalid: "unparsable .vc-config.json" };
   }
 
   const filePathMap = config.filePathMap;
-  if (!filePathMap || typeof filePathMap !== "object") return { trace, missing };
+  if (!filePathMap || typeof filePathMap !== "object") {
+    return { trace, missing, invalid: ".vc-config.json has no filePathMap" };
+  }
 
-  for (const raw of Object.values(filePathMap)) {
-    if (typeof raw !== "string" || raw.length === 0) continue;
+  const sources = Object.values(filePathMap).filter(
+    (raw) => typeof raw === "string" && raw.length > 0,
+  );
+  if (sources.length === 0) {
+    return { trace, missing, invalid: ".vc-config.json has an empty filePathMap" };
+  }
+
+  for (const raw of sources) {
     // Values are project-root-relative in practice; accept absolute too.
     const candidate = path.isAbsolute(raw) ? raw : path.resolve(projectRoot, raw);
     let size;
@@ -174,7 +229,7 @@ export function readFunctionTrace(functionDir, projectRoot) {
     const previous = trace.get(candidate) ?? 0;
     if (size > previous) trace.set(candidate, size);
   }
-  return { trace, missing };
+  return { trace, missing, invalid: null };
 }
 
 function bytes(map) {
@@ -210,51 +265,39 @@ function familyStats(page, api, pageOnly, name) {
 }
 
 /**
- * Build the canonical report for a Vercel build output directory.
- * Throws a helpful error when the directory is not a completed build.
+ * The page union must contain every api trace path.
+ *
+ * Comparing byte totals (`bytes(union) === bytes(page)`) happens to agree with this
+ * today only because zero-byte files are filtered out before reaching either map, so an
+ * api-only entry can never contribute zero bytes. That is an accidental coupling — the
+ * arithmetic stops expressing the invariant the moment zero-byte entries are tracked.
+ * Stating it as a membership test removes the coupling.
  */
-export function summarizeTraces(outputDir, options = {}) {
-  const families = options.families ?? DEFAULT_FAMILIES;
-  const topPageOnly = options.topPageOnly ?? 10;
-  const resolved = path.resolve(outputDir);
-
-  if (!fs.existsSync(path.join(resolved, "functions"))) {
-    throw new Error(
-      `No "functions" directory under ${resolved}. ` +
-        "Run `vercel pull --yes --environment=production && vercel build --prod` first.",
-    );
+export function isPageSupersetOfApi(page, api) {
+  for (const file of api.keys()) {
+    if (!page.has(file)) return false;
   }
+  return true;
+}
 
-  const { logical, uniqueDirs } = listFunctionEntries(resolved);
-  // `.vercel/output` lives at <projectRoot>/.vercel/output, so filePathMap values
-  // resolve against the grandparent of the output directory.
-  const projectRoot = path.resolve(resolved, "..", "..");
-
-  // Read each unique artifact once; reuse for every logical route that links to it.
-  const traceCache = new Map();
-  const traceFor = (dir) => {
-    let real;
-    try {
-      real = fs.realpathSync(dir);
-    } catch {
-      real = dir;
-    }
-    if (!traceCache.has(real)) traceCache.set(real, readFunctionTrace(real, projectRoot));
-    return traceCache.get(real);
-  };
-
+/**
+ * Fold every logical function's trace into the page/api unions.
+ *
+ * Broken symlinks are skipped here; the caller has already recorded them as invalid.
+ */
+function accumulateBuckets(logical, resolved, brokenSet, traceFor) {
   const page = new Map();
   const api = new Map();
   let pageFunctions = 0;
   let apiFunctions = 0;
-  let missing = 0;
   let largestPageFunction = null;
 
   for (const dir of logical) {
+    if (brokenSet.has(dir)) continue;
+
     const relative = path.relative(resolved, dir);
     const kind = classifyFunction(relative);
-    const { trace, missing: dirMissing } = traceFor(dir);
-    missing += dirMissing;
+    const { trace } = traceFor(dir);
     const bucket = kind === "api" ? api : page;
     if (kind === "api") apiFunctions += 1;
     else pageFunctions += 1;
@@ -272,6 +315,71 @@ export function summarizeTraces(outputDir, options = {}) {
     }
   }
 
+  return { page, api, pageFunctions, apiFunctions, largestPageFunction };
+}
+
+/**
+ * Build the canonical report for a Vercel build output directory.
+ * Throws a helpful error when the directory is not a completed build.
+ */
+export function summarizeTraces(outputDir, options = {}) {
+  const families = options.families ?? DEFAULT_FAMILIES;
+  const topPageOnly = options.topPageOnly ?? 10;
+  const resolved = path.resolve(outputDir);
+
+  if (!fs.existsSync(path.join(resolved, "functions"))) {
+    throw new Error(
+      `No "functions" directory under ${resolved}. ` +
+        "Run `vercel pull --yes --environment=production && vercel build --prod` first.",
+    );
+  }
+
+  const { logical, uniqueDirs, broken } = listFunctionEntries(resolved);
+  // `.vercel/output` lives at <projectRoot>/.vercel/output, so filePathMap values
+  // resolve against the grandparent of the output directory.
+  const projectRoot = path.resolve(resolved, "..", "..");
+  const brokenSet = new Set(broken);
+
+  // Account for each unique artifact exactly ONCE. Counting inside the logical loop
+  // would multiply one physical artifact's missing files by the number of routes that
+  // symlink to it (113 logical routes can share only 5 real artifacts).
+  const traceCache = new Map();
+  const accounted = new Set();
+  const invalidDetails = broken.map((dir) => ({
+    name: toPosix(path.relative(resolved, dir)),
+    reason: "broken symlink",
+  }));
+  let missing = 0;
+
+  const traceFor = (dir) => {
+    let real;
+    try {
+      real = fs.realpathSync(dir);
+    } catch {
+      real = dir;
+    }
+    if (!accounted.has(real)) {
+      accounted.add(real);
+      const record = readFunctionTrace(real, projectRoot);
+      traceCache.set(real, record);
+      missing += record.missing;
+      if (record.invalid) {
+        invalidDetails.push({
+          name: toPosix(path.relative(resolved, dir)),
+          reason: record.invalid,
+        });
+      }
+    }
+    return traceCache.get(real);
+  };
+
+  const { page, api, pageFunctions, apiFunctions, largestPageFunction } = accumulateBuckets(
+    logical,
+    resolved,
+    brokenSet,
+    traceFor,
+  );
+
   const union = new Map(page);
   for (const [file, size] of api) if (!union.has(file)) union.set(file, size);
 
@@ -283,8 +391,11 @@ export function summarizeTraces(outputDir, options = {}) {
     .slice(0, topPageOnly)
     .map(([file, size]) => ({ path: file, bytes: size }));
 
-  const pageIsSupersetOfApi = bytes(union) === bytes(page);
-  const complete = missing === 0;
+  // `complete` is the single trust flag for a measurement. Structural damage counts
+  // against it exactly as missing source files do, because both under-report sizes and
+  // would otherwise be read as a legitimate zero-byte result.
+  const invalidFunctions = invalidDetails.length;
+  const complete = missing === 0 && invalidFunctions === 0 && logical.length > 0;
 
   return {
     measuredAt: new Date().toISOString(),
@@ -293,7 +404,7 @@ export function summarizeTraces(outputDir, options = {}) {
     functions: {
       page: pageFunctions,
       api: apiFunctions,
-      total: pageFunctions + apiFunctions,
+      total: logical.length,
       uniqueArtifacts: uniqueDirs.length,
     },
     page: { files: page.size, bytes: bytes(page) },
@@ -301,8 +412,10 @@ export function summarizeTraces(outputDir, options = {}) {
     union: { files: union.size, bytes: bytes(union) },
     pageOnly: { files: pageOnly.size, bytes: bytes(pageOnly) },
     missingFiles: missing,
+    invalidFunctions,
+    invalidDetails,
     complete,
-    pageIsSupersetOfApi,
+    pageIsSupersetOfApi: isPageSupersetOfApi(page, api),
     largestPageFunction,
     families: families.map((name) => familyStats(page, api, pageOnly, name)),
     topPageOnly: topPageOnlyEntries,
@@ -311,6 +424,28 @@ export function summarizeTraces(outputDir, options = {}) {
 
 function mib(value) {
   return `${(value / MIB).toFixed(2)} MiB`;
+}
+
+function formatFamilyTable(families) {
+  const lines = ["  family            page          api           PAGE-ONLY"];
+  for (const family of families) {
+    lines.push(
+      `  ${family.name.padEnd(16)}` +
+        `${mib(family.page.bytes).padStart(9)}/${String(family.page.files).padStart(4)}  ` +
+        `${mib(family.api.bytes).padStart(9)}/${String(family.api.files).padStart(4)}  ` +
+        `${mib(family.pageOnly.bytes).padStart(9)}/${String(family.pageOnly.files).padStart(4)}` +
+        (family.pageOnly.bytes === 0 && family.page.bytes > 0 ? "   (in BOTH -> 0 storage win)" : ""),
+    );
+  }
+  return lines;
+}
+
+function formatTopPageOnly(entries) {
+  const lines = ["  top page-only contributors"];
+  for (const entry of entries) {
+    lines.push(`    ${mib(entry.bytes).padStart(10)}  ${entry.path}`);
+  }
+  return lines;
 }
 
 /** Human-readable report — this block is what gets pasted into Linear / a PR body. */
@@ -331,13 +466,27 @@ export function formatReport(report) {
   lines.push(`  DEPLOYMENT union  : ${mib(report.union.bytes).padStart(10)} / ${report.union.files} files`);
   lines.push(`  PAGE-ONLY         : ${mib(report.pageOnly.bytes).padStart(10)} / ${report.pageOnly.files} files`);
   lines.push("");
-  lines.push(`  missing traced files : ${report.missingFiles}${report.complete ? "" : "   <-- MEASUREMENT INVALID"}`);
-  if (!report.complete) {
+  lines.push(
+    `  missing traced files : ${report.missingFiles}${report.complete ? "" : "   <-- MEASUREMENT INVALID"}`,
+  );
+  if (report.missingFiles > 0) {
     lines.push(
       "    filePathMap references files that no longer exist on disk (rebuilt .next / changed",
     );
     lines.push(
       "    node_modules). Sizes are under-reported. Rebuild and re-measure before comparing.",
+    );
+  }
+  lines.push(`  invalid functions    : ${report.invalidFunctions}`);
+  for (const detail of report.invalidDetails.slice(0, 5)) {
+    lines.push(`    ${detail.name} — ${detail.reason}`);
+  }
+  if (report.invalidDetails.length > 5) {
+    lines.push(`    ... and ${report.invalidDetails.length - 5} more`);
+  }
+  if (report.functions.total === 0) {
+    lines.push(
+      "    no logical `.func` entries were found, so every size below is a meaningless zero",
     );
   }
   lines.push(
@@ -352,21 +501,9 @@ export function formatReport(report) {
     );
   }
   lines.push("");
-  lines.push("  family            page          api           PAGE-ONLY");
-  for (const family of report.families) {
-    lines.push(
-      `  ${family.name.padEnd(16)}` +
-        `${mib(family.page.bytes).padStart(9)}/${String(family.page.files).padStart(4)}  ` +
-        `${mib(family.api.bytes).padStart(9)}/${String(family.api.files).padStart(4)}  ` +
-        `${mib(family.pageOnly.bytes).padStart(9)}/${String(family.pageOnly.files).padStart(4)}` +
-        (family.pageOnly.bytes === 0 && family.page.bytes > 0 ? "   (in BOTH -> 0 storage win)" : ""),
-    );
-  }
+  lines.push(...formatFamilyTable(report.families));
   lines.push("");
-  lines.push("  top page-only contributors");
-  for (const entry of report.topPageOnly) {
-    lines.push(`    ${mib(entry.bytes).padStart(10)}  ${entry.path}`);
-  }
+  lines.push(...formatTopPageOnly(report.topPageOnly));
   return lines.join("\n");
 }
 
@@ -402,6 +539,15 @@ export function compareReports(baseline, current, options = {}) {
     complete: Boolean(current?.complete && baseline?.complete),
   };
 
+  if (!base.complete) {
+    return {
+      ...base,
+      error:
+        "baseline or current report is incomplete — a partial measurement under-reports " +
+        "sizes and cannot gate a reduction",
+    };
+  }
+
   if (!before || !after) {
     return { ...base, error: `family "${family}" is not present in both reports` };
   }
@@ -412,10 +558,18 @@ export function compareReports(baseline, current, options = {}) {
     beforePageOnly: before.pageOnly,
     afterPageOnly: after.pageOnly,
     reductionBytes: reduction,
-    unionDeltaBytes: baseline.union.bytes - current.union.bytes,
+    // Both deltas use ONE convention — current minus baseline — so a negative value
+    // always means "smaller now". `reductionBytes` above is deliberately the opposite
+    // sign because it is a reduction, not a delta: positive means the family shrank.
+    unionDeltaBytes: current.union.bytes - baseline.union.bytes,
     apiDeltaBytes: current.api.bytes - baseline.api.bytes,
     passed: minReductionBytes === null ? null : reduction >= minReductionBytes,
   };
+}
+
+/** Render a current-minus-baseline delta so the direction is never ambiguous. */
+function describeDelta(deltaBytes) {
+  return deltaBytes > 0 ? `${mib(deltaBytes)} LARGER` : `${mib(-deltaBytes)} smaller`;
 }
 
 export function formatComparison(result) {
@@ -431,15 +585,11 @@ export function formatComparison(result) {
   lines.push(
     `  reduction         : ${mib(result.reductionBytes)} (${result.reductionBytes >= 0 ? "smaller" : "LARGER — regression"})`,
   );
+  lines.push(`  deployment union  : ${describeDelta(result.unionDeltaBytes)}`);
   lines.push(
-    `  deployment union  : ${mib(result.unionDeltaBytes)} ${result.unionDeltaBytes >= 0 ? "smaller" : "LARGER"}`,
+    `  api union         : ${describeDelta(result.apiDeltaBytes)}` +
+      (result.apiDeltaBytes > 0 ? "  <-- check for accidental api regression" : "  (good)"),
   );
-  lines.push(
-    `  api union         : ${mib(result.apiDeltaBytes)} ${result.apiDeltaBytes <= 0 ? "(unchanged or smaller — good)" : "(GREW — check for accidental api regression)"}`,
-  );
-  if (!result.complete) {
-    lines.push("  WARNING           : a side of this comparison had missing traced files — not trustworthy");
-  }
   if (result.gated) {
     lines.push(
       `  GATE              : ${result.passed ? "PASS" : "FAIL"} — required reduction >= ${(result.minReductionBytes / MIB).toFixed(2)} MiB`,
@@ -461,15 +611,34 @@ function parseArgs(argv) {
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    const next = () => argv[++index];
+    // A flag whose value is missing must fail closed. Returning undefined here used to
+    // make `--save`, `--compare` and `--min-reduction` silently no-op at the end of the
+    // argument list — so a mistyped invocation exited 0 without writing a baseline or
+    // running the gate at all.
+    const next = () => {
+      const value = argv[index + 1];
+      if (value === undefined || value.startsWith("--")) {
+        throw new Error(`${arg} requires a value`);
+      }
+      index += 1;
+      return value;
+    };
     if (arg === "--output") options.output = next();
     else if (arg === "--json") options.json = true;
     else if (arg === "--save") options.save = next();
     else if (arg === "--compare") options.compare = next();
     else if (arg === "--family") options.family = next();
-    else if (arg === "--min-reduction") options.minReductionMiB = Number(next());
-    else if (arg === "--families") {
-      options.families = next().split(",").map((s) => s.trim()).filter(Boolean);
+    else if (arg === "--min-reduction") {
+      const raw = next();
+      const minReductionMiB = Number(raw);
+      if (raw.trim() === "" || !Number.isFinite(minReductionMiB) || minReductionMiB < 0) {
+        throw new Error(`--min-reduction must be a finite, non-negative number of MiB (got "${raw}")`);
+      }
+      options.minReductionMiB = minReductionMiB;
+    } else if (arg === "--families") {
+      const families = next().split(",").map((s) => s.trim()).filter(Boolean);
+      if (families.length === 0) throw new Error("--families requires at least one family name");
+      options.families = families;
     } else if (arg === "--allow-missing") options.allowMissing = true;
     else if (arg === "--help" || arg === "-h") options.help = true;
     else throw new Error(`unknown argument: ${arg}`);
@@ -488,7 +657,8 @@ function usage() {
     "  --family <name>         family for the comparison (default @shikijs)",
     "  --min-reduction <MiB>   gate: exit 1 unless page-only shrinks by this much",
     "  --families a,b,c        families to report (default a built-in list)",
-    "  --allow-missing         do not fail when traced files are missing (unsafe)",
+    "  --allow-missing         do not fail when traced files are missing (unsafe). Does NOT",
+    "                          excuse a structurally invalid build — that always exits 2",
     "  --help                  show this message",
   ].join("\n");
 }
@@ -528,6 +698,25 @@ export function runMeasurement(argv = process.argv.slice(2)) {
       "\nmeasure-vercel-traces: page union is not a superset of api union — the classification invariant is broken. Do not use these numbers as a gate.",
     );
     return 1;
+  }
+
+  // Structural damage is never overridable: `--allow-missing` acknowledges vanished
+  // source files, it does not make a malformed build measurable.
+  if (report.functions.total === 0) {
+    console.error(
+      "\nmeasure-vercel-traces: no logical `.func` entries were found under functions/ — this is not a usable build output. Rebuild before measuring.",
+    );
+    return 2;
+  }
+
+  if (report.invalidFunctions > 0) {
+    console.error(
+      `\nmeasure-vercel-traces: ${report.invalidFunctions} function artifact(s) have unusable trace metadata (missing/unparsable .vc-config.json, empty filePathMap, or a broken symlink), so every size above is unreliable.`,
+    );
+    for (const detail of report.invalidDetails.slice(0, 5)) {
+      console.error(`  ${detail.name} — ${detail.reason}`);
+    }
+    return 2;
   }
 
   if (!report.complete && !options.allowMissing) {

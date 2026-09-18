@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   classifyFunction,
   compareReports,
+  isPageSupersetOfApi,
   listFunctionEntries,
   readFunctionTrace,
   runMeasurement,
@@ -65,6 +66,49 @@ function createBuild(options: {
   }
 
   return { root, outputDir };
+}
+
+/** Create a bare `.vercel/output` root for tests that build functions by hand. */
+function createRawRoot(tag = "raw") {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), `ipix-trace-${tag}-`));
+  tempDirs.push(root);
+  const outputDir = path.join(root, ".vercel", "output");
+  fs.mkdirSync(path.join(outputDir, "functions"), { recursive: true });
+  return { root, outputDir };
+}
+
+/**
+ * Write a `.func` whose `.vc-config.json` is supplied verbatim, so malformed and
+ * missing-metadata states can be constructed (`null` writes no config at all).
+ */
+function writeRawFunc(outputDir: string, name: string, configContents: string | null) {
+  const dir = path.join(outputDir, "functions", name);
+  fs.mkdirSync(dir, { recursive: true });
+  if (configContents !== null) fs.writeFileSync(path.join(dir, ".vc-config.json"), configContents);
+  return dir;
+}
+
+/** Minimal saved baseline with a single @shikijs family, for CLI gate tests. */
+function writeBaseline(root: string, options: { complete: boolean; shikiPageOnlyMiB: number }) {
+  const file = path.join(root, "baseline.json");
+  const size = options.shikiPageOnlyMiB * MIB;
+  fs.writeFileSync(
+    file,
+    JSON.stringify({
+      complete: options.complete,
+      union: { files: 1, bytes: 100 * MIB },
+      api: { files: 1, bytes: 0 },
+      families: [
+        {
+          name: "@shikijs",
+          page: { files: 334, bytes: size },
+          api: { files: 0, bytes: 0 },
+          pageOnly: { files: 334, bytes: size },
+        },
+      ],
+    }),
+  );
+  return file;
 }
 
 function familyOf(report: { families: Array<{ name: string }> }, name: string) {
@@ -133,7 +177,21 @@ describe("listFunctionEntries", () => {
   it("returns empty results when there is no functions directory", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "ipix-trace-empty-"));
     tempDirs.push(root);
-    expect(listFunctionEntries(root)).toEqual({ logical: [], uniqueDirs: [] });
+    expect(listFunctionEntries(root)).toEqual({ logical: [], uniqueDirs: [], broken: [] });
+  });
+
+  it("reports a broken .func symlink instead of throwing ENOENT", () => {
+    const { outputDir } = createBuild({
+      sources: ["src/a.ts"],
+      reals: { "login.func": ["src/a.ts"] },
+    });
+    const link = path.join(outputDir, "functions", "dangling.func");
+    fs.symlinkSync(path.join(outputDir, "functions", "does-not-exist.func"), link);
+
+    const { logical, broken } = listFunctionEntries(outputDir);
+
+    expect(logical).toHaveLength(2);
+    expect(broken).toEqual([link]);
   });
 });
 
@@ -171,13 +229,38 @@ describe("readFunctionTrace", () => {
     expect(missing).toBe(1);
   });
 
-  it("returns an empty trace when .vc-config.json is absent", () => {
+  it("flags a missing .vc-config.json as invalid rather than reporting an empty trace", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "ipix-trace-noconfig-"));
     tempDirs.push(root);
     const dir = path.join(root, "functions", "broken.func");
     fs.mkdirSync(dir, { recursive: true });
 
-    expect(readFunctionTrace(dir, root)).toEqual({ trace: new Map(), missing: 0 });
+    expect(readFunctionTrace(dir, root)).toEqual({
+      trace: new Map(),
+      missing: 0,
+      invalid: "missing .vc-config.json",
+    });
+  });
+
+  it("flags unparsable .vc-config.json as invalid", () => {
+    const { root, outputDir } = createRawRoot("badjson");
+    const dir = writeRawFunc(outputDir, "broken.func", "{ not json");
+
+    expect(readFunctionTrace(dir, root).invalid).toBe("unparsable .vc-config.json");
+  });
+
+  it("flags a .vc-config.json with no filePathMap as invalid", () => {
+    const { root, outputDir } = createRawRoot("nomap");
+    const dir = writeRawFunc(outputDir, "broken.func", JSON.stringify({ runtime: "nodejs24.x" }));
+
+    expect(readFunctionTrace(dir, root).invalid).toBe(".vc-config.json has no filePathMap");
+  });
+
+  it("flags an empty filePathMap as invalid", () => {
+    const { root, outputDir } = createRawRoot("emptymap");
+    const dir = writeRawFunc(outputDir, "broken.func", JSON.stringify({ filePathMap: {} }));
+
+    expect(readFunctionTrace(dir, root).invalid).toBe(".vc-config.json has an empty filePathMap");
   });
 });
 
@@ -266,6 +349,69 @@ describe("summarizeTraces", () => {
     expect(report.complete).toBe(false);
   });
 
+  it("marks an output with no logical functions at all as incomplete", () => {
+    const { outputDir } = createRawRoot("nofuncs");
+    const report = summarizeTraces(outputDir);
+
+    expect(report.functions.total).toBe(0);
+    expect(report.invalidFunctions).toBe(0);
+    expect(report.complete).toBe(false);
+  });
+
+  it("marks a function with no .vc-config.json structurally invalid", () => {
+    const { outputDir } = createRawRoot("missingcfg");
+    writeRawFunc(outputDir, "login.func", null);
+
+    const report = summarizeTraces(outputDir);
+
+    expect(report.invalidFunctions).toBe(1);
+    expect(report.invalidDetails[0].reason).toBe("missing .vc-config.json");
+    expect(report.complete).toBe(false);
+  });
+
+  it("marks an unparsable .vc-config.json structurally invalid", () => {
+    const { outputDir } = createRawRoot("badcfg");
+    writeRawFunc(outputDir, "login.func", "{ not json");
+
+    const report = summarizeTraces(outputDir);
+
+    expect(report.invalidFunctions).toBe(1);
+    expect(report.complete).toBe(false);
+  });
+
+  it("counts missing files once per PHYSICAL artifact, not once per logical symlink", () => {
+    const { outputDir } = createBuild({
+      sources: ["src/ok.ts"],
+      reals: { "login.func": ["src/ok.ts"] },
+      missingSources: ["node_modules/gone/vanished.js"],
+      symlinks: { "app.func": "login.func", "app.rsc.func": "login.func" },
+    });
+
+    const report = summarizeTraces(outputDir);
+
+    expect(report.functions.total).toBe(3);
+    expect(report.functions.uniqueArtifacts).toBe(1);
+    // ONE physical artifact has ONE missing file, so this must be 1 — not 3.
+    expect(report.missingFiles).toBe(1);
+  });
+
+  it("marks a broken .func symlink structurally invalid", () => {
+    const { outputDir } = createBuild({
+      sources: ["src/a.ts"],
+      reals: { "login.func": ["src/a.ts"] },
+    });
+    fs.symlinkSync(
+      path.join(outputDir, "functions", "gone.func"),
+      path.join(outputDir, "functions", "dangling.func"),
+    );
+
+    const report = summarizeTraces(outputDir);
+
+    expect(report.invalidFunctions).toBe(1);
+    expect(report.invalidDetails[0].reason).toBe("broken symlink");
+    expect(report.complete).toBe(false);
+  });
+
   it("throws a helpful error when the directory is not a build output", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "ipix-trace-notbuild-"));
     tempDirs.push(root);
@@ -274,10 +420,40 @@ describe("summarizeTraces", () => {
   });
 });
 
+describe("isPageSupersetOfApi", () => {
+  it("requires PATH membership, not equal byte totals", () => {
+    // Comparing totals cannot see a zero-byte api-only path: union and page total are
+    // both 100. `summarizeTraces` filters zero-byte files before they reach either map,
+    // so this invariant can only be exercised directly.
+    const page = new Map([["src/page.ts", 100]]);
+    const api = new Map([
+      ["src/page.ts", 100],
+      ["src/api-only.ts", 0],
+    ]);
+
+    expect(isPageSupersetOfApi(page, api)).toBe(false);
+  });
+
+  it("is true when every api path is present in the page union", () => {
+    const page = new Map([
+      ["src/page.ts", 100],
+      ["src/shared.ts", 50],
+    ]);
+    const api = new Map([["src/shared.ts", 50]]);
+
+    expect(isPageSupersetOfApi(page, api)).toBe(true);
+  });
+});
+
 describe("compareReports", () => {
-  function reportWith(pageOnlyShikiBytes: number, apiBytes = 0, unionBytes = 100 * MIB) {
+  function reportWith(
+    pageOnlyShikiBytes: number,
+    apiBytes = 0,
+    unionBytes = 100 * MIB,
+    complete = true,
+  ) {
     return {
-      complete: true,
+      complete,
       union: { files: 1, bytes: unionBytes },
       api: { files: 1, bytes: apiBytes },
       families: [
@@ -333,6 +509,42 @@ describe("compareReports", () => {
     const result = compareReports(reportWith(10 * MIB), reportWith(1 * MIB), { family: "nope" });
     expect(result.error).toContain("not present in both reports");
   });
+
+  it("refuses to gate on an incomplete BASELINE even when the reduction looks sufficient", () => {
+    const result = compareReports(
+      reportWith(10 * MIB, 0, 100 * MIB, false),
+      reportWith(1 * MIB),
+      { family: "@shikijs", minReductionMiB: 9 },
+    );
+
+    expect(result.complete).toBe(false);
+    expect(result.error).toContain("incomplete");
+    // The regression this guards: the gate used to report PASS off a partial baseline.
+    expect(result.passed).toBe(null);
+  });
+
+  it("refuses to gate on an incomplete CURRENT report", () => {
+    const result = compareReports(
+      reportWith(10 * MIB),
+      reportWith(1 * MIB, 0, 100 * MIB, false),
+      { family: "@shikijs", minReductionMiB: 9 },
+    );
+
+    expect(result.complete).toBe(false);
+    expect(result.error).toContain("incomplete");
+    expect(result.passed).toBe(null);
+  });
+
+  it("reports both size deltas as current-minus-baseline", () => {
+    const result = compareReports(
+      reportWith(10 * MIB, 40 * MIB, 100 * MIB),
+      reportWith(1 * MIB, 44 * MIB, 90 * MIB),
+    );
+
+    // Negative always means "smaller now" for both, with no per-field sign flipping.
+    expect(result.unionDeltaBytes).toBe(-10 * MIB);
+    expect(result.apiDeltaBytes).toBe(4 * MIB);
+  });
 });
 
 describe("runMeasurement CLI contract", () => {
@@ -365,5 +577,97 @@ describe("runMeasurement CLI contract", () => {
 
   it("exits 0 on --help", () => {
     expect(runMeasurement(["--help"])).toBe(0);
+  });
+
+  it("exits 2 when the build has no logical functions", () => {
+    const { outputDir } = createRawRoot("cli-nofuncs");
+    expect(runMeasurement(["--output", outputDir, "--json"])).toBe(2);
+  });
+
+  it("exits 2 when a .func has no .vc-config.json", () => {
+    const { outputDir } = createRawRoot("cli-nocfg");
+    writeRawFunc(outputDir, "login.func", null);
+    expect(runMeasurement(["--output", outputDir, "--json"])).toBe(2);
+  });
+
+  it("exits 2 when a .vc-config.json is malformed", () => {
+    const { outputDir } = createRawRoot("cli-badcfg");
+    writeRawFunc(outputDir, "login.func", "{ not json");
+    expect(runMeasurement(["--output", outputDir, "--json"])).toBe(2);
+  });
+
+  it("exits 2 when a .func symlink is broken", () => {
+    const { outputDir } = createBuild({
+      sources: ["src/a.ts"],
+      reals: { "login.func": ["src/a.ts"] },
+    });
+    fs.symlinkSync(
+      path.join(outputDir, "functions", "gone.func"),
+      path.join(outputDir, "functions", "dangling.func"),
+    );
+
+    expect(runMeasurement(["--output", outputDir, "--json"])).toBe(2);
+  });
+
+  it("passes the gate on a COMPLETE baseline with a sufficient reduction", () => {
+    const { root, outputDir } = createBuild({
+      sources: ["src/only-page.ts"],
+      reals: { "login.func": ["src/only-page.ts"] },
+    });
+    const baseline = writeBaseline(root, { complete: true, shikiPageOnlyMiB: 10 });
+
+    expect(
+      runMeasurement([
+        "--output",
+        outputDir,
+        "--compare",
+        baseline,
+        "--family",
+        "@shikijs",
+        "--min-reduction",
+        "9",
+      ]),
+    ).toBe(0);
+  });
+
+  it("exits 2 rather than passing the gate off an incomplete baseline", () => {
+    const { root, outputDir } = createBuild({
+      sources: ["src/only-page.ts"],
+      reals: { "login.func": ["src/only-page.ts"] },
+    });
+    const baseline = writeBaseline(root, { complete: false, shikiPageOnlyMiB: 10 });
+
+    expect(
+      runMeasurement([
+        "--output",
+        outputDir,
+        "--compare",
+        baseline,
+        "--family",
+        "@shikijs",
+        "--min-reduction",
+        "9",
+      ]),
+    ).toBe(2);
+  });
+
+  it("exits 2 on a non-numeric or negative --min-reduction", () => {
+    const { root, outputDir } = createBuild({
+      sources: ["src/only-page.ts"],
+      reals: { "login.func": ["src/only-page.ts"] },
+    });
+    const baseline = writeBaseline(root, { complete: true, shikiPageOnlyMiB: 10 });
+    const args = ["--output", outputDir, "--compare", baseline];
+
+    expect(runMeasurement([...args, "--min-reduction", "nine"])).toBe(2);
+    expect(runMeasurement([...args, "--min-reduction", "-1"])).toBe(2);
+  });
+
+  it("exits 2 when a value-taking flag is missing its value", () => {
+    // These used to no-op silently (exit 0) instead of surfacing the mistyped flag.
+    expect(runMeasurement(["--min-reduction"])).toBe(2);
+    expect(runMeasurement(["--save"])).toBe(2);
+    expect(runMeasurement(["--compare"])).toBe(2);
+    expect(runMeasurement(["--families"])).toBe(2);
   });
 });
