@@ -214,34 +214,39 @@ export function primaryDeliverableChannel(plan: unknown): string {
  * Applies a review-state reference choice to a copy of the plan. This is a local
  * edit only: it changes no Shoot, and it is what makes the caller stage a new
  * revision before any decision can be recorded.
+ *
+ * The plan's canonical `referencesUsed` is an ARRAY (see `ShootPlanSchema`), and
+ * `composeShootPlan` derives it positionally from `shotListResult.shots`. The
+ * reference is therefore addressed by index, not by id, so replacing one entry
+ * cannot rewrite a second entry that happens to reference the same id and the
+ * same plan can be reviewed with more than one reference.
  */
 export function applyReferenceSelection(
   plan: unknown,
-  from: string,
+  index: number,
   to: string,
 ): Record<string, unknown> {
   const root = { ...(asRecord(plan) ?? {}) };
 
-  const replaceIn = (list: unknown): unknown[] => {
-    if (!Array.isArray(list)) return [];
-    return list.map((entry) => {
-      const record = asRecord(entry);
-      if (!record) return entry;
-      return record.id === from ? { ...record, id: to } : { ...record };
-    });
-  };
-  root.referencesUsed = replaceIn(root.referencesUsed);
+  const used = Array.isArray(root.referencesUsed) ? [...root.referencesUsed] : [];
+  if (!Number.isInteger(index) || index < 0 || index >= used.length) return root;
+
+  const current = asRecord(used[index]);
+  const fromId = current ? scalar(current.id) : null;
+  used[index] = { ...(current ?? {}), id: to };
+  root.referencesUsed = used;
 
   const shotList = asRecord(root.shotListResult);
-  if (shotList && Array.isArray(shotList.shots)) {
-    root.shotListResult = {
-      ...shotList,
-      shots: shotList.shots.map((entry) => {
-        const record = asRecord(entry);
-        if (!record) return entry;
-        return record.referenceId === from ? { ...record, referenceId: to } : { ...record };
-      }),
-    };
+  if (fromId && shotList && Array.isArray(shotList.shots)) {
+    const shot = index < shotList.shots.length ? asRecord(shotList.shots[index]) : null;
+    // Only rewrite the positional shot while it still points at the reference
+    // being replaced; a plan whose shots do not line up with referencesUsed is
+    // left alone rather than having an unrelated shot changed.
+    if (shot && scalar(shot.referenceId) === fromId) {
+      const shots = [...shotList.shots];
+      shots[index] = { ...shot, referenceId: to };
+      root.shotListResult = { ...shotList, shots };
+    }
   }
 
   return root;

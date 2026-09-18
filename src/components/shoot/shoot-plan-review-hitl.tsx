@@ -37,11 +37,21 @@ function isExecuting(status: unknown): boolean {
   return status === "executing";
 }
 
-let catalogPromise: Promise<ShotReferenceCatalogEntry[]> | null = null;
+let catalogCache: ShotReferenceCatalogEntry[] | null = null;
+let catalogInFlight: Promise<ShotReferenceCatalogEntry[]> | null = null;
 
+/**
+ * Loads the trusted reference catalog at most once per successful response.
+ *
+ * Only a real catalog is cached. A transient failure (network error, 401 before
+ * the session is ready, 5xx) resolves to `[]` for the review that asked for it
+ * but clears the in-flight entry, so the next review retries instead of
+ * inheriting an empty catalog for the rest of the page session.
+ */
 function loadCatalogOnce(): Promise<ShotReferenceCatalogEntry[]> {
-  if (!catalogPromise) {
-    catalogPromise = (async () => {
+  if (catalogCache) return Promise.resolve(catalogCache);
+  if (!catalogInFlight) {
+    catalogInFlight = (async () => {
       try {
         const response = await fetch("/api/plans/references");
         if (!response.ok) return [];
@@ -50,13 +60,17 @@ function loadCatalogOnce(): Promise<ShotReferenceCatalogEntry[]> {
           typeof body === "object" && body !== null
             ? (body as { references?: unknown }).references
             : null;
-        return Array.isArray(references) ? (references as ShotReferenceCatalogEntry[]) : [];
+        if (!Array.isArray(references)) return [];
+        catalogCache = references as ShotReferenceCatalogEntry[];
+        return catalogCache;
       } catch {
         return [];
+      } finally {
+        catalogInFlight = null;
       }
     })();
   }
-  return catalogPromise;
+  return catalogInFlight;
 }
 
 function ReviewPending({ label, testId }: { label: string; testId: string }) {

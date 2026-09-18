@@ -3,10 +3,7 @@ import { z } from "zod";
 import { getVerifiedOperatorForRequest } from "@/lib/auth/copilot-hooks";
 import { badRequestResponse, unauthorizedResponse } from "@/lib/auth/unauthorized";
 import { jsonError } from "@/lib/http/json-response";
-import {
-  PLAN_APPROVAL_DECISIONS,
-  planApprovalMessage,
-} from "@/lib/shoot/plan-approval";
+import { PLAN_APPROVAL_DECISIONS } from "@/lib/shoot/plan-approval";
 import { authorizePlanReviewEditor } from "@/lib/shoot/plan-review-authorization";
 import {
   SHOOT_PLAN_REVIEW_WORKFLOW_ID,

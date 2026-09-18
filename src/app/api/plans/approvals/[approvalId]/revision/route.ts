@@ -3,7 +3,6 @@ import { z } from "zod";
 import { getVerifiedOperatorForRequest } from "@/lib/auth/copilot-hooks";
 import { badRequestResponse, unauthorizedResponse } from "@/lib/auth/unauthorized";
 import { jsonError } from "@/lib/http/json-response";
-import { planApprovalMessage } from "@/lib/shoot/plan-approval";
 import { authorizePlanReviewEditor } from "@/lib/shoot/plan-review-authorization";
 import {
   loadShootPlanApproval,
@@ -27,8 +26,6 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   plan: z.record(z.string(), z.unknown()),
-  agentThreadId: z.string().min(1).max(200).nullish(),
-  expiresAt: z.string().min(1).max(64).nullish(),
 });
 
 function statusForCode(code: string): number {
@@ -117,16 +114,17 @@ export async function POST(
       workflowRunId: loaded.snapshot.workflowRunId,
       plan: parsed.data.plan,
       stagedBy: operator.id,
-      agentThreadId: parsed.data.agentThreadId ?? loaded.snapshot.agentThreadId,
-      expiresAt: parsed.data.expiresAt ?? loaded.snapshot.expiresAt,
+      // Review metadata is inherited from the durable row the operator is
+      // editing, never accepted from the browser.
+      agentThreadId: loaded.snapshot.agentThreadId,
+      expiresAt: loaded.snapshot.expiresAt,
     },
     { supabase: { rpc: rpcCallFromClient(serviceRole) } },
   );
 
   if (!staged.ok) {
-    if (staged.code === "REVISION_CONFLICT") {
-      return jsonError(409, "error", planApprovalMessage(staged.code).toLowerCase());
-    }
+    // A typed staging failure keeps its own HTTP meaning; REVISION_CONFLICT in
+    // particular must stay a 409 so the caller can retry the revision.
     return jsonError(statusForCode(staged.code), "error", staged.code.toLowerCase());
   }
 

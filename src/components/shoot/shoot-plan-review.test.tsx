@@ -73,6 +73,44 @@ const IDENTITY = {
   planHash: PLAN_HASH,
 };
 
+const SIDE_ID = "44444444-4444-4444-8444-444444444444";
+const THIRD_ID = "55555555-5555-4555-8555-555555555555";
+
+const MULTI_CATALOG = [
+  entry({ id: CURRENT_ID, referenceKey: "clothing_model_full_body_front" }),
+  entry({
+    id: SIDE_ID,
+    referenceKey: "clothing_model_full_body_side",
+    angle: "Full body side",
+  }),
+  entry({
+    id: THIRD_ID,
+    referenceKey: "clothing_model_full_body_back",
+    angle: "Full body back",
+  }),
+];
+
+/**
+ * `ShootPlanSchema.referencesUsed` is an array and `composeShootPlan` derives it
+ * positionally from `shotListResult.shots`, so a plan may review more than one
+ * reference — including the same reference id used by two shots.
+ */
+function multiPlan(references: { id: string; angle: string }[], shotIds: string[]) {
+  return {
+    objective: { value: "Launch the spring capsule", status: "confirmed" },
+    channels: ["shopify"],
+    referencesUsed: references,
+    shotListResult: {
+      shots: shotIds.map((referenceId, index) => ({
+        shotNumber: index + 1,
+        description: `Shot ${index + 1}`,
+        angle: references[index]?.angle ?? "Full body front",
+        referenceId,
+      })),
+    },
+  };
+}
+
 const fetchMock = vi.fn();
 
 beforeEach(() => {
@@ -103,16 +141,31 @@ function decisionCalls() {
   );
 }
 
+function revisionCalls() {
+  return fetchMock.mock.calls.filter((call) =>
+    String(call[0]).includes("/revision"),
+  );
+}
+
+/** The exact plan body the operator staged in the last /revision request. */
+function stagedPlan(): Record<string, unknown> {
+  const [call] = revisionCalls();
+  const body = JSON.parse(String((call[1] as RequestInit).body)) as {
+    plan: Record<string, unknown>;
+  };
+  return body.plan;
+}
+
 /**
- * Replace the current reference with the compatible one: expand the compatible
+ * Replace the reference currently in review with `targetId`: expand the target
  * card, then click its Replace button. The browser renders one card per catalog
  * entry, so the card is targeted by its reference id.
  */
-async function replaceReference() {
+async function replaceReference(targetId: string = COMPATIBLE_ID) {
   const card = document.querySelector(
-    `[data-testid="reference-card"][data-reference-id="${COMPATIBLE_ID}"]`,
+    `[data-testid="reference-card"][data-reference-id="${targetId}"]`,
   );
-  if (!card) throw new Error("compatible reference card not found");
+  if (!card) throw new Error(`reference card not found for ${targetId}`);
   fireEvent.click(within(card as HTMLElement).getByTestId("reference-toggle-details"));
   await waitFor(() =>
     expect(within(card as HTMLElement).getByTestId("reference-replace")).toBeTruthy(),
@@ -215,6 +268,112 @@ describe("ShootPlanReview — keep and replace", () => {
       String(REVISION + 1),
     );
     expect(onRevised).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ShootPlanReview — multiple references", () => {
+  function stageResponse() {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (String(url).includes("/revision")) {
+        return {
+          ok: true,
+          status: 201,
+          json: () =>
+            Promise.resolve({
+              approvalId: APPROVAL_ID,
+              brandId: BRAND_ID,
+              revision: REVISION + 1,
+              planHash: "hash-new",
+              supersededRevision: REVISION,
+            }),
+        };
+      }
+      return { ok: true, status: 200, json: () => Promise.resolve({ url: PREVIEW_URL }) };
+    });
+  }
+
+  it("reviews each reference on its own and replaces only the selected one", async () => {
+    stageResponse();
+    renderReview({
+      plan: multiPlan(
+        [
+          { id: CURRENT_ID, angle: "Full body front" },
+          { id: SIDE_ID, angle: "Full body side" },
+        ],
+        [CURRENT_ID, SIDE_ID],
+      ),
+      catalog: MULTI_CATALOG,
+    });
+
+    expect(screen.getByTestId("review-reference-active").textContent).toContain(
+      "Reviewing reference 1 of 2",
+    );
+
+    fireEvent.click(screen.getByTestId("review-reference-select-1"));
+    await waitFor(() =>
+      expect(screen.getByTestId("review-reference-active").textContent).toContain(
+        "Reviewing reference 2 of 2",
+      ),
+    );
+
+    await replaceReference(THIRD_ID);
+    await waitFor(() => expect(screen.getByTestId("review-edited")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("review-save-revision"));
+    await waitFor(() => expect(revisionCalls()).toHaveLength(1));
+
+    const plan = stagedPlan();
+    expect(plan.referencesUsed).toEqual([
+      { id: CURRENT_ID, angle: "Full body front" },
+      { id: THIRD_ID, angle: "Full body side" },
+    ]);
+    const shots = (plan.shotListResult as { shots: { referenceId: string }[] }).shots;
+    expect(shots[0].referenceId).toBe(CURRENT_ID);
+    expect(shots[1].referenceId).toBe(THIRD_ID);
+  });
+
+  it("replaces only the selected entry when two references share one id", async () => {
+    stageResponse();
+    // A value-based replace would rewrite both entries here.
+    renderReview({
+      plan: multiPlan(
+        [
+          { id: CURRENT_ID, angle: "Full body front" },
+          { id: CURRENT_ID, angle: "Full body back" },
+        ],
+        [CURRENT_ID, CURRENT_ID],
+      ),
+      catalog: MULTI_CATALOG,
+    });
+
+    fireEvent.click(screen.getByTestId("review-reference-select-1"));
+    await waitFor(() =>
+      expect(screen.getByTestId("review-reference-active").textContent).toContain(
+        "Reviewing reference 2 of 2",
+      ),
+    );
+
+    await replaceReference(THIRD_ID);
+    await waitFor(() => expect(screen.getByTestId("review-edited")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("review-save-revision"));
+    await waitFor(() => expect(revisionCalls()).toHaveLength(1));
+
+    const plan = stagedPlan();
+    expect(plan.referencesUsed).toEqual([
+      { id: CURRENT_ID, angle: "Full body front" },
+      { id: THIRD_ID, angle: "Full body back" },
+    ]);
+    const shots = (plan.shotListResult as { shots: { referenceId: string }[] }).shots;
+    expect(shots[0].referenceId).toBe(CURRENT_ID);
+    expect(shots[1].referenceId).toBe(THIRD_ID);
+  });
+
+  it("hides the picker for a single-reference plan", () => {
+    renderReview();
+
+    expect(screen.queryByTestId("review-reference-select-0")).toBeNull();
+    expect(screen.getByTestId("review-reference-active").textContent).toContain(
+      "Reviewing reference 1 of 1",
+    );
   });
 });
 

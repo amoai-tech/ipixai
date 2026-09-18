@@ -3,10 +3,7 @@ import { z } from "zod";
 import { getVerifiedOperatorForRequest } from "@/lib/auth/copilot-hooks";
 import { badRequestResponse, unauthorizedResponse } from "@/lib/auth/unauthorized";
 import { jsonError } from "@/lib/http/json-response";
-import {
-  SHOOT_PLAN_REVIEW_WORKFLOW_ID,
-  type ShootPlanReviewWorkflowRunner,
-} from "@/lib/shoot/decide-shoot-plan-revision";
+import { SHOOT_PLAN_REVIEW_WORKFLOW_ID } from "@/lib/shoot/decide-shoot-plan-revision";
 import { readSuspendedPlanReview } from "@/lib/shoot/plan-approval";
 import { authorizePlanReviewEditor } from "@/lib/shoot/plan-review-authorization";
 import { createClientFromRequest } from "@/lib/supabase/server";
@@ -28,9 +25,26 @@ export const dynamic = "force-dynamic";
 const bodySchema = z.object({
   brandId: z.string().uuid(),
   plan: z.record(z.string(), z.unknown()),
-  agentThreadId: z.string().min(1).max(200).nullish(),
-  expiresAt: z.string().min(1).max(64).nullish(),
 });
+
+/**
+ * The installed Mastra contract. `createRun()` is asynchronous, and `start()`
+ * is the only run method that resolves with the suspended result:
+ *
+ *   createRun(options?): Promise<Run<...>>
+ *   run.start(args):     Promise<WorkflowResult<...>>   // status: 'suspended'
+ *   run.startAsync(args): Promise<{ runId: string }>    // fire-and-forget
+ *
+ * `startAsync` resolves immediately with only the run id, so it can never carry
+ * the suspend payload this route must return. Awaiting `createRun` and then
+ * `start` is what actually reaches the suspended state.
+ */
+type ReviewStarter = {
+  createRun: () => Promise<{
+    runId: string;
+    start: (args: { inputData: Record<string, unknown> }) => Promise<unknown>;
+  }>;
+};
 
 export async function POST(request: Request): Promise<Response> {
   const operator = await getVerifiedOperatorForRequest(request);
@@ -67,23 +81,24 @@ export async function POST(request: Request): Promise<Response> {
     const { mastra } = await import("@/mastra");
     const workflow = mastra.getWorkflow(
       SHOOT_PLAN_REVIEW_WORKFLOW_ID,
-    ) as unknown as ShootPlanReviewWorkflowRunner & { createRun: () => { startAsync: (input: unknown) => Promise<unknown> } };
-    const run = workflow.createRun();
-    const result = await run.startAsync({
+    ) as unknown as ReviewStarter;
+    const run = await workflow.createRun();
+    const result = await run.start({
       inputData: {
         brandId: parsed.data.brandId,
         plan: parsed.data.plan,
         stagedBy: operator.id,
-        agentThreadId: parsed.data.agentThreadId ?? null,
-        expiresAt: parsed.data.expiresAt ?? null,
       },
     });
     const suspended = readSuspendedPlanReview(result);
     if (!suspended) {
       return jsonError(502, "error", "review_start_failed");
     }
+    // `runId` is returned as a non-authority trace id proving a real Mastra run
+    // suspended. The decision path re-reads the run id from the approval row, so
+    // the browser can never use it to reach a decision.
     return Response.json(
-      { ...suspended },
+      { runId: run.runId, ...suspended },
       { status: 201, headers: { "content-type": "application/json" } },
     );
   } catch {

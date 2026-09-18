@@ -126,8 +126,12 @@ const awaitDecision = createStep({
     // resumeData is transport only. Re-read the durable row so a decision that
     // was never recorded, or one spent on a superseded revision, cannot advance
     // the run.
+    //
+    // The workflow runs with service-side authority and has no session, so it
+    // uses the service-side proof read. The operator-scoped
+    // `get_shoot_plan_approval` would fail closed with UNAUTHENTICATED here.
     const sb = await requireServiceRoleClient();
-    const { data, error } = await sb.rpc("get_shoot_plan_approval", {
+    const { data, error } = await sb.rpc("get_shoot_plan_approval_proof", {
       p_approval_id: resumeData.approvalId,
     });
     if (error) throw new Error("Could not re-read the durable approval state");
@@ -157,7 +161,9 @@ const awaitDecision = createStep({
       revision: snapshot.revision,
       planHash: snapshot.planHash,
       decision: resumeData.decision,
-      note: snapshot.decisionNote,
+      // The proof read is deliberately plan- and note-free; the durable note
+      // stays readable through the authenticated path.
+      note: null,
     };
   },
 });

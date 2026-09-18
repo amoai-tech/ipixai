@@ -1,5 +1,6 @@
 import {
   type ShootPlanApprovalSnapshot,
+  approvalRpcFailureCode,
   parseShootPlanApprovalSnapshot,
   planApprovalMessage,
   toShootPlanApprovalIdentity,
@@ -38,6 +39,13 @@ export type StageShootPlanRevisionOutcome =
   | { ok: true; approvalId: string; revision: number; planHash: string }
   | { ok: false; code: string; message: string };
 
+/**
+ * Application-level codes `stage_shoot_plan_revision` may return that must
+ * survive the wrapper and keep their own HTTP meaning. Every other code is a
+ * generic staging failure.
+ */
+const STAGE_FAILURE_CODES = new Set(["REVISION_CONFLICT", "INVALID_INPUT", "NOT_FOUND", "FORBIDDEN"]);
+
 export async function stageShootPlanRevision(
   input: StageShootPlanRevisionInput,
   deps: { supabase: { rpc: ShootPlanApprovalRpc } },
@@ -70,7 +78,13 @@ export async function stageShootPlanRevision(
   }
 
   const identity = toShootPlanApprovalIdentity(raw);
-  if (!identity) return failure("STAGE_FAILED");
+  if (!identity) {
+    // Keep the database's own typed code (REVISION_CONFLICT / INVALID_INPUT /
+    // NOT_FOUND / FORBIDDEN) so the route can map it to the correct HTTP
+    // status. Anything unrecognised stays a generic staging failure.
+    const code = approvalRpcFailureCode(raw);
+    return failure(code && STAGE_FAILURE_CODES.has(code) ? code : "STAGE_FAILED");
+  }
   return {
     ok: true,
     approvalId: identity.approvalId,

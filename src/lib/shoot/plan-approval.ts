@@ -145,6 +145,18 @@ export function toShootPlanApprovalIdentity(raw: unknown): ShootPlanApprovalIden
   return { approvalId, revision, planHash, status };
 }
 
+/**
+ * Reads the typed failure code from any approval RPC envelope that returned
+ * `{ ok: false, code }`. Without this an application-level code such as
+ * REVISION_CONFLICT is indistinguishable from a transport failure and would be
+ * collapsed into a generic 502.
+ */
+export function approvalRpcFailureCode(raw: unknown): string | null {
+  const record = asRecord(raw);
+  if (!record || record.ok !== false) return null;
+  return nonBlank(record.code);
+}
+
 export function parseShootPlanApprovalSnapshot(raw: unknown): ShootPlanApprovalSnapshot | null {
   const record = asRecord(raw);
   if (!record || record.ok !== true) return null;

@@ -77,13 +77,19 @@ export function ShootPlanReview({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<PlanReviewSettled | null>(null);
+  const [reviewedReference, setReviewedReference] = useState(0);
 
   const view = useMemo(() => describeShootPlanReview(draft), [draft]);
-  const currentReferenceId = view.references[0]?.referenceId ?? "";
+  // `referencesUsed` is an array, so each entry is reviewed on its own. The index
+  // is clamped because a staged edit re-projects the draft.
+  const referenceCount = view.references.length;
+  const referenceIndex = referenceCount > 0 ? Math.min(reviewedReference, referenceCount - 1) : 0;
+  const currentReference = view.references[referenceIndex] ?? null;
+  const currentReferenceId = currentReference?.referenceId ?? "";
 
   function handleSelect(referenceId: string) {
     if (!currentReferenceId || referenceId === currentReferenceId) return;
-    setDraft((previous) => applyReferenceSelection(previous, currentReferenceId, referenceId));
+    setDraft((previous) => applyReferenceSelection(previous, referenceIndex, referenceId));
     setEdited(true);
     setError(null);
   }
@@ -214,13 +220,42 @@ export function ShootPlanReview({
       ))}
 
       {catalog.length > 0 ? (
-        <ShotReferenceBrowser
-          currentReferenceId={currentReferenceId}
-          catalog={catalog}
-          deliverableChannel={deliverableChannel}
-          onSelect={handleSelect}
-          title="Shot references"
-        />
+        <div className="flex flex-col gap-2">
+          {currentReference ? (
+            <p className="text-xs text-gray-500" data-testid="review-reference-active">
+              Reviewing reference {referenceIndex + 1} of {referenceCount}
+              {currentReference.angle ? ` · ${currentReference.angle}` : ""}
+            </p>
+          ) : null}
+          {referenceCount > 1 ? (
+            <div role="group" aria-label="Plan references" className="flex flex-wrap gap-2">
+              {view.references.map((reference, index) => (
+                <button
+                  key={`${reference.referenceId}-${index}`}
+                  type="button"
+                  data-testid={`review-reference-select-${index}`}
+                  data-reference-id={reference.referenceId}
+                  aria-pressed={index === referenceIndex}
+                  onClick={() => setReviewedReference(index)}
+                  className={`rounded-md border px-2 py-1 text-xs ${
+                    index === referenceIndex
+                      ? "border-blue-500 bg-blue-50 font-medium text-blue-900"
+                      : "border-gray-300 text-gray-700"
+                  }`}
+                >
+                  Reference {index + 1}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <ShotReferenceBrowser
+            currentReferenceId={currentReferenceId}
+            catalog={catalog}
+            deliverableChannel={deliverableChannel}
+            onSelect={handleSelect}
+            title="Shot references"
+          />
+        </div>
       ) : null}
 
       {edited ? (

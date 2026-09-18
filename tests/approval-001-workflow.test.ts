@@ -30,23 +30,24 @@ const PLAN = {
   referencesUsed: [{ id: "ref-1", angle: "front" }],
 };
 
+/**
+ * The exact payload `public.get_shoot_plan_approval_proof(uuid)` returns: the
+ * bounded proof fields only — no plan body, no user id, no note. The workflow
+ * must re-read durable truth through this service-side contract, because the
+ * operator-scoped read fails closed for a session-less service-role caller.
+ */
 function snapshot(overrides: Record<string, unknown> = {}) {
   return {
     ok: true,
     approvalId: APPROVAL_ID,
     brandId: BRAND_ID,
     workflowRunId: RUN_ID,
-    agentThreadId: null,
     revision: REVISION,
     planHash: PLAN_HASH,
+    status: "approved",
+    decision: "approved",
     hashMatches: true,
     isCurrent: true,
-    status: "approved",
-    plan: PLAN,
-    decisionNote: "looks good",
-    decidedAt: "2026-09-18T00:00:00.000Z",
-    decidedBy: "33333333-3333-4333-8333-333333333333",
-    expiresAt: null,
     ...overrides,
   };
 }
@@ -100,7 +101,7 @@ describe("shoot-plan-review workflow — stageRevision", () => {
     });
   });
 
-  it("fails closed when staging is rejected", async () => {
+  it("fails closed when staging is rejected, keeping the typed code", async () => {
     mocks.rpc.mockResolvedValueOnce({
       data: { ok: false, code: "REVISION_CONFLICT" },
       error: null,
@@ -111,7 +112,7 @@ describe("shoot-plan-review workflow — stageRevision", () => {
         inputData: { brandId: BRAND_ID, plan: PLAN },
         runId: RUN_ID,
       }),
-    ).rejects.toThrow(/Plan revision staging failed: STAGE_FAILED/);
+    ).rejects.toThrow(/Plan revision staging failed: REVISION_CONFLICT/);
   });
 
   it("refuses a plan larger than the reviewable limit", async () => {
@@ -165,7 +166,7 @@ describe("shoot-plan-review workflow — awaitDecision", () => {
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
-  it("re-reads the durable approval row on resume and returns the bounded outcome", async () => {
+  it("re-reads the durable approval row through the service-side proof read", async () => {
     mocks.rpc.mockResolvedValueOnce({ data: snapshot(), error: null });
 
     const result = await stepExecute("awaitDecision")({
@@ -186,7 +187,10 @@ describe("shoot-plan-review workflow — awaitDecision", () => {
 
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
     const [name, args] = mocks.rpc.mock.calls[0] as [string, Record<string, unknown>];
-    expect(name).toBe("get_shoot_plan_approval");
+    // The workflow has no session, so the operator-scoped read would fail closed
+    // with UNAUTHENTICATED. It must use the service-side proof contract.
+    expect(name).toBe("get_shoot_plan_approval_proof");
+    expect(name).not.toBe("get_shoot_plan_approval");
     expect(args.p_approval_id).toBe(APPROVAL_ID);
     expect(result).toEqual({
       approvalId: APPROVAL_ID,
@@ -194,7 +198,7 @@ describe("shoot-plan-review workflow — awaitDecision", () => {
       revision: REVISION,
       planHash: PLAN_HASH,
       decision: "approved",
-      note: "looks good",
+      note: null,
     });
   });
 
