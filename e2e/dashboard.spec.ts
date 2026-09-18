@@ -126,9 +126,23 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
   // first wherever the resulting state actually matters to the test.
   async function ensureCopilotOpen(page: import("@playwright/test").Page) {
     const dock = page.getByTestId("operator-chat-dock");
+    // Desktop mounts with data-open="true" immediately; mobile mounts the
+    // same way and then closes itself a render or two later, once
+    // useMobileNav()'s matchMedia check settles (see operator-panel.tsx's
+    // isMobile-auto-close effect). A single getAttribute() read right after
+    // page.goto() can land in that gap and observe the still-true initial
+    // value before it flips — this then skips the click and the panel stays
+    // closed for the rest of the test. Wait for the real settled state on
+    // mobile viewports (Playwright's own 767px breakpoint match — kept in
+    // sync with operator-panel.tsx's MOBILE_NAV, same duplication that file
+    // already carries against its own CSS module) before deciding.
+    const isMobileViewport = (page.viewportSize()?.width ?? Number.POSITIVE_INFINITY) <= 767;
+    if (isMobileViewport) {
+      await expect(dock).toHaveAttribute("data-open", "false", { timeout: NAV_TIMEOUT_MS });
+    }
     if ((await dock.getAttribute("data-open")) !== "true") {
       await page.getByRole("button", { name: "✦ Open Copilot" }).click();
-      await expect(dock).toHaveAttribute("data-open", "true");
+      await expect(dock).toHaveAttribute("data-open", "true", { timeout: NAV_TIMEOUT_MS });
     }
     return dock;
   }
