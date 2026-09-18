@@ -95,7 +95,8 @@ test(
     // The thread must carry this run's own message — otherwise a later Org B
     // deny would be a false positive against an empty thread.
     let orgAMessages: PlannerChatMessage[] = [];
-    while (Date.now() < deadline) {
+    const messageDeadline = Date.now() + REPLY_TIMEOUT_MS;
+    while (Date.now() < messageDeadline) {
       const response = await readThreadMessages(page, orgAThreadId!);
       if (response.status() === 200) {
         const body = (await response.json()) as {
@@ -209,14 +210,20 @@ test(
       // resource's own list, and the panel then persists that fresh id.
       await expect
         .poll(
-          () => orgBPage.evaluate((key) => window.localStorage.getItem(key), orgBKey!),
+          async () => {
+            const value = await orgBPage.evaluate(
+              (key) => window.localStorage.getItem(key),
+              orgBKey!,
+            );
+            return typeof value === "string" && value.length > 0 && value !== orgAThreadId;
+          },
           {
             timeout: 30_000,
             message:
-              "tenant leak: Org B's UI adopted Org A's threadId instead of minting a fresh thread",
+              "tenant leak: Org B's UI did not persist a fresh threadId after rejecting Org A's threadId",
           },
         )
-        .not.toBe(orgAThreadId);
+        .toBe(true);
       await expect(
         orgBPage.getByText(runMarker),
         "tenant leak: Org B restored Org A's conversation content in the browser",
