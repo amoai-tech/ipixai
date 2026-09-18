@@ -70,12 +70,17 @@ vi.mock("./operator-panel.module.css", () => ({
 // tests can simulate an in-progress conversation via mockReturnValueOnce —
 // operator-panel.tsx's isNewThread welcome banner is also gated on this.
 const useAgentMock = vi.hoisted(() =>
-  vi.fn(() => ({ agent: { messages: [] as unknown[] } })),
+  vi.fn(() => ({ agent: { messages: [] as unknown[], addMessage: vi.fn() } })),
 );
+
+const runAgentMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@copilotkit/react-core/v2", () => ({
   CopilotKit: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useAgent: useAgentMock,
+  // IPI-1224: insight buttons send via agent.addMessage + copilotkit.runAgent
+  // (the documented agent-access pattern) — stubbed the same shape here.
+  useCopilotKit: () => ({ copilotkit: { runAgent: runAgentMock } }),
   // IPI-1084 registers the ShootPlan review HITL renderer inside the provider.
   // These tests assert the shell/nav/rail, so the registration is a no-op here.
   useHumanInTheLoop: () => {},
@@ -169,7 +174,7 @@ function mockThreadsFetch(
 beforeEach(() => {
   mockThreadsFetch();
   window.localStorage.clear();
-  useAgentMock.mockReturnValue({ agent: { messages: [] } });
+  useAgentMock.mockReturnValue({ agent: { messages: [], addMessage: vi.fn() } });
   restoreAutoSettle.current = true;
   capturedOnSettled.current = null;
 });
@@ -201,45 +206,53 @@ describe("OperatorPanel", () => {
     }
   });
 
-  it("expands and collapses the Planner chat dock without remounting the chat", async () => {
+  it("opens and closes the Production Copilot panel without remounting the chat", async () => {
     render(
       <OperatorPanel>
         <p>Workspace body</p>
       </OperatorPanel>,
     );
 
-    const dock = screen.getByTestId("operator-chat-dock");
+    const panel = screen.getByTestId("operator-chat-dock");
     const chat = await screen.findByTestId("copilot-chat-stub");
-    const expand = screen.getByRole("button", { name: "Expand chat" });
 
-    expect(dock.getAttribute("data-expanded")).toBe("false");
-    expect(expand.getAttribute("aria-expanded")).toBe("false");
-    expect(expand.getAttribute("aria-controls")).toBe("operator-chat-panel");
+    // Open by default — see operator-panel.tsx's copilotOpen comment: the
+    // required playwright-ai-smoke/gate-9 e2e specs interact with the
+    // composer immediately after navigation with no "open" step of their
+    // own, and the acceptance criteria never mandate a closed default.
+    expect(panel.getAttribute("data-open")).toBe("true");
+    const closeButton = screen.getByRole("button", { name: "Close Copilot" });
+    // "Open Copilot" is the only control visible while closed; the panel's
+    // own ✕ is the only control visible while open (Final Design state
+    // machine) — so the open button doesn't exist while already open.
+    expect(screen.queryByRole("button", { name: "✦ Open Copilot" })).toBeNull();
 
-    fireEvent.click(expand);
+    fireEvent.click(closeButton);
 
-    expect(dock.getAttribute("data-expanded")).toBe("true");
-    expect(screen.getByRole("button", { name: "Collapse chat" }).getAttribute("aria-expanded")).toBe("true");
+    expect(panel.getAttribute("data-open")).toBe("false");
+    // Chat stays mounted even while closed — only CSS/inert toggles, so a
+    // real conversation is never torn down just by closing the panel.
     expect(screen.getByTestId("copilot-chat-stub")).toBe(chat);
 
-    fireEvent.click(screen.getByRole("button", { name: "Collapse chat" }));
+    const openButton = screen.getByRole("button", { name: "✦ Open Copilot" });
+    expect(openButton.getAttribute("aria-expanded")).toBe("false");
+    expect(openButton.getAttribute("aria-controls")).toBe("operator-chat-panel");
 
-    expect(dock.getAttribute("data-expanded")).toBe("false");
+    fireEvent.click(openButton);
+
+    expect(panel.getAttribute("data-open")).toBe("true");
     expect(screen.getByTestId("copilot-chat-stub")).toBe(chat);
   });
 
-  it("rail shows the generic copy when no real workspace stats have been reported", () => {
+  it("rail shows no insights when no real workspace stats have been reported", () => {
     render(
       <OperatorPanel>
         <p>Workspace body</p>
       </OperatorPanel>,
     );
-    expect(
-      within(screen.getByTestId("intelligence-rail")).getByText(
-        "Planner chat stays in its own screen. Open it without replacing this workspace.",
-      ),
-    ).toBeDefined();
+    expect(screen.getByTestId("intelligence-rail")).toBeDefined();
     expect(screen.queryByTestId("intelligence-workspace-stats")).toBeNull();
+    expect(screen.queryByTestId("intelligence-brand-context")).toBeNull();
   });
 
   it("rail shows real derived brand/shoot counts once the dashboard page reports them", () => {
@@ -558,7 +571,7 @@ describe("PlannerChatDock thread bootstrap (IPI-1217)", () => {
     // signal CopilotChat's own (now-unreachable) welcome screen used to key
     // off, so PlannerChatDock mirrors it here.
     useAgentMock.mockReturnValue({
-      agent: { messages: [{ id: "m1", role: "user", content: "hi" }] },
+      agent: { messages: [{ id: "m1", role: "user", content: "hi" }], addMessage: vi.fn() },
     });
 
     render(

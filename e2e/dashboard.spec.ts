@@ -113,61 +113,57 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     await expect(page.getByTestId("command-center-hero")).toHaveCount(0);
   });
 
-  test("persistent chat dock is visible on /app and stays capability-honest @Ta35df995", async ({ page }) => {
+  // IPI-1224: the Production Copilot panel is open by default (see
+  // operator-panel.tsx's copilotOpen comment — planner-journey.spec.ts and
+  // planner-thread-isolation.spec.ts both interact with the composer
+  // immediately after navigation with no "open" step of their own), so
+  // every test below needs no extra open step; a few explicitly exercise
+  // the close/reopen toggle where that's the thing under test.
+  test("Production Copilot panel is open on /app and stays capability-honest @Ta35df995", async ({ page }) => {
     await page.goto("/app");
-    await expect(page.getByTestId("operator-chat-dock")).toBeVisible();
+    const dock = page.getByTestId("operator-chat-dock");
+    await expect(dock).toHaveAttribute("data-open", "true");
+    await expect(dock).toBeVisible();
     // No fabricated actions — real capability gate (quick-action-chips.tsx),
     // asserted live, not just in the mocked component test.
     await expect(page.getByText("Generate deliverables")).toHaveCount(0);
     await expect(page.getByText("Review approvals")).toHaveCount(0);
   });
 
-  test("Planner dock disables its height transition for reduced-motion users @T1224motion", async ({ page }) => {
+  test("Production Copilot panel disables its open/close transition for reduced-motion users @T1224motion", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/app");
 
-    const dock = page.getByTestId("operator-chat-dock");
-    await expect(dock).toBeVisible();
-    await expect.poll(() => dock.evaluate((element) => getComputedStyle(element).transitionDuration)).toBe("0s");
+    const shell = page.getByTestId("operator-panel");
+    await expect.poll(() => shell.evaluate((element) => getComputedStyle(element).transitionDuration)).toBe("0s");
   });
 
-  test("Planner dock expands for long answers and collapses without taking over desktop @T1224dock", async ({ page }, testInfo) => {
+  test("Production Copilot panel is a readable fixed-width column, not a height-expanding dock @T1224dock", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "chromium", "geometry assertion is desktop-only");
 
     await page.goto("/app");
     const dock = page.getByTestId("operator-chat-dock");
     const composer = dock.getByTestId("copilot-chat-textarea");
     await expect(composer).toBeVisible({ timeout: NAV_TIMEOUT_MS });
-    const compact = await dock.boundingBox();
-    expect(compact).not.toBeNull();
 
-    await page.getByRole("button", { name: "Expand chat" }).click();
-    await expect(dock).toHaveAttribute("data-expanded", "true");
-    await expect.poll(async () => (await dock.boundingBox())?.height ?? 0).toBeGreaterThan(compact?.height ?? 0);
-    const expectedExpandedHeight = Math.min(720, (page.viewportSize()?.height ?? 0) * 0.7);
-    await expect.poll(async () => (await dock.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(
-      expectedExpandedHeight - 2,
-    );
-
-    const expanded = await dock.boundingBox();
-    expect(expanded).not.toBeNull();
-    expect(expanded?.height ?? 0).toBeLessThanOrEqual((page.viewportSize()?.height ?? 0) * 0.7 + 2);
+    // clamp(400px, 32vw, 520px) — the panel's whole point is a readable,
+    // independently-scrolling column beside the workspace, not a bottom
+    // dock that grows to cover most of the viewport for a long answer.
+    const box = await dock.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box?.width ?? 0).toBeGreaterThanOrEqual(398);
+    expect(box?.width ?? 0).toBeLessThanOrEqual(522);
+    // Full available shell height (not the old min(360px, 40dvh) cap) —
+    // long responses scroll inside the panel instead of expanding it.
+    const viewportHeight = page.viewportSize()?.height ?? 0;
+    expect(box?.height ?? 0).toBeGreaterThan(viewportHeight * 0.8);
     await expect(composer).toBeVisible();
-
-    await page.getByRole("button", { name: "Collapse chat" }).click();
-    await expect(dock).toHaveAttribute("data-expanded", "false");
   });
 
-  // IPI-1149 · DASH-MAIN-002 — portfolio-aware chat welcome + Intelligence
-  // rail Overview, proven live against the same real 0-brand QA org as the
-  // empty-state test above (no seeded populated org exists for this e2e
-  // account — see PR description for that separately-tracked gap). The
-  // rail itself (operator-panel.module.css .rail{display:none} below the
-  // mobile breakpoint — pre-existing, not introduced by this PR) only
-  // renders on desktop, same reasoning marketing-nav.spec.ts already uses
-  // for its own desktop-only nav — so its visibility assertions are
-  // desktop-scoped; the chat welcome copy isn't rail-gated and is checked
-  // on every project.
+  // IPI-1149 · DASH-MAIN-002 — portfolio-aware chat welcome + pinned
+  // Context/Insights, proven live against the same real 0-brand QA org as
+  // the empty-state test above (no seeded populated org exists for this
+  // e2e account — see PR description for that separately-tracked gap).
   test("chat welcome stays honest for the QA org's real 0-brand state @T72b9d927", async ({ page }) => {
     await page.goto("/app");
     await expect(page.getByRole("heading", { name: "No brands yet" })).toBeVisible();
@@ -181,8 +177,8 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     ).toBeVisible({ timeout: NAV_TIMEOUT_MS });
   });
 
-  test("Intelligence rail stays honest for the QA org's real 0-brand state @T6029e637", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "chromium", "rail is desktop-only (operator-panel.module.css)");
+  test("pinned Insights bar stays honest for the QA org's real 0-brand state @T6029e637", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "chromium", "panel is desktop-only geometry (operator-panel.module.css)");
     await page.goto("/app");
     const rail = page.getByTestId("intelligence-rail");
     await expect(rail.getByText("0 brands · 0 shoots in this workspace.")).toBeVisible();
@@ -208,56 +204,44 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     await expect(page).toHaveURL(/\/app\/shoots$/, { timeout: NAV_TIMEOUT_MS });
   });
 
-  test("scrolling the workspace does not detach the chat dock or block quick-link clicks @T67b646f1", async ({
+  test("scrolling the workspace does not detach the Copilot panel or block quick-link clicks @T67b646f1", async ({
     page,
   }) => {
     test.setTimeout(TEST_TIMEOUT_MS);
     // Regression guard for the exact risk PR #66 called out: before its
     // shell height:100dvh fix, the whole page grew to fit content instead
-    // of the dock pinning with independent scroll, and Quick Link clicks
+    // of the panel pinning with independent scroll, and Quick Link clicks
     // silently stopped registering as navigation. Scrolling into view of
     // a landmark deep in the main content exercises that inner scroll
-    // region; the dock and a nav link must both remain live afterward.
+    // region; the panel and a nav link must both remain live afterward.
     await page.goto("/app");
-    await page.getByRole("heading", { name: "Quick links" }).scrollIntoViewIfNeeded();
     const dock = page.getByTestId("operator-chat-dock");
+    await page.getByRole("heading", { name: "Quick links" }).scrollIntoViewIfNeeded();
     await expect(dock).toBeVisible();
     const composer = dock.getByTestId("copilot-chat-textarea");
     await expect(composer).toBeVisible({ timeout: NAV_TIMEOUT_MS });
-    const compact = await dock.boundingBox();
-    expect(compact).not.toBeNull();
 
-    await page.getByRole("button", { name: "Expand chat" }).click();
-    await expect(dock).toHaveAttribute("data-expanded", "true");
-    await expect.poll(async () => (await dock.boundingBox())?.height ?? 0).toBeGreaterThan(compact?.height ?? 0);
-    const expectedExpandedHeight = Math.min(720, (page.viewportSize()?.height ?? 0) * 0.7);
-    await expect.poll(async () => (await dock.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(
-      expectedExpandedHeight - 2,
-    );
-    const expanded = await dock.boundingBox();
-    expect(expanded).not.toBeNull();
-    expect(expanded?.height ?? 0).toBeLessThanOrEqual((page.viewportSize()?.height ?? 0) * 0.7 + 2);
-    await expect(composer).toBeVisible();
-
-    await page.getByRole("button", { name: "Collapse chat" }).click();
-    await expect(dock).toHaveAttribute("data-expanded", "false");
+    await page.getByRole("button", { name: "Close Copilot" }).click();
+    await expect(dock).toHaveAttribute("data-open", "false");
     await page.getByRole("link", { name: "Open Brands" }).click();
     await expect(page).toHaveURL(/\/app\/brands$/, { timeout: NAV_TIMEOUT_MS });
   });
 
-  test("a short viewport keeps both dashboard content and the chat dock reachable @Tac1225a4", async ({
+  test("a short viewport keeps both dashboard content and the Copilot panel reachable @Tac1225a4", async ({
     page,
   }) => {
     // Mobile landscape-ish height, not just mobile-chromium's 390x844
-    // portrait — the dock's height:min(320px,40dvh) fix specifically
-    // targets short viewports, so prove it at one.
+    // portrait — the panel's mobile full-height-sheet behavior specifically
+    // targets narrow/short viewports, so prove it at one.
     await page.setViewportSize({ width: 390, height: 500 });
     await page.goto("/app");
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-    await expect(page.getByTestId("operator-chat-dock")).toBeVisible();
+    const dock = page.getByTestId("operator-chat-dock");
+    await expect(dock).toBeVisible();
     // Both surfaces reachable, not just present: scroll to a deep main-
-    // content landmark, then confirm the dock is still there afterward.
+    // content landmark, then confirm the panel is still there afterward.
+    await page.getByRole("button", { name: "Close Copilot" }).click();
     await page.getByRole("heading", { name: "Quick links" }).scrollIntoViewIfNeeded();
-    await expect(page.getByTestId("operator-chat-dock")).toBeVisible();
+    await expect(page.getByRole("button", { name: "✦ Open Copilot" })).toBeVisible();
   });
 });
