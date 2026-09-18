@@ -35,6 +35,18 @@ describe("documentation link checker", () => {
     expect(collectDocumentationFailures(root)[0]).toContain("escapes repository root");
   });
 
+  it("fails when a fully archived top-level docs tree is recreated", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ipix-docs-check-"));
+    tempDirs.push(root);
+    fs.mkdirSync(path.join(root, "docs", "design"), { recursive: true });
+    fs.writeFileSync(path.join(root, "docs", "README.md"), "# Docs\n");
+    fs.writeFileSync(path.join(root, "docs", "design", "legacy.md"), "# Legacy\n");
+
+    expect(collectDocumentationFailures(root)).toContain(
+      "docs/design should not exist; this top-level docs tree was archived.",
+    );
+  });
+
   it("fails when obsolete Mintlify files are recreated", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "ipix-docs-check-"));
     tempDirs.push(root);

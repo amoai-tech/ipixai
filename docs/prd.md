@@ -17,7 +17,7 @@ description: "iPix V2 product requirements: CopilotKit, Mastra, HITL writes, Cor
 | **This page** (`docs/prd.md`) | Product requirements master |
 | **[Product sitemap](./sitemap.md)** | Product routes and phases (not HTML prototype counts) |
 | **[Live execution board](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues)** | Task status, blockers, ownership, and current execution |
-| **[Documentation inventory](./docs-index.md)** | Keep / Update / Archive / Remove map for all docs assets |
+| **[Documentation map](./docs-index.md)** | Current documentation map and source-of-truth routing |
 | **[ADR 001](./adr/001-node-first.md)** | Start of the accepted architecture decision set |
 | internal architecture annex (not published) | Long-form architecture annex |
 | internal alternate draft (not published) | Alternate draft — **do not treat as SSOT** |

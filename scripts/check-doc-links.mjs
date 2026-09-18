@@ -6,6 +6,15 @@ const scriptPath = fileURLToPath(import.meta.url);
 const defaultRoot = path.resolve(path.dirname(scriptPath), "..");
 const rootDocs = ["README.md", "prd.md", "SITEMAP.md", "todo.md"];
 const obsoleteMintlifyFiles = ["docs/.mintignore", "docs/docs.json", "docs/index.mdx"];
+const deprecatedTopLevelDocsDirs = [
+  "docs/MIGRATE",
+  "docs/cloudflare",
+  "docs/cursor",
+  "docs/design",
+  "docs/notes",
+  "docs/playwright",
+  "docs/roadmap",
+];
 const markdownLink = /!?\[[^\]]*\]\(([^)]+)\)/g;
 
 function isInsideRoot(target, root) {
@@ -86,6 +95,12 @@ export function collectDocumentationFailures(root = defaultRoot) {
   for (const obsolete of obsoleteMintlifyFiles) {
     if (fs.existsSync(path.join(root, obsolete))) {
       failures.push(`${obsolete} should not exist; iPix docs are GitHub-native.`);
+    }
+  }
+
+  for (const deprecatedDir of deprecatedTopLevelDocsDirs) {
+    if (fs.existsSync(path.join(root, deprecatedDir))) {
+      failures.push(`${deprecatedDir} should not exist; this top-level docs tree was archived.`);
     }
   }
   return failures;
