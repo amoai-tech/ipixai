@@ -7,11 +7,27 @@
   height: 100dvh;
   background: var(--color-bg-page);
   color: var(--color-text-primary);
-  grid-template-columns: auto 1fr auto;
+  /* Adaptive 2↔3 column shell (IPI-1224 Final Design): the panel column is
+     always present in the grid (so the panel itself never remounts — same
+     no-remount contract Phase 1/IPI-1217 already proved for the old dock's
+     expand/collapse), but its width collapses to 0 when closed instead of
+     being removed from grid-template-areas, which would leave it unplaced. */
+  grid-template-columns: auto 1fr 0;
   grid-template-rows: auto 1fr;
   grid-template-areas:
     "menu menu menu"
-    "nav main rail";
+    "nav main panel";
+  transition: grid-template-columns var(--duration-fast) ease;
+}
+
+.shellPanelOpen {
+  grid-template-columns: auto 1fr clamp(400px, 32vw, 520px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell {
+    transition: none;
+  }
 }
 
 .menuBar {
@@ -95,6 +111,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .mainScroll {
@@ -103,33 +120,30 @@
   overflow: auto;
 }
 
-/* Persistent CopilotKit chat dock — center-column, not the right rail.
-   COPY+CLEAN of Lumina's operator-chat-dock.tsx position/geometry, rebuilt
-   on the current @copilotkit/react-core/v2 runtime (no old route-agent /
-   Cloudflare wiring). Fixed height rather than Lumina's flexible one — a
-   simple docked panel, not full-height chat. */
-.chatDock {
-  flex-shrink: 0;
+.openCopilotButton {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 5;
+}
+
+/* Production Copilot right panel (IPI-1224 Final Design) — replaces both
+   the old always-open bottom .chatDock and the old always-open .rail with
+   one adaptive panel: Context/Insights pinned above an independently
+   scrolling conversation, composer fixed at the bottom. Always present in
+   the grid (see .shellPanelOpen) so CopilotChat inside it never remounts
+   when the panel opens/closes — only width/inert toggle. */
+.panel {
+  grid-area: panel;
+  min-width: 0;
+  overflow: hidden;
+  border-left: 1px solid var(--color-border);
+  background: var(--color-bg-card);
   display: flex;
   flex-direction: column;
-  /* min() instead of a bare 320px: on a short viewport (mobile, landscape)
-     a fixed 320px dock can eat most of the shell now that .shell is
-     height:100dvh-bounded — scale it down against the viewport instead of
-     a separate mobile breakpoint. 40dvh stays above 360px on any normal
-     desktop height, so this is a no-op there. The small increase preserves
-     the compact chat viewport after adding its accessible header. */
-  height: min(360px, 40dvh);
-  border-top: 1px solid var(--color-border);
-  background: var(--color-bg-card);
-  overflow: hidden;
-  transition: height var(--duration-fast) ease;
 }
 
-.chatDockExpanded {
-  height: min(720px, 70dvh);
-}
-
-.chatDockHeader {
+.panelHeader {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
@@ -140,57 +154,179 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-.chatDockTitle {
+.panelTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.panelTitleText {
   color: var(--color-text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
-.chatDockContent {
+.panelContext {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.intelligenceBadge {
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  cursor: pointer;
+}
+
+/* Pinned Context → Insights bar — never part of the conversation's own
+   scroll (a sibling above it, not inside .panelScroll), so it stays
+   reachable at any scroll position/conversation length. */
+.pinnedBar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-muted);
+}
+
+.insightButton {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  padding: 0.125rem 0;
+  cursor: pointer;
+}
+
+.insightButton:hover:not(:disabled) {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+}
+
+.insightButton:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.viewAllIntelligence {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: var(--color-accent, var(--color-text-primary));
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Conversation + composer body. position:relative so the intelligence
+   drawer can overlay just the scrollable conversation, not the composer —
+   see .intelligenceDrawer's fixed bottom reserve. */
+.panelBody {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
-/* IPI-1217: the chat dock's loading/error/ready states — CopilotChat itself
-   fills whatever height it's given, so the ready state stacks the optional
-   welcome banner (shrink-0) above it (flex: 1, min-height: 0). */
-.chatDockStatus {
+.panelStatus {
   padding: 1rem;
 }
 
-.chatDockBody {
+.panelChatShell {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  height: 100%;
+  min-height: 0;
 }
 
-.chatDockWelcome {
+.panelWelcome {
   padding: 1rem 1rem 0;
 }
 
-.chatDockChat {
+.panelChat {
   flex: 1;
   min-height: 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .chatDock {
-    transition: none;
-  }
+/* CopilotKit v2 Slots (SlotValue<C> = C | string | Partial<ComponentProps
+   <C>>) — className overrides only, no replacement components: readable
+   message width inside the ~400-520px panel instead of the old full-width
+   bottom dock, without touching CopilotChat's own message/streaming/
+   composer behavior. */
+.panelMessageView {
+  max-width: 100%;
 }
 
-.rail {
-  grid-area: rail;
-  width: 16rem;
-  border-left: 1px solid var(--color-border);
+.panelScrollView {
+  padding-inline: 0.75rem;
+}
+
+.panelInput {
+  margin: 0 0.75rem 0.75rem;
+}
+
+/* Overlays only the conversation area, never the composer. CopilotKit's
+   textarea auto-grows, so ProductionCopilotPanel measures the real input
+   container through the installed v2 input.containerRef slot and publishes
+   its height here. The 0.75rem term preserves panelInput's bottom margin. */
+.intelligenceDrawer {
+  position: absolute;
+  inset: 0;
+  bottom: calc(var(--copilot-composer-height, 4.5rem) + 0.75rem);
+  z-index: 4;
+  overflow-y: auto;
   background: var(--color-bg-card);
-  padding: 1rem;
+  padding: 0.75rem;
+}
+
+.drawerHeader {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.drawerBack {
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.drawerSectionTitle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin: 0.75rem 0 0.25rem;
+}
+
+.drawerNote {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  margin-top: 1rem;
 }
 
 .railTitle {
@@ -210,8 +346,47 @@
   display: none;
 }
 
+/* Copilot compact breakpoint — keep in sync with COPILOT_COMPACT in
+   operator-panel.tsx. Deliberately wider than the nav's own 767px mobile
+   breakpoint below: a permanent 400-520px side column plus the 14rem nav
+   leaves the workspace unusably narrow well before true mobile — e.g. a
+   real ~900px tablet width crushes it to a couple hundred px, which
+   IPI-1224's "workspace remains independently usable" requirement rules
+   out. Only the panel changes here (overlay/sheet instead of a permanent
+   grid column) — the nav keeps its own 14rem grid column and its own
+   767px off-canvas breakpoint untouched. */
+@media (max-width: 1023px) {
+  .shellPanelOpen {
+    grid-template-columns: auto 1fr 0;
+  }
+
+  .panel {
+    position: fixed;
+    z-index: 25;
+    inset: 0;
+    border-left: none;
+    transform: translateY(100%);
+    visibility: hidden;
+    transition:
+      transform var(--duration-fast) ease,
+      visibility var(--duration-fast);
+  }
+
+  .panelOpenMobile {
+    transform: translateY(0);
+    visibility: visible;
+  }
+}
+
+@media (max-width: 1023px) and (prefers-reduced-motion: reduce) {
+  .panel {
+    transition: none;
+  }
+}
+
 @media (max-width: 767px) {
-  .shell {
+  .shell,
+  .shellPanelOpen {
     grid-template-columns: 1fr;
     grid-template-areas:
       "menu"
@@ -236,10 +411,6 @@
   .navOpen {
     transform: translateX(0);
     visibility: visible;
-  }
-
-  .rail {
-    display: none;
   }
 
   .backdrop {

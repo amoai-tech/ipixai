@@ -219,7 +219,12 @@ test.describe("populated Command Center (authenticated, real org data) @S4a09cc5
 
       const shootList = page.getByTestId("command-center-shoot-list");
       await expect(shootList).toBeVisible();
-      await expect(page.getByTestId("operator-chat-dock")).toBeVisible();
+      // IPI-1224: the Production Copilot panel auto-closes on mobile (a
+      // full-screen sheet covering the whole dashboard on load would be
+      // worse than the old bottom dock) — present but closed here, not
+      // visible, and reachable via its own reopen control.
+      await expect(page.getByTestId("operator-chat-dock")).toHaveAttribute("data-open", "false");
+      await expect(page.getByRole("button", { name: "✦ Open Copilot" })).toBeVisible();
       await attachScreenshot(testInfo, "mobile-390x844-app-populated", page);
 
       // Real horizontal-scroll proof, not just visibility: fixed-width
