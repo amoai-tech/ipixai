@@ -122,6 +122,26 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     await expect(page.getByText("Review approvals")).toHaveCount(0);
   });
 
+  test("Planner dock expands for long answers and collapses without taking over desktop @T1224dock", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "chromium", "geometry assertion is desktop-only");
+
+    await page.goto("/app");
+    const dock = page.getByTestId("operator-chat-dock");
+    const compact = await dock.boundingBox();
+    expect(compact).not.toBeNull();
+
+    await page.getByRole("button", { name: "Expand chat" }).click();
+    await expect(dock).toHaveAttribute("data-expanded", "true");
+    await expect.poll(async () => (await dock.boundingBox())?.height ?? 0).toBeGreaterThan(compact!.height);
+
+    const expanded = await dock.boundingBox();
+    expect(expanded).not.toBeNull();
+    expect(expanded!.height).toBeLessThanOrEqual(page.viewportSize()!.height * 0.7 + 2);
+
+    await page.getByRole("button", { name: "Collapse chat" }).click();
+    await expect(dock).toHaveAttribute("data-expanded", "false");
+  });
+
   // IPI-1149 · DASH-MAIN-002 — portfolio-aware chat welcome + Intelligence
   // rail Overview, proven live against the same real 0-brand QA org as the
   // empty-state test above (no seeded populated org exists for this e2e
@@ -184,7 +204,20 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     // region; the dock and a nav link must both remain live afterward.
     await page.goto("/app");
     await page.getByRole("heading", { name: "Quick links" }).scrollIntoViewIfNeeded();
-    await expect(page.getByTestId("operator-chat-dock")).toBeVisible();
+    const dock = page.getByTestId("operator-chat-dock");
+    await expect(dock).toBeVisible();
+    const compact = await dock.boundingBox();
+    expect(compact).not.toBeNull();
+
+    await page.getByRole("button", { name: "Expand chat" }).click();
+    await expect(dock).toHaveAttribute("data-expanded", "true");
+    await expect.poll(async () => (await dock.boundingBox())?.height ?? 0).toBeGreaterThan(compact!.height);
+    const expanded = await dock.boundingBox();
+    expect(expanded).not.toBeNull();
+    expect(expanded!.height).toBeLessThanOrEqual(500 * 0.7 + 2);
+
+    await page.getByRole("button", { name: "Collapse chat" }).click();
+    await expect(dock).toHaveAttribute("data-expanded", "false");
     await page.getByRole("link", { name: "Open Brands" }).click();
     await expect(page).toHaveURL(/\/app\/brands$/, { timeout: NAV_TIMEOUT_MS });
   });

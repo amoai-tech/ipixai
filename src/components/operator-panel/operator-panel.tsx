@@ -346,6 +346,7 @@ function OpenPlannerLink({
 export function OperatorPanel({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
+  const [chatExpanded, setChatExpanded] = useState(false);
   const isMobile = useMobileNav();
   const navInert = isMobile && !navOpen;
 
@@ -434,14 +435,33 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
 
       <main className={styles.main}>
         <div className={styles.mainScroll}>{children}</div>
-        <div className={styles.chatDock} data-testid="operator-chat-dock">
-          {/* agentId="default" resolves to productionPlannerAgent
-              (src/mastra/agents/index.ts, IPI-1048 · PLANNER-001). Welcome
-              copy is portfolio-aware (portfolioWelcomeText, above) — display
-              only, sourced from the same WorkspaceStats the rail reads. The
-              agent's own runtime context is untouched here; that's
-              IPI-1087 · PLANNER-CONTEXT-001's job. */}
-          <PlannerChatDock pathname={pathname} />
+        <div
+          className={`${styles.chatDock} ${chatExpanded ? styles.chatDockExpanded : ""}`}
+          data-testid="operator-chat-dock"
+          data-expanded={chatExpanded ? "true" : "false"}
+        >
+          <div className={styles.chatDockHeader}>
+            <span className={styles.chatDockTitle}>Production Planner</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-expanded={chatExpanded}
+              aria-controls="operator-chat-panel"
+              onClick={() => setChatExpanded((expanded) => !expanded)}
+            >
+              {chatExpanded ? "Collapse chat" : "Expand chat"}
+            </Button>
+          </div>
+          <div id="operator-chat-panel" className={styles.chatDockContent}>
+            {/* agentId="default" resolves to productionPlannerAgent
+                (src/mastra/agents/index.ts, IPI-1048 · PLANNER-001). Welcome
+                copy is portfolio-aware (portfolioWelcomeText, above) — display
+                only, sourced from the same WorkspaceStats the rail reads. The
+                agent's own runtime context is untouched here; that's
+                IPI-1087 · PLANNER-CONTEXT-001's job. */}
+            <PlannerChatDock pathname={pathname} />
+          </div>
         </div>
       </main>
 
