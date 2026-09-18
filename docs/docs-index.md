@@ -1,6 +1,6 @@
 # iPix documentation map
 
-This file describes the current GitHub-native documentation structure after the P1 cleanup. It is a map, not a task tracker.
+This file describes the current GitHub-native documentation structure. It is a map, not a task tracker; Linear owns live execution status, sequencing, completion percentages, blockers, and assignees.
 
 ## Current sources of truth
 
@@ -33,7 +33,11 @@ This file describes the current GitHub-native documentation structure after the 
 
 Superseded planning/audit documents live under [archive/README.md](./archive/README.md). The cleanup preserved their original hierarchy where practical.
 
-P1 moved **142** historical files into `docs/archive/`: the **116** files already classified ARCHIVE in P0 plus **26** additional dated UPDATE/KEEP planning files that were no longer suitable as current documentation. Five superseded/generated files were removed after reference checks.
+The P0/P1 cleanup moved **142** historical files into `docs/archive/` and removed five superseded/generated files after reference checks. Those counts describe the cleanup event; they are not a live inventory or execution tracker.
+
+## Drift guard
+
+`npm run docs:check` protects the active GitHub-native docs model. It fails when removed Mintlify files return or when fully archived top-level trees such as `docs/design/`, `docs/cloudflare/`, or `docs/playwright/` are recreated. Active domain directories such as `docs/linear/`, `docs/mastra/`, `docs/data/`, and `docs/cloudinary/` remain valid.
 
 ## Source-of-truth order
 
