@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type CSSProperties, type Ref } from "react";
 import { CopilotChat, CopilotKit, useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { navItemIsActive, OPERATOR_NAV } from "./nav";
@@ -662,26 +662,6 @@ function ProductionCopilotPanel({
   );
 }
 
-function OpenPlannerLink({
-  className,
-  onClick,
-}: {
-  className?: string;
-  onClick?: () => void;
-}) {
-  return (
-    <Link
-      href="/planner"
-      target="_blank"
-      rel="noreferrer"
-      className={className}
-      onClick={onClick}
-    >
-      Open Planner
-    </Link>
-  );
-}
-
 export function OperatorPanel({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
@@ -734,9 +714,8 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
   };
 
   // useSingleEndpoint={false} matches the multi-route
-  // /api/copilotkit/[[...slug]] handler (see planner-app.tsx's own
-  // provider) — the v1-compat bridge otherwise defaults to a single
-  // transport and 404s. Auth is server-side on the route itself
+  // /api/copilotkit/[[...slug]] handler — the v1-compat bridge otherwise
+  // defaults to a single transport and 404s. Auth is server-side on the route itself
   // (requirePlannerResourceId re-verifies the same AUTH-002 session that
   // already gated this page), so no client handshake is needed here.
   // showDevConsole / enableInspector explicitly off: their default dev-
@@ -808,10 +787,6 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
           })}
         </ul>
         <div className={styles.footer}>
-          <OpenPlannerLink
-            className={cn(buttonVariants({ variant: "secondary", size: "sm" }), styles.signOut)}
-            onClick={() => setNavOpen(false)}
-          />
           <form action="/auth/sign-out" method="post">
             <Button type="submit" variant="ghost" size="sm" className={styles.signOut}>
               Sign out

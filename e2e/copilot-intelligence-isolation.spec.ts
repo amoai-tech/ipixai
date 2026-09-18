@@ -42,20 +42,14 @@ test(
     const before = await fetchIntelligenceThreads(page);
 
     const runMarker = `intel-isolation-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    await page.goto("/planner");
-    await expect(page.getByText("Loading…")).toHaveCount(0, { timeout: 30_000 });
+    // IPI-1225 · PLANNER-ROUTE-RETIRE-001 — migrated from /planner (retired
+    // to a compatibility redirect); /app has no "New"/toggle controls, and
+    // this assertion only needs *a* new Intelligence thread to appear after
+    // a real message, not a guaranteed-fresh Planner conversation.
+    await page.goto("/app");
     await expect(page.getByRole("status", { name: "Loading conversation…" })).toHaveCount(0, {
       timeout: 30_000,
     });
-
-    // Guaranteed-fresh thread — don't reuse whatever this shared QA account
-    // already has.
-    await page.getByRole("button", { name: "New" }).click();
-
-    const toggle = page.getByTestId("copilot-chat-toggle");
-    if ((await toggle.getAttribute("aria-pressed")) !== "true") {
-      await toggle.click();
-    }
 
     const textarea = page.getByTestId("copilot-chat-textarea");
     await textarea.click();

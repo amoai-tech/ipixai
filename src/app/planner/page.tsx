@@ -8,8 +8,6 @@ import {
 import { plannerSurfaceFor } from "@/lib/auth/verified-operator";
 import { createClient } from "@/lib/supabase/server";
 
-import { PlannerApp } from "../planner-app";
-
 export default async function Page() {
   const operator = await getVerifiedOperatorFromCookies();
   if (!operator || plannerSurfaceFor(operator) === "login") {
@@ -35,5 +33,8 @@ export default async function Page() {
       redirect("/login");
     }
   }
-  return <PlannerApp />;
+  // IPI-1225 · PLANNER-ROUTE-RETIRE-001 — /app is now the single production
+  // Planner surface; /planner stays a valid deep link that lands the
+  // operator on the same workspace instead of a separate standalone UI.
+  redirect("/app");
 }
