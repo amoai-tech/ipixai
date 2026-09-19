@@ -110,19 +110,24 @@ export function ComposeShootPlanRenderer() {
     const { agent: currentAgent, copilotkit: currentCopilotkit } = latestRef.current;
     if (currentAgent.isRunning || reviewInFlightRef.current) return;
     reviewInFlightRef.current = true;
-    currentAgent.addMessage({
-      id: crypto.randomUUID(),
-      role: "user",
-      content: buildReviewShootPlanMessage(plan),
-    });
-    void currentCopilotkit
-      .runAgent({ agent: currentAgent })
-      .catch((error) => {
-        console.error("ComposeShootPlanRenderer: review request failed", error);
-      })
-      .finally(() => {
-        reviewInFlightRef.current = false;
+    try {
+      currentAgent.addMessage({
+        id: crypto.randomUUID(),
+        role: "user",
+        content: buildReviewShootPlanMessage(plan),
       });
+      void currentCopilotkit
+        .runAgent({ agent: currentAgent })
+        .catch((error) => {
+          console.error("ComposeShootPlanRenderer: review request failed", error);
+        })
+        .finally(() => {
+          reviewInFlightRef.current = false;
+        });
+    } catch (error) {
+      reviewInFlightRef.current = false;
+      throw error;
+    }
   }, []);
 
   useRenderTool(

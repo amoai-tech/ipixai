@@ -151,6 +151,32 @@ describe("ComposeShootPlanRenderer — Review Shoot Plan (IPI-1242)", () => {
     expect(copilot.runAgent).toHaveBeenCalledTimes(2);
   });
 
+  it("clears the in-flight guard if addMessage throws synchronously, so the next click still works", () => {
+    copilot.agent.addMessage.mockImplementationOnce(() => {
+      throw new Error("addMessage failed");
+    });
+    render(renderResult("complete", JSON.stringify(COMPLETE_PLAN)));
+    const button = screen.getByTestId("compose-shoot-plan-review-button");
+
+    // React 19 both rethrows synchronously to the caller (caught below) and
+    // reports the same error via the window `error` event; swallow that
+    // second report so it doesn't register as an unhandled test error.
+    const swallowReportedError = (event: ErrorEvent) => event.preventDefault();
+    window.addEventListener("error", swallowReportedError);
+    try {
+      fireEvent.click(button);
+    } catch {
+      // Expected: the handler rethrows after resetting the guard.
+    } finally {
+      window.removeEventListener("error", swallowReportedError);
+    }
+    expect(copilot.runAgent).not.toHaveBeenCalled();
+
+    fireEvent.click(button);
+    expect(copilot.agent.addMessage).toHaveBeenCalledTimes(2);
+    expect(copilot.runAgent).toHaveBeenCalledTimes(1);
+  });
+
   it("names the reviewed plan's objective/channels/counts so a click doesn't get conflated with another card", () => {
     render(renderResult("complete", JSON.stringify(COMPLETE_PLAN)));
     fireEvent.click(screen.getByTestId("compose-shoot-plan-review-button"));
