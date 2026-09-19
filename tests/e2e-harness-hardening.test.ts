@@ -18,6 +18,12 @@ function timeoutError() {
   return error;
 }
 describe("Playwright E2E harness hardening", () => {
+  it("allows only the current amoco iPix Vercel preview host family", () => {
+    const source = readFileSync(path.resolve(process.cwd(), "playwright.config.ts"), "utf8");
+    expect(source).toContain("-amoco\\.vercel\\.app");
+    expect(source).not.toContain("amo1000");
+  });
+
   it("reports a clear Supabase Auth timeout instead of a raw Playwright TimeoutError", async () => {
     const passwordFill = vi.fn(async () => undefined);
     const genericLocator = { fill: vi.fn(async () => undefined) };

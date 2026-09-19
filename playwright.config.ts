@@ -20,18 +20,17 @@ const isLocalTarget = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(baseUR
 // production (ipix.co), someone else's vercel.app deployment, or any other
 // host. Only localhost and this project's own Vercel previews are allowed —
 // verified live (not guessed) from this repo's own PR deployment comments:
-// ipixai-git-ai-ipi-1066-...-amo1000.vercel.app (PR #52),
-// ipixai-git-e2e-playwright-setup-amo1000.vercel.app (PR #53). Project
-// "ipixai" under the "amo1000" Vercel team/scope — any other vercel.app
-// subdomain, including a bare one, is rejected.
-const ALLOWED_PREVIEW_HOST = /^ipixai(-[a-z0-9-]+)?-amo1000\.vercel\.app$/i;
+// ipixai-5y1wsa98w-amoco.vercel.app (verified from the current Vercel project).
+// Project "ipixai" under the "amoco" Vercel team/scope — any other
+// vercel.app subdomain, including a bare one, is rejected.
+const ALLOWED_PREVIEW_HOST = /^ipixai(-[a-z0-9-]+)?-amoco\.vercel\.app$/i;
 const parsedBaseUrl = new URL(baseURL);
 const isAllowedBaseUrl =
   isLocalTarget ||
   (parsedBaseUrl.protocol === "https:" && ALLOWED_PREVIEW_HOST.test(parsedBaseUrl.hostname));
 if (!isAllowedBaseUrl) {
   throw new Error(
-    `E2E_BASE_URL "${baseURL}" is not localhost or an ipixai/amo1000 Vercel preview — refusing to run real sign-in against it.`,
+    `E2E_BASE_URL "${baseURL}" is not localhost or an ipixai/amoco Vercel preview — refusing to run real sign-in against it.`,
   );
 }
 
