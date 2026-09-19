@@ -93,6 +93,19 @@ export function ComposeShootPlanCard({ plan }: { plan: ProductionPlanCardView })
         </div>
       ) : null}
 
+      {plan.assumptions.length > 0 ? (
+        <div data-testid="compose-shoot-plan-assumptions" className="rounded-md bg-gray-50 p-2">
+          <p className="text-xs font-medium text-gray-700">Assumptions</p>
+          <ul className="list-disc pl-4 text-xs text-gray-700">
+            {plan.assumptions.map((entry, index) => (
+              <li key={`${entry.key}-${index}`}>
+                {entry.key}: {entry.value} <span className="text-gray-500">· {entry.source}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {plan.missingInputs.length > 0 ? (
         <div role="alert" data-testid="compose-shoot-plan-missing-inputs" className="rounded-md bg-amber-50 p-2">
           <p className="text-xs font-medium text-amber-900">Missing inputs</p>

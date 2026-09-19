@@ -22,6 +22,12 @@ export type ProductionPlanCardDeliverable = {
   quantity: number;
 };
 
+export type ProductionPlanCardAssumption = {
+  key: string;
+  value: string;
+  source: string;
+};
+
 export type ProductionPlanCardView = {
   status: "complete" | "needs_input";
   objective: string | null;
@@ -32,6 +38,9 @@ export type ProductionPlanCardView = {
   /** Always `deliverablesResult.totalAssets` — never `deliverables.length`
    *  (a quantity-weighted asset count, not a row count). */
   totalAssets: number | null;
+  /** `ShootPlan.assumptions` — the merged roll-up across every tool
+   *  (shoot type, deliverables, shot list, budget); never re-derived here. */
+  assumptions: ProductionPlanCardAssumption[];
   missingInputs: string[];
   warnings: string[];
 };
@@ -64,7 +73,7 @@ function stringList(value: unknown): string[] {
 function planFieldValue(value: unknown): string | null {
   const record = asRecord(value);
   if (!record) return null;
-  if (record.status === "needs_input") return null;
+  if (record.status !== "confirmed" && record.status !== "assumed") return null;
   return scalar(record.value);
 }
 
@@ -98,6 +107,23 @@ function parseDeliverables(
       };
     })
     .filter((row) => row.channel.length > 0 && row.format.length > 0);
+}
+
+/** `ShootPlan.assumptions[]` → card rows, dropping any entry missing a key/value/source. */
+function parseAssumptions(value: unknown): ProductionPlanCardAssumption[] {
+  if (!Array.isArray(value)) return [];
+  const out: ProductionPlanCardAssumption[] = [];
+  for (const entry of value) {
+    const record = asRecord(entry);
+    if (!record) continue;
+    const key = scalar(record.key);
+    const rawValue = scalar(record.value);
+    const source = scalar(record.source);
+    if (!key || rawValue === null || !source) continue;
+    const currency = scalar(record.currency);
+    out.push({ key, value: currency ? `${rawValue} ${currency}` : rawValue, source });
+  }
+  return out;
 }
 
 /**
@@ -137,6 +163,7 @@ export function describeProductionPlanCard(plan: unknown): ProductionPlanCardVie
     totalShots,
     deliverables,
     totalAssets,
+    assumptions: parseAssumptions(root.assumptions),
     missingInputs: stringList(root.missingInputs),
     warnings: stringList(root.warnings),
   };

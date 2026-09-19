@@ -35,6 +35,9 @@ const COMPLETE_PLAN = {
       { channel: "instagram_feed", format: "1:1 JPG", formatSource: "ipix_default_v1", quantity: 6, source: "ipix_default_v1", assumed: true },
     ],
   },
+  assumptions: [
+    { key: "budget", value: 1200, currency: "USD", source: "ipix_default_v1", assumed: true },
+  ],
   missingInputs: [],
   warnings: [],
 };
@@ -71,6 +74,9 @@ describe("describeProductionPlanCard", () => {
     expect(view?.totalAssets).toBe(12);
     expect(view?.deliverables).toHaveLength(2);
     expect(view?.missingInputs).toEqual([]);
+    // Required rule: the plan's roll-up `assumptions` (across every tool) is
+    // surfaced on the card, never silently dropped.
+    expect(view?.assumptions).toEqual([{ key: "budget", value: "1200 USD", source: "ipix_default_v1" }]);
   });
 
   it("omits the objective and shot list for a needs_input plan instead of fabricating them", () => {
@@ -80,6 +86,17 @@ describe("describeProductionPlanCard", () => {
     expect(view?.shots).toEqual([]);
     expect(view?.totalShots).toBeNull();
     expect(view?.missingInputs).toEqual(["location", "crew", "schedule"]);
+    expect(view?.assumptions).toEqual([]);
+  });
+
+  it("never renders a field's value unless its status is confirmed or assumed", () => {
+    // A malformed/unexpected status (neither the schema's "confirmed"/"assumed"
+    // nor its "needs_input") must not silently leak `value` onto the card.
+    const view = describeProductionPlanCard({
+      ...NEEDS_INPUT_PLAN,
+      objective: { status: "unknown_status", value: "should never render" },
+    });
+    expect(view?.objective).toBeNull();
   });
 
   it("never fabricates a Plan ID — the view model has no such field", () => {
@@ -108,6 +125,9 @@ describe("ComposeShootPlanCard", () => {
     expect(screen.getByText("Deliverables (12 assets)")).toBeTruthy();
     expect(screen.getByTestId("compose-shoot-plan-deliverables").textContent).toContain("shopify");
     expect(screen.queryByTestId("compose-shoot-plan-missing-inputs")).toBeNull();
+    const assumptions = screen.getByTestId("compose-shoot-plan-assumptions");
+    expect(assumptions.textContent).toContain("budget");
+    expect(assumptions.textContent).toContain("1200 USD");
   });
 
   it("renders the missing-input state honestly and omits absent sections", () => {
@@ -121,5 +141,6 @@ describe("ComposeShootPlanCard", () => {
     expect(missing.textContent).toContain("location");
     expect(missing.textContent).toContain("crew");
     expect(missing.textContent).toContain("schedule");
+    expect(screen.queryByTestId("compose-shoot-plan-assumptions")).toBeNull();
   });
 });
