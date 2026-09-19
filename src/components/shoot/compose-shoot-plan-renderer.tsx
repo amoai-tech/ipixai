@@ -1,10 +1,21 @@
 "use client";
 
-import { useRenderTool } from "@copilotkit/react-core/v2";
+import { useCallback, useEffect, useRef } from "react";
+import { useAgent, useCopilotKit, useRenderTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
 import { ComposeShootPlanCard } from "@/components/shoot/compose-shoot-plan-card";
 import { describeProductionPlanCard } from "@/lib/shoot/compose-shoot-plan-card-view";
+
+/**
+ * IPI-1242 · PLAN-CARD-002 — the user-side message that prompts the model
+ * to call the existing model-invoked `reviewShootPlan` HITL tool for the
+ * plan it just proposed. This never calls `reviewShootPlan` directly: the
+ * model still decides to call it, preserving the existing
+ * "AI proposes → human reviews" flow with no second approval path.
+ */
+const REVIEW_SHOOT_PLAN_MESSAGE =
+  "Please start a formal review of the production plan you just proposed, so I can approve or request changes.";
 
 /**
  * IPI-1233 · PLAN-CARD-001 — the named CopilotKit v2 tool renderer for
@@ -52,6 +63,40 @@ function parseToolResult(result: string): unknown {
 }
 
 export function ComposeShootPlanRenderer() {
+  const { agent } = useAgent({ agentId: "default" });
+  const { copilotkit } = useCopilotKit();
+  // useRenderTool registers `render` once ([] deps, matching this file's
+  // existing convention) — read the latest agent/copilotkit through a ref
+  // updated every render rather than closing over them directly, so the
+  // frozen render callback never operates on a stale agent/copilotkit pair.
+  const latestRef = useRef({ agent, copilotkit });
+  useEffect(() => {
+    latestRef.current = { agent, copilotkit };
+  });
+  // Same synchronous in-flight guard as ProductionCopilotPanel.ask() — a
+  // second click before agent.isRunning has actually flipped must not start
+  // a competing run.
+  const reviewInFlightRef = useRef(false);
+
+  const onReviewShootPlan = useCallback(() => {
+    const { agent: currentAgent, copilotkit: currentCopilotkit } = latestRef.current;
+    if (currentAgent.isRunning || reviewInFlightRef.current) return;
+    reviewInFlightRef.current = true;
+    currentAgent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content: REVIEW_SHOOT_PLAN_MESSAGE,
+    });
+    void currentCopilotkit
+      .runAgent({ agent: currentAgent })
+      .catch((error) => {
+        console.error("ComposeShootPlanRenderer: review request failed", error);
+      })
+      .finally(() => {
+        reviewInFlightRef.current = false;
+      });
+  }, []);
+
   useRenderTool(
     {
       name: "composeShootPlan",
@@ -62,7 +107,7 @@ export function ComposeShootPlanRenderer() {
         const plan = describeProductionPlanCard(parseToolResult(result));
         if (!plan) return <UnreadablePlanCard />;
 
-        return <ComposeShootPlanCard plan={plan} />;
+        return <ComposeShootPlanCard plan={plan} onReviewShootPlan={onReviewShootPlan} />;
       },
     },
     [],

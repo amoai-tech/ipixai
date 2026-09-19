@@ -8,9 +8,20 @@ import type { ProductionPlanCardView } from "@/lib/shoot/compose-shoot-plan-card
  * view model didn't provide — an absent field is simply not rendered.
  */
 
-export function ComposeShootPlanCard({ plan }: { plan: ProductionPlanCardView }) {
+export function ComposeShootPlanCard({
+  plan,
+  onReviewShootPlan,
+}: {
+  plan: ProductionPlanCardView;
+  /** IPI-1242 · PLAN-CARD-002 — omit to render the card with no review
+   *  control (e.g. in a context with no live agent to send the request to). */
+  onReviewShootPlan?: () => void;
+}) {
   const hasDeliverables = plan.deliverables.length > 0;
   const hasShots = plan.shots.length > 0;
+  // Only a complete plan is reviewable — a needs_input plan has nothing
+  // ready for human sign-off yet.
+  const canReview = plan.status === "complete" && Boolean(onReviewShootPlan);
 
   return (
     <section
@@ -19,7 +30,23 @@ export function ComposeShootPlanCard({ plan }: { plan: ProductionPlanCardView })
       className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4"
     >
       <header className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-gray-900">Production Plan</h3>
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">Production Plan</h3>
+          {plan.totalShots !== null || plan.totalAssets !== null ? (
+            <p className="text-xs text-gray-500" data-testid="compose-shoot-plan-counts">
+              {[
+                plan.totalShots !== null
+                  ? `${plan.totalShots} ${plan.totalShots === 1 ? "shot" : "shots"}`
+                  : null,
+                plan.totalAssets !== null
+                  ? `${plan.totalAssets} ${plan.totalAssets === 1 ? "deliverable" : "deliverables"}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          ) : null}
+        </div>
         <span
           data-testid="compose-shoot-plan-status"
           className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
@@ -126,6 +153,17 @@ export function ComposeShootPlanCard({ plan }: { plan: ProductionPlanCardView })
             ))}
           </ul>
         </div>
+      ) : null}
+
+      {canReview ? (
+        <button
+          type="button"
+          data-testid="compose-shoot-plan-review-button"
+          onClick={onReviewShootPlan}
+          className="self-start rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 hover:bg-gray-50"
+        >
+          Review Shoot Plan
+        </button>
       ) : null}
     </section>
   );
