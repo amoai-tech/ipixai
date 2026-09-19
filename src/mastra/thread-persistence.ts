@@ -5,6 +5,12 @@ import type { PlannerChatMessage, PlannerThreadRow } from "@/mastra/thread-types
 
 export type { PlannerChatMessage, PlannerThreadRow };
 
+// IPI-1233 · PLAN-CARD-001 — the only tool whose historical call/result is
+// preserved through reload today. Every other tool-invocation part still
+// collapses to assistant text exactly like before this task; widen this set
+// only when a later ticket adds another reload-surviving named renderer.
+const RICH_HISTORY_TOOL_NAMES = new Set(["composeShootPlan"]);
+
 const RUN_STORE_SEP = "\u001f";
 
 export const THREAD_ID =
@@ -119,13 +125,56 @@ export async function recallPlannerChatMessages(
   return mastraMessagesToChat(recalled.messages ?? []);
 }
 
+/** A Mastra `tool-invocation` message part, duck-typed to the fields this
+ *  module reads (see `@mastra/core`'s `MastraToolInvocationPart`/
+ *  `LegacyToolInvocation`). Only a completed (`state: "result"`) invocation
+ *  of a `RICH_HISTORY_TOOL_NAMES` tool is ever replayed — an in-flight or
+ *  unrecognized tool-invocation part is dropped exactly like before this task. */
+type ToolInvocationPart = {
+  type?: string;
+  toolInvocation?: {
+    state?: string;
+    toolCallId?: string;
+    toolName?: string;
+    args?: unknown;
+    result?: unknown;
+  };
+};
+
+/** `undefined`/unserializable → `"null"`, never a thrown error mid-conversion. */
+function safeJsonStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value ?? null) ?? "null";
+  } catch {
+    return "null";
+  }
+}
+
+function richToolInvocations(parts: ToolInvocationPart[] | undefined) {
+  const found: Array<{ toolCallId: string; toolName: string; args: unknown; result: unknown }> = [];
+  for (const part of parts ?? []) {
+    if (part.type !== "tool-invocation") continue;
+    const invocation = part.toolInvocation;
+    if (!invocation || invocation.state !== "result") continue;
+    if (typeof invocation.toolCallId !== "string" || typeof invocation.toolName !== "string") continue;
+    if (!RICH_HISTORY_TOOL_NAMES.has(invocation.toolName)) continue;
+    found.push({
+      toolCallId: invocation.toolCallId,
+      toolName: invocation.toolName,
+      args: invocation.args,
+      result: invocation.result,
+    });
+  }
+  return found;
+}
+
 export function mastraMessagesToChat(
   messages: Array<{
     id?: string;
     role?: string;
     content?: {
       content?: unknown;
-      parts?: Array<{ type?: string; text?: string }>;
+      parts?: Array<{ type?: string; text?: string } & ToolInvocationPart>;
     };
   }>,
 ): PlannerChatMessage[] {
@@ -143,7 +192,36 @@ export function mastraMessagesToChat(
       .map((part) => part.text)
       .join("");
     const content = direct.length > 0 ? direct : fromParts;
-    out.push({ id, role: message.role, content });
+
+    if (message.role === "user") {
+      out.push({ id, role: "user", content });
+      continue;
+    }
+
+    const richCalls = richToolInvocations(message.content?.parts);
+    if (richCalls.length === 0) {
+      out.push({ id, role: "assistant", content });
+      continue;
+    }
+
+    out.push({
+      id,
+      role: "assistant",
+      content,
+      toolCalls: richCalls.map((call) => ({
+        id: call.toolCallId,
+        type: "function",
+        function: { name: call.toolName, arguments: safeJsonStringify(call.args) },
+      })),
+    });
+    for (const call of richCalls) {
+      out.push({
+        id: `${id}:tool:${call.toolCallId}`,
+        role: "tool",
+        toolCallId: call.toolCallId,
+        content: safeJsonStringify(call.result),
+      });
+    }
   }
   return out;
 }

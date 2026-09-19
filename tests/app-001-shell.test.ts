@@ -64,6 +64,9 @@ vi.mock("@copilotkit/react-core/v2", () => ({
   useCopilotKit: () => ({ copilotkit: { runAgent: () => Promise.resolve() } }),
   // IPI-1084 registers the ShootPlan review HITL renderer inside the provider.
   useHumanInTheLoop: () => {},
+  // IPI-1233 registers the composeShootPlan named renderer inside the same
+  // provider — same no-op treatment as useHumanInTheLoop above.
+  useRenderTool: () => {},
   CopilotChat: () => createElement("div", { "data-testid": "copilot-chat-stub" }),
 }));
 

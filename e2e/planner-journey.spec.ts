@@ -240,4 +240,62 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
       resolvedThreadId,
     );
   });
+
+  // IPI-1233 · PLAN-CARD-001 — the tests above only prove "some real
+  // assistant response appeared," deliberately never which tool path
+  // produced it (model tool selection is probabilistic — see the comment on
+  // the test above). This test closes that gap for the one thing PLAN-CARD-001
+  // actually shipped: when the model *does* call composeShootPlan, the
+  // structured `<ComposeShootPlanCard>` renders from a real tool result, not
+  // a fixture. It is intentionally in this same chromium-ai-smoke project
+  // (non-required `playwright-ai-smoke` CI job, `continue-on-error: true`)
+  // for the same reason as its siblings: a real hosted model call that can
+  // legitimately decline to call composeShootPlan on a given turn must never
+  // block unrelated UI work from merging. The deterministic, always-true
+  // proof that a *completed* composeShootPlan result renders correctly is
+  // e2e/plan-card-rich-history.spec.ts (required playwright-e2e job, no
+  // model call) — this test only adds confidence that the real agent path
+  // actually reaches that same renderer in production.
+  test("real agent reaches composeShootPlan and renders the structured Production Plan Card @Tf3a9c210", async ({
+    page,
+  }) => {
+    const PLAN_RESPONSE_TIMEOUT_MS = 90_000;
+    test.setTimeout(PLAN_RESPONSE_TIMEOUT_MS + NAV_TIMEOUT_MS * 2 + 30_000);
+
+    const runMarker = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // Explicit about every input composeShootPlan needs (channels, product,
+    // "use defaults for anything unknown") to give the model the best real
+    // chance of actually calling the tool this turn, without asserting it
+    // must — see the file-level reasoning above.
+    const prompt =
+      "Compose a full shoot plan for our new linen dress collection, targeting the shopify and " +
+      `instagram_feed channels. Use default assumptions for anything I haven't specified. [${runMarker}]`;
+
+    await page.goto("/app");
+    await expect(page.getByRole("status", { name: "Loading conversation…" })).toHaveCount(0, {
+      timeout: NAV_TIMEOUT_MS,
+    });
+
+    const chatDock = page.getByTestId("operator-chat-dock");
+    await expect(chatDock).toBeVisible({ timeout: NAV_TIMEOUT_MS });
+    const textarea = chatDock.getByTestId("copilot-chat-textarea");
+    await textarea.click();
+    await textarea.fill(prompt);
+    await chatDock.getByTestId("copilot-send-button").click();
+
+    // The decisive proof this test exists for: a real composeShootPlan tool
+    // result rendered as the structured card, not assistant prose about a
+    // plan. Non-required (see file-level comment) — a model that answers
+    // with prose or a clarifying question instead fails this specific test,
+    // not the merge-blocking playwright-e2e job.
+    const card = chatDock.getByTestId("compose-shoot-plan-card");
+    await expect(card).toBeVisible({ timeout: PLAN_RESPONSE_TIMEOUT_MS });
+    await expect(card).toHaveAttribute("data-status", /complete|needs_input/);
+
+    // At least one real, non-fabricated field must be visible — proves this
+    // is a genuine tool result reaching the renderer, not an empty/error card.
+    const channels = chatDock.getByTestId("compose-shoot-plan-channels");
+    const missingInputs = chatDock.getByTestId("compose-shoot-plan-missing-inputs");
+    await expect(channels.or(missingInputs).first()).toBeVisible({ timeout: 5_000 });
+  });
 });

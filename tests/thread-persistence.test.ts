@@ -10,6 +10,7 @@ import {
   ensureMastraThread,
   listMastraThreadsForResource,
   mastraMessagesToChat,
+  recallPlannerChatMessages,
   splitRunThreadIds,
 } from "../src/mastra/thread-persistence";
 
@@ -279,5 +280,202 @@ describe("mastraMessagesToChat", () => {
       { id: "m1", role: "user", content: "PERSIST-OK-0901" },
       { id: "m2", role: "assistant", content: "saved" },
     ]);
+  });
+
+  // IPI-1233 · PLAN-CARD-001 — the P0 reload fix: a completed composeShootPlan
+  // tool-invocation part must survive conversion as a paired
+  // assistant.toolCalls + tool-result message, so the named renderer can
+  // reconstruct the same Production Plan Card after agent.setMessages().
+  it("preserves a completed composeShootPlan tool call/result as paired assistant.toolCalls + tool messages", () => {
+    const result = { status: "complete", channels: ["shopify"] };
+    expect(
+      mastraMessagesToChat([
+        {
+          id: "m1",
+          role: "assistant",
+          content: {
+            content: "Here is your plan.",
+            parts: [
+              { type: "text", text: "Here is your plan." },
+              {
+                type: "tool-invocation",
+                toolInvocation: {
+                  state: "result",
+                  toolCallId: "call-1",
+                  toolName: "composeShootPlan",
+                  args: { channels: ["shopify"] },
+                  result,
+                },
+              },
+            ],
+          },
+        },
+      ]),
+    ).toEqual([
+      {
+        id: "m1",
+        role: "assistant",
+        content: "Here is your plan.",
+        toolCalls: [
+          {
+            id: "call-1",
+            type: "function",
+            function: { name: "composeShootPlan", arguments: JSON.stringify({ channels: ["shopify"] }) },
+          },
+        ],
+      },
+      {
+        id: "m1:tool:call-1",
+        role: "tool",
+        toolCallId: "call-1",
+        content: JSON.stringify(result),
+      },
+    ]);
+  });
+
+  it("drops an in-progress (non-result) composeShootPlan tool-invocation, same as before this task", () => {
+    expect(
+      mastraMessagesToChat([
+        {
+          id: "m1",
+          role: "assistant",
+          content: {
+            content: "",
+            parts: [
+              {
+                type: "tool-invocation",
+                toolInvocation: { state: "call", toolCallId: "call-1", toolName: "composeShootPlan" },
+              },
+            ],
+          },
+        },
+      ]),
+    ).toEqual([{ id: "m1", role: "assistant", content: "" }]);
+  });
+
+  it("does not preserve rich history for a tool not in the reload-survival allowlist", () => {
+    expect(
+      mastraMessagesToChat([
+        {
+          id: "m1",
+          role: "assistant",
+          content: {
+            content: "Reviewing your plan.",
+            parts: [
+              {
+                type: "tool-invocation",
+                toolInvocation: {
+                  state: "result",
+                  toolCallId: "call-1",
+                  toolName: "reviewShootPlan",
+                  result: { ok: true },
+                },
+              },
+            ],
+          },
+        },
+      ]),
+    ).toEqual([{ id: "m1", role: "assistant", content: "Reviewing your plan." }]);
+  });
+});
+
+describe("recallPlannerChatMessages — rich history", () => {
+  it("restores a completed composeShootPlan result for its own org and reload produces the same data", async () => {
+    const memory = isolatedMemory();
+    const threadId = "11111111-1111-4111-8111-111111111111";
+    const resourceId = "org:org-a::user:user-a";
+    await ensureMastraThread(memory, { threadId, resourceId });
+
+    const result = { status: "complete", channels: ["shopify"] };
+    await memory.saveMessages({
+      messages: [
+        {
+          id: "msg-1",
+          role: "assistant",
+          createdAt: new Date(),
+          threadId,
+          resourceId,
+          content: {
+            format: 2,
+            parts: [
+              { type: "text", text: "Here is your plan." },
+              {
+                type: "tool-invocation",
+                toolInvocation: {
+                  state: "result",
+                  toolCallId: "call-1",
+                  toolName: "composeShootPlan",
+                  args: { channels: ["shopify"] },
+                  result,
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    const first = await recallPlannerChatMessages(memory, { threadId, resourceId });
+    const second = await recallPlannerChatMessages(memory, { threadId, resourceId });
+    // Same restore twice (mirrors a page reload re-fetching history) must
+    // produce the exact same messages — not just "some" tool result.
+    expect(second).toEqual(first);
+    expect(first).toEqual([
+      {
+        id: "msg-1",
+        role: "assistant",
+        content: "Here is your plan.",
+        toolCalls: [
+          {
+            id: "call-1",
+            type: "function",
+            function: { name: "composeShootPlan", arguments: JSON.stringify({ channels: ["shopify"] }) },
+          },
+        ],
+      },
+      { id: "msg-1:tool:call-1", role: "tool", toolCallId: "call-1", content: JSON.stringify(result) },
+    ]);
+  });
+
+  it("Org B cannot recall Org A's rich composeShootPlan tool history", async () => {
+    const memory = isolatedMemory();
+    const threadId = "22222222-2222-4222-8222-222222222222";
+    const ownerA = "org:org-a::user:user-a";
+    const ownerB = "org:org-b::user:user-b";
+    await ensureMastraThread(memory, { threadId, resourceId: ownerA });
+
+    await memory.saveMessages({
+      messages: [
+        {
+          id: "msg-1",
+          role: "assistant",
+          createdAt: new Date(),
+          threadId,
+          resourceId: ownerA,
+          content: {
+            format: 2,
+            parts: [
+              { type: "text", text: "Here is your plan." },
+              {
+                type: "tool-invocation",
+                toolInvocation: {
+                  state: "result",
+                  toolCallId: "call-1",
+                  toolName: "composeShootPlan",
+                  args: { channels: ["shopify"] },
+                  result: { status: "complete", channels: ["shopify"] },
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    const asOwnerA = await recallPlannerChatMessages(memory, { threadId, resourceId: ownerA });
+    expect(asOwnerA.length).toBeGreaterThan(0);
+
+    const asOwnerB = await recallPlannerChatMessages(memory, { threadId, resourceId: ownerB });
+    expect(asOwnerB).toEqual([]);
   });
 });

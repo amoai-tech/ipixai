@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 import { getOwnOrgId, supabaseForPage } from "./support/tenant-supabase";
+import { ensureCopilotOpen } from "./support/copilot-panel";
 
 // Single source of truth for the cold-compile navigation timeout used below
 // (was duplicated per-assertion) — see PR #73/#74. NAV_TIMEOUT_MS matches
@@ -132,32 +133,9 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
   // the whole dashboard on load would be worse than the old bottom dock) —
   // this file's own tests run under both the "chromium" and "mobile-
   // chromium" projects (and one narrows the viewport manually), so open it
-  // first wherever the resulting state actually matters to the test.
-  async function ensureCopilotOpen(page: import("@playwright/test").Page) {
-    const dock = page.getByTestId("operator-chat-dock");
-    // Desktop mounts with data-open="true" immediately; anything at or
-    // below the panel-compact breakpoint mounts the same way and then
-    // closes itself a render or two later, once useMatchMedia()'s
-    // COPILOT_COMPACT check settles (see operator-panel.tsx's isCopilot
-    // Compact-auto-close effect — 1023px, wider than the nav's own 767px
-    // mobile breakpoint, since a permanent 400-520px column plus the nav
-    // crushes the workspace well before true mobile). A single
-    // getAttribute() read right after page.goto() can land in that gap and
-    // observe the still-true initial value before it flips — this then
-    // skips the click and the panel stays closed for the rest of the test.
-    // Wait for the real settled state at or below that width (kept in sync
-    // with operator-panel.tsx's COPILOT_COMPACT, same duplication that file
-    // already carries against its own CSS module) before deciding.
-    const isCompactViewport = (page.viewportSize()?.width ?? Number.POSITIVE_INFINITY) <= 1023;
-    if (isCompactViewport) {
-      await expect(dock).toHaveAttribute("data-open", "false", { timeout: NAV_TIMEOUT_MS });
-    }
-    if ((await dock.getAttribute("data-open")) !== "true") {
-      await page.getByRole("button", { name: "✦ Open Copilot" }).click();
-      await expect(dock).toHaveAttribute("data-open", "true", { timeout: NAV_TIMEOUT_MS });
-    }
-    return dock;
-  }
+  // first wherever the resulting state actually matters to the test. See
+  // support/copilot-panel.ts for the shared helper (also used by
+  // plan-card-rich-history.spec.ts, which hits the same mobile behavior).
 
   test("Production Copilot panel opens on /app and stays capability-honest @Ta35df995", async ({ page }) => {
     await page.goto("/app");
