@@ -123,6 +123,17 @@ async function seedRichHistory(page: Page, threadId: string, plan: unknown) {
   ).toBe(true);
 }
 
+/** The hosted QA account this seeds into is shared by every test in the
+ *  same CI job (one webServer process for both "chromium" and
+ *  "mobile-chromium" — see npm run e2e). An un-cleaned seeded thread would
+ *  sit in Org A's thread list and get resumed as `rows[0]` by any later,
+ *  unrelated test that opens /app with no threadId of its own yet — this
+ *  broke dashboard.spec.ts's "0-brand state" welcome-text test, which
+ *  depends on a genuinely new/empty thread. Always run, even on failure. */
+async function deleteSeedThread(page: Page, threadId: string) {
+  await page.request.delete(`${THREADS_API}/${encodeURIComponent(threadId)}/seed-rich-history`);
+}
+
 async function assertCardRenders(page: Page, objectiveText: string) {
   // Below the 1023px COPILOT_COMPACT breakpoint (mobile-chromium's ~390px
   // included) the panel auto-closes on mount — see support/copilot-panel.ts.
@@ -239,32 +250,39 @@ test(
     // thread/history path — no model call.
     await seedRichHistory(page, threadId, plan);
 
-    // ---- Point PlannerChatDock's bootstrap at this exact seeded thread
-    // (same technique planner-thread-isolation.spec.ts uses) so the render
-    // below is deterministic instead of depending on "most recently used".
-    await page.goto("/app");
-    const storageKey = plannerThreadStorageKey(resourceId);
-    await page.evaluate(
-      ([key, id]) => window.localStorage.setItem(key, id),
-      [storageKey, threadId],
-    );
-    await page.reload();
+    try {
+      // ---- Point PlannerChatDock's bootstrap at this exact seeded thread
+      // (same technique planner-thread-isolation.spec.ts uses) so the render
+      // below is deterministic instead of depending on "most recently used".
+      await page.goto("/app");
+      const storageKey = plannerThreadStorageKey(resourceId);
+      await page.evaluate(
+        ([key, id]) => window.localStorage.setItem(key, id),
+        [storageKey, threadId],
+      );
+      await page.reload();
 
-    // ---- Render proof (desktop via "chromium" project, compact via
-    // "mobile-chromium" — this same spec runs under both automatically).
-    await assertCardRenders(page, objectiveText);
+      // ---- Render proof (desktop via "chromium" project, compact via
+      // "mobile-chromium" — this same spec runs under both automatically).
+      await assertCardRenders(page, objectiveText);
 
-    // ---- Full reload restores the same structured card with the same values.
-    await page.reload();
-    await assertCardRenders(page, objectiveText);
+      // ---- Full reload restores the same structured card with the same values.
+      await page.reload();
+      await assertCardRenders(page, objectiveText);
 
-    // ---- Org B cannot retrieve or render Org A's rich history.
-    await assertOrgBDenied(browser, resourceId, threadId, runMarker);
+      // ---- Org B cannot retrieve or render Org A's rich history.
+      await assertOrgBDenied(browser, resourceId, threadId, runMarker);
 
-    // ---- Org A retains access after Org B's attempt.
-    const orgAAfter = await page.request.get(
-      `${THREADS_API}/${encodeURIComponent(threadId)}/messages`,
-    );
-    expect(orgAAfter.ok(), "Org A lost access to its own seeded thread").toBe(true);
+      // ---- Org A retains access after Org B's attempt.
+      const orgAAfter = await page.request.get(
+        `${THREADS_API}/${encodeURIComponent(threadId)}/messages`,
+      );
+      expect(orgAAfter.ok(), "Org A lost access to its own seeded thread").toBe(true);
+    } finally {
+      // Shared hosted QA account — always remove the seeded thread, pass or
+      // fail, so a later unrelated test never resumes it (see
+      // deleteSeedThread's comment).
+      await deleteSeedThread(page, threadId);
+    }
   },
 );

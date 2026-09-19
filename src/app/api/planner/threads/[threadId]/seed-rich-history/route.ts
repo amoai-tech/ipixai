@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { requirePlannerResourceId } from "@/lib/auth/planner-session";
+import { authorizeThreadAccess, loadThreadOwner, threadForbiddenResponse } from "@/lib/auth/thread-acl";
 import {
   canonicalizePlannerThreadId,
   ensureMastraThread,
@@ -91,4 +92,53 @@ export async function POST(
   await memory.saveMessages({ messages: [message] });
 
   return Response.json({ threadId, messageId: message.id });
+}
+
+/**
+ * Cleanup counterpart to `POST`, above. The hosted QA account this test-only
+ * route runs against is shared by every test in the same CI job — an
+ * un-cleaned seeded thread would sit in that resourceId's thread list and
+ * get resumed (as `rows[0]`) by any later, unrelated test that opens `/app`
+ * with no threadId of its own yet, corrupting that test's "genuinely new,
+ * empty thread" assumption. Same auth/gating as `POST`: only the owning
+ * resourceId may delete its own seeded thread.
+ */
+export async function DELETE(
+  request: Request,
+  context: { params: Promise<{ threadId: string }> },
+) {
+  if (process.env.NODE_ENV === "production") {
+    return Response.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const session = await requirePlannerResourceId(request);
+  if (!session.ok) return session.response;
+
+  const { threadId: rawThreadId } = await context.params;
+  const threadId = canonicalizePlannerThreadId(rawThreadId);
+  if (!threadId) {
+    return Response.json({ error: "invalid_thread" }, { status: 400 });
+  }
+
+  const owner = await loadThreadOwner(threadId);
+  if (owner.status === "not_found") {
+    return Response.json({ ok: true });
+  }
+  const decision = authorizeThreadAccess({
+    threadId,
+    callerResourceId: session.resourceId,
+    owner,
+    allowMissing: false,
+  });
+  if (!decision.ok) {
+    return threadForbiddenResponse();
+  }
+
+  const memory = await getPlannerMemory();
+  if (!memory) {
+    return Response.json({ error: "memory_unavailable" }, { status: 503 });
+  }
+  await memory.deleteThread(threadId);
+
+  return Response.json({ ok: true });
 }
