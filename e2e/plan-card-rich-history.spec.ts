@@ -30,14 +30,61 @@ const orgBFile = path.resolve(__dirname, "../playwright/.auth/org-b.json");
 const THREADS_API = "/api/planner/threads";
 const RESTORE_TIMEOUT_MS = 30_000;
 
-function buildSeedPlan(objectiveText: string, runMarker: string) {
-  const assumption = {
-    key: "budget",
-    value: 1200,
-    currency: "USD",
-    source: "ipix_default_v1",
-    assumed: true,
+const SEED_ASSUMPTION = {
+  key: "budget",
+  value: 1200,
+  currency: "USD",
+  source: "ipix_default_v1",
+  assumed: true,
+};
+
+function buildDeliverablesResult() {
+  return {
+    status: "ok",
+    missingInputs: [],
+    assumptions: [SEED_ASSUMPTION],
+    warnings: [],
+    totalAssets: 12,
+    deliverables: [
+      { channel: "shopify", format: "1:1 JPG white-bg", formatSource: "ipix_default_v1", quantity: 6, source: "ipix_default_v1", assumed: true },
+      { channel: "instagram_feed", format: "1:1 JPG", formatSource: "ipix_default_v1", quantity: 6, source: "ipix_default_v1", assumed: true },
+    ],
   };
+}
+
+function buildShotListResult() {
+  return {
+    status: "ok",
+    missingInputs: [],
+    assumptions: [],
+    warnings: [],
+    totalShots: 2,
+    shots: [
+      { shotNumber: 1, description: "Front PDP", angle: "front", lighting: "studio", deliverableIds: [], referenceId: "seed-r1" },
+      { shotNumber: 2, description: "Detail", angle: "macro", lighting: "studio", deliverableIds: [], referenceId: "seed-r2" },
+    ],
+  };
+}
+
+/** Every `PlanField` this fixture doesn't need confirmed — `needs_input` is
+ *  the only variant that's valid without a `value`/`source`. */
+function needsInputFields() {
+  const NEEDS_INPUT = { status: "needs_input" as const };
+  return {
+    mediaType: NEEDS_INPUT,
+    location: NEEDS_INPUT,
+    lighting: NEEDS_INPUT,
+    setBackground: NEEDS_INPUT,
+    talent: NEEDS_INPUT,
+    crew: NEEDS_INPUT,
+    studio: NEEDS_INPUT,
+    equipment: NEEDS_INPUT,
+    schedule: NEEDS_INPUT,
+    campaignContext: NEEDS_INPUT,
+  };
+}
+
+function buildSeedPlan(objectiveText: string, runMarker: string) {
   return {
     channels: ["shopify", "instagram_feed"],
     shootTypeResult: {
@@ -50,70 +97,13 @@ function buildSeedPlan(objectiveText: string, runMarker: string) {
       confidence: "high",
       rationale: `Deterministic Playwright seed [${runMarker}]`,
     },
-    deliverablesResult: {
-      status: "ok",
-      missingInputs: [],
-      assumptions: [assumption],
-      warnings: [],
-      totalAssets: 12,
-      deliverables: [
-        {
-          channel: "shopify",
-          format: "1:1 JPG white-bg",
-          formatSource: "ipix_default_v1",
-          quantity: 6,
-          source: "ipix_default_v1",
-          assumed: true,
-        },
-        {
-          channel: "instagram_feed",
-          format: "1:1 JPG",
-          formatSource: "ipix_default_v1",
-          quantity: 6,
-          source: "ipix_default_v1",
-          assumed: true,
-        },
-      ],
-    },
-    shotListResult: {
-      status: "ok",
-      missingInputs: [],
-      assumptions: [],
-      warnings: [],
-      totalShots: 2,
-      shots: [
-        {
-          shotNumber: 1,
-          description: "Front PDP",
-          angle: "front",
-          lighting: "studio",
-          deliverableIds: [],
-          referenceId: "seed-r1",
-        },
-        {
-          shotNumber: 2,
-          description: "Detail",
-          angle: "macro",
-          lighting: "studio",
-          deliverableIds: [],
-          referenceId: "seed-r2",
-        },
-      ],
-    },
+    deliverablesResult: buildDeliverablesResult(),
+    shotListResult: buildShotListResult(),
     budgetResult: { status: "ok", missingInputs: [], assumptions: [], warnings: [] },
     objective: { status: "confirmed", value: objectiveText, source: "operator" },
-    mediaType: { status: "needs_input" },
-    location: { status: "needs_input" },
-    lighting: { status: "needs_input" },
-    setBackground: { status: "needs_input" },
-    talent: { status: "needs_input" },
-    crew: { status: "needs_input" },
-    studio: { status: "needs_input" },
-    equipment: { status: "needs_input" },
-    schedule: { status: "needs_input" },
-    campaignContext: { status: "needs_input" },
+    ...needsInputFields(),
     risks: [],
-    assumptions: [assumption],
+    assumptions: [SEED_ASSUMPTION],
     missingInputs: [],
     warnings: [],
     referencesUsed: [{ id: "seed-r1", angle: "front" }],
@@ -148,6 +138,78 @@ async function assertCardRenders(page: Page, objectiveText: string) {
   const textarea = page.getByTestId("copilot-chat-textarea");
   await expect(textarea).toBeVisible();
   await expect(textarea).toBeEditable();
+}
+
+/** Org B must be denied Org A's seeded thread, both at the API (403,
+ *  mirroring planner-thread-isolation.spec.ts's contract) and in the browser
+ *  (planting Org A's threadId into Org B's own storage key and reloading —
+ *  the real-world stale/foreign-bookmark attack the resolver exists to stop). */
+async function assertOrgBApiDenied(orgBPage: Page, threadId: string, runMarker: string) {
+  const forbidden = await orgBPage.request.get(
+    `${THREADS_API}/${encodeURIComponent(threadId)}/messages`,
+  );
+  expect(forbidden.status(), "Org B must be denied Org A's seeded thread").toBe(403);
+  const forbiddenText = await forbidden.text();
+  expect(
+    forbiddenText.includes(runMarker),
+    "tenant leak: Org A's objective content appeared in Org B's denial response",
+  ).toBe(false);
+}
+
+/** Plants Org A's threadId into Org B's own storage key and reloads — the
+ *  real-world stale/foreign-bookmark attack the resolver exists to stop. */
+async function assertOrgBBrowserDenied(
+  orgBPage: Page,
+  orgAResourceId: string,
+  threadId: string,
+  runMarker: string,
+) {
+  await orgBPage.goto("/app");
+  const orgBResponse = await orgBPage.request.get(THREADS_API);
+  expect(orgBResponse.ok()).toBe(true);
+  const { resourceId: orgBResourceId } = (await orgBResponse.json()) as { resourceId: string };
+  expect(orgBResourceId, "Org A and Org B must resolve different resourceIds").not.toBe(orgAResourceId);
+
+  const orgBKey = plannerThreadStorageKey(orgBResourceId);
+  await orgBPage.evaluate(([key, id]) => window.localStorage.setItem(key, id), [orgBKey, threadId]);
+  await orgBPage.reload();
+  await expect(orgBPage.getByTestId("operator-chat-dock")).toBeVisible({ timeout: RESTORE_TIMEOUT_MS });
+
+  // The UI must mint/keep a fresh thread rather than adopt Org A's.
+  await expect
+    .poll(async () => orgBPage.evaluate((key) => window.localStorage.getItem(key), orgBKey), {
+      timeout: RESTORE_TIMEOUT_MS,
+      message: "Org B's UI should not persist Org A's threadId",
+    })
+    .not.toBe(threadId);
+
+  await expect(
+    orgBPage.getByTestId("compose-shoot-plan-card"),
+    "tenant leak: Org B rendered Org A's seeded Production Plan Card",
+  ).toHaveCount(0);
+  await expect(
+    orgBPage.getByText(runMarker),
+    "tenant leak: Org B rendered Org A's seeded objective text",
+  ).toHaveCount(0);
+}
+
+async function assertOrgBDenied(
+  browser: import("@playwright/test").Browser,
+  orgAResourceId: string,
+  threadId: string,
+  runMarker: string,
+) {
+  const { page: orgBPage, close: closeOrgB } = await contextForSavedRole(
+    browser,
+    orgBFile,
+    "Missing playwright/.auth/org-b.json — set E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B in .env.test",
+  );
+  try {
+    await assertOrgBApiDenied(orgBPage, threadId, runMarker);
+    await assertOrgBBrowserDenied(orgBPage, orgAResourceId, threadId, runMarker);
+  } finally {
+    await closeOrgB();
+  }
 }
 
 test(
@@ -188,67 +250,7 @@ test(
     await assertCardRenders(page, objectiveText);
 
     // ---- Org B cannot retrieve or render Org A's rich history.
-    const { page: orgBPage, close: closeOrgB } = await contextForSavedRole(
-      browser,
-      orgBFile,
-      "Missing playwright/.auth/org-b.json — set E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B in .env.test",
-    );
-    try {
-      // API-level denial, mirroring planner-thread-isolation.spec.ts's contract.
-      const forbidden = await orgBPage.request.get(
-        `${THREADS_API}/${encodeURIComponent(threadId)}/messages`,
-      );
-      expect(forbidden.status(), "Org B must be denied Org A's seeded thread").toBe(403);
-      const forbiddenText = await forbidden.text();
-      expect(
-        forbiddenText.includes(runMarker),
-        "tenant leak: Org A's objective content appeared in Org B's denial response",
-      ).toBe(false);
-
-      // Browser-level restore attempt: plant Org A's threadId into Org B's
-      // own resource-scoped storage key and reload — the real-world
-      // stale/foreign-bookmark attack the resolver exists to stop.
-      await orgBPage.goto("/app");
-      const orgBResponse = await orgBPage.request.get(THREADS_API);
-      expect(orgBResponse.ok()).toBe(true);
-      const { resourceId: orgBResourceId } = (await orgBResponse.json()) as { resourceId: string };
-      expect(
-        orgBResourceId,
-        "Org A and Org B must resolve different resourceIds",
-      ).not.toBe(resourceId);
-      const orgBKey = plannerThreadStorageKey(orgBResourceId);
-      await orgBPage.evaluate(
-        ([key, id]) => window.localStorage.setItem(key, id),
-        [orgBKey, threadId],
-      );
-      await orgBPage.reload();
-      await expect(orgBPage.getByTestId("operator-chat-dock")).toBeVisible({
-        timeout: RESTORE_TIMEOUT_MS,
-      });
-
-      // The UI must mint/keep a fresh thread rather than adopt Org A's.
-      await expect
-        .poll(
-          async () =>
-            orgBPage.evaluate((key) => window.localStorage.getItem(key), orgBKey),
-          {
-            timeout: RESTORE_TIMEOUT_MS,
-            message: "Org B's UI should not persist Org A's threadId",
-          },
-        )
-        .not.toBe(threadId);
-
-      await expect(
-        orgBPage.getByTestId("compose-shoot-plan-card"),
-        "tenant leak: Org B rendered Org A's seeded Production Plan Card",
-      ).toHaveCount(0);
-      await expect(
-        orgBPage.getByText(runMarker),
-        "tenant leak: Org B rendered Org A's seeded objective text",
-      ).toHaveCount(0);
-    } finally {
-      await closeOrgB();
-    }
+    await assertOrgBDenied(browser, resourceId, threadId, runMarker);
 
     // ---- Org A retains access after Org B's attempt.
     const orgAAfter = await page.request.get(

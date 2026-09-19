@@ -6,7 +6,35 @@ import {
   ensureMastraThread,
   getPlannerMemory,
 } from "@/mastra/thread-persistence";
-import { ShootPlanSchema } from "@/mastra/tools/plan-schema";
+import { ShootPlanSchema, type ShootPlan } from "@/mastra/tools/plan-schema";
+
+/** The one seeded message: a completed `composeShootPlan` tool-invocation,
+ *  in the exact shape `mastraMessagesToChat` reads back (see
+ *  `richToolInvocations` in thread-persistence.ts). */
+function buildSeedMessage(input: { threadId: string; resourceId: string; plan: ShootPlan }) {
+  return {
+    id: randomUUID(),
+    role: "assistant" as const,
+    createdAt: new Date(),
+    threadId: input.threadId,
+    resourceId: input.resourceId,
+    content: {
+      format: 2 as const,
+      parts: [
+        {
+          type: "tool-invocation" as const,
+          toolInvocation: {
+            state: "result" as const,
+            toolCallId: randomUUID(),
+            toolName: "composeShootPlan",
+            args: { channels: input.plan.channels },
+            result: input.plan,
+          },
+        },
+      ],
+    },
+  };
+}
 
 /**
  * IPI-1233 · PLAN-CARD-001 — test-only seeding for the deterministic
@@ -59,33 +87,8 @@ export async function POST(
 
   await ensureMastraThread(memory, { threadId, resourceId: session.resourceId });
 
-  const messageId = randomUUID();
-  await memory.saveMessages({
-    messages: [
-      {
-        id: messageId,
-        role: "assistant",
-        createdAt: new Date(),
-        threadId,
-        resourceId: session.resourceId,
-        content: {
-          format: 2,
-          parts: [
-            {
-              type: "tool-invocation",
-              toolInvocation: {
-                state: "result",
-                toolCallId: randomUUID(),
-                toolName: "composeShootPlan",
-                args: { channels: parsedPlan.data.channels },
-                result: parsedPlan.data,
-              },
-            },
-          ],
-        },
-      },
-    ],
-  });
+  const message = buildSeedMessage({ threadId, resourceId: session.resourceId, plan: parsedPlan.data });
+  await memory.saveMessages({ messages: [message] });
 
-  return Response.json({ threadId, messageId });
+  return Response.json({ threadId, messageId: message.id });
 }
