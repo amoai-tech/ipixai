@@ -35,8 +35,12 @@ export function ComposeShootPlanCard({
           {plan.totalShots !== null || plan.totalAssets !== null ? (
             <p className="text-xs text-gray-500" data-testid="compose-shoot-plan-counts">
               {[
-                plan.totalShots !== null ? `${plan.totalShots} shots` : null,
-                plan.totalAssets !== null ? `${plan.totalAssets} deliverables` : null,
+                plan.totalShots !== null
+                  ? `${plan.totalShots} ${plan.totalShots === 1 ? "shot" : "shots"}`
+                  : null,
+                plan.totalAssets !== null
+                  ? `${plan.totalAssets} ${plan.totalAssets === 1 ? "deliverable" : "deliverables"}`
+                  : null,
               ]
                 .filter(Boolean)
                 .join(" · ")}

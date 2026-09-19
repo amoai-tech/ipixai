@@ -164,6 +164,26 @@ describe("ComposeShootPlanCard — IPI-1242 cosmetic polish + Review Shoot Plan"
     expect(screen.getByTestId("compose-shoot-plan-counts").textContent).toBe("6 deliverables");
   });
 
+  it("uses singular wording for a count of exactly 1", () => {
+    const view: ProductionPlanCardView = {
+      status: "complete",
+      objective: null,
+      channels: [],
+      shots: [],
+      totalShots: 1,
+      deliverables: [],
+      totalAssets: 1,
+      assumptions: [],
+      missingInputs: [],
+      warnings: [],
+    };
+    render(<ComposeShootPlanCard plan={view} />);
+
+    expect(screen.getByTestId("compose-shoot-plan-counts").textContent).toBe(
+      "1 shot · 1 deliverable",
+    );
+  });
+
   it("omits the Review Shoot Plan button when no handler is provided", () => {
     const view = describeProductionPlanCard(COMPLETE_PLAN) as ProductionPlanCardView;
     render(<ComposeShootPlanCard plan={view} />);
