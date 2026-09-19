@@ -5,7 +5,10 @@ import { useAgent, useCopilotKit, useRenderTool } from "@copilotkit/react-core/v
 import { z } from "zod";
 
 import { ComposeShootPlanCard } from "@/components/shoot/compose-shoot-plan-card";
-import { describeProductionPlanCard } from "@/lib/shoot/compose-shoot-plan-card-view";
+import {
+  describeProductionPlanCard,
+  type ProductionPlanCardView,
+} from "@/lib/shoot/compose-shoot-plan-card-view";
 
 /**
  * IPI-1242 · PLAN-CARD-002 — the user-side message that prompts the model
@@ -13,9 +16,34 @@ import { describeProductionPlanCard } from "@/lib/shoot/compose-shoot-plan-card-
  * plan it just proposed. This never calls `reviewShootPlan` directly: the
  * model still decides to call it, preserving the existing
  * "AI proposes → human reviews" flow with no second approval path.
+ *
+ * A thread can hold more than one composeShootPlan card (a plan revised
+ * more than once). Naming the clicked card's own objective/channels/counts
+ * here — rather than a fully generic "the plan you just proposed" — gives
+ * the model a concrete disambiguator so a click on an older card is far
+ * less likely to be answered by reviewing a newer one. The operator still
+ * sees the actual reviewed plan content in the HITL card before approving,
+ * and the server independently hashes/binds whatever plan the model
+ * ultimately supplies (`shoot-plan-review.ts`) — this only reduces the
+ * chance of reviewing the wrong plan, it isn't the authorization boundary.
  */
-const REVIEW_SHOOT_PLAN_MESSAGE =
-  "Please start a formal review of the production plan you just proposed, so I can approve or request changes.";
+function describePlanForReview(plan: ProductionPlanCardView): string {
+  const details = [
+    plan.objective ? `objective “${plan.objective}”` : null,
+    plan.channels.length > 0 ? `channels ${plan.channels.join(", ")}` : null,
+    plan.totalShots !== null
+      ? `${plan.totalShots} ${plan.totalShots === 1 ? "shot" : "shots"}`
+      : null,
+    plan.totalAssets !== null
+      ? `${plan.totalAssets} ${plan.totalAssets === 1 ? "deliverable" : "deliverables"}`
+      : null,
+  ].filter((entry): entry is string => Boolean(entry));
+  return details.length > 0 ? ` (${details.join(", ")})` : "";
+}
+
+function buildReviewShootPlanMessage(plan: ProductionPlanCardView): string {
+  return `Please start a formal review of the production plan you just proposed${describePlanForReview(plan)}, so I can approve or request changes.`;
+}
 
 /**
  * IPI-1233 · PLAN-CARD-001 — the named CopilotKit v2 tool renderer for
@@ -78,14 +106,14 @@ export function ComposeShootPlanRenderer() {
   // a competing run.
   const reviewInFlightRef = useRef(false);
 
-  const onReviewShootPlan = useCallback(() => {
+  const onReviewShootPlan = useCallback((plan: ProductionPlanCardView) => {
     const { agent: currentAgent, copilotkit: currentCopilotkit } = latestRef.current;
     if (currentAgent.isRunning || reviewInFlightRef.current) return;
     reviewInFlightRef.current = true;
     currentAgent.addMessage({
       id: crypto.randomUUID(),
       role: "user",
-      content: REVIEW_SHOOT_PLAN_MESSAGE,
+      content: buildReviewShootPlanMessage(plan),
     });
     void currentCopilotkit
       .runAgent({ agent: currentAgent })
@@ -107,7 +135,9 @@ export function ComposeShootPlanRenderer() {
         const plan = describeProductionPlanCard(parseToolResult(result));
         if (!plan) return <UnreadablePlanCard />;
 
-        return <ComposeShootPlanCard plan={plan} onReviewShootPlan={onReviewShootPlan} />;
+        return (
+          <ComposeShootPlanCard plan={plan} onReviewShootPlan={() => onReviewShootPlan(plan)} />
+        );
       },
     },
     [],

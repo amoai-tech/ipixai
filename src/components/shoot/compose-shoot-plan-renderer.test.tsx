@@ -112,4 +112,52 @@ describe("ComposeShootPlanRenderer — Review Shoot Plan (IPI-1242)", () => {
     expect(copilot.agent.addMessage).not.toHaveBeenCalled();
     expect(copilot.runAgent).not.toHaveBeenCalled();
   });
+
+  it("ignores a synchronous second click while the first review request is still in flight", async () => {
+    let resolveRunAgent: (() => void) | undefined;
+    copilot.runAgent.mockImplementationOnce(
+      () => new Promise<void>((resolve) => { resolveRunAgent = resolve; }),
+    );
+    render(renderResult("complete", JSON.stringify(COMPLETE_PLAN)));
+    const button = screen.getByTestId("compose-shoot-plan-review-button");
+
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    expect(copilot.agent.addMessage).toHaveBeenCalledTimes(1);
+    expect(copilot.runAgent).toHaveBeenCalledTimes(1);
+
+    resolveRunAgent?.();
+    await Promise.resolve();
+  });
+
+  it("allows a new review run after the previous request rejects", async () => {
+    let rejectRunAgent: ((reason: unknown) => void) | undefined;
+    copilot.runAgent.mockImplementationOnce(
+      () => new Promise<void>((_resolve, reject) => { rejectRunAgent = reject; }),
+    );
+    render(renderResult("complete", JSON.stringify(COMPLETE_PLAN)));
+    const button = screen.getByTestId("compose-shoot-plan-review-button");
+
+    fireEvent.click(button);
+    rejectRunAgent?.(new Error("run failed"));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    copilot.runAgent.mockResolvedValueOnce(undefined);
+    fireEvent.click(button);
+
+    expect(copilot.agent.addMessage).toHaveBeenCalledTimes(2);
+    expect(copilot.runAgent).toHaveBeenCalledTimes(2);
+  });
+
+  it("names the reviewed plan's objective/channels/counts so a click doesn't get conflated with another card", () => {
+    render(renderResult("complete", JSON.stringify(COMPLETE_PLAN)));
+    fireEvent.click(screen.getByTestId("compose-shoot-plan-review-button"));
+
+    const [message] = copilot.agent.addMessage.mock.calls[0] as [{ content: string }];
+    expect(message.content).toContain("Launch the spring capsule");
+    expect(message.content).toContain("shopify");
+    expect(message.content).toContain("6 deliverables");
+  });
 });
