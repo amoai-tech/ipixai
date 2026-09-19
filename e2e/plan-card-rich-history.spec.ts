@@ -131,7 +131,13 @@ async function seedRichHistory(page: Page, threadId: string, plan: unknown) {
  *  broke dashboard.spec.ts's "0-brand state" welcome-text test, which
  *  depends on a genuinely new/empty thread. Always run, even on failure. */
 async function deleteSeedThread(page: Page, threadId: string) {
-  await page.request.delete(`${THREADS_API}/${encodeURIComponent(threadId)}/seed-rich-history`);
+  const response = await page.request.delete(
+    `${THREADS_API}/${encodeURIComponent(threadId)}/seed-rich-history`,
+  );
+  expect(
+    response.ok(),
+    `cleanup must succeed or the seeded thread leaks into the shared QA account: ${response.status()} ${await response.text().catch(() => "")}`,
+  ).toBe(true);
 }
 
 async function assertCardRenders(page: Page, objectiveText: string) {
