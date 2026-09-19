@@ -3,6 +3,7 @@ import path from "node:path";
 import { test, expect, type Page } from "@playwright/test";
 
 import { contextForSavedRole } from "./support/login";
+import { ensureCopilotOpen } from "./support/copilot-panel";
 import { plannerThreadStorageKey } from "../src/mastra/thread-types";
 
 /**
@@ -123,6 +124,10 @@ async function seedRichHistory(page: Page, threadId: string, plan: unknown) {
 }
 
 async function assertCardRenders(page: Page, objectiveText: string) {
+  // Below the 1023px COPILOT_COMPACT breakpoint (mobile-chromium's ~390px
+  // included) the panel auto-closes on mount — see support/copilot-panel.ts.
+  // Desktop is a no-op here (already open).
+  await ensureCopilotOpen(page);
   await expect(page.getByRole("status", { name: "Loading conversation…" })).toHaveCount(0, {
     timeout: RESTORE_TIMEOUT_MS,
   });
@@ -173,7 +178,11 @@ async function assertOrgBBrowserDenied(
   const orgBKey = plannerThreadStorageKey(orgBResourceId);
   await orgBPage.evaluate(([key, id]) => window.localStorage.setItem(key, id), [orgBKey, threadId]);
   await orgBPage.reload();
-  await expect(orgBPage.getByTestId("operator-chat-dock")).toBeVisible({ timeout: RESTORE_TIMEOUT_MS });
+  // Attached, not visible: on mobile-chromium the panel auto-closes on
+  // mount (support/copilot-panel.ts) — this only needs to confirm /app
+  // actually mounted before checking localStorage below, not that the
+  // panel is visually open.
+  await expect(orgBPage.getByTestId("operator-chat-dock")).toBeAttached({ timeout: RESTORE_TIMEOUT_MS });
 
   // The UI must mint/keep a fresh thread rather than adopt Org A's.
   await expect
