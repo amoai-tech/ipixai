@@ -1,0 +1,22 @@
+{
+  "type": "built-in",
+  "name": "iPix usage anomalies",
+  "ruleScope": {
+    "type": "include",
+    "projectIds": [
+      "prj_NeYqsq8o7yRWz7H5sYay8KHtEl1C"
+    ]
+  },
+  "triggers": {
+    "mode": "selected",
+    "items": [
+      {
+        "type": "usage_anomaly"
+      }
+    ]
+  },
+  "matchMinimumSeverityLevel": "medium",
+  "notificationSettings": {
+    "enableTeamOwnerNotifications": true
+  }
+}

@@ -277,4 +277,49 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(Number.isNaN(lowerBoundMajor)).toBe(false);
     expect(lowerBoundMajor).toBe(pinnedMajor);
   });
+
+  it("runs a read-only deployment-volume governance check every six hours", () => {
+    const source = read(".github/workflows/vercel-governance.yml");
+
+    expect(source).toMatch(/^ {2}schedule:\s*$/m);
+    expect(source).toContain('cron: "17 */6 * * *"');
+    expect(source).toMatch(/^ {2}workflow_dispatch:\s*$/m);
+    expect(source).not.toMatch(/^ {2}push:/m);
+    expect(source).not.toMatch(/^ {2}pull_request:/m);
+    expect(source).toContain("node scripts/check-vercel-deployment-governance.mjs");
+    expect(source).toContain("VERCEL_MAX_DEPLOYMENTS_24H: \"3\"");
+  });
+
+  it("keeps Vercel deployment monitoring read-only and flags unexpected deployment ownership", () => {
+    const source = read("scripts/check-vercel-deployment-governance.mjs");
+
+    expect(source).toContain("https://api.vercel.com/v7/deployments");
+    expect(source).toContain("https://api.vercel.com/v13/deployments/");
+    expect(source).toContain('method: "GET"');
+    expect(source).not.toMatch(/method:\s*["'](?:POST|PUT|PATCH|DELETE)["']/);
+    expect(source).toContain('deployment.source !== "cli"');
+    expect(source).toContain("VERCEL_MAX_DEPLOYMENTS_24H");
+  });
+
+  it("tracks a project-scoped native Vercel usage-anomaly rule as code", () => {
+    const rule = JSON.parse(read("ops/vercel/ipixai-usage-anomaly.json")) as {
+      type?: string;
+      name?: string;
+      ruleScope?: { type?: string; projectIds?: string[] };
+      triggers?: { mode?: string; items?: Array<{ type?: string }> };
+      matchMinimumSeverityLevel?: string;
+      notificationSettings?: { enableTeamOwnerNotifications?: boolean };
+    };
+
+    expect(rule.type).toBe("built-in");
+    expect(rule.name).toBe("iPix usage anomalies");
+    expect(rule.ruleScope).toEqual({
+      type: "include",
+      projectIds: ["prj_NeYqsq8o7yRWz7H5sYay8KHtEl1C"],
+    });
+    expect(rule.triggers).toEqual({ mode: "selected", items: [{ type: "usage_anomaly" }] });
+    expect(rule.matchMinimumSeverityLevel).toBe("medium");
+    expect(rule.notificationSettings?.enableTeamOwnerNotifications).toBe(true);
+  });
+
 });
