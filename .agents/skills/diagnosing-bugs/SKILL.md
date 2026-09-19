@@ -85,6 +85,12 @@ Done when **every remaining element is load-bearing**: removing any one of them 
 
 Do not proceed until you have reproduced **and** minimised.
 
+### Evidence scan before hypotheses
+
+Before forming hypotheses, **check recent changes**: inspect the smallest relevant git diff/history, dependency/config changes, environment drift, and nearby migrations that could explain when the regression appeared. Do not assume recency proves causation; use it only to narrow the hypothesis space.
+
+Then **find the closest working example in the current codebase** that exercises the same pattern, boundary, library, or data flow. Compare working vs broken paths and list material differences before inventing a new implementation pattern. Prefer a current iPix example over generic external guidance.
+
 ## Phase 3: Hypothesise
 
 Generate **3–5 ranked hypotheses** before testing any of them. Single-hypothesis generation anchors on the first plausible idea.
@@ -126,6 +132,10 @@ If a correct seam exists:
 3. Apply the fix.
 4. Watch it pass.
 5. Re-run the Phase 1 feedback loop against the original (un-minimised) scenario.
+
+### Failed-fix architecture stop
+
+Track attempted fixes. **After three failed fix attempts, STOP.** Do not keep layering patches onto an explanation that has failed three times. Re-check the evidence and **question the seam, assumptions, or architecture**: the repro may be at the wrong boundary, the believed owner may be wrong, or the system shape may make the intended fix invalid. **Do not stack a fourth speculative fix.** Escalate the architectural decision to the user when the next move changes ownership, contracts, or scope.
 
 ## Phase 6: Cleanup
 
