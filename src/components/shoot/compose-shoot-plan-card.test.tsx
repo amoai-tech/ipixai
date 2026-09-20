@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import { ComposeShootPlanCard } from "./compose-shoot-plan-card";
 import { describeProductionPlanCard, type ProductionPlanCardView } from "@/lib/shoot/compose-shoot-plan-card-view";
@@ -142,5 +142,69 @@ describe("ComposeShootPlanCard", () => {
     expect(missing.textContent).toContain("crew");
     expect(missing.textContent).toContain("schedule");
     expect(screen.queryByTestId("compose-shoot-plan-assumptions")).toBeNull();
+  });
+});
+
+describe("ComposeShootPlanCard — IPI-1242 cosmetic polish + Review Shoot Plan", () => {
+  it("shows a combined shot/deliverable count line when both totals are known", () => {
+    const view = describeProductionPlanCard(COMPLETE_PLAN) as ProductionPlanCardView;
+    render(<ComposeShootPlanCard plan={view} />);
+
+    expect(screen.getByTestId("compose-shoot-plan-counts").textContent).toBe(
+      "2 shots · 12 deliverables",
+    );
+  });
+
+  it("shows only the known total when the other is absent, never a fabricated one", () => {
+    // NEEDS_INPUT_PLAN has no shotListResult (totalShots null) but does have
+    // a deliverablesResult (totalAssets 6) — the line must show only what's real.
+    const view = describeProductionPlanCard(NEEDS_INPUT_PLAN) as ProductionPlanCardView;
+    render(<ComposeShootPlanCard plan={view} />);
+
+    expect(screen.getByTestId("compose-shoot-plan-counts").textContent).toBe("6 deliverables");
+  });
+
+  it("uses singular wording for a count of exactly 1", () => {
+    const view: ProductionPlanCardView = {
+      status: "complete",
+      objective: null,
+      channels: [],
+      shots: [],
+      totalShots: 1,
+      deliverables: [],
+      totalAssets: 1,
+      assumptions: [],
+      missingInputs: [],
+      warnings: [],
+    };
+    render(<ComposeShootPlanCard plan={view} />);
+
+    expect(screen.getByTestId("compose-shoot-plan-counts").textContent).toBe(
+      "1 shot · 1 deliverable",
+    );
+  });
+
+  it("omits the Review Shoot Plan button when no handler is provided", () => {
+    const view = describeProductionPlanCard(COMPLETE_PLAN) as ProductionPlanCardView;
+    render(<ComposeShootPlanCard plan={view} />);
+
+    expect(screen.queryByTestId("compose-shoot-plan-review-button")).toBeNull();
+  });
+
+  it("renders the Review Shoot Plan button for a complete plan and calls the handler on click", () => {
+    const view = describeProductionPlanCard(COMPLETE_PLAN) as ProductionPlanCardView;
+    const onReviewShootPlan = vi.fn();
+    render(<ComposeShootPlanCard plan={view} onReviewShootPlan={onReviewShootPlan} />);
+
+    const button = screen.getByTestId("compose-shoot-plan-review-button");
+    fireEvent.click(button);
+    expect(onReviewShootPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it("never shows Review Shoot Plan for a needs_input plan, even with a handler provided", () => {
+    const view = describeProductionPlanCard(NEEDS_INPUT_PLAN) as ProductionPlanCardView;
+    render(<ComposeShootPlanCard plan={view} onReviewShootPlan={vi.fn()} />);
+
+    expect(screen.queryByTestId("compose-shoot-plan-review-button")).toBeNull();
   });
 });
