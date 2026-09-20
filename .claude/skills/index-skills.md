@@ -37,12 +37,12 @@ These are **static audit scores**, not benchmark scores. They measure current re
 |---|---:|:---:|---|---|
 | `brainstorming` | 92% | A | Keep | Keep upstream methodology focused; avoid invoking for trivial non-creative fixes. |
 | `ci-review` | 93% | A | Keep | Review-only specialist; preserve exact-head and secret-boundary focus. |
-| `cloudinary-review` | 91% | A | Keep | Review-only specialist; do not merge into `cloudinary` while PR-Agent routing depends on it. |
 | `cloudinary` | 96% | A | Keep canonical | Strong progressive references and iPix security overlay. |
+| `cloudinary-review` | 91% | A | Keep | Review-only specialist; do not merge into `cloudinary` while PR-Agent routing depends on it. |
 | `code-review` | 88% | B | Keep symlink | Document symlink provenance in this index; avoid a second copied review skill. |
 | `codebase-design` | 91% | A | Keep | Add evals for seam/interface decisions before major edits. |
-| `copilotkit-review` | 95% | A | Keep | Good review-only contract; continue verifying installed source/types first. |
 | `copilotkit` | 94% | A | Keep canonical | Keep current v2/AG-UI examples and installed-version checks authoritative. |
+| `copilotkit-review` | 95% | A | Keep | Good review-only contract; continue verifying installed source/types first. |
 | `diagnosing-bugs` | 89% | B | Keep symlink | Keep one source under `.agents`; add regression examples when debugging rules change. |
 | `dispatching-parallel-agents` | 89% | B | Keep | Clarify “independent work only” with iPix examples to prevent unsafe parallel writes. |
 | `domain-modeling` | 91% | A | Keep | Strong owner for vocabulary, boundaries, `CONTEXT.md`, and ADR work. |
@@ -53,16 +53,16 @@ These are **static audit scores**, not benchmark scores. They measure current re
 | `ipix-supabase` | 95% | A | Keep canonical | Strong data/security owner; continue treating production as read-only during audits unless explicitly authorized. |
 | `ipix-task-lifecycle` | 55% | D | Retire | Deprecated compatibility alias; migrate remaining callers to `tasks`, then delete. |
 | `ipix-wireframe` | 88% | B | Keep | Separate reusable design rules from screen-specific references if it grows further. |
-| `lean` | 78% | C | Consolidate | Significant overlap with `fastest` + `tasks`; move unique velocity-audit rules into `fastest` or a `tasks` reference. |
+| `lean` | 68% | D | Consolidate | Significant overlap with `fastest` + `tasks`; move unique velocity-audit rules into `fastest` or a `tasks` reference. |
 | `linear` | 92% | A | Keep | Keep task/source-of-truth behavior narrow and current. |
 | `mastra` | 97% | A | Keep canonical | One Mastra owner for implementation + PR review; synced to official 2.2.0 trace-query guidance while preserving iPix auth/HITL/persistence rules. |
 | `mermaid-diagrams` | 84% | B | Keep | Good utility; move large syntax/catalog detail to references if further expanded. |
 | `nextjs-developer` | 91% | A | Keep canonical | Continue verifying the installed Next.js version for changing APIs. |
 | `nextjs-review` | 90% | A | Keep | Review-only specialist; intentional separation from implementation skill. |
 | `playwright-cli` | 88% | B | Keep | Add iPix-specific authenticated/tenant test entry points without copying Playwright docs wholesale. |
+| `pr` | 93% | A | Keep | Clear explicit-mutation boundary; keep human merge approval authoritative. |
 | `pr-agent-code-review` | 95% | A | Keep canonical review | Correct universal review baseline; specialist skills should add only domain-specific invariants. |
 | `pr-workflow` | 55% | D | Retire | Deprecated compatibility alias; move all remaining use to `tasks` + `pr`. |
-| `pr` | 93% | A | Keep | Clear explicit-mutation boundary; keep human merge approval authoritative. |
 | `receiving-code-review` | 91% | A | Keep | Good methodology; verify feedback before implementing it. |
 | `refactor-plan` | 90% | A | Keep | Strong narrow owner for multi-file sequencing and rollback planning. |
 | `requesting-code-review` | 91% | A | Keep | Good pre-merge review methodology; avoid duplicating PR-Agent domain rules. |
