@@ -17,6 +17,27 @@
 9. **Docs-as-code.** Repo Markdown is the implementation source of truth; Linear is the planning/review mirror.
 10. **No duplicated authority.** Link to shared platform rules rather than copying them into every feature document.
 
+## 1.1 Readability standard for product-area docs
+
+Product-area docs must be understandable by both an engineer and a product/operator reviewer. Use **plain English first, technical detail second**.
+
+Required writing pattern:
+
+1. Start with a **30-second summary**: what works now, what stays, what improves.
+2. Explain important technical terms the first time they appear.
+3. Describe user journeys as **what the user does → what iPix does → what success looks like**.
+4. For every external repo, state: **Repo → what it teaches → what iPix adapts → where it lands → real iPix example → what we do not copy**.
+5. Describe gaps as **Problem → user/business impact → fix**.
+6. Describe implementation phases by **outcome**: what becomes true for the user/system after the phase.
+7. Add a short **What the user experiences** section around major architecture changes.
+8. End domain docs with **Next 3 actions**.
+9. Prefer concrete examples from real iPix flows over abstract architecture language.
+10. Keep exact files, URLs, versions, tests, and security evidence so the document remains executable.
+
+Default product-area structure:
+
+`30-second summary → Current State → Plain-English Terms → Real User Journeys → What We KEEP → Repo Reuse Map → Exact Adaptation Details → Problem/Impact/Fix → Simple Architecture → Outcome-based Implementation Phases → Tests/Success → Next 3 Actions → References`
+
 ## 2. Required source hierarchy
 
 Use references in this order:

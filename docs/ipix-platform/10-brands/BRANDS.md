@@ -1,53 +1,95 @@
-# iPix Brands — Current State, Reuse Matrix, and Implementation Plan
+# iPix Brands — How It Works, What We Keep, and What We Improve
 
 **Route:** https://www.ipix.co/app/brands
-**Status:** Current-state verified against `origin/main` baseline `4b0f15dde30800baf8d972d03c247ceee57f3fd5` on 2026-09-20.
+**Verified baseline:** `origin/main` at `4b0f15dde30800baf8d972d03c247ceee57f3fd5` on 2026-09-20
 **Standard:** `../00-platform/DOC-STANDARDS.md`
-**Purpose:** document the current Brands implementation, the real user journeys it supports, what should be kept, and which external patterns are worth adapting before any replacement work is planned.
 
-## 1. Current State
+## 30-second summary
 
-### 1.1 Routes and screens
+Brands already works as a real product flow. An operator can open a brand, start AI research, review a Brand DNA draft, approve or reject the exact draft they saw, and pass approved Brand context into Planner.
 
-| Area | Current implementation | Evidence |
+We are **not rebuilding Brands**. We are keeping the parts that are already correct and adding proven patterns from specific Mastra and CopilotKit repos where they clearly improve the experience.
+
+The main improvement path is:
+
+`Brand website → deeper evidence-backed research → clear human review → approved Brand memory → reusable context for Shoots/Planner`
+
+### What stays
+
+- Supabase remains the business source of truth.
+- Existing tenant isolation and RLS stay.
+- The durable Mastra Brand Intelligence workflow stays.
+- Human approval stays explicit.
+- The exact reviewed draft must still be the one that gets approved.
+- Existing tests stay as regression protection.
+
+### What improves
+
+- Better multi-step research instead of one-pass extraction.
+- Approved Brand knowledge can be reused later without re-researching the website.
+- Review UI becomes easier to understand with structured cards and evidence.
+- Planner/Shoots receive richer approved Brand context.
+- Browser automation is added only as a fallback for hard-to-read sites.
+
+## 1. Current State — what iPix already does today
+
+### 1.1 Screens and routes
+
+| User sees | What iPix does today | Main code |
 | --- | --- | --- |
-| Brands list | Authenticated, tenant-scoped browse page with count, cards, search, status filtering, empty/error states | `src/app/app/brands/page.tsx`; `src/components/brands/*` |
-| Brand detail | Brand DNA state machine: no analysis, running, failed, review, parse error, approved | `src/app/app/brands/[brandId]/page.tsx`; `src/app/app/brands/[brandId]/select-view.ts` |
-| Start analysis | Explicit operator action starts the durable Mastra Brand Intelligence workflow | `src/app/app/brands/[brandId]/actions.ts`; `src/components/brand/start-analysis-button.tsx` |
-| Draft review | Exact rendered draft can be approved or rejected by owner/editor | `src/components/brand/brand-dna-review-card.tsx`; `src/app/app/brands/[brandId]/actions.ts` |
-| Planner handoff | Authorized brand detail publishes `{id,name}` into Planner context | `src/app/app/brands/[brandId]/page.tsx`; `src/components/operator-panel/planner-context` |
+| Brands list | Shows only brands from the operator's organization, with search, status filters, count, empty/error states | `src/app/app/brands/page.tsx`; `src/components/brands/*` |
+| Brand detail | Shows the correct state: no analysis, analyzing, failed, ready for review, invalid draft, or approved | `src/app/app/brands/[brandId]/page.tsx`; `select-view.ts` |
+| Start analysis | Starts the existing durable Brand Intelligence workflow | `src/app/app/brands/[brandId]/actions.ts`; `start-analysis-button.tsx` |
+| Review Brand DNA | Owner/editor reviews and approves or rejects the exact draft shown | `brand-dna-review-card.tsx`; server actions |
+| Use Brand in Planner | Sends authorized Brand identity into Planner context | Brand detail page + `planner-context` |
 
-### 1.2 Data and authorization
+### 1.2 Plain-English technical terms used in this document
 
-- `/app/brands` resolves the trusted organization server-side and explicitly scopes brand reads by `org_id`; RLS remains defense in depth.
-- Brand detail treats RLS-protected `loadBrandDetail` as the authorization boundary; unknown, malformed, or foreign-org IDs render 404.
-- Draft decisions use the operator session JWT, not a model-supplied identity.
-- Approval/rejection is bound to the exact `draftHash` shown to the operator. The server RPC rejects stale or already-finalized drafts rather than approving unseen content.
-- Analysis startup validates owner/editor membership before work begins and prevents duplicate active runs.
-- Service-role access is used inside the durable workflow for system-side processing, while user decisions return to user-scoped RPC authorization.
+| Term | Simple meaning in iPix |
+| --- | --- |
+| **RLS** | Supabase database rules that stop one organization from reading another organization's data |
+| **Durable workflow** | Long-running work that can continue even if the browser closes or the user refreshes |
+| **HITL** | Human-in-the-loop: AI proposes, but a person makes the final decision |
+| **draftHash** | A fingerprint of the exact Brand DNA draft the operator reviewed; it prevents approving a newer unseen draft by mistake |
+| **pgvector** | Searchable vector storage in Postgres used to retrieve approved Brand knowledge by meaning, not just exact words |
+| **BrandContext** | A small approved package of Brand information that Planner/Shoots can safely reuse |
 
-### 1.3 Brand Intelligence workflow
+### 1.3 Security and authorization
+
+In plain English: **a user should only see and change Brands they are allowed to access.**
+
+Current protections already do this:
+
+- `/app/brands` resolves the trusted organization on the server and scopes reads to that org.
+- Brand detail relies on RLS-protected reads; invalid or foreign-org Brand IDs return 404.
+- The AI/model never supplies the operator identity. The server uses the real authenticated session.
+- Only owner/editor roles can approve or reject Brand DNA.
+- Approval is tied to the exact `draftHash` shown to the operator.
+- Duplicate active analyses are blocked.
+- System-side workflow work can use service-role access, but human decisions still go through user-scoped authorization.
+
+### 1.4 Current Brand Intelligence flow
 
 ```mermaid
 flowchart LR
-  A[Brand with website URL] --> B[Start analysis]
-  B --> C[validateBrand]
-  C --> D[startBrandCrawl]
-  D --> E[waitForCrawl suspend/resume]
-  E --> F[extractProfile]
-  F --> G[save draft + scores]
-  G --> H[Operator review]
-  H -->|Approve| I[Promote exact reviewed draft]
-  H -->|Reject| J[Clear/reject draft]
-  I --> K[Resume workflow + approved Brand DNA]
-  J --> L[Resume workflow + ready for rerun]
+  A[Brand website] --> B[Operator starts analysis]
+  B --> C[Verify brand + permission]
+  C --> D[Crawl website]
+  D --> E[Wait for crawl to finish]
+  E --> F[Extract Brand profile]
+  F --> G[Save draft + scores]
+  G --> H[Operator reviews exact draft]
+  H -->|Approve| I[Promote approved Brand DNA]
+  H -->|Reject| J[Reject draft and allow fresh run]
 ```
 
-Primary implementation: `src/mastra/workflows/brand-intelligence.ts` and `src/mastra/tools/brand-intelligence.ts`.
+Main implementation:
+- `src/mastra/workflows/brand-intelligence.ts`
+- `src/mastra/tools/brand-intelligence.ts`
 
-### 1.4 Current package baseline
+### 1.5 Current package baseline
 
-| Package | Current repo version |
+| Package | iPix version |
 | --- | --- |
 | Next.js | `16.3.5` |
 | `@copilotkit/runtime` | `1.68.1` |
@@ -58,342 +100,450 @@ Primary implementation: `src/mastra/workflows/brand-intelligence.ts` and `src/ma
 | `@supabase/supabase-js` | `2.112.4` |
 | `cloudinary` | `^2.11.0` |
 
-Do not copy example code that assumes newer APIs without first reconciling it with the installed package versions and IPI-1290's upgrade target.
+**Rule:** a GitHub example may use newer APIs. We adapt the pattern only after checking it against the versions iPix actually has installed and the IPI-1290 upgrade target.
 
-## 2. Primary User Journeys
+## 2. Real user journeys
 
-### Journey A — Browse and open a brand
+### Journey A — Browse and open a Brand
 
-`Sign in → resolve org → /app/brands → search/filter → open brand → tenant-authorized detail`
+**What the user does**
 
-Success means the list shows only the operator's organization, status filters reflect the real persisted state, and direct foreign-org URLs remain inaccessible.
+`Sign in → Brands → search/filter → open Brand`
+
+**What should happen**
+
+The operator sees only Brands from their organization. Search and status filters match the real data. Copying another organization's Brand URL directly into the browser still does not reveal it.
+
+**Real example**
+
+An operator searches for **Maaji**, opens the Brand, and sees only Maaji data belonging to their workspace.
 
 ### Journey B — Generate Brand DNA
 
-`Brand with URL → Start analysis → crawl → extraction → scores/profile draft → review state`
+**What the user does**
 
-Success means duplicate starts are prevented, failures move the brand to a retryable failed state, and the operator can refresh/reconnect without losing durable progress.
+`Open Brand → Start analysis → wait → review draft`
+
+**What iPix does**
+
+The workflow checks permission, crawls the site, extracts a profile, computes scores, saves a draft, and waits for human review.
+
+**Real example**
+
+For Maaji, iPix can extract product categories, visual direction, customer profile, tone, and competitor clues. Future improvements add deeper evidence-backed research before the draft is shown.
 
 ### Journey C — Human approval
 
-`Review exact draft → approve/reject → RPC validates role + exact draft hash → durable decision → workflow resume`
+**What the user does**
 
-Success means stale drafts cannot be approved, viewer-only users cannot decide, and retries do not create a second decision.
+`Review draft → Approve or Reject`
 
-### Journey D — Reanalyze an approved brand
+**What iPix protects**
 
-`Approved Brand DNA → Run a new analysis → fresh draft → fresh operator decision`
+The system only approves the exact draft the user reviewed. If the draft changed after it was displayed, approval fails and the operator must review again.
 
-The previous decision remains audit evidence; a new analysis must produce a new artifact/hash instead of mutating a finalized decision.
+**Real example**
 
-### Journey E — Use Brand context downstream
+The operator sees “Audience: resort-fashion customer” and approves that exact version. If AI generated a newer draft in the background, iPix does not silently approve the unseen version.
 
-`Authorized brand → Planner context → shoot planning / research / campaign work`
+### Journey D — Reanalyze an approved Brand
 
-The next architecture step should enrich this handoff without duplicating the Brands table as a second source of truth.
+`Approved Brand DNA → Run new analysis → new draft → new decision`
 
-## 3. Existing iPix Capabilities to KEEP
+A previous approval remains historical evidence. A fresh analysis produces a new draft instead of rewriting the old decision.
 
-| Capability | Action | Why |
+### Journey E — Reuse Brand knowledge in Shoots
+
+`Approved Brand → Planner/Shoots → shoot direction → shot list → talent/assets`
+
+**Real example**
+
+Planner asks: “What does Maaji look and sound like?” Instead of researching Maaji again, iPix should retrieve the approved Brand DNA and selected approved images, then use that context to build an ecommerce PDP shoot.
+
+## 3. Existing iPix capabilities to KEEP
+
+| Keep this | Why it is already valuable | Real-world effect |
 | --- | --- | --- |
-| Server-side tenant resolution | **KEEP** | Already enforces trusted org selection before reads |
-| Supabase RLS + explicit org scoping | **KEEP** | Proven cross-tenant boundary and defense in depth |
-| Durable Brand Intelligence workflow | **KEEP / ADAPT** | Correct fit for crawl/extract/review work that outlives a single chat turn |
-| Exact `draftHash` approval contract | **KEEP** | Strong optimistic-concurrency and human-review boundary |
-| Approval audit/recovery logic | **KEEP** | Handles committed-decision + failed-resume recovery |
-| Duplicate analysis guard | **KEEP** | Prevents concurrent duplicate work |
-| Brand profile Zod contract | **KEEP** | Existing schema is already product-specific |
-| Planner brand context | **KEEP / EXPAND** | Correct downstream handoff point; expand data deliberately |
-| Existing browser/unit/security tests | **KEEP** | Already cover real tenant and status behavior |
+| Server-side tenant resolution | Trusted org is resolved before reads | User never chooses an org ID that grants extra access |
+| Supabase RLS + explicit org filters | Strong tenant boundary | Org B cannot open Org A's Brand |
+| Durable Brand Intelligence workflow | Correct for work that lasts longer than one chat turn | User can close/refresh while analysis continues |
+| Exact `draftHash` approval | Prevents stale/unseen approval | User approves exactly what they reviewed |
+| Approval audit/recovery | Handles “DB commit succeeded, workflow resume failed” cases | Retry can recover without a duplicate decision |
+| Duplicate-run protection | Avoids two analyses racing on the same Brand | No accidental double crawl/double draft |
+| Brand profile Zod contract | Product-specific schema already exists | New research enriches a known structure |
+| Planner Brand context | Correct handoff point | We expand this instead of inventing a second context system |
+| Existing tests | Already prove tenant and workflow behavior | Future changes have a safety net |
 
-## 4. Brands Reuse Matrix — What We Are Adapting for iPix
+## 4. Repo reuse map — exactly what we adapt for iPix
 
-Use this section as the implementation map. Each row answers five questions: **which repo**, **what pattern we are taking**, **how we change it for iPix**, **where it lands in iPix**, and **what the user actually experiences**.
+Each row must answer: **which repo, what we take, what changes for iPix, where it goes, and what the user experiences.**
 
-| Repo / example | Action | What we adapt | Where it lands in iPix | Real iPix example |
+| Repo / example | Action | What we take | iPix target | Real iPix example |
 | --- | --- | --- | --- | --- |
-| Mastra Deep Search — https://github.com/mastra-ai/template-deep-search | **ADAPT** | Research decomposition, iterative search, evidence gathering, gap checking, evaluator loop | `src/mastra/workflows/brand-intelligence.ts` and supporting research tools | A fashion brand enters `maaji.com.co`; iPix researches collections, product positioning, visual themes, sustainability claims and competitors, then produces evidence-backed Brand DNA instead of one-pass extraction |
-| Mastra Company Knowledge — https://github.com/mastra-ai/template-company-knowledge | **ADAPT** | Index approved knowledge into pgvector; search approved corpus first; fall back to fresh sources only when needed | Supabase Postgres/pgvector projection of approved Brand DNA, evidence and approved assets | During a later swimwear shoot, Planner asks “what colors, tone and customer profile define Maaji?” and gets approved Brand knowledge immediately instead of researching the website again |
-| Mastra Browsing Agent — https://github.com/mastra-ai/template-browsing-agent | **ADAPT LATER** | Browser session handling, navigation, observation and structured extraction | Fallback research tool called only when the primary crawler cannot reliably extract required pages | A Shopify collection hides product details behind client-side interactions; the browser agent opens the page, selects the collection and extracts the missing details, while normal brands keep using the cheaper crawler |
-| CopilotKit Generative UI — https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/generative-ui | **ADAPT** | Typed agent-rendered React components and controlled HITL UI | `BrandDNAReviewCard` and future evidence/competitor/recommendation cards | Instead of a long chat response, the operator sees Brand Voice, Audience, Palette, Competitors and evidence as structured cards and explicitly approves or rejects the draft |
-| CopilotKit Mastra PM Canvas — https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/mastra-pm | **MODEL / ADAPT** | Shared structured state that humans and agents can edit together | Planner/Shoots Brand context handoff; not a new competing Brand database | Operator changes “Primary shoot goal” from editorial to ecommerce PDP; Planner and the agent see the same updated plan while approved Brand DNA remains unchanged |
-| CopilotKit Mastra integration — https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra | **REFERENCE / ADAPT** | Current CopilotKit ↔ Mastra registration and AG-UI integration conventions | Shared CopilotKit runtime and Brand-facing agent integration | A user asks the iPix copilot to “analyze this brand”; CopilotKit invokes the existing Mastra Brand workflow without creating a second brand-analysis backend |
-| Mastra core — https://github.com/mastra-ai/mastra | **KEEP / REFERENCE** | First-party workflow suspend/resume, storage and current APIs compatible with installed versions | Existing Brand Intelligence workflow/runtime | Crawl finishes after the browser session is gone; persisted workflow state still reaches draft review when the operator returns |
-| Cloudinary — https://cloudinary.com/documentation | **KEEP / ADAPT** | Existing media storage/transforms plus selected approved asset references in Brand context | Existing Cloudinary integration + BrandContext projection | Brand DNA says “bright tropical prints”; Planner can also retrieve approved campaign/product images that demonstrate that style instead of relying only on text |
+| Mastra Deep Search — https://github.com/mastra-ai/template-deep-search | **ADAPT** | Break research into smaller questions, gather evidence, detect gaps, evaluate quality | `brand-intelligence.ts` + research tools | Maaji research becomes audience + product + visual style + positioning + competitors instead of one-pass extraction |
+| Mastra Company Knowledge — https://github.com/mastra-ai/template-company-knowledge | **ADAPT** | Approved knowledge index + retrieval-first behavior | Supabase pgvector projection of approved Brand DNA/evidence/assets | Planner asks for Maaji's visual rules weeks later and gets approved context immediately |
+| Mastra Browsing Agent — https://github.com/mastra-ai/template-browsing-agent | **ADAPT LATER** | Browser navigation, observation, action, extraction, session handling | Fallback research tool only | Shopify PDP needs “Load more”; browser fallback extracts the missing details |
+| CopilotKit Generative UI — https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/generative-ui | **ADAPT** | Typed React cards + explicit human decisions | `BrandDNAReviewCard` and future evidence cards | Operator reviews Audience, Voice, Palette, Competitors, Evidence as cards instead of a wall of text |
+| CopilotKit Mastra PM — https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/mastra-pm | **MODEL / ADAPT** | Shared editable agent/human state | Brand → Planner/Shoots handoff | Operator changes “Editorial” to “Ecommerce PDP + 20% Editorial”; Planner immediately uses the new plan |
+| CopilotKit Mastra integration — https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra | **REFERENCE / ADAPT** | Current CopilotKit ↔ Mastra integration pattern | Existing CopilotKit runtime | “Analyze this Brand” uses the same hardened Brand workflow, not a second backend |
+| Mastra core — https://github.com/mastra-ai/mastra | **KEEP / REFERENCE** | Workflow suspend/resume and persisted state | Existing Brand workflow | Crawl can finish after browser closes and still reach review later |
+| Cloudinary — https://cloudinary.com/documentation | **KEEP / ADAPT** | Existing media storage/transforms + approved asset references | BrandContext + current Cloudinary stack | Planner sees actual approved images that demonstrate “bright tropical prints” |
 
-### 4.1 Exact repo-to-iPix adaptation details
-
-#### A. Mastra Deep Search → better Brand research
+### 4.1 Mastra Deep Search → better Brand research
 
 **Repo:** https://github.com/mastra-ai/template-deep-search
 **Local clone:** `/home/sk/ipixai/github/mastra/clones/template-deep-search` @ `c2c8fa478d5a25d3a9e188efe757b670d03d97fb`
 
-**We are NOT copying:** its whole app, provider setup, storage or `latest` package versions.
+**What the repo teaches us**
 
-**We ARE adapting:** research decomposition, multiple evidence passes, gap detection, evaluation before finalization, and evidence attached to conclusions.
+Do not ask one giant research question and trust the first answer. Split the job, collect evidence, find missing information, and evaluate the result before finalizing it.
 
-**iPix implementation:** extend the existing Brand Intelligence workflow rather than replace it. Current crawl → extraction → approval stays intact. The adapted research stage enriches the draft before review.
+**What we adapt in iPix**
 
-**Real-world iPix example:** for Maaji, research can separately investigate customer, product categories, visual language, pricing/positioning and competitors. The final Brand DNA can say *why* a conclusion was made and link it to evidence.
+- research decomposition;
+- multiple evidence passes;
+- gap detection;
+- evaluation before final draft;
+- evidence attached to conclusions.
 
-#### B. Mastra Company Knowledge → approved Brand memory
+**Where it goes**
+
+Extend the existing Brand Intelligence workflow. Do **not** replace crawl → extraction → approval.
+
+**Real iPix example**
+
+For Maaji, iPix investigates customer, product categories, visual language, pricing/positioning, sustainability claims, and competitors separately. Brand DNA can then explain *why* it concluded “colorful resort-fashion positioning” and show evidence.
+
+**What we do not copy**
+
+The starter app, its provider setup, storage choices, or blindly using its latest package versions.
+
+### 4.2 Mastra Company Knowledge → approved Brand memory
 
 **Repo:** https://github.com/mastra-ai/template-company-knowledge
 **Local clone:** `/home/sk/ipixai/github/mastra/clones/template-company-knowledge` @ `6fc6a774ae13f97095a6e1d2288049c9e9ee1aab`
 
-**We are NOT copying:** Neon-specific infrastructure, Linear/Notion connectors, or its database as a new source of truth.
+**What the repo teaches us**
 
-**We ARE adapting:** retrieval-first behavior: index approved knowledge, search that corpus first, and use fresh external research only when the approved corpus cannot answer the question.
+Search approved internal knowledge first. Only do fresh external research when the trusted knowledge base cannot answer the question.
 
-**iPix implementation:** approved Brand DNA, approved research evidence and selected approved assets become a derived pgvector knowledge projection in Supabase. `brands` remains authoritative.
+**What we adapt in iPix**
 
-**Real-world iPix example:** three weeks after Brand onboarding, a stylist asks the Planner for Maaji’s visual rules. iPix retrieves the approved Brand DNA immediately; it does not pay to crawl and reinterpret Maaji’s site again unless fresh information is needed.
+Approved Brand DNA, approved research evidence, and selected approved assets become a searchable pgvector projection in Supabase.
 
-#### C. Mastra Browsing Agent → controlled browser fallback
+**Real iPix example**
+
+Three weeks after onboarding, a stylist asks “What colors and tone define Maaji?” iPix retrieves the approved answer immediately instead of crawling Maaji again.
+
+**What remains authoritative**
+
+The actual `brands` data and approved Brand records. The vector index is a searchable copy, not a second source of truth.
+
+**What we do not copy**
+
+Neon-specific infrastructure, unrelated Linear/Notion connectors, or a separate competing database.
+
+### 4.3 Mastra Browsing Agent → fallback for difficult websites
 
 **Repo:** https://github.com/mastra-ai/template-browsing-agent
 **Local clone:** `/home/sk/ipixai/github/mastra/clones/template-browsing-agent` @ `fe841f7d12b82ce4de2eabf8e61d0fae5878ad96`
 
-**We are NOT copying:** browser-first architecture or mandatory Browserbase usage for every Brand analysis.
+**What we adapt**
 
-**We ARE adapting:** browser navigation, element observation, actions, structured extraction, session timeout and reconnection patterns.
+Browser navigation, page observation, actions, structured extraction, timeout/session handling.
 
-**iPix implementation:** browser automation is a fallback tool invoked by Brand Intelligence only for pages the normal crawler cannot extract reliably.
+**When iPix uses it**
 
-**Real-world iPix example:** a product collection renders only after JavaScript and requires clicking “Load more.” The fallback browser can do that specific work and return structured evidence to the same Brand workflow.
+Only when the cheaper primary crawler cannot get the required data.
 
-#### D. CopilotKit Generative UI → better Brand review UX
+**Real iPix example**
+
+A Shopify collection renders after JavaScript and needs “Load more.” The fallback browser performs that one difficult step and returns the extracted evidence to the same Brand workflow.
+
+**What we do not copy**
+
+A browser-first architecture or mandatory Browserbase usage for every Brand.
+
+### 4.4 CopilotKit Generative UI → easier Brand review
 
 **Repo:** https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/generative-ui
-**Local monorepo:** `/home/sk/ipixai/github/CopilotKit` @ `47c5510b4909f6728288ecf28d7b14cd14922d33`
+**Local repo:** `/home/sk/ipixai/github/CopilotKit` @ `47c5510b4909f6728288ecf28d7b14cd14922d33`
 
-**We are NOT copying:** arbitrary AI-generated application chrome or allowing the model to decide approval.
+**What we adapt**
 
-**We ARE adapting:** typed React renderers, structured agent output and explicit human-in-the-loop interactions.
+Typed React renderers, structured agent output, and explicit human-in-the-loop controls.
 
-**iPix implementation:** evolve `src/components/brand/brand-dna-review-card.tsx` into richer structured review cards while keeping the current exact-draft-hash approval contract.
+**Where it goes**
 
-**Real-world iPix example:** instead of reading a large paragraph, the operator reviews separate cards for Audience, Brand Voice, Visual Direction, Competitors and Evidence, then explicitly approves the exact draft shown.
+Improve `src/components/brand/brand-dna-review-card.tsx` while preserving the current `draftHash` approval protection.
 
-#### E. CopilotKit Mastra PM Canvas → shared planning state
+**Real iPix example**
+
+The operator sees separate cards for Audience, Brand Voice, Visual Direction, Competitors, and Evidence, then approves the exact draft shown.
+
+**What we do not copy**
+
+Arbitrary AI-generated application UI or AI self-approval.
+
+### 4.5 CopilotKit Mastra PM → shared Brand-to-Shoot plan
 
 **Repo:** https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/mastra-pm
-**Local monorepo:** `/home/sk/ipixai/github/CopilotKit` @ `47c5510b4909f6728288ecf28d7b14cd14922d33`
+**Local repo:** `/home/sk/ipixai/github/CopilotKit` @ `47c5510b4909f6728288ecf28d7b14cd14922d33`
 
-**We are NOT copying:** the project-management product or creating another canonical Brand store.
+**What we adapt**
 
-**We ARE adapting:** shared structured state between agent and operator, multiple clients/views, and editable cards.
+One structured plan that both the human and agent can edit and see.
 
-**iPix implementation:** use these patterns when Brand context is handed into Planner/Shoots. Approved Brand DNA stays read-only business truth; the shoot/strategy plan becomes the editable shared state.
+**How iPix uses it**
 
-**Real-world iPix example:** the agent proposes “editorial resort campaign,” the operator changes it to “ecommerce PDP + 20% editorial,” and the Shoot Planner immediately works from that updated shared plan without modifying Brand DNA.
+Approved Brand DNA remains read-only truth. The **shoot plan** is the editable shared state.
 
-#### F. CopilotKit Mastra integration → one agent/runtime path
+**Real iPix example**
+
+AI proposes “editorial resort campaign.” The operator changes it to “ecommerce PDP + 20% editorial.” Planner immediately continues from that updated plan without changing Brand DNA.
+
+**What we do not copy**
+
+The project-management product itself or a second canonical Brand store.
+
+### 4.6 CopilotKit Mastra integration → one path into Brand Intelligence
 
 **Repo:** https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra
-**Local monorepo:** `/home/sk/ipixai/github/CopilotKit` @ `47c5510b4909f6728288ecf28d7b14cd14922d33`
 
-**We are NOT copying:** demo assumptions that a single in-process runtime proves cross-instance production behavior.
+**What we adapt**
 
-**We ARE adapting:** current first-party patterns for registering Mastra agents/workflows with CopilotKit and exposing them through AG-UI.
+Current first-party patterns for exposing Mastra agents/workflows through CopilotKit/AG-UI.
 
-**iPix implementation:** keep the existing CopilotKit route as the user-facing agent gateway and call the same hardened Brand tools/workflows from it. Do not create a second Brand Intelligence API just for chat.
+**How iPix uses it**
 
-**Real-world iPix example:** an operator types “analyze this brand” in the iPix copilot. The chat invokes the same `startBrandAnalysis` tool used elsewhere, so auth, duplicate-run protection and durable review behavior stay consistent.
+The existing CopilotKit route stays the user-facing gateway and invokes the same Brand tools/workflow already used elsewhere.
 
-#### G. Mastra core → keep the durable workflow foundation
+**Real iPix example**
+
+User types “analyze this Brand.” Chat calls `startBrandAnalysis`; auth, duplicate-run protection, and human review remain exactly the same.
+
+**What we do not copy**
+
+The demo assumption that one in-process runtime proves distributed production behavior. IPI-1292 remains the platform task for that problem.
+
+### 4.7 Mastra core → keep durable workflow behavior
 
 **Repo:** https://github.com/mastra-ai/mastra
-**Local clone:** `/home/sk/ipixai/github/mastra/clones/mastra`
+**Installed iPix version:** `@mastra/core` `1.63.2`
 
-**Action:** **KEEP / REFERENCE**, not a rewrite.
+**Decision:** **KEEP / REFERENCE**, not rewrite.
 
-**We ARE using:** Mastra workflow steps, suspend/resume and persisted workflow state already present in Brand Intelligence. New patterns must be reconciled with installed `@mastra/core` `1.63.2` and IPI-1290 before adoption.
+**Real iPix example**
 
-**Real-world iPix example:** a crawl starts, the user closes the browser, and the workflow later reaches draft review from persisted state. That is why Brand Intelligence should remain a durable workflow instead of being rewritten as one long chat request.
+A Brand crawl starts, the user closes the tab, and the workflow can still later reach draft review from persisted state.
 
-#### H. Cloudinary → connect visual evidence to Brand context
+### 4.8 Cloudinary → add visual evidence to Brand context
 
 **Reference:** https://cloudinary.com/documentation
 
-**Action:** **KEEP / ADAPT** the existing iPix Cloudinary integration.
+**Decision:** keep the existing iPix Cloudinary stack.
 
-**We ARE adapting:** the Brand context should reference selected approved product/editorial assets and their existing Cloudinary delivery/transformation metadata.
+**What improves**
 
-**We are NOT doing:** replacing Cloudinary with storage from a reference template.
+BrandContext can reference selected approved product/editorial assets and their existing delivery/transformation metadata.
 
-**Real-world iPix example:** when Planner says Maaji uses vivid tropical patterns, the operator can see approved iPix assets that demonstrate the visual direction alongside the textual Brand DNA.
+**Real iPix example**
 
-### 4.2 Adaptation priority
+Brand DNA says “vivid tropical patterns.” Planner can show approved images that prove what that means visually.
 
-| Order | Adaptation | Reason |
+### 4.9 Recommended adaptation order
+
+| Order | Adaptation | Why first/next |
 | --- | --- | --- |
-| 1 | **Deep Search → Brand research quality** | Highest direct improvement to Brand DNA without replacing the existing workflow |
-| 2 | **Company Knowledge → approved Brand memory** | Prevents repeated research and gives Shoots/Planner reliable approved context |
-| 3 | **Generative UI → Brand review** | Makes evidence and decisions much easier for operators to understand |
-| 4 | **Mastra PM → Brand-to-Shoot shared plan** | Connects Brands to the next core iPix user journey |
-| 5 | **Browsing Agent → fallback only** | Useful, but more expensive/complex and only needed for hard-to-extract sites |
-| 6 | **CopilotKit Mastra integration / Mastra core** | Shared platform alignment; do not treat these as Brands-specific rewrites |
+| 1 | Deep Search → research quality | Biggest direct improvement to Brand DNA while keeping current workflow |
+| 2 | Company Knowledge → approved Brand memory | Stops repeated research and feeds Shoots/Planner |
+| 3 | Generative UI → clearer review | Makes evidence and approval easier for operators |
+| 4 | Mastra PM → Brand-to-Shoot plan | Connects Brands to the next core product journey |
+| 5 | Browsing Agent → fallback | Valuable only for difficult sites; higher complexity/cost |
+| 6 | CopilotKit/Mastra integration alignment | Shared platform concern, not a Brands-only rewrite |
 
-**Important:** the standalone https://github.com/CopilotKit/mastra-pm-canvas repository is archived and points to the active CopilotKit monorepo path `examples/canvas/mastra-pm`.
+## 5. Gaps and blockers — Problem → Impact → Fix
 
-## 5. Gaps / Blockers
-
-| Priority | Gap | Why it matters | Recommended next move |
+| Priority | Problem | User/business impact | Fix |
 | --- | --- | --- | --- |
-| P0 | Remote Mastra auth/context cannot rely on request-local `AsyncLocalStorage` if execution moves to another process/service | `requestToken` is currently process-local | Solve through the shared platform/IPI-1292 architecture before remote execution of these tools |
-| P0 | Distributed run ownership/stop/reconnect is a platform concern, not a Brands-specific fix | Brand workflow is durable, but interactive run ownership remains separate | Keep IPI-1292 independent; do not rewrite Brand workflow to solve it |
-| P1 | Brand research evidence is not yet modeled as a reusable approved knowledge corpus | Downstream agents may re-research instead of reusing approved evidence | Design approved-evidence indexing using Company Knowledge patterns |
-| P1 | Competitor/product research orchestration can be more systematic | Existing extraction produces Brand DNA but does not yet expose a reusable deep-research loop | Spike Deep Search patterns against the current workflow before changing production |
-| P1 | Planner handoff only carries brand ID/name | Shoots/Planner need richer approved context | Define a small versioned BrandContext projection from approved profile/scores |
-| P1 | Browser fallback criteria are not explicit | Browser automation is expensive and operationally heavier | Use API/crawl/extract first; invoke browser only for specific unsupported pages/failures |
-| P2 | Brand asset/media evidence linkage needs a current-state audit | Brand identity work should be able to reference approved product/editorial assets | Audit existing Cloudinary asset relations before adding schema |
-| P2 | Analysis retry/timeout/observability policy is distributed across workflow code | Operational behavior should be measurable and consistent | Align with platform retry/SLO standards rather than invent Brands-only rules |
+| P0 | Remote execution cannot depend on request-local `AsyncLocalStorage` | Brand tools could lose authenticated user context if execution moves to another process/service | Solve in shared platform architecture through IPI-1292 before remote execution |
+| P0 | Distributed run ownership/stop/reconnect is not a Brands-specific problem | Interactive AI runs can still fail across server instances even though Brand workflow state is durable | Keep IPI-1292 separate; do not rewrite Brand workflow as a workaround |
+| P1 | Approved research is not yet reusable knowledge | Planner/Shoots may pay to research the same Brand again | Add approved Brand knowledge projection using Company Knowledge pattern |
+| P1 | Research orchestration is still relatively one-pass | Brand DNA can miss evidence or weakly supported conclusions | Adapt Deep Search decomposition + gap/evaluation loop |
+| P1 | Planner receives only Brand ID/name | Shoot planning lacks approved audience/style/voice context | Create a small versioned approved `BrandContext` |
+| P1 | Browser fallback rules are undefined | Browser automation could become slow/expensive if overused | Define exact crawler failure cases that justify browser fallback |
+| P2 | Brand ↔ approved asset linkage needs audit | Text Brand DNA lacks direct visual proof | Audit current Cloudinary/asset relationships before adding schema |
+| P2 | Retry/timeout/observability rules are spread across workflow code | Failures are harder to operate consistently | Use shared platform retry/SLO rules instead of Brands-only rules |
 
-## 6. Recommended Architecture
+## 6. Recommended architecture — simple view
 
 ```mermaid
 flowchart TD
-  UI[/app/brands/] --> AUTH[Supabase auth + trusted org]
-  AUTH --> BDB[(Brands / scores / approvals)]
-  UI --> ACTION[Explicit start / approve / reject]
-  ACTION --> WF[Mastra Brand Intelligence workflow]
-  WF --> CRAWL[Primary crawl / extraction]
-  CRAWL --> RESEARCH[Structured research + evaluation]
-  RESEARCH --> DRAFT[Brand DNA draft + evidence]
-  DRAFT --> REVIEW[Operator review]
-  REVIEW --> BDB
-  BDB --> KNOW[Approved Brand knowledge projection]
-  KNOW --> PLANNER[Planner / Shoots / CRM agents]
-  CRAWL -. fallback only .-> BROWSER[Browser agent]
-  ASSETS[Cloudinary approved assets] --> KNOW
+  UI[Brands UI] --> AUTH[Auth + trusted organization]
+  AUTH --> DB[(Canonical Brand data)]
+  UI --> ACTION[Start / Approve / Reject]
+  ACTION --> WF[Mastra Brand Intelligence]
+  WF --> CRAWL[Primary crawl]
+  CRAWL --> RESEARCH[Evidence-backed research]
+  RESEARCH --> DRAFT[Brand DNA draft]
+  DRAFT --> REVIEW[Human review]
+  REVIEW --> DB
+  DB --> KNOW[Approved searchable Brand knowledge]
+  KNOW --> PLAN[Planner / Shoots / CRM]
+  CRAWL -. only when needed .-> BROWSER[Browser fallback]
+  ASSETS[Approved Cloudinary assets] --> KNOW
 ```
+
+### What the user experiences
+
+1. Add/open a Brand.
+2. Start analysis.
+3. iPix researches the Brand and gathers evidence.
+4. The operator reviews a structured Brand DNA draft.
+5. The operator approves or rejects it.
+6. Approved knowledge becomes reusable by Planner/Shoots.
+7. Future work starts from approved Brand knowledge instead of researching from zero.
 
 ### Architecture rules
 
-1. `brands` and related approved-profile tables remain the business source of truth.
-2. RAG/knowledge indexes are derived projections, never a competing authority.
-3. Research may propose facts; approval determines what becomes reusable Brand truth.
-4. Browser automation is fallback, not the default crawler.
-5. Planner/Shoots consume an explicit approved `BrandContext` projection rather than raw unrestricted tables.
-6. Human approval stays outside model autonomy. The model must never approve its own Brand DNA.
-7. Shared platform runtime/auth/run-ownership decisions remain in `00-platform`, not duplicated here.
+1. Supabase Brand records remain the business truth.
+2. Vector/search indexes are derived copies, not competing truth.
+3. AI can propose; only a human can approve.
+4. Browser automation is fallback, not default.
+5. Planner/Shoots receive only approved, authorized BrandContext.
+6. Shared runtime/auth/run-ownership problems stay in `00-platform` and IPI-1292.
 
-## 7. Implementation Order
+## 7. Implementation order — what becomes true after each phase
 
-### Phase 1 — Lock the current Brands baseline
+### Phase 1 — Protect what already works
 
-1. Keep current list/detail/workflow/approval behavior unchanged.
-2. Run the targeted Brands unit/component/E2E/security suites before feature work.
-3. Record any current production gaps separately from reference-repo opportunities.
+**Outcome:** current Brands behavior stays stable while improvements are added.
 
-### Phase 2 — Define the downstream Brand context contract
+- Keep list/detail/workflow/approval behavior unchanged.
+- Run current Brands regression/security tests before feature changes.
+- Separate real existing bugs from “nice reference repo ideas.”
 
-1. Specify the minimum approved fields Shoots/Planner/CRM actually need.
-2. Add contract tests for tenant scoping and approved-only data.
-3. Reuse the existing Planner context handoff rather than adding another parallel context system.
+### Phase 2 — Planner can safely reuse approved Brand context
 
-### Phase 3 — Improve research quality
+**Outcome:** Shoots/Planner can consume useful Brand context without reading raw unrestricted Brand tables.
 
-1. Inspect Deep Search's concrete research/evaluation loop against the current workflow.
-2. ADAPT only missing orchestration primitives: query decomposition, evidence gathering, gap checks, citation/evidence binding.
-3. Keep the current crawl, approval, Supabase, and Brand profile contracts unless a failing test proves they block the design.
+- Define the minimum approved fields needed by Planner/Shoots/CRM.
+- Create a small versioned `BrandContext` contract.
+- Add tenant + approved-only contract tests.
+- Expand the existing Planner handoff instead of inventing another context system.
 
-### Phase 4 — Add approved Brand knowledge retrieval
+**Real example:** Planner receives Maaji audience, voice, visual direction and approved reference assets—not just `{id,name}`.
 
-1. Index only approved evidence/profile material into the existing Postgres/pgvector strategy.
-2. Retrieval returns citations back to canonical records.
-3. Re-index on a new approved Brand DNA version; never silently index a pending draft as approved truth.
+### Phase 3 — Brand research becomes evidence-backed
+
+**Outcome:** Brand DNA conclusions come from a repeatable research loop, not just one-pass extraction.
+
+- Adapt Deep Search question decomposition.
+- Add multiple evidence gathering passes where useful.
+- Add gap checks and evaluation before final draft.
+- Keep current crawl, approval and profile contracts unless evidence shows they block the design.
+
+**Real example:** “Maaji is colorful resort fashion” includes evidence from product/collection pages and competitor context.
+
+### Phase 4 — Approved Brand knowledge becomes reusable memory
+
+**Outcome:** downstream agents can retrieve approved Brand knowledge quickly.
+
+- Index only approved Brand DNA/evidence/assets into Supabase pgvector.
+- Return links/citations to canonical records.
+- Re-index after a new approved Brand DNA version.
+- Never index pending/rejected drafts as approved truth.
+
+**Real example:** a new shoot three weeks later starts from approved Brand context in seconds instead of re-crawling the website.
 
 ### Phase 5 — Add browser fallback only where proven necessary
 
-1. Define exact crawl/extraction failure classes that justify browser automation.
-2. Prototype against representative brand/PDP sites.
-3. Add timeout, abort, cost, and tenant-isolation tests before production use.
+**Outcome:** difficult JavaScript-heavy sites can still be researched without making browser automation the default.
 
-## 8. Tests / Success Criteria
+- Define the specific failure types that trigger browser fallback.
+- Test representative PDP/collection sites.
+- Add timeout, abort, cost, and tenant-isolation checks.
 
-### Existing proof to preserve
+## 8. Tests and success criteria
 
-- `e2e/brands-journey.spec.ts`: authenticated load, live content/empty state, search, real status filtering, cross-org direct-URL denial, unknown/non-UUID denial.
-- `tests/get-brands.test.ts`: list/count DAL behavior.
-- `tests/get-brand-detail.test.ts`: detail read behavior.
-- `tests/brand-detail-actions.test.ts`: server action behavior.
-- `tests/brand-intelligence-tools.test.ts`: tool auth/approval/recovery behavior.
-- `tests/brand-intelligence-resume-route.test.ts`: workflow resume path.
-- `tests/brand-profile-contract.test.ts`: profile schema contract.
-- component tests under `src/components/brand*`.
-- Supabase security tests for Brand write boundaries, draft snapshot isolation, and crawl claim concurrency.
+### Existing tests we must preserve
 
-### Required acceptance for future Brands work
+- `e2e/brands-journey.spec.ts` — authenticated load, live/empty state, search, status filter, cross-org denial, invalid IDs.
+- `tests/get-brands.test.ts` — list/count DAL.
+- `tests/get-brand-detail.test.ts` — detail reads.
+- `tests/brand-detail-actions.test.ts` — server actions.
+- `tests/brand-intelligence-tools.test.ts` — tool auth, approval and recovery.
+- `tests/brand-intelligence-resume-route.test.ts` — workflow resume.
+- `tests/brand-profile-contract.test.ts` — Brand profile contract.
+- Component tests under `src/components/brand*`.
+- Supabase security tests covering Brand write boundary, draft snapshot isolation, and crawl claim concurrency.
 
-| Gate | Success criterion |
+### Future Brands work is successful when
+
+| Gate | Plain-English success condition |
 | --- | --- |
-| Tenant isolation | Foreign-org brand/detail/draft/evidence remains inaccessible |
-| Approval integrity | Stale or changed draft cannot be approved; one exact artifact has one durable final decision |
-| Idempotency | Retry does not duplicate approved profile, scores, approval row, or workflow effects |
-| Research evidence | Every reusable research claim links to stored evidence/source |
-| Approved knowledge | Pending/rejected drafts never appear as approved downstream knowledge |
-| Planner handoff | BrandContext contains only authorized approved fields and survives refresh/reconnect |
-| Browser fallback | Failure of browser automation cannot corrupt canonical Brand state |
-| Observability | Analysis failure identifies workflow/run/brand and leaves a retryable durable status |
-| Regression | Existing targeted unit/component/E2E/security tests remain green |
+| Tenant isolation | Another organization still cannot access this Brand or its research |
+| Approval integrity | User can only approve the exact draft they reviewed |
+| Idempotency | Retrying does not create duplicate approval/profile/score effects |
+| Evidence | Important research claims point to stored evidence/source |
+| Approved memory | Pending/rejected drafts never appear as approved knowledge |
+| Planner handoff | Planner receives only authorized approved BrandContext |
+| Browser fallback | Browser failure cannot damage canonical Brand data |
+| Observability | A failed analysis identifies Brand/run and leaves a safe retry state |
+| Regression | Existing Brand tests remain green |
 
 ### Verification commands
 
-Run targeted tests before and after a Brands change:
-
 ```bash
-npx vitest run \
-  tests/get-brands.test.ts \
-  tests/get-brand-detail.test.ts \
-  tests/brand-detail-actions.test.ts \
-  tests/brand-intelligence-tools.test.ts \
-  tests/brand-intelligence-resume-route.test.ts \
-  tests/brand-profile-contract.test.ts \
-  src/components/brand/brand-dna-review-card.test.tsx \
-  src/components/brands/brands-list-workspace.test.tsx
+npx vitest run   tests/get-brands.test.ts   tests/get-brand-detail.test.ts   tests/brand-detail-actions.test.ts   tests/brand-intelligence-tools.test.ts   tests/brand-intelligence-resume-route.test.ts   tests/brand-profile-contract.test.ts   src/components/brand/brand-dna-review-card.test.tsx   src/components/brands/brands-list-workspace.test.tsx
 
 npx playwright test e2e/brands-journey.spec.ts
 npm run docs:check
 git diff --check
 ```
 
-Supabase security checks should be run for any migration/RLS/RPC change affecting Brands; use the exact security tests touched by that change rather than assuming frontend tests prove database isolation.
+For any Brands migration/RLS/RPC change, run the exact affected Supabase security tests too. Frontend tests do not prove database isolation.
 
-## 9. References
+## 9. Next 3 actions
+
+1. **Define `BrandContext`** — decide exactly what approved Brand data Planner/Shoots need.
+2. **Adapt Deep Search research loop** — prototype decomposition/evidence/evaluation inside existing Brand Intelligence.
+3. **Design approved Brand memory** — map approved Brand DNA/evidence/assets into Supabase pgvector without creating a second source of truth.
+
+## 10. References
 
 ### iPix
 
 - Production Brands: https://www.ipix.co/app/brands
-- iPix repository: https://github.com/amoai-tech/ipixai
-- Platform issue: https://linear.app/amo100/issue/IPI-1293/ipix-agent-platform-agent-platform-001-rebuild-forward-from-proven
+- Repository: https://github.com/amoai-tech/ipixai
+- Platform architecture issue: https://linear.app/amo100/issue/IPI-1293/ipix-agent-platform-agent-platform-001-rebuild-forward-from-proven
 - Distributed runner spike: https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross
 
 ### CopilotKit
 
-- Main repository: https://github.com/CopilotKit/CopilotKit
+- Repository: https://github.com/CopilotKit/CopilotKit
 - Mastra integration: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra
-- Mastra PM Canvas: https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/mastra-pm
+- Mastra PM: https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/mastra-pm
 - Generative UI: https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/generative-ui
-- Generative UI reference repository (consolidated into monorepo): https://github.com/CopilotKit/generative-ui
 
 ### Mastra
 
-- Mastra core: https://github.com/mastra-ai/mastra
-- Deep Search template: https://github.com/mastra-ai/template-deep-search
-- Browsing Agent template: https://github.com/mastra-ai/template-browsing-agent
-- Company Knowledge template: https://github.com/mastra-ai/template-company-knowledge
+- Core: https://github.com/mastra-ai/mastra
+- Deep Search: https://github.com/mastra-ai/template-deep-search
+- Browsing Agent: https://github.com/mastra-ai/template-browsing-agent
+- Company Knowledge: https://github.com/mastra-ai/template-company-knowledge
 
-### Supporting platform references
+### Supporting references
 
-- Cloudinary documentation: https://cloudinary.com/documentation
+- Cloudinary: https://cloudinary.com/documentation
 - Supabase RLS: https://supabase.com/docs/guides/database/postgres/row-level-security
 
-## 10. Template rule for the remaining domains
+## 11. Writing template for Shoots, Talent, and Assets
 
-Use this document's structure for `30-shoots`, `20-talent`, `40-assets`, `50-crm`, `60-operations`, `70-analytics`, and `80-plans`:
+Use this same writing style, not Brands-specific content:
 
-`Current State → User Journeys → Existing iPix to KEEP → Domain Reuse Matrix → Gaps/Blockers → Recommended Architecture → Implementation Order → Tests/Success Criteria → References`.
+`30-second summary → Current State → Plain-English Terms → Real User Journeys → What We KEEP → Repo Reuse Map → Exact Adaptation Details → Problem/Impact/Fix → Simple Architecture → Outcome-based Implementation Phases → Tests/Success → Next 3 Actions → References`
 
-Do not copy Brands-specific architecture into another domain. Copy only the document structure and evidence discipline.
+Every external repo must answer:
+
+`Repo → What it teaches → What iPix adapts → Where it goes → Real user example → What we do NOT copy`.
