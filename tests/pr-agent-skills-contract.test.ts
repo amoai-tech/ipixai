@@ -1,4 +1,4 @@
-import { readFileSync, readlinkSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const workflow = readFileSync(
@@ -19,7 +19,7 @@ describe("IPI-1213 PR-Agent review skills contract", () => {
   it("keeps deterministic review-skill ownership local while the shared core orchestrates it", () => {
     expect(workflow).toContain("amoai-tech/pr-review-infra/.github/workflows/pr-agent.yml@a3c9600de7a31184266fade8387359ccbb8e6d68");
     expect(routing).toContain("pr-agent-code-review");
-    expect(routing).toContain("mastra-review");
+    expect(routing).toContain("mastra");
     expect(routing).toContain("copilotkit-review");
     expect(routing).toContain("supabase-review");
     expect(routing).toContain("nextjs-review");
@@ -28,12 +28,12 @@ describe("IPI-1213 PR-Agent review skills contract", () => {
     expect(routing).toContain("max_tokens=${result.maxTokens}");
   });
 
-  it("reuses the existing Mastra skill body without recursively inlining references", () => {
-    const target = readlinkSync(
-      new URL("../.claude/skills/mastra-review/SKILL.md", import.meta.url),
-    );
-    expect(target).toBe("../mastra/SKILL.md");
-    expect(mastraSkill).toContain("references/README.md");
+  it("uses one canonical Mastra skill for implementation and PR review", () => {
+    expect(routing).toContain('"mastra"');
+    expect(routing).not.toContain("mastra-review");
+    expect(mastraSkill).toContain("one canonical Mastra skill for iPix");
+    expect(mastraSkill).toContain("PR review");
+    expect(mastraSkill).toContain("references/trace-query.md");
   });
 
   it("keeps the CopilotKit adapter review-only and anchored to v2 invariants", () => {
