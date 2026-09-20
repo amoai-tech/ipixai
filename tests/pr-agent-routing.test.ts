@@ -9,7 +9,7 @@ const SOURCE_FILE = /\.(?:[cm]?[jt]sx?)$/;
 
 function sourceFiles(dir = "src"): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
+    const path = join(dir, entry.name).replaceAll("\\", "/");
     if (entry.isDirectory()) return sourceFiles(path);
     return SOURCE_FILE.test(entry.name) ? [path] : [];
   });
