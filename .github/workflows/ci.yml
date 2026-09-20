@@ -614,6 +614,25 @@ jobs:
           # Shell script, not SQL: seeds a real queued/unclaimed crawl row
           # and asserts exactly one of two simultaneous claim attempts wins.
           bash supabase/tests/security/ipi1093-brand-crawl-claim-concurrency.sh
+
+          # IPI-1269 · ONBOARD-DB-GUARD-001 — regression proof that a normal
+          # authenticated client cannot forge materialize_onboarding_session's
+          # outcome (status/organization_id/brand_id), cannot read/mutate
+          # another user's onboarding session, cannot spoof user_id, and that
+          # the trusted RPC's happy path, replay, and two-users-same-key-text
+          # isolation all still behave correctly. Needs the real
+          # auth.users/organizations/org_members/brands schema from the full
+          # replay above, not a bare-Postgres mock.
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/ipi1269-onboard-db-guard-acl.sql
+
+          # IPI-1269 · ONBOARD-DB-GUARD-001 — concurrent double-submit proof:
+          # two overlapping materialize_onboarding_session calls for the same
+          # (user_id, idempotency_key) must still leave exactly one
+          # organization/brand/owner-member, both calls returning the same
+          # durable IDs. Same reason as the IPI-1093 claim-concurrency script
+          # above: genuinely needs two overlapping sessions.
+          bash supabase/tests/security/ipi1269-onboard-db-guard-concurrency.sh
       - run: supabase stop
 
   # IPI-1205 · SB-EDGE-CI-001 — native Deno regression tests + frozen
