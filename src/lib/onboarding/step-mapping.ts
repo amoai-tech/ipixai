@@ -36,8 +36,6 @@
  * lets brandName's presence stand in for "the old linear, validated flow
  * actually reached this far."
  */
-import type { OnboardingSessionStatus } from "./schema";
-
 export type SemanticOnboardingStep =
   | "materialized"
   | "brand-details"
@@ -48,7 +46,7 @@ export type SemanticOnboardingStep =
 
 export interface StepMappingInput {
   /** Tolerates an unexpected string defensively; never throws on it. */
-  status: OnboardingSessionStatus | (string & {});
+  status: string;
   currentScreen: number;
   brandId: string | null;
   organizationId: string | null;
@@ -57,10 +55,10 @@ export interface StepMappingInput {
   draft: { brandName?: unknown } & Record<string, unknown>;
 }
 
-/** Non-finite/out-of-range input (NaN, negative, decimals, >13) falls back
- * to the first screen rather than propagating garbage into the mapping —
- * same fallback concept as Lumina's `clampScreen`, adapted to this module's
- * own default (1, not a UI-facing constant). */
+/** Non-finite/out-of-range input (NaN, negative, decimals, >13) normalizes
+ * to historical screen 1 rather than propagating garbage into the mapping.
+ * With a valid brand name, screen 1 then resolves to `channels`, which is the
+ * mapper's safe semantic default for a resumable draft. */
 function clampScreen(value: number): number {
   if (!Number.isFinite(value)) return 1;
   const whole = Math.trunc(value);
