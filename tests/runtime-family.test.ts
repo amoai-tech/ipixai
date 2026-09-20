@@ -99,7 +99,7 @@ describe("IPI-1042 runtime family", () => {
     expect(client.version).toBe("1.42.4");
     expect(cli.version).toBe("1.27.2");
     expect(agui.version).toBe("1.1.4");
-    expect(copilot.version).toBe("1.68.1");
+    expect(copilot.version).toBe("1.73.0");
 
     const peer = pg.peerDependencies?.["@mastra/core"];
     expect(peer).toBeTruthy();

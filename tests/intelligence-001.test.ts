@@ -220,6 +220,17 @@ describe("IPI-1009 intelligence tenant safety", () => {
     enableIntelligence();
     const sseStop = vi.spyOn(InMemoryAgentRunner.prototype, "stop");
     const intelligenceStop = vi.spyOn(IntelligenceAgentRunner.prototype, "stop");
+    // @copilotkit/runtime 1.71.2+ added a thread-ownership lookup ahead of
+    // agent/stop for Intelligence mode (handle-stop.ts: `await
+    // runtime.intelligence.getThread({ threadId, userId })`) before it ever
+    // reaches the runner. Without this mock the real (unmocked)
+    // CopilotKitIntelligence client tries a real network call with the fake
+    // "test-intelligence-key" and the platform rejects it with 401 -- not a
+    // route/runner bug, just a new call this test never stubbed.
+    vi.spyOn(CopilotKitIntelligence.prototype, "getThread").mockResolvedValue({
+      id: ORG_A_THREAD,
+      agentId: "default",
+    } as Awaited<ReturnType<CopilotKitIntelligence["getThread"]>>);
     memberships.rows = [{ org_id: ORG_A }];
 
     const info = await GET(
