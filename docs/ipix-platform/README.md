@@ -86,6 +86,25 @@ Every repo recommendation must answer:
 `Repo → What it teaches → What iPix adapts → Where it goes → Real user example → What we do NOT copy`
 ## 5. Linear docs and issues
 
+**Live v2-ipix project issues:** https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues
+
+Use that project issue list as the **live task/status authority**. Do not copy task status from old Markdown exports. Before creating a new domain gap task, search this project first for an existing issue or epic.
+
+### Domain → live Linear map
+
+| Domain / concern | Primary live Linear references |
+| --- | --- |
+| Platform / CopilotKit + Mastra | https://linear.app/amo100/issue/IPI-1078/ipi-1078-ipi-epic-mastra-copilotkit-secure-planner-runtime-sequence · https://linear.app/amo100/issue/IPI-1293/ipix-agent-platform-agent-platform-001-rebuild-forward-from-proven |
+| Distributed runner | https://linear.app/amo100/issue/IPI-1117/ipi-1117-fix-copilot-runs-across-vercel-instances · https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross |
+| Brands | https://linear.app/amo100/issue/IPI-1099/ipi-1099-brand-epic-browse-brands-and-approve-brand-dna · https://linear.app/amo100/issue/IPI-1093/ipi-1093-brand-intel-001-turn-a-brand-website-into-an-approved-brand |
+| Shoots / Production Copilot | https://linear.app/amo100/issue/IPI-1222/ipi-epic-shoot-v2-complete-the-v2-shoot-planning-approval-save-and · https://linear.app/amo100/issue/IPI-1241/epic-production-copilot-001-complete-the-unified-production-copilot |
+| Talent / booking | https://linear.app/amo100/issue/IPI-1101/ipi-1101-booking-epic-coordinate-talent-studio-crew-availability-and · https://linear.app/amo100/issue/IPI-1071/ipi-1071-talent-booking-001-let-operators-find-talent-and-manage |
+| Assets / media | https://linear.app/amo100/issue/IPI-1102/ipi-1102-ipi-epic-production-and-media-browse-assets-and-deliver-shoot · https://linear.app/amo100/issue/IPI-1097/ipi-1097-cloudinary-mvp-epic-upload-review-approve-and-deliver-shoot |
+| CRM | https://linear.app/amo100/issue/IPI-1103/ipi-epic-crm-run-the-relationship-hub-in-the-new-app · https://linear.app/amo100/issue/IPI-1070/ipi-1070-crm-001-bring-the-proven-ipix-crm-workspace-into-the-new-app |
+| Operations | https://linear.app/amo100/issue/IPI-1104/ipi-epic-operations-operator-inbox-and-coordination · https://linear.app/amo100/issue/IPI-1072/ipi-1072-operations-001-bring-the-operator-inbox-and-coordination |
+| Analytics | https://linear.app/amo100/issue/IPI-1106/ipi-1106-ipi-epic-analytics-turn-trusted-ipix-data-into-business · https://linear.app/amo100/issue/IPI-1073/ipi-1073-analytics-001-bring-the-existing-analytics-workspace-into-the |
+| Plans | https://linear.app/amo100/issue/IPI-1107/ipi-epic-plans-saved-production-plans-not-a-second-planner · https://linear.app/amo100/issue/IPI-1074/ipi-1074-plans-001-bring-the-existing-production-planning-workspace |
+
 ### Current Linear documents
 
 | Linear doc | Purpose | URL |
@@ -136,13 +155,30 @@ These live in the primary working tree at `/home/sk/ipixai/docs/copilotkit-mastr
 
 ### Local GitHub reference clones
 
-| Reference area | Local location |
-| --- | --- |
-| CopilotKit monorepo | `/home/sk/ipixai/github/CopilotKit` |
-| Mastra clones | `/home/sk/ipixai/github/mastra/clones` |
-| Other cloned reference repos | `/home/sk/ipixai/github` |
+These are the **actual local Git repositories currently present** under `/home/sk/ipixai/github` (verified from each clone's `remote.origin.url` + current HEAD on 2026-09-20).
 
-**Important:** before copying code from any clone, verify its Git origin, commit/tag, license, dependency versions, tenancy/auth assumptions, and exact source files used.
+| Local clone | GitHub origin | Local HEAD | Best iPix use | Default action |
+| --- | --- | --- | --- | --- |
+| `/home/sk/ipixai/github/CopilotKit` | https://github.com/CopilotKit/CopilotKit | `47c5510b4909` | Primary CopilotKit source, current examples, Mastra integration, GenUI, canvas, CRM/MCP references | **ADAPT / REFERENCE** |
+| `/home/sk/ipixai/github/mastra/clones/mastra` | https://github.com/mastra-ai/mastra | `25d768317009` | Mastra framework source, tests, APIs, workflows, agents, storage | **REFERENCE / VERIFY AGAINST INSTALLED VERSION** |
+| `/home/sk/ipixai/github/mastra/clones/template-deep-search` | https://github.com/mastra-ai/template-deep-search | `c2c8fa478d5a` | Brand/market research decomposition, evidence, gap checking | **ADAPT** |
+| `/home/sk/ipixai/github/mastra/clones/template-company-knowledge` | https://github.com/mastra-ai/template-company-knowledge | `6fc6a774ae13` | Approved Brand knowledge retrieval / RAG patterns | **ADAPT LATER** |
+| `/home/sk/ipixai/github/mastra/clones/template-browsing-agent` | https://github.com/mastra-ai/template-browsing-agent | `fe841f7d12b8` | Browser fallback for JS-only/unstructured sites | **REFERENCE / ADAPT LATER** |
+| `/home/sk/ipixai/github/mastra/clones/template-agent-harness` | https://github.com/mastra-ai/template-agent-harness | `3f10a93da682` | Tasks, approvals, workspace, schedules, long-running agent patterns | **MODEL / ADVANCED** |
+| `/home/sk/ipixai/github/mastra/clones/workshops` | https://github.com/mastra-ai/workshops | `734b8c167037` | Official learning/pattern library for unfamiliar Mastra features | **REFERENCE** |
+| `/home/sk/ipixai/github/mastra/clones/ui-dojo` | https://github.com/mastra-ai/ui-dojo | `7f9893734b59` | Mastra UI / CopilotKit / HITL experiments | **REFERENCE** |
+| `/home/sk/ipixai/github/mastra/clones/mastra-auth-examples` | https://github.com/mastra-ai/mastra-auth-examples | `72b9db6351a7` | Auth integration patterns | **REFERENCE / ADAPT ONLY IF CURRENT** |
+| `/home/sk/ipixai/github/mastra/clones/mastra-observational-memory-workshop` | https://github.com/mastra-ai/mastra-observational-memory-workshop | `25bff24b385b` | Observational memory research | **ADVANCED / REFERENCE** |
+| `/home/sk/ipixai/github/mastra/clones/mastra-smoke` | https://github.com/mastra-ai/mastra-smoke | `25c3c647481d` | Framework smoke/testing examples | **REFERENCE** |
+| `/home/sk/ipixai/github/mastra/clones/template-text-to-sql` | https://github.com/mastra-ai/template-text-to-sql | `15e66ee04ed8` | Analytics research only; do not add text-to-SQL without a proven need | **REFERENCE / DEFER** |
+| `/home/sk/ipixai/github/mastra/clones/OpenBot` | https://github.com/CopilotKit/OpenBot | `61cc46ae0217` | Governance/audit/HITL architecture and CopilotKit production patterns | **MODEL / REFERENCE** |
+| `/home/sk/ipixai/github/mastra/clones/generative-ui` | https://github.com/CopilotKit/generative-ui | `12aa81e3deeb` | Historical GenUI reference; prefer current monorepo example where available | **REFERENCE** |
+| `/home/sk/ipixai/github/mastra/clones/agents-everywhere-starter-kit` | https://github.com/CopilotKit/agents-everywhere-starter-kit | `5c8bf4c810bc` | Hackathon/demo reference only | **SKIP FOR PRODUCTION** |
+| `/home/sk/ipixai/github/mastra/clones/mastra-supabase-starter` | https://github.com/thedistance/mastra-supabase-starter | `7d33a505055f` | Community Supabase/Mastra test/auth ideas | **REFERENCE ONLY** |
+| `/home/sk/ipixai/github/mastra/clones/mastra-base` | https://github.com/hamchowderr/mastra-base | `a065cea10599` | Community Mastra starter ideas | **REFERENCE ONLY** |
+| `/home/sk/ipixai/github/mastra/clones/saas-starter-ai` | https://github.com/jorgepedraza88/saas-starter-ai | `d492f6eb2995` | Community SaaS/AI patterns | **REFERENCE ONLY** |
+
+**Clone rule:** a local clone means "available to inspect," **not** "approved to copy." Before COPY/ADAPT, verify the exact source path, commit/tag, license, dependency versions, auth/tenancy assumptions, and tests. Prefer the current CopilotKit monorepo and official Mastra repos/templates over older standalone or community starters.
 ## 7. Docs still to create
 
 Create docs only when they have a clear job. Do **not** create a large document set before the current-state audit needs it.
