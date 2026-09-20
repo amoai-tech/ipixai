@@ -10,16 +10,36 @@
 
 ## Table of contents
 
-1. [Strategy](#1-strategy)
-2. [Source-of-truth order](#2-source-of-truth-order)
-3. [Current platform docs](#3-current-platform-docs)
-4. [Domain docs and status](#4-domain-docs-and-status)
-5. [Linear docs and issues](#5-linear-docs-and-issues)
-6. [Research/reference sources](#6-researchreference-sources)
-7. [Docs still to create](#7-docs-still-to-create)
-8. [Implementation order](#8-implementation-order)
-9. [What belongs in MVP vs later](#9-what-belongs-in-mvp-vs-later)
-10. [New-chat starting point](#10-new-chat-starting-point)
+1. [Progress tracker](#progress-tracker)
+2. [Strategy](#1-strategy)
+3. [Source-of-truth order](#2-source-of-truth-order)
+4. [Current platform docs](#3-current-platform-docs)
+5. [Domain docs](#4-domain-docs)
+6. [Linear docs and issues](#5-linear-docs-and-issues)
+7. [Research/reference sources](#6-researchreference-sources)
+8. [Docs still to create](#7-docs-still-to-create)
+9. [Implementation order](#8-implementation-order)
+10. [What belongs in MVP vs later](#9-what-belongs-in-mvp-vs-later)
+11. [New-chat starting point](#10-new-chat-starting-point)
+
+## Progress Tracker
+
+| Status | Domain / workstream | Next |
+| --- | --- | --- |
+| 🟢 | Reference index + documentation standard | Maintain as source of truth |
+| 🟢 | Brands | Implement only proven gaps |
+| 🟡 | Reference repo library | Finish curated Mastra additions + keep index current |
+| 🔵 | Shoots | Current-state audit + `SHOOTS.md` |
+| 🔵 | Talent | Current-state audit + `TALENT.md` |
+| 🔵 | Assets | Current-state audit + `ASSETS.md` |
+| 🔵 | CRM | After Assets |
+| 🔵 | Operations | After CRM |
+| 🔵 | Analytics | After Operations |
+| 🔵 | Plans | After Analytics |
+| 🔵 | Shared platform architecture | Reconcile current code + IPI-1293 before creating doc |
+| 🔵 | Global reuse matrix | Consolidate verified domain reuse decisions |
+
+**Legend:** 🟢 completed · 🟡 in progress · 🔴 failed/blocked · 🔵 not started / needs completion
 ## 1. Strategy
 
 Use this decision order for every product feature:
@@ -64,18 +84,18 @@ When sources disagree:
 | [Documentation Standards](00-platform/DOC-STANDARDS.md) | Writing rules, evidence rules, reuse matrix format, migration/test standards, MVP guardrails | **ACTIVE / SOURCE OF TRUTH** |
 | [Brands](10-brands/BRANDS.md) | First completed domain template: current state, journeys, repo adaptations, gaps, architecture, phases, tests | **ACTIVE / TEMPLATE FOR OTHER DOMAINS** |
 | This index | Navigation, strategy, source locations, planned docs, execution order | **ACTIVE** |
-## 4. Domain docs and status
+## 4. Domain docs
 
-| Order | Domain | Local doc | Status | First core journey |
-| ---: | --- | --- | --- | --- |
-| 10 | Brands | [10-brands/BRANDS.md](10-brands/BRANDS.md) | **Complete first draft / reviewed style** | Brand website → Brand DNA → human review → approved context |
-| 20 | Talent | `20-talent/TALENT.md` | **TO CREATE** | Talent profile → availability → shortlist → approve/book |
-| 30 | Shoots | `30-shoots/SHOOTS.md` | **TO CREATE NEXT** | Brand → shoot plan → shot list → approval → booking/production |
-| 40 | Assets | `40-assets/ASSETS.md` | **TO CREATE** | Upload → attach to shoot → QA/DNA → approve → deliver |
-| 50 | CRM | `50-crm/CRM.md` | **TO CREATE** | Lead/company → deal → shoot opportunity → follow-up |
-| 60 | Operations | `60-operations/OPERATIONS.md` | **TO CREATE** | Active work → tasks/owners → exceptions → approvals → delivery |
-| 70 | Analytics | `70-analytics/ANALYTICS.md` | **TO CREATE** | Real product/agent events → useful metrics → decision support |
-| 80 | Plans | `80-plans/PLANS.md` | **TO CREATE** | Plan/entitlement → subscribe → usage → upgrade/downgrade |
+| Order | Domain | Local doc | First core journey |
+| ---: | --- | --- | --- |
+| 10 | Brands | [10-brands/BRANDS.md](10-brands/BRANDS.md) | Brand website → Brand DNA → human review → approved context |
+| 20 | Talent | `20-talent/TALENT.md` | Talent profile → availability → shortlist → approve/book |
+| 30 | Shoots | `30-shoots/SHOOTS.md` | Brand → shoot plan → shot list → approval → booking/production |
+| 40 | Assets | `40-assets/ASSETS.md` | Upload → attach to shoot → QA/DNA → approve → deliver |
+| 50 | CRM | `50-crm/CRM.md` | Lead/company → deal → shoot opportunity → follow-up |
+| 60 | Operations | `60-operations/OPERATIONS.md` | Active work → tasks/owners → exceptions → approvals → delivery |
+| 70 | Analytics | `70-analytics/ANALYTICS.md` | Real product/agent events → useful metrics → decision support |
+| 80 | Plans | `80-plans/PLANS.md` | Plan/entitlement → subscribe → usage → upgrade/downgrade |
 
 Every domain doc uses the same writing structure:
 
