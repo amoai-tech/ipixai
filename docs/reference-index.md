@@ -40,23 +40,65 @@ Rules:
 
 ## 2. Product Areas & Planned Docs
 
-This is the canonical map of **what we are documenting for each product area**. File names live here once; other sections refer to the product area instead of repeating paths.
+Each product area has its own table. File names live here once; other sections refer to the product area instead of repeating paths.
 
-| Status | % Complete | Product area | Document | What it covers | Next |
-| --- | ---: | --- | --- | --- | --- |
-| 🟢 | 100% | Docs map | `docs/docs-index.md` | Existing GitHub-native documentation map and source-of-truth rules | Maintain |
-| 🟢 | 100% | Reference index | `docs/reference-index.md` | Product areas, planned docs, Linear, repos, research, execution order | Maintain |
-| 🟢 | 100% | Documentation standard | `docs/ipix-platform/00-platform/DOC-STANDARDS.md` | Evidence, reuse, migration, testing, readability, MVP rules | Maintain |
-| 🔵 | 0% | Platform architecture | `docs/ipix-platform/00-platform/IPIX-PLATFORM-ARCHITECTURE.md` | Shared auth, tenancy, CopilotKit, Mastra, Supabase, Cloudinary, runtime boundaries | Reconcile current code + platform tasks |
-| 🔵 | 0% | Global reuse | `docs/ipix-platform/00-platform/IPIX-GLOBAL-REUSE-MATRIX.md` | Verified repo/example → product area → exact adaptation decision | Build from completed domain audits |
-| 🟢 | 100% | Brands | `docs/ipix-platform/10-brands/BRANDS.md` | Brand list/detail, intelligence, Brand DNA review, approval, Planner handoff, reuse decisions | Implement only proven gaps |
-| 🔵 | 0% | Shoots | `docs/ipix-platform/30-shoots/SHOOTS.md` | Brief, shoot type, direction, shot list, approvals, booking, production, handoff to Assets | Audit current Shoots flow |
-| 🔵 | 0% | Talent | `docs/ipix-platform/20-talent/TALENT.md` | Profiles, portfolios, skills, availability, matching, shortlist, booking | Audit after Shoots |
-| 🔵 | 0% | Assets | `docs/ipix-platform/40-assets/ASSETS.md` | Upload, Cloudinary, metadata, QA, review, approval, delivery | Audit after Talent |
-| 🔵 | 0% | CRM | `docs/ipix-platform/50-crm/CRM.md` | Companies, contacts, deals, activities, proposals, shoot handoff | Audit after Assets |
-| 🔵 | 0% | Operations | `docs/ipix-platform/60-operations/OPERATIONS.md` | Work queue, assignments, staffing, vendors, approvals, exceptions, delivery | Audit after CRM |
-| 🔵 | 0% | Analytics | `docs/ipix-platform/70-analytics/ANALYTICS.md` | Trusted product/agent events, KPIs, funnels, operational metrics | Audit after Operations |
-| 🔵 | 0% | Plans | `docs/ipix-platform/80-plans/PLANS.md` | Saved production plans, entitlements, usage, Stripe lifecycle | Audit after Analytics |
+### Shared Platform
+
+| Status | % Complete | Document | What it covers | Next |
+| --- | ---: | --- | --- | --- |
+| 🟢 | 100% | `docs/docs-index.md` | GitHub-native documentation map and source-of-truth rules | Maintain |
+| 🟢 | 100% | `docs/reference-index.md` | Product areas, planned docs, Linear, repos, research, execution order | Maintain |
+| 🟢 | 100% | `docs/ipix-platform/00-platform/DOC-STANDARDS.md` | Evidence, reuse, migration, testing, readability, MVP rules | Maintain |
+| 🔵 | 0% | `docs/ipix-platform/00-platform/IPIX-PLATFORM-ARCHITECTURE.md` | Shared auth, tenancy, CopilotKit, Mastra, Supabase, Cloudinary, runtime boundaries | Reconcile current code + platform tasks |
+| 🔵 | 0% | `docs/ipix-platform/00-platform/IPIX-GLOBAL-REUSE-MATRIX.md` | Verified repo/example → product area → exact adaptation decision | Build from completed domain audits |
+
+### Brands
+
+| Status | % Complete | Document | What it covers | Next |
+| --- | ---: | --- | --- | --- |
+| 🟢 | 100% | `docs/ipix-platform/10-brands/BRANDS.md` | Brand list/detail, intelligence, Brand DNA review, approval, Planner handoff, reuse decisions | Implement only proven gaps |
+
+### Shoots
+
+| Status | % Complete | Document | What it covers | Next |
+| --- | ---: | --- | --- | --- |
+| 🔵 | 0% | `docs/ipix-platform/30-shoots/SHOOTS.md` | Brief, shoot type, direction, shot list, approvals, booking, production, handoff to Assets | Audit current Shoots flow |
+
+### Talent
+
+| Status | % Complete | Document | What it covers | Next |
+| --- | ---: | --- | --- | --- |
+| 🔵 | 0% | `docs/ipix-platform/20-talent/TALENT.md` | Profiles, portfolios, skills, availability, matching, shortlist, booking | Audit after Shoots |
+
+### Assets
+
+| Status | % Complete | Document | What it covers | Next |
+| --- | ---: | --- | --- | --- |
+| 🔵 | 0% | `docs/ipix-platform/40-assets/ASSETS.md` | Upload, Cloudinary, metadata, QA, review, approval, delivery | Audit after Talent |
+
+### CRM
+
+| Status | % Complete | Document | What it covers | Next |
+| --- | ---: | --- | --- | --- |
+| 🔵 | 0% | `docs/ipix-platform/50-crm/CRM.md` | Companies, contacts, deals, activities, proposals, shoot handoff | Audit after Assets |
+
+### Operations
+
+| Status | % Complete | Document | What it covers | Next |
+| --- | ---: | --- | --- | --- |
+| 🔵 | 0% | `docs/ipix-platform/60-operations/OPERATIONS.md` | Work queue, assignments, staffing, vendors, approvals, exceptions, delivery | Audit after CRM |
+
+### Analytics
+
+| Status | % Complete | Document | What it covers | Next |
+| --- | ---: | --- | --- | --- |
+| 🔵 | 0% | `docs/ipix-platform/70-analytics/ANALYTICS.md` | Trusted product/agent events, KPIs, funnels, operational metrics | Audit after Operations |
+
+### Plans
+
+| Status | % Complete | Document | What it covers | Next |
+| --- | ---: | --- | --- | --- |
+| 🔵 | 0% | `docs/ipix-platform/80-plans/PLANS.md` | Saved production plans, entitlements, usage, Stripe lifecycle | Audit after Analytics |
 
 **Per-domain rule:** start with one main domain document. Create extra implementation-plan docs only when a verified gap is complex enough to need one. Do not pre-create umbrella documents.
 
@@ -99,7 +141,7 @@ Use Linear as the live execution/status authority.
 
 ## 4. Reference Repositories
 
-Local shared root: `/home/sk/github-repos`
+Local shared root: `~/github-repos`
 
 A local clone means **available to inspect**, not approved to copy. Before adapting code, verify source path, commit/tag, license, dependency versions, auth/tenant assumptions, and tests.
 
@@ -107,31 +149,31 @@ A local clone means **available to inspect**, not approved to copy. Before adapt
 
 | Repo | Local path | Use |
 | --- | --- | --- |
-| CopilotKit | `/home/sk/github-repos/copilotkit/CopilotKit` | Primary current source, runtime, AG-UI, Mastra integration, showcases |
-| OpenBot | `/home/sk/github-repos/copilotkit/OpenBot` | Agent governance, permissions, approvals, tools |
-| harness-sdk | `/home/sk/github-repos/copilotkit/harness-sdk` | Harness, guardrails, tracing, production agent patterns |
-| open-research-ANA | `/home/sk/github-repos/copilotkit/open-research-ANA` | Research canvas/HITL historical reference; prefer current monorepo where newer |
-| aimock | `/home/sk/github-repos/copilotkit/aimock` | Deterministic AI, MCP, A2A, AG-UI testing |
-| agents-everywhere-starter-kit | `/home/sk/github-repos/copilotkit/agents-everywhere-starter-kit` | Multi-surface agent concepts |
-| atomic-crm | `/home/sk/github-repos/copilotkit/atomic-crm` | CRM + Supabase + CopilotKit/MCP patterns |
-| open-mcp-client | `/home/sk/github-repos/copilotkit/open-mcp-client` | MCP Apps/client integration |
-| generative-ui | `/home/sk/github-repos/copilotkit/generative-ui` | Older standalone GenUI reference |
+| CopilotKit | `~/github-repos/copilotkit/CopilotKit` | Primary current source, runtime, AG-UI, Mastra integration, showcases |
+| OpenBot | `~/github-repos/copilotkit/OpenBot` | Agent governance, permissions, approvals, tools |
+| harness-sdk | `~/github-repos/copilotkit/harness-sdk` | Harness, guardrails, tracing, production agent patterns |
+| open-research-ANA | `~/github-repos/copilotkit/open-research-ANA` | Research canvas/HITL historical reference; prefer current monorepo where newer |
+| aimock | `~/github-repos/copilotkit/aimock` | Deterministic AI, MCP, A2A, AG-UI testing |
+| agents-everywhere-starter-kit | `~/github-repos/copilotkit/agents-everywhere-starter-kit` | Multi-surface agent concepts |
+| atomic-crm | `~/github-repos/copilotkit/atomic-crm` | CRM + Supabase + CopilotKit/MCP patterns |
+| open-mcp-client | `~/github-repos/copilotkit/open-mcp-client` | MCP Apps/client integration |
+| generative-ui | `~/github-repos/copilotkit/generative-ui` | Older standalone GenUI reference |
 
 ### Mastra — saved
 
 | Repo | Local path | Use |
 | --- | --- | --- |
-| mastra | `/home/sk/github-repos/mastra/mastra` | Framework source, workflows, agents, storage, tests |
-| workshops | `/home/sk/github-repos/mastra/workshops` | Official learning/reference patterns |
-| template-agent-harness | `/home/sk/github-repos/mastra/template-agent-harness` | Tasks, approvals, schedules, long-running work |
-| template-deep-search | `/home/sk/github-repos/mastra/template-deep-search` | Research decomposition, evidence, gap checking |
-| template-browsing-agent | `/home/sk/github-repos/mastra/template-browsing-agent` | Browser fallback patterns |
-| template-company-knowledge | `/home/sk/github-repos/mastra/template-company-knowledge` | Approved knowledge/RAG patterns |
-| template-text-to-sql | `/home/sk/github-repos/mastra/template-text-to-sql` | Analytics reference only |
-| ui-dojo | `/home/sk/github-repos/mastra/ui-dojo` | UI/CopilotKit/HITL experiments |
-| mastra-auth-examples | `/home/sk/github-repos/mastra/mastra-auth-examples` | Authentication patterns |
-| mastra-observational-memory-workshop | `/home/sk/github-repos/mastra/mastra-observational-memory-workshop` | Advanced memory reference |
-| mastra-smoke | `/home/sk/github-repos/mastra/mastra-smoke` | Compatibility/testing examples |
+| mastra | `~/github-repos/mastra/mastra` | Framework source, workflows, agents, storage, tests |
+| workshops | `~/github-repos/mastra/workshops` | Official learning/reference patterns |
+| template-agent-harness | `~/github-repos/mastra/template-agent-harness` | Tasks, approvals, schedules, long-running work |
+| template-deep-search | `~/github-repos/mastra/template-deep-search` | Research decomposition, evidence, gap checking |
+| template-browsing-agent | `~/github-repos/mastra/template-browsing-agent` | Browser fallback patterns |
+| template-company-knowledge | `~/github-repos/mastra/template-company-knowledge` | Approved knowledge/RAG patterns |
+| template-text-to-sql | `~/github-repos/mastra/template-text-to-sql` | Analytics reference only |
+| ui-dojo | `~/github-repos/mastra/ui-dojo` | UI/CopilotKit/HITL experiments |
+| mastra-auth-examples | `~/github-repos/mastra/mastra-auth-examples` | Authentication patterns |
+| mastra-observational-memory-workshop | `~/github-repos/mastra/mastra-observational-memory-workshop` | Advanced memory reference |
+| mastra-smoke | `~/github-repos/mastra/mastra-smoke` | Compatibility/testing examples |
 
 ### Mastra — next curated additions
 
@@ -153,9 +195,9 @@ A local clone means **available to inspect**, not approved to copy. Before adapt
 
 | Repo | Local path | Rule |
 | --- | --- | --- |
-| mastra-supabase-starter | `/home/sk/github-repos/community/mastra-supabase-starter` | Reference only; do not inherit tenant model blindly |
-| mastra-base | `/home/sk/github-repos/community/mastra-base` | Structure ideas only |
-| saas-starter-ai | `/home/sk/github-repos/community/saas-starter-ai` | SaaS/auth ideas only |
+| mastra-supabase-starter | `~/github-repos/community/mastra-supabase-starter` | Reference only; do not inherit tenant model blindly |
+| mastra-base | `~/github-repos/community/mastra-base` | Structure ideas only |
+| saas-starter-ai | `~/github-repos/community/saas-starter-ai` | SaaS/auth ideas only |
 
 ## 5. Research Archive
 
@@ -212,6 +254,6 @@ For each domain:
 4. Inspect current iPix code/tests before using reference repos.
 5. Use the shared reference library only as verified source material.
 6. Work in a safe worktree when the primary checkout is dirty.
-7. Run documentation/link validation after documentation changes.
+7. Run `npm run docs:check` and `git diff --check` after documentation changes.
 
 **Next documentation area:** Shoots.
