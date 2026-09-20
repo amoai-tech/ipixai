@@ -30,7 +30,18 @@ const BRAND_B: PlannerContext = { scopeKey: "brand:b", brand: { id: "b", name: "
 const SHOOT: PlannerContext = {
   scopeKey: "shoot:s1",
   brand: { id: "a", name: "Brand A" },
-  shoot: { id: "s1", name: "Shoot 104", status: "planning", brandId: "a" },
+  shoot: {
+    id: "s1",
+    name: "Shoot 104",
+    status: "planning",
+    brandId: "a",
+    brief: "Spring lookbook, minimalist studio set, neutral palette.",
+    targetChannels: ["instagram", "website"],
+    estimatedBudget: 12000,
+    actualCost: 4500,
+    currency: "USD",
+    deliverables: [{ channel: "instagram", format: "reel", quantity: 4, status: "planned" }],
+  },
 };
 
 describe("PlannerContextProvider / ReportPlannerContext", () => {
@@ -79,6 +90,24 @@ describe("PlannerContextProvider / ReportPlannerContext", () => {
     const [input] = useAgentContext.mock.calls.at(-1) as [{ description: string; value: PlannerContext }];
     expect(input.value).toEqual(SHOOT);
     expect(input.description).toMatch(/shoot/i);
+  });
+
+  it("carries the Shoot's brief, budget, and deliverables to the model — not just its identity", () => {
+    // IPI-1087's own acceptance journey: "reduce the budget and keep the
+    // same deliverables" without the operator repeating either. This only
+    // holds if the model-facing `value` actually contains those fields, not
+    // just id/name/status.
+    render(
+      <PlannerContextProvider>
+        <ReportPlannerContext context={SHOOT} />
+      </PlannerContextProvider>,
+    );
+    const [input] = useAgentContext.mock.calls.at(-1) as [{ description: string; value: PlannerContext }];
+    expect(input.value.shoot?.brief).toBe(SHOOT.shoot?.brief);
+    expect(input.value.shoot?.estimatedBudget).toBe(SHOOT.shoot?.estimatedBudget);
+    expect(input.value.shoot?.deliverables).toEqual(SHOOT.shoot?.deliverables);
+    expect(input.description).toMatch(/budget/i);
+    expect(input.description).toMatch(/deliverables/i);
   });
 
   it("tells the model explicitly when nothing is open, instead of going silent", () => {

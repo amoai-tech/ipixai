@@ -34,7 +34,7 @@ export function usePlannerContext(): PlannerContext | null {
 
 function describeForModel(context: PlannerContext): string {
   if (context.shoot) {
-    return "The Shoot (and its Brand) the operator currently has open in the workspace. Use it for follow-up questions instead of asking the operator to repeat IDs or the brief. This is a locator, not authorization — every write is independently re-verified server-side.";
+    return "The Shoot (and its Brand) the operator currently has open in the workspace, including its brief, target channels, budget, and deliverables. Use it for follow-up requests (e.g. \"reduce the budget and keep the same deliverables\") instead of asking the operator to repeat the brief or IDs. This is a locator, not authorization — every write is independently re-verified server-side.";
   }
   if (context.brand) {
     return "The Brand the operator currently has open in the workspace. Use it for follow-up questions instead of asking the operator to repeat IDs. This is a locator, not authorization — every write is independently re-verified server-side.";

@@ -81,6 +81,11 @@ export default async function AppShootDetailPage({
   // time. `get_shoot_detail`'s own `brand` object is used verbatim, not the
   // `shoot_intake_drafts`-sourced `approvals` field (that is intake-draft
   // state, never IPI-1084's exact-revision ShootPlan approval truth).
+  //
+  // brief/targetChannels/budget/deliverables are the acceptance-required
+  // "brief" fields (IPI-1087: "reduce the budget and keep the same
+  // deliverables" without repeating either) — reused verbatim from the same
+  // already-authorized `get_shoot_detail` payload, zero new queries.
   const plannerContext: PlannerContext = {
     scopeKey: `shoot:${detailLoad.data.shoot.id}`,
     brand: { id: detailLoad.data.brand.id, name: detailLoad.data.brand.name },
@@ -89,6 +94,17 @@ export default async function AppShootDetailPage({
       name: detailLoad.data.shoot.name,
       status: detailLoad.data.shoot.status,
       brandId: detailLoad.data.shoot.brand_id,
+      brief: detailLoad.data.shoot.brief,
+      targetChannels: detailLoad.data.shoot.target_channels,
+      estimatedBudget: detailLoad.data.shoot.estimated_budget,
+      actualCost: detailLoad.data.shoot.actual_cost,
+      currency: detailLoad.data.shoot.currency,
+      deliverables: detailLoad.data.deliverables.map((deliverable) => ({
+        channel: deliverable.channel,
+        format: deliverable.format,
+        quantity: deliverable.quantity,
+        status: deliverable.status,
+      })),
     },
   };
 

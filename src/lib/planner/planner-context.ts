@@ -16,13 +16,40 @@
 
 export type PlannerContextScope = "workspace" | `brand:${string}` | `shoot:${string}`;
 
+export type PlannerContextDeliverable = {
+  channel: string | null;
+  format: string | null;
+  quantity: number | null;
+  status: string | null;
+};
+
 export type PlannerContext = {
   /** Controls replacement/cleanup — see `ReportPlannerContext`'s scope-aware
    *  cleanup. Two reporters with different `scopeKey`s can never clobber
    *  each other's context on unmount. */
   scopeKey: PlannerContextScope;
   brand?: { id: string; name: string };
-  shoot?: { id: string; name: string; status: string | null; brandId: string };
+  /**
+   * Field selection matches IPI-1087's own acceptance journey — "reduce the
+   * budget and keep the same deliverables" without repeating either — not a
+   * dump of the full Shoot row. Deliberately excludes `budget_breakdown`
+   * (unbounded JSON), `mood_board_urls`/`cover_url` (media, not planning
+   * text), and dates/location (no acceptance scenario calls for them yet):
+   * IPI-1087's own "Do not build" list rules out "full Brand Brain/private
+   * blobs in client/model context". Widen only when a real journey needs it.
+   */
+  shoot?: {
+    id: string;
+    name: string;
+    status: string | null;
+    brandId: string;
+    brief: string | null;
+    targetChannels: string[] | null;
+    estimatedBudget: number | null;
+    actualCost: number | null;
+    currency: string | null;
+    deliverables: PlannerContextDeliverable[];
+  };
 };
 
 /** The explicit "no active job" context — reported by `/app` itself so that
