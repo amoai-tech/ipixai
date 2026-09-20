@@ -16,6 +16,11 @@ describe("IPI-1246 PR-Agent workflow contract", () => {
     expect(workflow).toContain("pull-requests: write");
   });
 
+  it("loads fs inside the changed-file discovery github-script block", () => {
+    const block = workflow.split("- name: Read changed filenames")[1]?.split("- name: Checkout PR head lockfile")[0] ?? "";
+    expect(block).toContain('const fs = require("fs");');
+  });
+
   it("uses deterministic changed-file routing and evidence from trusted helpers", () => {
     expect(workflow).toContain("Read changed filenames");
     expect(workflow).toContain(".pr-agent/changed-files.json");
