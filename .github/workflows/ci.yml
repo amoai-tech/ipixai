@@ -51,8 +51,8 @@ jobs:
   # dependency, so this job (a required merge check) never goes red because
   # OpenAI is slow/down/out of quota. The one spec that makes a real hosted
   # GPT-4o call (planner-journey.spec.ts) plus copilot-intelligence-isolation
-  # live in the separate chromium-ai-smoke project — see playwright-ai-smoke
-  # below — and are deliberately excluded here.
+  # live in the separate chromium-ai-smoke project and run from
+  # .github/workflows/ai-smoke.yml, outside deterministic release CI.
   playwright-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -121,45 +121,6 @@ jobs:
       - run: npm run e2e:approval
       # These tests hold real authenticated local sessions; keep reports
       # runner-local rather than publishing them as public artifacts.
-
-  # Live hosted-AI smoke — deliberately NOT a required merge check (see
-  # playwright-e2e above). planner-journey.spec.ts and
-  # copilot-intelligence-isolation.spec.ts each make one real, paid GPT-4o
-  # call; a provider outage/quota/latency issue here must never block
-  # unrelated UI work from merging. Needs its own real OPENAI_API_KEY secret
-  # with usable quota — every other job keeps the "placeholder" literal
-  # since nothing else calls OpenAI for real. The key is scoped to only the
-  # `npm run e2e:ai-smoke` step (least privilege) — checkout/setup-node/
-  # npm ci/browser install never see it.
-  playwright-ai-smoke:
-    continue-on-error: true
-    runs-on: ubuntu-latest
-    # Must remain above Playwright's 12-minute globalTimeout so Playwright
-    # can shut down cleanly and flush reporters before GitHub kills the job.
-    timeout-minutes: 15
-    env:
-      COPILOTKIT_TELEMETRY_DISABLED: "true"
-      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
-      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
-      E2E_TEST_EMAIL_ORG_B: ${{ secrets.E2E_TEST_EMAIL_ORG_B }}
-      E2E_TEST_PASSWORD_ORG_B: ${{ secrets.E2E_TEST_PASSWORD_ORG_B }}
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium
-      - run: npm run e2e:ai-smoke
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      # No Playwright artifact upload in this public repository: the run is
-      # authenticated and may contain sensitive session/network trace data.
 
   # Standing guard for IPI-897 planner default ACLs. Files are required on this
   # branch — missing migration/test fails the job instead of skipping.
@@ -710,7 +671,6 @@ jobs:
       - build
       - playwright-e2e
       - playwright-approval-tenant
-      - playwright-ai-smoke
       - planner-default-acl
       - media-harden-acl
       - plans-001-read-contract-acl
