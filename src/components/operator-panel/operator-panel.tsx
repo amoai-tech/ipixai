@@ -514,7 +514,8 @@ function useAgentRunError(agent: AbstractAgent): {
           runId: input.runId,
         };
         console.error("ProductionCopilotPanel: agent run error", {
-          ...failure,
+          code: failure.code,
+          runId: failure.runId,
           threadId: input.threadId,
         });
         setRunFailure(failure);
@@ -522,7 +523,8 @@ function useAgentRunError(agent: AbstractAgent): {
       onRunFailed: ({ error, input }) => {
         const failure: RunFailure = { message: error.message, runId: input.runId };
         console.error("ProductionCopilotPanel: agent run failed", {
-          ...failure,
+          errorName: error.name,
+          runId: failure.runId,
           threadId: input.threadId,
         });
         setRunFailure(failure);
@@ -537,14 +539,15 @@ function useAgentRunError(agent: AbstractAgent): {
 /** Compact inline banner (not ErrorState — that component's EmptyState-
  *  mirroring layout is sized for a full list/page placement, not a ~400px
  *  chat panel). Reuses the same shadcn Alert primitive ErrorState itself
- *  wraps. Never shows a raw provider payload — only the AG-UI event's own
- *  `code`/`message` fields, already user-safe by protocol contract. */
+ *  wraps. Never shows a raw provider payload or raw Error message. The UI
+ *  exposes only a stable error code (when available), a generic recovery-safe
+ *  message, and a short run reference for support correlation. */
 function RunFailureBanner({ failure, onDismiss }: { failure: RunFailure; onDismiss: () => void }) {
   return (
     <Alert variant="destructive" data-testid="copilot-run-failure" className={styles.runFailureBanner}>
       <AlertTitle>{failure.code ? `Run failed (${failure.code})` : "Run failed"}</AlertTitle>
       <AlertDescription>
-        {failure.message}
+        The AI run stopped before it completed
         {failure.runId ? ` · run ${failure.runId.slice(0, 8)}` : ""}
       </AlertDescription>
       <button type="button" className={styles.runFailureDismiss} onClick={onDismiss}>

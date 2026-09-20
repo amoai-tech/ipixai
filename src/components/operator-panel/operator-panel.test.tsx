@@ -991,7 +991,7 @@ describe("Production Copilot run-failure banner (IPI-1259 · BRAND-CRAWL-RUNNER-
   // AG-UI onRunErrorEvent/onRunFailed subscriber turns that into a real,
   // visible, dismissible banner instead (Task 4's Required Outcome: "a
   // completed draft or an honest, visible error", never a silent hang).
-  it("shows a visible error with the AG-UI event's code and message on RUN_ERROR", async () => {
+  it("shows a visible error with the AG-UI event code and a safe generic message on RUN_ERROR", async () => {
     render(
       <OperatorPanel>
         <p>Body</p>
@@ -1008,10 +1008,11 @@ describe("Production Copilot run-failure banner (IPI-1259 · BRAND-CRAWL-RUNNER-
 
     const banner = await screen.findByTestId("copilot-run-failure");
     expect(within(banner).getByText("Run failed (RUNNER_CONNECTION_DROPPED)")).toBeDefined();
-    expect(within(banner).getByText(/Runner connection dropped · run run-1234/)).toBeDefined();
+    expect(within(banner).getByText(/The AI run stopped before it completed · run run-1234/)).toBeDefined();
+    expect(within(banner).queryByText(/Runner connection dropped/)).toBeNull();
   });
 
-  it("surfaces a thrown runner error (onRunFailed) even without a protocol error code", async () => {
+  it("surfaces a safe generic error for a thrown runner failure without leaking the raw message", async () => {
     render(
       <OperatorPanel>
         <p>Body</p>
@@ -1026,7 +1027,8 @@ describe("Production Copilot run-failure banner (IPI-1259 · BRAND-CRAWL-RUNNER-
 
     const banner = await screen.findByTestId("copilot-run-failure");
     expect(within(banner).getByText("Run failed")).toBeDefined();
-    expect(within(banner).getByText(/network socket closed/)).toBeDefined();
+    expect(within(banner).getByText(/The AI run stopped before it completed/)).toBeDefined();
+    expect(within(banner).queryByText(/network socket closed/)).toBeNull();
   });
 
   it("dismisses the banner on click, and auto-clears it once a new run starts", async () => {
