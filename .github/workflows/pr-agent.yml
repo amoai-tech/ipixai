@@ -45,7 +45,13 @@ jobs:
               pull_number: context.issue.number,
               per_page: 100,
             });
-            core.setOutput("files", JSON.stringify(files.map((file) => file.filename)));
+            const changedFiles = files.map((file) => file.filename);
+            fs.mkdirSync(`${process.env.GITHUB_WORKSPACE}/.pr-agent`, { recursive: true });
+            fs.writeFileSync(
+              `${process.env.GITHUB_WORKSPACE}/.pr-agent/changed-files.json`,
+              JSON.stringify(changedFiles),
+              "utf8",
+            );
 
       - name: Checkout PR head lockfile as untrusted data
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -59,7 +65,6 @@ jobs:
       - name: Build trusted PR-Agent evidence
         shell: bash
         env:
-          CHANGED_FILES_JSON: ${{ steps.changed-files.outputs.files }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
@@ -73,13 +78,13 @@ jobs:
               --head-lock .pr-agent-head/package-lock.json \
               --base-sha "$BASE_SHA" \
               --head-sha "$HEAD_SHA" \
-              --changed-files "$CHANGED_FILES_JSON" \
+              --changed-files-file .pr-agent/changed-files.json \
               --output .pr-agent/evidence.md; then
               printf '# iPix PR-Agent Evidence\n\nVersion evidence: **NEEDS VERIFICATION**\nAPI claim default: **NEEDS VERIFICATION**\nBase SHA: `%s`\nHead SHA: `%s`\n\nEvidence generation failed; framework/API claims are advisory only.\n' \
                 "$BASE_SHA" "$HEAD_SHA" > .pr-agent/evidence.md
             fi
           else
-            if [[ "$CHANGED_FILES_JSON" != *"scripts/pr-agent/build-evidence.mjs"* ]]; then
+            if ! grep -Fq '"scripts/pr-agent/build-evidence.mjs"' .pr-agent/changed-files.json; then
               echo "trusted PR-Agent evidence builder missing from base branch" >&2
               exit 1
             fi
@@ -93,8 +98,6 @@ jobs:
       - name: Select full or incremental review from certified base context
         id: review-mode
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          CHANGED_FILES_JSON: ${{ steps.changed-files.outputs.files }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -105,7 +108,9 @@ jobs:
             if (fs.existsSync(policyPath)) {
               ({ selectReviewCommand } = await import(pathToFileURL(policyPath).href));
             } else {
-              const changedFiles = JSON.parse(process.env.CHANGED_FILES_JSON ?? "[]");
+              const changedFiles = JSON.parse(
+                fs.readFileSync(`${process.env.GITHUB_WORKSPACE}/.pr-agent/changed-files.json`, "utf8"),
+              );
               if (!changedFiles.includes("scripts/pr-agent/review-policy.mjs")) {
                 core.setFailed("trusted PR-Agent review policy missing from base branch");
                 return;
@@ -137,13 +142,13 @@ jobs:
         id: reviewer-skills
         shell: bash
         env:
-          CHANGED_FILES_JSON: ${{ steps.changed-files.outputs.files }}
+          CHANGED_FILES_FILE: .pr-agent/changed-files.json
         run: |
           if [[ -f scripts/select-pr-agent-skills.mjs ]]; then
             node scripts/select-pr-agent-skills.mjs >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if [[ "$CHANGED_FILES_JSON" != *"scripts/select-pr-agent-skills.mjs"* ]]; then
+          if ! grep -Fq '"scripts/select-pr-agent-skills.mjs"' .pr-agent/changed-files.json; then
             echo "trusted PR-Agent routing script missing from base branch" >&2
             exit 1
           fi

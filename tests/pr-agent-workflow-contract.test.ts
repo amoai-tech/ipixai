@@ -18,6 +18,9 @@ describe("IPI-1246 PR-Agent workflow contract", () => {
 
   it("uses deterministic changed-file routing and evidence from trusted helpers", () => {
     expect(workflow).toContain("Read changed filenames");
+    expect(workflow).toContain(".pr-agent/changed-files.json");
+    expect(workflow).toContain("--changed-files-file .pr-agent/changed-files.json");
+    expect(workflow).not.toContain('--changed-files "$CHANGED_FILES_JSON"');
     expect(workflow).toContain("scripts/select-pr-agent-skills.mjs");
     expect(workflow).toContain("scripts/pr-agent/build-evidence.mjs");
     expect(workflow).toContain("scripts/pr-agent/review-policy.mjs");

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 const UNIVERSAL = "pr-agent-code-review";
@@ -49,7 +49,10 @@ export function selectSkills(files) {
 }
 
 function runCli() {
-  const files = JSON.parse(process.env.CHANGED_FILES_JSON ?? "[]");
+  const rawFiles = process.env.CHANGED_FILES_FILE
+    ? readFileSync(process.env.CHANGED_FILES_FILE, "utf8")
+    : (process.env.CHANGED_FILES_JSON ?? "[]");
+  const files = JSON.parse(rawFiles);
   const result = selectSkills(files);
   for (const skill of result.skills) {
     const file = `.claude/skills/${skill}/SKILL.md`;

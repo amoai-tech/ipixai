@@ -114,11 +114,15 @@ function parseArgs(argv) {
 }
 function runCli() {
   const args = parseArgs(process.argv.slice(2));
-  for (const key of ["base-lock", "head-lock", "base-sha", "head-sha", "changed-files", "output"]) {
+  for (const key of ["base-lock", "head-lock", "base-sha", "head-sha", "output"]) {
     if (!args[key]) throw new Error(`missing --${key}`);
   }
+  const changedFilesRaw = args["changed-files-file"]
+    ? readFileSync(args["changed-files-file"], "utf8")
+    : args["changed-files"];
+  if (!changedFilesRaw) throw new Error("missing --changed-files-file or --changed-files");
   const result = buildEvidence({
-    baseSha: args["base-sha"], headSha: args["head-sha"], changedFiles: JSON.parse(args["changed-files"]),
+    baseSha: args["base-sha"], headSha: args["head-sha"], changedFiles: JSON.parse(changedFilesRaw),
     baseLock: JSON.parse(readFileSync(args["base-lock"], "utf8")),
     headLock: JSON.parse(readFileSync(args["head-lock"], "utf8")),
   });
