@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 
 import { CommandCenter } from "@/components/dashboard/command-center";
+import { ReportPlannerContext } from "@/components/operator-panel/planner-context";
 import { ReportWorkspaceStats } from "@/components/operator-panel/workspace-stats";
+import { WORKSPACE_PLANNER_CONTEXT } from "@/lib/planner/planner-context";
 import { ErrorState } from "@/components/ui/error-state";
 import {
   appWorkspaceDependencies,
@@ -121,6 +123,12 @@ export default async function AppHomePage() {
 
   return (
     <div className="p-8">
+      {/* IPI-1087 · PLANNER-CONTEXT-001 — /app has no active Brand/Shoot.
+          Reporting this explicitly (not just omitting a report) is what
+          actually clears a stale Brand/Shoot context left by a previous
+          page: the model is told nothing is open, rather than the context
+          merely going silent. */}
+      <ReportPlannerContext context={WORKSPACE_PLANNER_CONTEXT} />
       {/* Intelligence rail's derived workspace state — real, uncapped
           counts (trustedBrandIdsResult already has every trusted brand id,
           not just the display-capped BRAND_LIMIT list; shootCountResult is
