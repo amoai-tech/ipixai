@@ -114,6 +114,10 @@ vi.mock("@copilotkit/react-core/v2", () => ({
   // IPI-1233 registers the composeShootPlan named renderer inside the same
   // provider — same no-op treatment as useHumanInTheLoop above.
   useRenderTool: () => {},
+  // IPI-1087's ReportPlannerContext calls this directly; these tests assert
+  // the visible Context line (a consumer of the same PlannerContext value),
+  // not the model-facing registration itself — no-op stub is enough here.
+  useAgentContext: () => {},
   CopilotChat: ({
     labels,
     threadId,
@@ -183,6 +187,8 @@ vi.mock("next/link", () => ({
 import { OperatorPanel } from "./operator-panel";
 import { navItemIsActive, OPERATOR_NAV } from "./nav";
 import { ReportWorkspaceStats } from "./workspace-stats";
+import { ReportPlannerContext } from "./planner-context";
+import { WORKSPACE_PLANNER_CONTEXT, type PlannerContext } from "@/lib/planner/planner-context";
 
 const DEFAULT_RESOURCE_ID = "org-1";
 
@@ -372,6 +378,61 @@ describe("OperatorPanel", () => {
     expect(
       within(screen.getByTestId("intelligence-rail")).getByText("2 brands · 1 shoot in this workspace."),
     ).toBeDefined();
+  });
+
+  it("Context line shows just the Brand when only a Brand is open (IPI-1087)", () => {
+    render(
+      <OperatorPanel>
+        <ReportPlannerContext context={{ scopeKey: "brand:b1", brand: { id: "b1", name: "Brand Aurora" } }} />
+      </OperatorPanel>,
+    );
+    expect(
+      within(screen.getByTestId("operator-chat-dock")).getByText("Brand Aurora"),
+    ).toBeDefined();
+  });
+
+  it("Context line shows 'Brand · Shoot' when a Shoot is open (IPI-1087)", () => {
+    const shootContext: PlannerContext = {
+      scopeKey: "shoot:s1",
+      brand: { id: "b1", name: "Brand Aurora" },
+      shoot: {
+        id: "s1",
+        name: "Shoot 104",
+        status: "planning",
+        brandId: "b1",
+        brief: null,
+        targetChannels: null,
+        estimatedBudget: null,
+        actualCost: null,
+        currency: null,
+        deliverables: [],
+      },
+    };
+    render(
+      <OperatorPanel>
+        <ReportPlannerContext context={shootContext} />
+      </OperatorPanel>,
+    );
+    expect(
+      within(screen.getByTestId("operator-chat-dock")).getByText("Brand Aurora · Shoot 104"),
+    ).toBeDefined();
+  });
+
+  it("clears the stale Brand label on returning to /app with no active entity (IPI-1087)", () => {
+    const { rerender } = render(
+      <OperatorPanel>
+        <ReportPlannerContext context={{ scopeKey: "brand:b1", brand: { id: "b1", name: "Brand Aurora" } }} />
+      </OperatorPanel>,
+    );
+    const dock = screen.getByTestId("operator-chat-dock");
+    expect(within(dock).getByText("Brand Aurora")).toBeDefined();
+
+    rerender(
+      <OperatorPanel>
+        <ReportPlannerContext context={WORKSPACE_PLANNER_CONTEXT} />
+      </OperatorPanel>,
+    );
+    expect(within(dock).queryByText("Brand Aurora")).toBeNull();
   });
 
   it("chat welcome stays generic with no real workspace stats", async () => {
