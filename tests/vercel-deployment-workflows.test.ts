@@ -294,7 +294,9 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     const source = read("scripts/check-vercel-deployment-governance.mjs");
 
     expect(source).toContain("https://api.vercel.com/v7/deployments");
-    expect(source).toContain("https://api.vercel.com/v13/deployments/");
+    expect(source).not.toContain("https://api.vercel.com/v13/deployments/");
+    expect(source).toContain("pagination?.next");
+    expect(source).toContain('searchParams.set("until", until)');
     expect(source).toContain('method: "GET"');
     expect(source).not.toMatch(/method:\s*["'](?:POST|PUT|PATCH|DELETE)["']/);
     expect(source).toContain('deployment.source !== "cli"');

@@ -1,25 +1,26 @@
-const required = ["VERCEL_TOKEN", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID"];
-for (const key of required) {
-  if (!process.env[key]) {
-    console.error(`::error title=Vercel governance misconfigured::${key} is required`);
-    process.exit(2);
+import { pathToFileURL } from "node:url";
+
+function readConfig(env) {
+  const required = ["VERCEL_TOKEN", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID"];
+  for (const key of required) {
+    if (!env[key]) throw new Error(`${key} is required`);
   }
+
+  const max24h = Number(env.VERCEL_MAX_DEPLOYMENTS_24H ?? "3");
+  if (!Number.isInteger(max24h) || max24h < 0) {
+    throw new Error("VERCEL_MAX_DEPLOYMENTS_24H must be a non-negative integer");
+  }
+
+  return {
+    token: env.VERCEL_TOKEN,
+    teamId: env.VERCEL_ORG_ID,
+    projectId: env.VERCEL_PROJECT_ID,
+    max24h,
+  };
 }
 
-const max24h = Number(process.env.VERCEL_MAX_DEPLOYMENTS_24H ?? "3");
-if (!Number.isInteger(max24h) || max24h < 0) {
-  console.error("::error title=Invalid deployment budget::VERCEL_MAX_DEPLOYMENTS_24H must be a non-negative integer");
-  process.exit(2);
-}
-
-const token = process.env.VERCEL_TOKEN;
-const teamId = process.env.VERCEL_ORG_ID;
-const projectId = process.env.VERCEL_PROJECT_ID;
-const since = Date.now() - 24 * 60 * 60 * 1000;
-const headers = { Authorization: `Bearer ${token}` };
-
-async function getJson(url) {
-  const response = await fetch(url, { method: "GET", headers });
+async function getJson(url, headers, fetchImpl) {
+  const response = await fetchImpl(url, { method: "GET", headers });
   if (!response.ok) {
     const body = await response.text();
     throw new Error(`${response.status} ${response.statusText}: ${body.slice(0, 500)}`);
@@ -27,63 +28,98 @@ async function getJson(url) {
   return response.json();
 }
 
-const listUrl = new URL("https://api.vercel.com/v7/deployments");
-listUrl.searchParams.set("projectId", projectId);
-listUrl.searchParams.set("teamId", teamId);
-listUrl.searchParams.set("since", String(since));
-listUrl.searchParams.set("limit", "100");
+export async function listDeployments24h({ fetchImpl, token, teamId, projectId, since, pageLimit = 100 }) {
+  const headers = { Authorization: `Bearer ${token}` };
+  const deployments = [];
+  const seenCursors = new Set();
+  let until;
 
-try {
-  const listed = await getJson(listUrl);
-  const deployments = Array.isArray(listed.deployments) ? listed.deployments : [];
-  const details = await Promise.all(
-    deployments.map((deployment) => {
-      const id = deployment.uid ?? deployment.id;
-      const url = new URL(`https://api.vercel.com/v13/deployments/${encodeURIComponent(id)}`);
-      url.searchParams.set("teamId", teamId);
-      return getJson(url);
-    }),
-  );
+  for (let page = 0; page < 1000; page += 1) {
+    const url = new URL("https://api.vercel.com/v7/deployments");
+    url.searchParams.set("projectId", projectId);
+    url.searchParams.set("teamId", teamId);
+    url.searchParams.set("since", String(since));
+    url.searchParams.set("limit", String(pageLimit));
+    if (until !== undefined) url.searchParams.set("until", until);
 
-  const unexpectedOwners = details.filter((deployment) => deployment.source !== "cli");
-  const summary = {
-    projectId,
-    deployments24h: details.length,
-    maxDeployments24h: max24h,
-    byTarget: Object.fromEntries(
-      [...new Set(details.map((deployment) => deployment.target ?? "unknown"))].map((target) => [
-        target,
-        details.filter((deployment) => (deployment.target ?? "unknown") === target).length,
-      ]),
-    ),
-    unexpectedSources: unexpectedOwners.map((deployment) => ({
-      id: deployment.id,
+    const listed = await getJson(url, headers, fetchImpl);
+    const pageDeployments = Array.isArray(listed.deployments) ? listed.deployments : [];
+    deployments.push(...pageDeployments);
+
+    const next = listed.pagination?.next;
+    if (next === null || next === undefined) return deployments;
+
+    const cursor = String(next);
+    if (seenCursors.has(cursor)) throw new Error(`Vercel deployment pagination repeated cursor ${cursor}`);
+    seenCursors.add(cursor);
+    until = cursor;
+  }
+
+  throw new Error("Vercel deployment pagination exceeded 1000 pages");
+}
+
+function summarize(projectId, deployments, max24h) {
+  const byTarget = {};
+  for (const deployment of deployments) {
+    const target = deployment.target ?? "unknown";
+    byTarget[target] = (byTarget[target] ?? 0) + 1;
+  }
+
+  const unexpectedSources = deployments
+    .filter((deployment) => deployment.source !== "cli")
+    .map((deployment) => ({
+      id: deployment.uid ?? deployment.id ?? "unknown",
       source: deployment.source ?? "unknown",
       target: deployment.target ?? "unknown",
-      url: deployment.url,
-    })),
+      url: deployment.url ?? null,
+    }));
+
+  return {
+    projectId,
+    deployments24h: deployments.length,
+    maxDeployments24h: max24h,
+    byTarget,
+    unexpectedSources,
   };
+}
 
-  console.log(JSON.stringify(summary, null, 2));
+export async function runGovernance({
+  env = process.env,
+  now = Date.now(),
+  fetchImpl = globalThis.fetch,
+  log = console.log,
+  error = console.error,
+} = {}) {
+  try {
+    const { token, teamId, projectId, max24h } = readConfig(env);
+    if (typeof fetchImpl !== "function") throw new Error("global fetch is unavailable");
 
-  let failed = false;
-  if (details.length > max24h) {
-    failed = true;
-    console.error(
-      `::error title=Vercel deployment volume exceeded::${details.length} deployments were created in the last 24h; policy allows ${max24h}.`,
-    );
+    const since = now - 24 * 60 * 60 * 1000;
+    const deployments = await listDeployments24h({ fetchImpl, token, teamId, projectId, since });
+    const summary = summarize(projectId, deployments, max24h);
+    log(JSON.stringify(summary, null, 2));
+
+    let failed = false;
+    if (deployments.length > max24h) {
+      failed = true;
+      error(`::error title=Vercel deployment volume exceeded::${deployments.length} deployments were created in the last 24h; policy allows ${max24h}.`);
+    }
+
+    if (summary.unexpectedSources.length > 0) {
+      failed = true;
+      error(`::error title=Unexpected Vercel deployment source::Expected every iPix deployment to be CLI-owned; found ${summary.unexpectedSources.length} deployment(s) from another source.`);
+    }
+
+    if (!failed) log(`Vercel governance OK: ${deployments.length}/${max24h} deployments in 24h, all source=cli.`);
+    return { exitCode: failed ? 1 : 0, summary };
+  } catch (cause) {
+    error(`::error title=Vercel governance check failed::${cause instanceof Error ? cause.message : String(cause)}`);
+    return { exitCode: 2, summary: null };
   }
+}
 
-  if (unexpectedOwners.length > 0) {
-    failed = true;
-    console.error(
-      `::error title=Unexpected Vercel deployment source::Expected every iPix deployment to be CLI-owned; found ${unexpectedOwners.length} deployment(s) from another source.`,
-    );
-  }
-
-  if (failed) process.exit(1);
-  console.log(`Vercel governance OK: ${details.length}/${max24h} deployments in 24h, all source=cli.`);
-} catch (error) {
-  console.error(`::error title=Vercel governance check failed::${error instanceof Error ? error.message : String(error)}`);
-  process.exit(2);
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
+  const result = await runGovernance();
+  process.exitCode = result.exitCode;
 }
