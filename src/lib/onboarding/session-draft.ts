@@ -16,8 +16,8 @@ export type LegacyDraftAnswers = OnboardingDraft & Record<string, unknown>;
  * onboarding_sessions.draft_answers. Known fields are normalized; everything
  * else passes through unchanged (see LegacyDraftAnswers).
  */
-export function serializeDraftAnswers(draft: OnboardingDraft): Record<string, unknown> {
-  const { brandName, websiteUrl, ...legacy } = draft as LegacyDraftAnswers;
+export function serializeDraftAnswers(draft: LegacyDraftAnswers): Record<string, unknown> {
+  const { brandName, websiteUrl, ...legacy } = draft;
   return { ...legacy, brandName, websiteUrl };
 }
 
@@ -26,12 +26,12 @@ export function serializeDraftAnswers(draft: OnboardingDraft): Record<string, un
  * other key untouched, so an unrecognized legacy field survives a
  * parse → serialize round trip even though this app doesn't interpret it.
  */
-export function parseDraftAnswers(raw: unknown): OnboardingDraft {
+export function parseDraftAnswers(raw: unknown): LegacyDraftAnswers {
   if (typeof raw !== "object" || raw === null) return { ...EMPTY_DRAFT };
   const { brandName, websiteUrl, ...legacy } = raw as Record<string, unknown>;
   return {
     ...legacy,
     brandName: typeof brandName === "string" ? brandName : "",
     websiteUrl: typeof websiteUrl === "string" ? websiteUrl : "",
-  } as OnboardingDraft;
+  };
 }

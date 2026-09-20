@@ -128,6 +128,14 @@ describe("resolveSemanticStep — current single-question flow's own draft", () 
 describe("resolveSemanticStep — malformed / out-of-range input never throws", () => {
   const malformedScreens = [Number.NaN, -3, 0, 99, 1.9, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY];
 
+  it("falls back out-of-range high screens to the safe first-screen mapping", () => {
+    expect(
+      resolveSemanticStep(baseInput({ currentScreen: 99, draft: { brandName: "Maison Noir" } })),
+    ).toBe(
+      resolveSemanticStep(baseInput({ currentScreen: 1, draft: { brandName: "Maison Noir" } })),
+    );
+  });
+
   it("clamps non-finite/out-of-range screens instead of propagating garbage", () => {
     for (const screen of malformedScreens) {
       expect(() =>

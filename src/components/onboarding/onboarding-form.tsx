@@ -75,7 +75,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
         const key = getOrCreateOnboardingIdempotencyKey(operatorId);
         const session = await getOrCreateOnboardingSession(supabase, operatorId, key);
         if (cancelled) return;
-        const draft = parseDraftAnswers(session.draft_answers) as LegacyDraftAnswers;
+        const draft = parseDraftAnswers(session.draft_answers);
         // Same mapper IPI-1260's lean wizard will consume — one compatibility
         // implementation, not a second ad-hoc check. current_screen is only a
         // hint here; durable status/brand_id/organization_id decide.

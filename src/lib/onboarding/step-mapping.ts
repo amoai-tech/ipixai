@@ -65,7 +65,7 @@ function clampScreen(value: number): number {
   if (!Number.isFinite(value)) return 1;
   const whole = Math.trunc(value);
   if (whole < 1) return 1;
-  if (whole > 13) return 13;
+  if (whole > 13) return 1;
   return whole;
 }
 
