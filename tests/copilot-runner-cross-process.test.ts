@@ -37,16 +37,29 @@
 // node_modules/@copilotkit/runtime/dist/v2/runtime/runner/in-memory.mjs).
 // This harness spawns real, separate `tsx` child processes instead, per
 // ./fixtures/copilot-runner-worker.ts.
+//
+// Every test below uses `it.fails(...)`, not `it(...)`. Vitest's `fails`
+// modifier inverts pass/fail reporting: the test PASSES the suite when its
+// assertions fail (today's correct, expected state) and FAILS the suite the
+// moment they start passing for real — which is exactly the "tell me when
+// this is actually fixed" signal this permanent contract needs. Without it,
+// this file's intentional, permanent RED would fail `npm test`/CI for every
+// unrelated future PR until IPI-1117 ships a real fix — clearly not the
+// intent of a "permanent P0 baseline" that other work must not be blocked by.
 import { spawn, type ChildProcessByStdio } from "node:child_process";
 import type { Readable } from "node:stream";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { EventType } from "@ag-ui/client";
 
 type WorkerChild = ChildProcessByStdio<null, Readable, Readable>;
 
-const TSX_BIN = path.join(process.cwd(), "node_modules", ".bin", "tsx");
-const WORKER = path.join(process.cwd(), "tests", "fixtures", "copilot-runner-worker.ts");
+// Resolved relative to this file, not process.cwd() — correct regardless of
+// which directory `vitest`/`npm test` is invoked from.
+const REPO_ROOT = path.join(import.meta.dirname, "..");
+const TSX_BIN = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
+const WORKER = path.join(import.meta.dirname, "fixtures", "copilot-runner-worker.ts");
 
 type WorkerMessage = Record<string, unknown>;
 
@@ -119,6 +132,9 @@ function runRemote(mode: string, threadId: string, runId: string): Promise<Worke
     child.stderr.on("data", (chunk: Buffer) => {
       stderr += chunk.toString("utf8");
     });
+    // Without this, a spawn failure (e.g. tsx not found) hangs the test
+    // until its outer timeout instead of failing fast with a clear cause.
+    child.on("error", (error) => reject(error));
     child.on("exit", (code) => {
       if (result) return resolve(result);
       reject(new Error(`${mode} produced no result (exit ${code}): ${stderr.slice(0, 2000)}`));
@@ -143,7 +159,7 @@ describe("IPI-1117 · cross-process CopilotKit runner contract (permanent P0-1/P
     }
   });
 
-  it("P0-1: a run started on process A is visible to isRunning() on process B", async () => {
+  it.fails("P0-1: a run started on process A is visible to isRunning() on process B", async () => {
     const threadId = randomUUID();
     const runId = randomUUID();
     const owner = spawnOwner(threadId, runId);
@@ -161,7 +177,7 @@ describe("IPI-1117 · cross-process CopilotKit runner contract (permanent P0-1/P
     expect(result.value).toBe(true);
   }, 10000);
 
-  it("P0-2: connect() on process B receives process A's live run events", async () => {
+  it.fails("P0-2: connect() on process B receives process A's live run events", async () => {
     const threadId = randomUUID();
     const runId = randomUUID();
     const owner = spawnOwner(threadId, runId);
@@ -179,32 +195,38 @@ describe("IPI-1117 · cross-process CopilotKit runner contract (permanent P0-1/P
     // this either — it must include a live post-connect event, so this
     // checks for the actual tick event type, not merely "something arrived".
     expect(events.length).toBeGreaterThan(0);
-    expect(events).toContain("TEXT_MESSAGE_CONTENT");
+    expect(events).toContain(EventType.TEXT_MESSAGE_CONTENT);
   }, 10000);
 
-  it("P0-3: stop() on process B terminates process A's active run", async () => {
+  it.fails("P0-3: stop() on process B terminates process A's active run", async () => {
     const threadId = randomUUID();
     const runId = randomUUID();
     const owner = spawnOwner(threadId, runId);
     spawned.push(owner.child);
     await waitFor(() => owner.messages.some((m) => m.kind === "ready"), 8000, 20, () => diag(owner));
     await waitFor(() => tickCount(owner.messages) >= 2, 8000, 20, () => diag(owner));
-    const ticksBeforeStop = tickCount(owner.messages);
 
     const result = await runRemote("remote-stop", threadId, runId);
 
     // Required distributed behavior: stop() must succeed...
     expect(result.value).toBe(true);
 
-    // ...AND process A must actually terminate — no more ticks after a
-    // short settle window, and an owner_complete/RUN_FINISHED outcome.
+    // ...AND process A must actually terminate. Baseline is captured AFTER
+    // runRemote() resolves, not before it was called — runRemote spawns a
+    // real child process, which takes real wall-clock time during which the
+    // owner legitimately keeps ticking. Comparing against a pre-call
+    // baseline would count those legitimate ticks as "didn't stop", making
+    // this assertion fail forever even once stop() is implemented correctly
+    // (caught independently by 3 review bots on this PR — confirmed real).
     // `stop() === true` alone is explicitly insufficient per the Linear
-    // spec; both conditions must hold together. Today stop() returns false
-    // and A keeps ticking forever (RED) because B's stop() can't reach A's
-    // process-local state at all.
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    const ticksAfterSettle = tickCount(owner.messages);
-    expect(ticksAfterSettle).toBe(ticksBeforeStop);
-    expect(owner.messages.some((m) => m.kind === "owner_complete")).toBe(true);
+    // spec; both conditions must hold together.
+    const ticksAfterStop = tickCount(owner.messages);
+    await waitFor(
+      () => owner.messages.some((m) => m.kind === "owner_complete"),
+      2000,
+      20,
+      () => diag(owner),
+    );
+    expect(tickCount(owner.messages)).toBe(ticksAfterStop);
   }, 15000);
 });
