@@ -585,7 +585,11 @@ function ProductionCopilotPanel({
       <div className={styles.panelHeader}>
         <div className={styles.panelTitle}>
           <span className={styles.panelTitleText}>Production Copilot</span>
-          {contextLine && <span className={styles.panelContext}>{contextLine}</span>}
+          {contextLine && (
+            <span className={styles.panelContext} data-testid="production-copilot-context-line">
+              {contextLine}
+            </span>
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           {insights.length > 0 && (
