@@ -5,6 +5,7 @@ const workflow = readFileSync(
   new URL("../.github/workflows/pr-agent.yml", import.meta.url),
   "utf8",
 );
+const routing = readFileSync(new URL("../scripts/select-pr-agent-skills.mjs", import.meta.url), "utf8");
 const copilotReviewSkill = readFileSync(
   new URL("../.claude/skills/copilotkit-review/SKILL.md", import.meta.url),
   "utf8",
@@ -15,20 +16,16 @@ const mastraSkill = readFileSync(
 );
 
 describe("IPI-1213 PR-Agent review skills contract", () => {
-  it("selects trusted rollout-safe skills without autonomous fixes", () => {
-    expect(workflow).toContain("ref: ${{ github.event.pull_request.base.sha }}");
-    expect(workflow).toContain("persist-credentials: false");
-    expect(workflow).toContain("Select trusted PR-Agent skills");
-    expect(workflow).toContain(
-      "if [[ -e .claude/skills/mastra-review/SKILL.md && -e .claude/skills/copilotkit-review/SKILL.md ]]; then",
-    );
-    expect(workflow).toContain('"/github/workspace/.claude/skills/mastra-review"');
-    expect(workflow).toContain('"/github/workspace/.claude/skills/copilotkit-review"');
-    expect(workflow).toContain('"/github/workspace/.claude/skills/mastra"');
-    expect(workflow).toContain("max_tokens=8000");
-    expect(workflow).toContain("max_tokens=3500");
-    expect(workflow).toContain("skills.enabled: \"true\"");
-    expect(workflow).toContain("github_action_config.auto_improve: \"false\"");
+  it("keeps deterministic review-skill ownership local while the shared core orchestrates it", () => {
+    expect(workflow).toContain("amoai-tech/pr-review-infra/.github/workflows/pr-agent.yml@a3c9600de7a31184266fade8387359ccbb8e6d68");
+    expect(routing).toContain("pr-agent-code-review");
+    expect(routing).toContain("mastra-review");
+    expect(routing).toContain("copilotkit-review");
+    expect(routing).toContain("supabase-review");
+    expect(routing).toContain("nextjs-review");
+    expect(routing).toContain("ci-review");
+    expect(routing).toContain("cloudinary-review");
+    expect(routing).toContain("max_tokens=${result.maxTokens}");
   });
 
   it("reuses the existing Mastra skill body without recursively inlining references", () => {

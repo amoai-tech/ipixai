@@ -2,9 +2,6 @@
 # Keep this file intentionally small. Upstream defaults remain authoritative unless overridden here.
 
 [config]
-model = "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b"
-fallback_models = ["nvidia_nim/nvidia/nemotron-3.5-lightning-30b-a3b"]
-custom_model_max_tokens = 32000
 repo_context_files = ["AGENTS.md", "docs/pr-review-guidelines.md"]
 repo_context_from_default_branch = true
 repo_context_max_lines = 500
@@ -38,6 +35,8 @@ Act as a forensic senior engineer reviewing production iPix code.
 Prioritize only material findings: correctness defects; security and tenant-isolation defects; authorization/RLS failures; data integrity or migration failures; CI/build/test failures; broken error/retry/idempotency behavior; Mastra workflow/HITL/persistence defects; CopilotKit/AG-UI runtime regressions; Cloudinary webhook/signing/media integrity defects; payment or publishing safety defects; and missing deterministic verification for high-risk changes.
 
 Do not report style-only suggestions, subjective preferences, speculative problems without a realistic failure scenario, or issues unrelated to changed code.
+
+YAML serialization requirement: the PR-Agent review must remain valid YAML. For every free-text field in the PR-Agent review, always use a YAML block scalar (`|`) with indented content. Never start an unquoted YAML scalar with a backtick. This is an output-format requirement, not a style preference.
 
 Use `changes_required` only when at least one material finding proves a changed-code defect, violated safety/compatibility invariant, failed required deterministic proof, or realistic failure scenario that must be fixed before merge. If there is no such finding, do not return `changes_required`. Keep advisory observations out of `key_issues_to_review`.
 
