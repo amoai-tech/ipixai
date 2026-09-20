@@ -1,7 +1,25 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { selectSkills } from "../scripts/select-pr-agent-skills.mjs";
 
 const names = (files: string[]) => selectSkills(files).skills;
+
+const SOURCE_FILE = /\.(?:[cm]?[jt]sx?)$/;
+
+function sourceFiles(dir = "src"): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name).replaceAll("\\", "/");
+    if (entry.isDirectory()) return sourceFiles(path);
+    return SOURCE_FILE.test(entry.name) ? [path] : [];
+  });
+}
+
+function copilotOwners(): string[] {
+  return sourceFiles().filter((file) =>
+    /(?:from\s*|import\s*)["']@(copilotkit|ag-ui)\//.test(readFileSync(file, "utf8")),
+  );
+}
 
 describe("IPI-1246 PR-Agent changed-file routing", () => {
   it("always loads universal code review only for unrelated docs", () => {
@@ -17,6 +35,14 @@ describe("IPI-1246 PR-Agent changed-file routing", () => {
   it("routes Mastra and CopilotKit independently", () => {
     expect(names(["src/mastra/agents/planner.ts"])).toEqual(["pr-agent-code-review", "mastra-review"]);
     expect(names(["src/app/api/copilotkit/route.ts"])).toEqual(["pr-agent-code-review", "copilotkit-review", "nextjs-review"]);
+  });
+
+  it("routes every current direct CopilotKit or AG-UI source owner", () => {
+    const owners = copilotOwners();
+    expect(owners.length).toBeGreaterThan(0);
+    for (const file of owners) {
+      expect(names([file]), file).toContain("copilotkit-review");
+    }
   });
 
   it("routes Cloudinary media boundaries", () => {
