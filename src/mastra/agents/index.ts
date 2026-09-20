@@ -1,5 +1,6 @@
 import { openai } from "@ai-sdk/openai";
 import { Agent } from "@mastra/core/agent";
+import type { RequestContext } from "@mastra/core/request-context";
 import { z } from "zod";
 import { Memory } from "@mastra/memory";
 import { createAgentMemoryStorage } from "@/mastra/pg-store";
@@ -15,6 +16,43 @@ export const AgentState = z.object({
   proverbs: z.array(z.string()).default([]),
 });
 
+/**
+ * IPI-1087 · PLANNER-CONTEXT-001 — surface the operator's active Brand/Shoot.
+ *
+ * `useAgentContext` (planner-context.tsx) only registers context with the
+ * CopilotKit client; verified live 2026-09-20 that the `@ag-ui/mastra`
+ * bridge (node_modules/@ag-ui/mastra/dist/mastra-*.mjs: `applyInputContext`)
+ * stores that array into Mastra's `RequestContext` under the raw key
+ * `"ag-ui"` as `{ context: [{ description, value }] }` on every run — it
+ * does NOT inject it into the prompt itself. A static `instructions` string
+ * (the pre-2026-09-20 shape of this agent) never reads that key, so the
+ * model silently never saw the Brand/Shoot data despite the frontend
+ * correctly registering it — reproduced live: asking "What shoot am I
+ * currently looking at?" got "I can't see which shoot is currently open."
+ * `value` is a JSON string (CopilotKit's `useAgentContext` stringifies it
+ * before calling `addContext`), so it is parsed, not used verbatim.
+ */
+type AgUiContextEntry = { description?: string; value?: string };
+
+function formatActiveWorkspaceContext(requestContext?: RequestContext): string {
+  const agUi = requestContext?.getRaw("ag-ui") as { context?: AgUiContextEntry[] } | undefined;
+  const blocks = (agUi?.context ?? [])
+    .map((entry) => {
+      if (!entry?.value) return null;
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(entry.value);
+      } catch {
+        return null;
+      }
+      const header = entry.description ? `${entry.description}\n` : "";
+      return `${header}${JSON.stringify(parsed)}`;
+    })
+    .filter((block): block is string => Boolean(block));
+  if (blocks.length === 0) return "";
+  return `\n\n## Active workspace context\n\n${blocks.join("\n\n")}`;
+}
+
 // IPI-1048 · PLANNER-001: production default agent. Business behavior only
 // (identity, domain vocabulary, uncertainty policy) is adapted from Lumina's
 // Planner prompt — see the reuse table in this PR's description for the
@@ -24,15 +62,7 @@ export const AgentState = z.object({
 // see src/mastra/tools/planning.ts for the reuse/adaptation evidence.
 let cachedAgent: Agent | undefined;
 
-export function getProductionPlannerAgent(): Agent {
-  if (cachedAgent) return cachedAgent;
-
-  const agent = new Agent({
-  id: "production-planner",
-  name: "Production Planner",
-  model: openai("gpt-5.6-luna"),
-  tools: { ...planningTools, composeShootPlan: composeShootPlanTool, ...brandIntelligenceTools },
-  instructions: `You are the iPix Production Planner, an assistant for fashion production teams.
+const BASE_INSTRUCTIONS = `You are the iPix Production Planner, an assistant for fashion production teams.
 
 You help plan shoots, deliverables, shot lists, budgets, and campaign or brand needs.
 
@@ -53,7 +83,18 @@ You also have two brand-intelligence tools: startBrandAnalysis and approveDraft.
 - startBrandAnalysis may only start a crawl and produce a draft for the operator to review. It never approves or publishes anything.
 - approveDraft is the only tool that promotes a draft to the brand's approved profile (or rejects it). Call it only after the operator has explicitly confirmed a specific decision on a specific draft they were shown — never infer or assume approval from ambiguous phrasing.
 - approveDraft requires the draftHash from the current review UI (the hash of the exact draft the operator is looking at). If you do not have a current draftHash for this brand, ask the operator to reopen/refresh the draft — do not guess, reuse an old one, or omit it.
-- If approveDraft returns ok: false, the decision was NOT recorded — relay its message to the operator plainly and do not claim the draft was approved or rejected.`,
+- If approveDraft returns ok: false, the decision was NOT recorded — relay its message to the operator plainly and do not claim the draft was approved or rejected.`;
+
+export function getProductionPlannerAgent(): Agent {
+  if (cachedAgent) return cachedAgent;
+
+  const agent = new Agent({
+  id: "production-planner",
+  name: "Production Planner",
+  model: openai("gpt-5.6-luna"),
+  tools: { ...planningTools, composeShootPlan: composeShootPlanTool, ...brandIntelligenceTools },
+  instructions: ({ requestContext }) =>
+    `${BASE_INSTRUCTIONS}${formatActiveWorkspaceContext(requestContext)}`,
   memory: new Memory({
     storage: createAgentMemoryStorage(),
     options: {

@@ -6,10 +6,12 @@ import { InvalidDraftErrorState } from "@/components/brand/invalid-draft-error-s
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/error-state";
 import { StatusChip } from "@/components/ui/status-chip";
+import { ReportPlannerContext } from "@/components/operator-panel/planner-context";
 import { appWorkspaceDependencies, requireResolvedAppWorkspace } from "@/lib/auth/app-shell";
 import { isHttpUrl } from "@/lib/brand/brand-profile-contract";
 import { isDatabaseUuid } from "@/lib/database-uuid";
 import { loadBrandDetail, type BrandDetail } from "@/lib/brand/get-brand-detail";
+import type { PlannerContext } from "@/lib/planner/planner-context";
 import { selectBrandDetailView } from "./select-view";
 
 /**
@@ -134,6 +136,16 @@ export default async function BrandDetailPage({
 
   const { detail } = result;
 
+  // IPI-1087 · PLANNER-CONTEXT-001 — `loadBrandDetail` above is already the
+  // sole authorization boundary (RLS on public.brands; a foreign-org id
+  // already returned not_found and this line was never reached), so this
+  // reuses that proven-authorized read rather than re-deriving ownership a
+  // second time.
+  const plannerContext: PlannerContext = {
+    scopeKey: `brand:${detail.id}`,
+    brand: { id: detail.id, name: detail.name },
+  };
+
   // Bot finding (Kilo) — real UX gap: Approve/Reject are correctly denied
   // server-side (approveDraft's RPC enforces is_org_editor_or_above), but
   // showing an active-looking button to a viewer who can't act on it is
@@ -183,6 +195,7 @@ export default async function BrandDetailPage({
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-8">
+      <ReportPlannerContext context={plannerContext} />
       <div>
         <h1 className="text-2xl font-semibold">{detail.name}</h1>
         {detail.brandUrl && isHttpUrl(detail.brandUrl) ? (
