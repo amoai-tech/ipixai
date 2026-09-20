@@ -10,7 +10,7 @@
 | --- | ---: | --- | --- | --- |
 | 🟢 | 100% | Reference index | Published for review | Maintain |
 | 🟢 | 100% | Documentation standard | Defined | Maintain |
-| 🟢 | 100% | Brands documentation | Current-state + reuse plan documented | Implement only proven gaps |
+| 🟢 | 100% | Brands | Current-state + reuse plan documented | Implement only proven gaps |
 | 🟡 | 70% | Reference repo library | CopilotKit organized; Mastra curation underway | Finish selected Mastra clones |
 | 🔵 | 0% | Shoots | Not started | Audit current implementation |
 | 🔵 | 0% | Talent | Not started | Start after Shoots |
@@ -38,25 +38,29 @@ Rules:
 - Browser automation, advanced RAG, multi-agent orchestration, schedules, and generic frameworks are later unless a real user journey requires them.
 - Current code + tests beat old planning notes. Installed package versions beat example-repo `main` when APIs differ.
 
-## 2. Documents
+## 2. Product Areas & Planned Docs
 
-Each document is listed once here. Domain documents should contain their own small tracker using the same `dot → % → item → current state → next` format.
+This is the canonical map of **what we are documenting for each product area**. File names live here once; other sections refer to the product area instead of repeating paths.
 
-| Status | % Complete | Document | Purpose |
-| --- | ---: | --- | --- |
-| 🟢 | 100% | `docs/docs-index.md` | Existing GitHub-native documentation map and source-of-truth rules |
-| 🟢 | 100% | `docs/reference-index.md` | This master product/reference index |
-| 🟢 | 100% | `docs/ipix-platform/00-platform/DOC-STANDARDS.md` | Documentation, evidence, reuse, migration, test, and MVP rules |
-| 🟢 | 100% | `docs/ipix-platform/10-brands/BRANDS.md` | Brands current state, user journeys, reuse decisions, gaps, tests |
-| 🔵 | 0% | `docs/ipix-platform/30-shoots/SHOOTS.md` | Shoots architecture and real user journeys |
-| 🔵 | 0% | `docs/ipix-platform/20-talent/TALENT.md` | Talent discovery, availability, shortlist, booking |
-| 🔵 | 0% | `docs/ipix-platform/40-assets/ASSETS.md` | Upload, Cloudinary, QA, approval, delivery |
-| 🔵 | 0% | `docs/ipix-platform/50-crm/CRM.md` | Companies, contacts, deals, activities, shoot handoff |
-| 🔵 | 0% | `docs/ipix-platform/60-operations/OPERATIONS.md` | Work queue, assignments, approvals, exceptions, delivery |
-| 🔵 | 0% | `docs/ipix-platform/70-analytics/ANALYTICS.md` | Trusted events, KPIs, funnels, agent/product metrics |
-| 🔵 | 0% | `docs/ipix-platform/80-plans/PLANS.md` | Plans, entitlements, usage, Stripe lifecycle |
-| 🔵 | 0% | `docs/ipix-platform/00-platform/IPIX-PLATFORM-ARCHITECTURE.md` | Shared auth, tenancy, CopilotKit, Mastra, Supabase, Cloudinary boundaries |
-| 🔵 | 0% | `docs/ipix-platform/00-platform/IPIX-GLOBAL-REUSE-MATRIX.md` | Verified repo/example → iPix domain → adaptation map |
+| Status | % Complete | Product area | Document | What it covers | Next |
+| --- | ---: | --- | --- | --- | --- |
+| 🟢 | 100% | Docs map | `docs/docs-index.md` | Existing GitHub-native documentation map and source-of-truth rules | Maintain |
+| 🟢 | 100% | Reference index | `docs/reference-index.md` | Product areas, planned docs, Linear, repos, research, execution order | Maintain |
+| 🟢 | 100% | Documentation standard | `docs/ipix-platform/00-platform/DOC-STANDARDS.md` | Evidence, reuse, migration, testing, readability, MVP rules | Maintain |
+| 🔵 | 0% | Platform architecture | `docs/ipix-platform/00-platform/IPIX-PLATFORM-ARCHITECTURE.md` | Shared auth, tenancy, CopilotKit, Mastra, Supabase, Cloudinary, runtime boundaries | Reconcile current code + platform tasks |
+| 🔵 | 0% | Global reuse | `docs/ipix-platform/00-platform/IPIX-GLOBAL-REUSE-MATRIX.md` | Verified repo/example → product area → exact adaptation decision | Build from completed domain audits |
+| 🟢 | 100% | Brands | `docs/ipix-platform/10-brands/BRANDS.md` | Brand list/detail, intelligence, Brand DNA review, approval, Planner handoff, reuse decisions | Implement only proven gaps |
+| 🔵 | 0% | Shoots | `docs/ipix-platform/30-shoots/SHOOTS.md` | Brief, shoot type, direction, shot list, approvals, booking, production, handoff to Assets | Audit current Shoots flow |
+| 🔵 | 0% | Talent | `docs/ipix-platform/20-talent/TALENT.md` | Profiles, portfolios, skills, availability, matching, shortlist, booking | Audit after Shoots |
+| 🔵 | 0% | Assets | `docs/ipix-platform/40-assets/ASSETS.md` | Upload, Cloudinary, metadata, QA, review, approval, delivery | Audit after Talent |
+| 🔵 | 0% | CRM | `docs/ipix-platform/50-crm/CRM.md` | Companies, contacts, deals, activities, proposals, shoot handoff | Audit after Assets |
+| 🔵 | 0% | Operations | `docs/ipix-platform/60-operations/OPERATIONS.md` | Work queue, assignments, staffing, vendors, approvals, exceptions, delivery | Audit after CRM |
+| 🔵 | 0% | Analytics | `docs/ipix-platform/70-analytics/ANALYTICS.md` | Trusted product/agent events, KPIs, funnels, operational metrics | Audit after Operations |
+| 🔵 | 0% | Plans | `docs/ipix-platform/80-plans/PLANS.md` | Saved production plans, entitlements, usage, Stripe lifecycle | Audit after Analytics |
+
+**Per-domain rule:** start with one main domain document. Create extra implementation-plan docs only when a verified gap is complex enough to need one. Do not pre-create umbrella documents.
+
+Every domain document uses the same compact tracker: `dot → % complete → item → current state → next`.
 
 ## 3. Linear
 
@@ -93,7 +97,7 @@ Use Linear as the live execution/status authority.
 | Reference Reuse Matrix | https://linear.app/amo100/document/ipix-reference-reuse-matrix-3ed7c0ed1057 |
 | Agent Platform Migration Plan | https://linear.app/amo100/document/ipix-agent-platform-migration-plan-e35d93623a32 |
 
-## 4. Reference repositories
+## 4. Reference Repositories
 
 Local shared root: `/home/sk/github-repos`
 
@@ -153,11 +157,11 @@ A local clone means **available to inspect**, not approved to copy. Before adapt
 | mastra-base | `/home/sk/github-repos/community/mastra-base` | Structure ideas only |
 | saas-starter-ai | `/home/sk/github-repos/community/saas-starter-ai` | SaaS/auth ideas only |
 
-## 5. Research archive
+## 5. Research Archive
 
 Primary research folder: `docs/copilotkit-mastra/`
 
-Use it as historical/research input, not live implementation authority. The most useful entry points are:
+Use it as historical/research input, not live implementation authority.
 
 | Source | Use |
 | --- | --- |
@@ -172,7 +176,7 @@ Use it as historical/research input, not live implementation authority. The most
 | `reuse-audit/PLANNING.md` | Runner/platform spike planning |
 | `MASTRA-COPILOTKIT-SEPT1.md` | Historical task/export evidence only; verify live status before acting |
 
-## 6. Execution order
+## 6. Execution Order
 
 1. Resolve shared platform blockers only where a domain journey requires them.
 2. Brands.
@@ -188,7 +192,7 @@ For each domain:
 
 `audit current iPix → define real journey → KEEP what works → verify references → choose smallest adaptation → test → create focused Linear task only for proven gaps`
 
-## 7. MVP rules
+## 7. MVP Rules
 
 - One happy path first.
 - KEEP before ADAPT.
@@ -200,16 +204,14 @@ For each domain:
 - No multi-agent orchestration until a single-agent flow cannot satisfy the journey.
 - Every added layer must have a test proving why it is needed.
 
-## 8. New-chat handoff
+## 8. New-Chat Handoff
 
-Start here:
-
-1. Read `docs/reference-index.md`.
-2. Read the target domain document once.
+1. Start with this reference index.
+2. Open the target product-area document from Section 2.
 3. Check the live v2-ipix Linear project before creating tasks.
 4. Inspect current iPix code/tests before using reference repos.
-5. Use `/home/sk/github-repos` only as a verified reference library.
+5. Use the shared reference library only as verified source material.
 6. Work in a safe worktree when the primary checkout is dirty.
-7. Run `npm run docs:check` and `git diff --check` after documentation changes.
+7. Run documentation/link validation after documentation changes.
 
-**Next documentation task:** Shoots current-state audit and `SHOOTS.md`.
+**Next documentation area:** Shoots.
