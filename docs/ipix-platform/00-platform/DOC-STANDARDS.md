@@ -38,6 +38,23 @@ Default product-area structure:
 
 `30-second summary → Current State → Plain-English Terms → Real User Journeys → What We KEEP → Repo Reuse Map → Exact Adaptation Details → Problem/Impact/Fix → Simple Architecture → Outcome-based Implementation Phases → Tests/Success → Next 3 Actions → References`
 
+## 1.2 Core / MVP guardrails
+
+Core and MVP phases must solve the smallest real user journey first. Do not add optional platform sophistication before a concrete product need is proven.
+
+Rules:
+
+1. **KEEP before ADAPT.** If current iPix already solves the need safely, keep it.
+2. **One source of truth.** Do not add parallel stores, duplicate APIs, or duplicate state models in MVP.
+3. **One happy-path journey first.** Prove the main user flow before edge-case automation.
+4. **Defer expensive fallbacks.** Browser automation, advanced RAG, multi-agent orchestration, and elaborate generated UI are later-phase features unless the core journey cannot work without them.
+5. **Prefer contracts over frameworks.** Define the small data/interface contract first; add infrastructure only when the contract needs it.
+6. **No speculative abstractions.** Do not build generic engines for one current use case.
+7. **Use existing auth/RLS/workflows.** Do not replace working security/runtime foundations during domain MVP work.
+8. **Ship measurable value per phase.** Each phase should make one user journey clearly better and be independently testable.
+9. **Add complexity only from evidence.** A failing test, real production constraint, or repeated product need should justify the next layer.
+10. **Document deferred ideas explicitly.** Good ideas that are not MVP belong in Later / Deferred, not in the core implementation path.
+
 ## 2. Required source hierarchy
 
 Use references in this order:

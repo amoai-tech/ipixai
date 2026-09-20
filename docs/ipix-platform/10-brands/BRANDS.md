@@ -25,6 +25,8 @@ The main improvement path is:
 
 ### What improves
 
+**MVP rule:** improve the existing flow in small steps. Do not add browser automation, advanced knowledge indexing, or richer agent UI until the core Brand → review → Planner journey proves it needs them.
+
 - Better multi-step research instead of one-pass extraction.
 - Approved Brand knowledge can be reused later without re-researching the website.
 - Review UI becomes easier to understand with structured cards and evidence.
@@ -414,6 +416,15 @@ flowchart TD
 6. Shared runtime/auth/run-ownership problems stay in `00-platform` and IPI-1292.
 
 ## 7. Implementation order — what becomes true after each phase
+
+### Core / MVP boundary
+
+The MVP is intentionally small:
+
+`Brand website → current analysis → clearer reviewed Brand DNA → approved BrandContext → Planner/Shoots`
+
+For MVP, **do not** require browser fallback, a full knowledge/RAG subsystem, multi-agent orchestration, or a large Generative UI redesign. Those are follow-up improvements only if the core journey shows a real need.
+
 
 ### Phase 1 — Protect what already works
 
