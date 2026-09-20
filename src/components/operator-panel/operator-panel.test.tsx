@@ -94,9 +94,30 @@ vi.mock("./operator-panel.module.css", () => ({
 // tests can simulate an in-progress conversation via mockReturnValueOnce —
 // operator-panel.tsx's isNewThread welcome banner is also gated on this.
 const addMessageMock = vi.hoisted(() => vi.fn());
+// IPI-1259 · BRAND-CRAWL-RUNNER-001 — useAgentRunError() calls agent.subscribe()
+// unconditionally on mount, so every mocked agent (default and per-test
+// overrides below) needs a stub subscribe or that effect throws. Captured on
+// vi.hoisted() state (not a closure var) so a test can grab the real
+// subscriber callbacks the component registered and invoke them directly —
+// the same approach RunnerBackedAgent (copilotkit-reconnect-history.test.tsx)
+// takes for exercising real AG-UI lifecycle events without a live transport.
+const capturedAgentSubscriber = vi.hoisted(
+  () => ({ current: null as null | Record<string, (params: unknown) => void> }),
+);
+const subscribeMock = vi.hoisted(() =>
+  vi.fn((subscriber: Record<string, (params: unknown) => void>) => {
+    capturedAgentSubscriber.current = subscriber;
+    return { unsubscribe: () => {} };
+  }),
+);
 const useAgentMock = vi.hoisted(() =>
   vi.fn(() => ({
-    agent: { messages: [] as unknown[], addMessage: addMessageMock, isRunning: false },
+    agent: {
+      messages: [] as unknown[],
+      addMessage: addMessageMock,
+      isRunning: false,
+      subscribe: subscribeMock,
+    },
   })),
 );
 
@@ -213,8 +234,10 @@ beforeEach(() => {
   addMessageMock.mockReset();
   runAgentMock.mockReset();
   runAgentMock.mockResolvedValue(undefined);
+  subscribeMock.mockClear();
+  capturedAgentSubscriber.current = null;
   useAgentMock.mockReturnValue({
-    agent: { messages: [], addMessage: addMessageMock, isRunning: false },
+    agent: { messages: [], addMessage: addMessageMock, isRunning: false, subscribe: subscribeMock },
   });
   restoreAutoSettle.current = true;
   capturedOnSettled.current = null;
@@ -551,7 +574,12 @@ describe("OperatorPanel", () => {
     // native disabled-button behavior) reproduces exactly that gap, so this
     // proves ask()'s own internal guard — not the disabled attribute — is
     // what actually stops the click.
-    const agent = { messages: [] as unknown[], addMessage: addMessageMock, isRunning: false };
+    const agent = {
+      messages: [] as unknown[],
+      addMessage: addMessageMock,
+      isRunning: false,
+      subscribe: subscribeMock,
+    };
     useAgentMock.mockReturnValue({ agent });
 
     render(
@@ -820,6 +848,7 @@ describe("PlannerChatDock thread bootstrap (IPI-1217)", () => {
         messages: [{ id: "m1", role: "user", content: "hi" }],
         addMessage: addMessageMock,
         isRunning: false,
+        subscribe: subscribeMock,
       },
     });
 
@@ -952,6 +981,78 @@ describe("PlannerChatDock thread bootstrap (IPI-1217)", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(window.localStorage.getItem(plannerThreadStorageKey(DEFAULT_RESOURCE_ID))).toBeNull();
+  });
+});
+
+describe("Production Copilot run-failure banner (IPI-1259 · BRAND-CRAWL-RUNNER-001)", () => {
+  // A run that dies mid-flight (e.g. RUNNER_CONNECTION_DROPPED from a
+  // dropped realtime relay connection) previously left the composer showing
+  // nothing — no reply, no error, an indefinite spinner. This proves the
+  // AG-UI onRunErrorEvent/onRunFailed subscriber turns that into a real,
+  // visible, dismissible banner instead (Task 4's Required Outcome: "a
+  // completed draft or an honest, visible error", never a silent hang).
+  it("shows a visible error with the AG-UI event's code and message on RUN_ERROR", async () => {
+    render(
+      <OperatorPanel>
+        <p>Body</p>
+      </OperatorPanel>,
+    );
+    await waitFor(() => expect(subscribeMock).toHaveBeenCalled());
+    const subscriber = capturedAgentSubscriber.current;
+    expect(subscriber).not.toBeNull();
+
+    subscriber?.onRunErrorEvent?.({
+      event: { code: "RUNNER_CONNECTION_DROPPED", message: "Runner connection dropped" },
+      input: { runId: "run-12345678-abcd", threadId: "thread-1" },
+    });
+
+    const banner = await screen.findByTestId("copilot-run-failure");
+    expect(within(banner).getByText("Run failed (RUNNER_CONNECTION_DROPPED)")).toBeDefined();
+    expect(within(banner).getByText(/Runner connection dropped · run run-1234/)).toBeDefined();
+  });
+
+  it("surfaces a thrown runner error (onRunFailed) even without a protocol error code", async () => {
+    render(
+      <OperatorPanel>
+        <p>Body</p>
+      </OperatorPanel>,
+    );
+    await waitFor(() => expect(subscribeMock).toHaveBeenCalled());
+
+    capturedAgentSubscriber.current?.onRunFailed?.({
+      error: new Error("network socket closed"),
+      input: { runId: "run-a", threadId: "thread-1" },
+    });
+
+    const banner = await screen.findByTestId("copilot-run-failure");
+    expect(within(banner).getByText("Run failed")).toBeDefined();
+    expect(within(banner).getByText(/network socket closed/)).toBeDefined();
+  });
+
+  it("dismisses the banner on click, and auto-clears it once a new run starts", async () => {
+    render(
+      <OperatorPanel>
+        <p>Body</p>
+      </OperatorPanel>,
+    );
+    await waitFor(() => expect(subscribeMock).toHaveBeenCalled());
+    const subscriber = capturedAgentSubscriber.current;
+
+    subscriber?.onRunErrorEvent?.({
+      event: { code: "RUNNER_CONNECTION_DROPPED", message: "Runner connection dropped" },
+      input: { runId: "run-1", threadId: "thread-1" },
+    });
+    fireEvent.click((await screen.findByTestId("copilot-run-failure")).querySelector("button")!);
+    await waitFor(() => expect(screen.queryByTestId("copilot-run-failure")).toBeNull());
+
+    subscriber?.onRunErrorEvent?.({
+      event: { code: "RUNNER_CONNECTION_DROPPED", message: "Runner connection dropped" },
+      input: { runId: "run-2", threadId: "thread-1" },
+    });
+    await screen.findByTestId("copilot-run-failure");
+
+    subscriber?.onRunStartedEvent?.({ input: { runId: "run-3", threadId: "thread-1" } });
+    await waitFor(() => expect(screen.queryByTestId("copilot-run-failure")).toBeNull());
   });
 });
 

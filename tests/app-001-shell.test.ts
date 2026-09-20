@@ -57,7 +57,13 @@ vi.mock("@copilotkit/react-core/v2", () => ({
   CopilotKit: ({ children }: { children: React.ReactNode }) => createElement("div", null, children),
   // IPI-1217: PlannerChatDock now also calls useAgent() for its welcome-copy
   // gating — needed here too or the real hook throws on the undefined mock.
-  useAgent: () => ({ agent: { messages: [], addMessage: () => {} } }),
+  // IPI-1259: useAgentRunError() also calls agent.subscribe() unconditionally
+  // on mount (see operator-panel.test.tsx's subscribeMock for the real
+  // exercise of that path) — a no-op stub here is enough since this file
+  // asserts route/layout wiring, not run-failure surfacing.
+  useAgent: () => ({
+    agent: { messages: [], addMessage: () => {}, subscribe: () => ({ unsubscribe: () => {} }) },
+  }),
   // IPI-1224: insight buttons send via agent.addMessage + copilotkit.runAgent,
   // then .catch()/.finally() the result — must be a real Promise or that
   // chaining throws the moment an insight is triggered.
