@@ -1,72 +1,169 @@
-# iPixai skills
+# iPixai skills — canonical inventory and audit
 
 Canonical repository skill tree: `.claude/skills/`. Cursor also loads `.cursor/skills` → symlink to the same tree.
 
 AI runtime SSOT: `docs/copilotkit-mastra/README.md`. Cursor rules: `.cursor/rules/`.
 
----
+**Last audited:** 2026-09-20 against remote `main`.
 
-## Copied
+## Faster/better approach
 
-| Skill | Why |
-|-------|-----|
-| `mastra` | Agents / Memory / workflows — **2.1.0-ipix.1** overlay on [mastra-ai/skills](https://github.com/mastra-ai/skills) 2.1.0 (`src/mastra`, split `dev:agent`/`dev:ui`, `mastra api`) |
-| `copilotkit` | Starter chat, AG-UI, Mastra wiring |
-| `ipix-supabase` | Same project `nvdlhrodvevgwdsneplk`; RLS/RPC/CLI refs — **no prod writes** |
-| `fashion-production` | Planner / shoot domain language |
-| `nextjs-developer` | App Router in `src/app` · **:3000** |
-| `shadcn` | UI components |
-| `vercel-react-best-practices` | Perf |
-| `linear` | IPI issues |
-| `tasks` | **Primary iPix task skill** — task setup/execution, agent prompts, pre-commit, testing, PR review, user journeys, CI, migration reuse, and post-merge proof |
-| `task-verifier` | **Adversarial independent evidence gate** — Quick narrow checks, Standard task/PR review, automatic Adversarial escalation for high-risk work |
-| `brainstorming` | Selected `obra/superpowers` methodology skill — design/intent exploration before creative implementation work |
-| `writing-plans` | Selected `obra/superpowers` methodology skill — convert an approved design/spec into executable implementation steps |
-| `subagent-driven-development` | Selected `obra/superpowers` methodology skill — execute independent plan tasks with fresh subagents and staged review |
-| `dispatching-parallel-agents` | Selected `obra/superpowers` methodology skill — parallelize genuinely independent work |
-| `receiving-code-review` | Selected `obra/superpowers` methodology skill — verify review feedback before applying it |
-| `requesting-code-review` | Selected `obra/superpowers` methodology skill — request focused review before the iPix PR/Done gates |
-| `ipix-task-lifecycle` | **Deprecated compatibility alias** → use `tasks` for new work |
-| `pr-workflow` | **Deprecated compatibility alias** → use `tasks` PR/Actions/post-merge references |
-| `lean` | Velocity audit |
-| `worktrees` | Isolated branches |
-| `refactor-plan` | Multi-file refactors |
-| `mermaid-diagrams` | Diagrams |
-| `ipix-wireframe` | Lo-fi UI |
-| `cloudinary` | Canonical iPix Cloudinary skill → embedded official docs/Next/React/transformation/MCP refs + Node refs |
-| `graphify` | Official `graphify install` 0.9.48 — query `graphify-out/` |
-| `domain-modeling` | Domain language / `CONTEXT.md` / ADR discipline; adapted from Matt Pocock skills |
-| `codebase-design` | Deep-module, seam, interface, and test-surface design; adapted from Matt Pocock skills |
-| `resolving-merge-conflicts` | Intent-based merge/rebase conflict resolution with iPix high-risk verification |
+Use the smallest skill set that owns the task. Do not load overlapping skills “just in case.” Prefer:
 
-Official Cloudinary upstream packs are embedded under `.claude/skills/cloudinary/references/official/` and are not separate triggerable skills. Refresh snapshots into a temporary directory, then sync only the needed embedded references so the iPix security overlay remains authoritative.
+`canonical domain skill → review-only specialist when reviewing a PR → shared workflow skill → targeted verification`
 
-## Not copied (on purpose)
+For skill maintenance, follow Anthropic's current skill guidance:
 
-| Skill | Why |
-|-------|-----|
-| `cloudflare-ipix` | No Workers/OpenNext in iPixai |
-| `cloudflare-workflow` | Same |
-| `cloudflare-workers-testing` | Same |
-| `gemini` | Starter is OpenAI until a provider ticket |
-| `graphify` (old iPix copy) | Replaced by official Graphify-Labs install |
-| `pr-agent` | Old `lumina-studio` CI / Bedrock job |
-| `design-to-production` | DESIGN V2 / old operator HTML parity |
+- https://github.com/anthropics/skills
+- https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md
+- https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator
 
-Also not copied from the wider old catalog: `mercur`, `amazon-bedrock`, `ipix` router, `react-patterns`, `nextjs-16`, `frontend-design`, archive/*.
+Apply those references as follows: keep `name` + `description` in YAML frontmatter, make descriptions state both **what the skill does and when it should trigger**, keep `SKILL.md` focused (under ~500 lines is the preferred target), move deeper material into `references/`, and use realistic trigger/evaluation cases before claiming a skill is optimized.
 
-## Path fixes applied
+## Audit score meaning
 
-- Mastra: `src/mastra/`, `projectPath` = git toplevel, no Gemini/CF `getMastra()` contract
-- Next: port 3000, `src/app/`
-- Supabase: preview-first, do not `cd /home/sk/ipix` from this repo
-- CopilotKit: `ipix-production.md` is old-app notes
-- Task execution: `tasks` is canonical; `ipix-task-lifecycle` and `pr-workflow` are compatibility aliases only
+These are **static audit scores**, not benchmark scores. They measure current repo fit, trigger clarity, source-of-truth discipline, duplication risk, maintainability, and verification guidance.
 
-## External skill provenance
+| Score | Grade | Meaning |
+|---:|:---:|---|
+| 90–100 | A | Strong; production-ready structure |
+| 80–89 | B | Good; targeted improvement only |
+| 70–79 | C | Useful but should be simplified or tightened |
+| <70 | D | Deprecated, redundant, or should be consolidated |
 
-The three Matt Pocock-derived engineering skills above were copied from `mattpocock/skills` commit `3cca18b368ae95cdbdebbff572ccafa662551015` and then given small iPix-specific safety/source-of-truth overlays.
+## Complete current inventory — 44 skills
 
-## Superpowers methodology subset
+| Skill | Score | Grade | Decision | Main improvement |
+|---|---:|:---:|---|---|
+| `brainstorming` | 92% | A | Keep | Keep upstream methodology focused; avoid invoking for trivial non-creative fixes. |
+| `ci-review` | 93% | A | Keep | Review-only specialist; preserve exact-head and secret-boundary focus. |
+| `cloudinary-review` | 91% | A | Keep | Review-only specialist; do not merge into `cloudinary` while PR-Agent routing depends on it. |
+| `cloudinary` | 96% | A | Keep canonical | Strong progressive references and iPix security overlay. |
+| `code-review` | 88% | B | Keep symlink | Document symlink provenance in this index; avoid a second copied review skill. |
+| `codebase-design` | 91% | A | Keep | Add evals for seam/interface decisions before major edits. |
+| `copilotkit-review` | 95% | A | Keep | Good review-only contract; continue verifying installed source/types first. |
+| `copilotkit` | 94% | A | Keep canonical | Keep current v2/AG-UI examples and installed-version checks authoritative. |
+| `diagnosing-bugs` | 89% | B | Keep symlink | Keep one source under `.agents`; add regression examples when debugging rules change. |
+| `dispatching-parallel-agents` | 89% | B | Keep | Clarify “independent work only” with iPix examples to prevent unsafe parallel writes. |
+| `domain-modeling` | 91% | A | Keep | Strong owner for vocabulary, boundaries, `CONTEXT.md`, and ADR work. |
+| `explain` | 90% | A | Keep | Useful narrow communication skill; no merge needed. |
+| `fashion-production` | 92% | A | Keep | Preserve domain language; add current V2 examples as product flows change. |
+| `fastest` | 93% | A | Keep canonical | Make this the single owner for “better/faster approach” discovery. |
+| `graphify` | 78% | C | Improve | `SKILL.md` is ~715 lines; move command/reference detail into `references/` and keep routing/query workflow in the root skill. |
+| `ipix-supabase` | 95% | A | Keep canonical | Strong data/security owner; continue treating production as read-only during audits unless explicitly authorized. |
+| `ipix-task-lifecycle` | 55% | D | Retire | Deprecated compatibility alias; migrate remaining callers to `tasks`, then delete. |
+| `ipix-wireframe` | 88% | B | Keep | Separate reusable design rules from screen-specific references if it grows further. |
+| `lean` | 78% | C | Consolidate | Significant overlap with `fastest` + `tasks`; move unique velocity-audit rules into `fastest` or a `tasks` reference. |
+| `linear` | 92% | A | Keep | Keep task/source-of-truth behavior narrow and current. |
+| `mastra-review` | 70% | C | Replace alias | Currently aliases the full `mastra` skill; create a small review-only skill like `copilotkit-review` for PR-Agent precision. |
+| `mastra` | 96% | A | Keep canonical | Strong installed-types-first rule and repo-specific runtime contract. |
+| `mermaid-diagrams` | 84% | B | Keep | Good utility; move large syntax/catalog detail to references if further expanded. |
+| `nextjs-developer` | 91% | A | Keep canonical | Continue verifying the installed Next.js version for changing APIs. |
+| `nextjs-review` | 90% | A | Keep | Review-only specialist; intentional separation from implementation skill. |
+| `playwright-cli` | 88% | B | Keep | Add iPix-specific authenticated/tenant test entry points without copying Playwright docs wholesale. |
+| `pr-agent-code-review` | 95% | A | Keep canonical review | Correct universal review baseline; specialist skills should add only domain-specific invariants. |
+| `pr-workflow` | 55% | D | Retire | Deprecated compatibility alias; move all remaining use to `tasks` + `pr`. |
+| `pr` | 93% | A | Keep | Clear explicit-mutation boundary; keep human merge approval authoritative. |
+| `receiving-code-review` | 91% | A | Keep | Good methodology; verify feedback before implementing it. |
+| `refactor-plan` | 90% | A | Keep | Strong narrow owner for multi-file sequencing and rollback planning. |
+| `requesting-code-review` | 91% | A | Keep | Good pre-merge review methodology; avoid duplicating PR-Agent domain rules. |
+| `research` | 87% | B | Keep symlink | One source under `.agents`; add trigger evals for research vs direct documentation lookup. |
+| `resolving-merge-conflicts` | 89% | B | Keep | Good intent-based narrow skill; add high-risk data/migration conflict examples. |
+| `shadcn` | 92% | A | Keep canonical | Prefer registry/component reuse before custom UI. |
+| `subagent-driven-development` | 80% | B | Keep, trim later | Root skill is ~568 lines; preserve upstream behavior but consider references if iPix customizes it further. |
+| `supabase-review` | 94% | A | Keep | Review-only specialist; intentional separation from `ipix-supabase`. |
+| `task-verifier` | 97% | A | Keep canonical gate | Strong independent evidence owner; must stay separate from task execution. |
+| `tasks` | 97% | A | Keep canonical workflow | Primary execution owner; absorb retired lifecycle/PR workflow content only when unique. |
+| `tdd` | 89% | B | Keep symlink | Keep one source under `.agents`; protect red→green→refactor behavior with contract tests. |
+| `to-spec` | 86% | B | Keep symlink | Keep one source under `.agents`; clarify boundary vs `writing-plans` in trigger description/evals. |
+| `vercel-react-best-practices` | 92% | A | Keep | Strong focused performance reference; avoid using it as a generic Next.js owner. |
+| `worktrees` | 85% | B | Keep | Useful isolation owner; trim procedural detail if it grows beyond current scope. |
+| `writing-plans` | 91% | A | Keep | Clear plan-before-code owner; distinguish approved-spec execution from `brainstorming`/`to-spec`. |
 
-The six Superpowers methodology skills above were vendored from [`obra/superpowers`](https://github.com/obra/superpowers) commit `b36e0829c6d0140e93cfef2ca599b1b07d4a7797` under the upstream MIT license (`SUPERPOWERS_LICENSE.txt`). Only dependency references that would otherwise require unvendored Superpowers skills were adapted to existing iPix owners: `worktrees` for workspace isolation and `tasks` for inline execution / branch finishing / PR-post-merge handling. iPix `tasks`, `task-verifier`, `worktrees`, `pr`, `fastest`, Graphify, and domain skills remain authoritative for repository-specific behavior.
+## Symlinked skills — reuse, do not copy
+
+These entries intentionally reuse `.agents/skills/*` instead of maintaining duplicate content:
+
+- `code-review` → `.agents/skills/code-review`
+- `diagnosing-bugs` → `.agents/skills/diagnosing-bugs`
+- `research` → `.agents/skills/research`
+- `tdd` → `.agents/skills/tdd`
+- `to-spec` → `.agents/skills/to-spec`
+
+This is the preferred reuse pattern when Claude/Codex need the same skill content.
+
+## Duplicate / consolidation decisions
+
+### Keep separate — intentional review specialists
+
+Do **not** merge these into their implementation skills while PR-Agent routing exists:
+
+- `ci-review`
+- `cloudinary-review`
+- `copilotkit-review`
+- `mastra-review`
+- `nextjs-review`
+- `supabase-review`
+- `pr-agent-code-review`
+
+`scripts/select-pr-agent-skills.mjs` selects these by changed file path and `tests/pr-agent-routing.test.ts` / `tests/pr-agent-skills-contract.test.ts` enforce the contract. The specialist skills should stay small, review-only, and materially different from implementation guidance.
+
+### Consolidate / retire
+
+1. **`ipix-task-lifecycle` → `tasks`** — already documented as deprecated. Search all callers, update them, then delete the alias.
+2. **`pr-workflow` → `tasks` + `pr`** — already deprecated. Keep `pr` for explicit PR operations and `tasks` for lifecycle/process guidance.
+3. **`lean` → `fastest` / `tasks` references** — retain only unique velocity-audit logic; avoid three skills answering “what is the fastest safe path?”
+4. **`mastra-review`** — replace the current alias to the full `mastra` skill with a focused review-only `SKILL.md`; keep the name because PR-Agent routing depends on it.
+
+## Highest-value improvements
+
+### P1 — fix correctness / routing clarity
+
+- Replace `mastra-review` alias with a focused review skill covering Mastra agent/tool/workflow/memory/storage/HITL regressions.
+- Remove deprecated `ipix-task-lifecycle` and `pr-workflow` only after `git grep` proves no active caller still depends on them.
+- Add the official Anthropic `skill-creator` workflow to the repository before large-scale skill optimization. Use it to create realistic trigger cases, with-skill/baseline comparisons, and description optimization instead of scoring by intuition alone.
+
+### P2 — reduce context cost
+
+- Split `graphify` root instructions so the root stays <500 lines and deep CLI/reference material loads on demand.
+- If `subagent-driven-development` receives iPix-specific additions, move added detail to references rather than growing the upstream root further.
+- Keep review specialists short; they should contain only material PR invariants and decisive verification paths.
+
+### P3 — add measurable skill quality
+
+For each canonical skill, add 3–5 realistic task cases and near-miss trigger cases. For high-value skills (`tasks`, `task-verifier`, `mastra`, `copilotkit`, `ipix-supabase`, `cloudinary`) add repeatable assertions and compare results before/after changes.
+
+Reference implementation: https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md
+
+## Production-ready skill checklist
+
+- [ ] Unique `name` and clear trigger-oriented `description`
+- [ ] One obvious owner for the task; overlaps are explicit
+- [ ] `SKILL.md` is focused; deep material uses progressive `references/`
+- [ ] Current repo paths, versions, scripts, and architecture are correct
+- [ ] Installed source/types beat stale copied API knowledge
+- [ ] Consequential writes preserve iPix human-approval and tenant boundaries
+- [ ] Review skills are read-only/advisory and report only material findings
+- [ ] Cheapest decisive test is stated
+- [ ] Trigger/eval examples cover realistic positive and near-miss cases
+- [ ] Symlink/provenance is documented when content is shared
+- [ ] Deprecated aliases have a removal plan
+- [ ] Contract tests protect routing and non-negotiable behavior
+
+## Verification for this index
+
+1. Compare this table against `git ls-tree main:.claude/skills`; every current top-level skill must appear exactly once.
+2. Verify symlink targets rather than treating symlinks as missing skills.
+3. Run PR-Agent routing contract tests before removing/renaming any `*-review` skill.
+4. Run repository documentation checks after changing paths or references.
+5. Re-score only after code/skill changes or after running actual skill evals.
+
+## External provenance
+
+- Anthropic Agent Skills examples/spec implementation: https://github.com/anthropics/skills
+- Anthropic Skill Creator: https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md
+- Anthropic official plugin Skill Creator: https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator
+- Superpowers methodology: https://github.com/obra/superpowers
+- Mastra skill source: https://github.com/mastra-ai/skills
+
+Scores should be treated as provisional until the highest-value skills have repeatable eval results.
