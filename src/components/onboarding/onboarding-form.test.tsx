@@ -296,3 +296,69 @@ describe("OnboardingForm (IPI-1089 · ONBOARD-001)", () => {
     await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/app"));
   });
 });
+
+// IPI-1263 · ONBOARD-COMPAT-001 — resume/fallback at the component boundary.
+describe("OnboardingForm — legacy session compatibility (IPI-1263)", () => {
+  const LEGACY_SESSION: TestSession = {
+    ...DRAFT_SESSION,
+    // A pre-IPI-1089 multi-screen draft: current_screen > 1 while status
+    // stays "draft" only happens for rows an older onboarding iteration
+    // wrote — current code never advances current_screen itself.
+    current_screen: 7,
+    draft_answers: {
+      brandName: "Maison Noir",
+      websiteUrl: "https://maisonnoir.com",
+      instagramHandle: "@maisonnoir",
+      industry: "fashion",
+    },
+  };
+
+  it("resumes a legacy multi-screen draft, prefilling known fields without crashing", async () => {
+    supabaseMock = fakeSupabase(LEGACY_SESSION);
+    render(<OnboardingForm userId="22222222-2222-2222-2222-222222222222" />);
+    const form = await screen.findByTestId("onboarding-form");
+    expect(form).toBeDefined();
+    expect((screen.getByLabelText("Brand name") as HTMLInputElement).value).toBe("Maison Noir");
+    expect((screen.getByLabelText(/Website/) as HTMLInputElement).value).toBe("https://maisonnoir.com");
+  });
+
+  it("routes a draft row healed to screen 12 through the normal form — screen 12 alone never means done", async () => {
+    // IPI-903 heals *materialized* rows to screen 12; a draft row must not
+    // be short-circuited to /app just because current_screen says 12.
+    supabaseMock = fakeSupabase({ ...LEGACY_SESSION, current_screen: 12 });
+    render(<OnboardingForm userId="22222222-2222-2222-2222-222222222222" />);
+    await screen.findByTestId("onboarding-form");
+    expect(replaceMock).not.toHaveBeenCalledWith("/app");
+  });
+
+  it("preserves unrecognized legacy keys through an autosave instead of dropping them", async () => {
+    supabaseMock = fakeSupabase(LEGACY_SESSION);
+    let savedPayload: Record<string, unknown> | undefined;
+    supabaseMock.update.mockImplementation((patch?: Record<string, unknown>) => {
+      savedPayload = patch?.draft_answers as Record<string, unknown>;
+      return {
+        eq: () => ({
+          eq: () => ({
+            select: () => ({
+              single: () => Promise.resolve({ data: { id: LEGACY_SESSION.id }, error: null }),
+            }),
+          }),
+        }),
+      } as never;
+    });
+    render(<OnboardingForm userId="22222222-2222-2222-2222-222222222222" />);
+    await screen.findByTestId("onboarding-form");
+    fireEvent.change(screen.getByLabelText("Brand name"), {
+      target: { value: "Maison Noir Updated" },
+    });
+    // Submit flushes the debounced autosave immediately instead of waiting 400ms.
+    fireEvent.click(screen.getByRole("button", { name: "Create brand" }));
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/app"));
+    expect(savedPayload).toMatchObject({
+      brandName: "Maison Noir Updated",
+      websiteUrl: "https://maisonnoir.com",
+      instagramHandle: "@maisonnoir",
+      industry: "fashion",
+    });
+  });
+});

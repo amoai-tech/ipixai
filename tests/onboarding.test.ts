@@ -85,6 +85,48 @@ describe("session draft round-trip", () => {
   });
 });
 
+// IPI-1263 · ONBOARD-COMPAT-001 — draft_answers on live rows can carry keys
+// this app version doesn't understand (an earlier onboarding iteration's
+// fields, or a future IPI-1260/IPI-1264 lean field). These must never be
+// silently dropped by a parse → serialize round trip.
+describe("session draft round-trip — legacy/unknown key preservation (IPI-1263)", () => {
+  it("preserves unknown legacy keys unchanged through parse then serialize", () => {
+    const legacyRaw = {
+      brandName: "Maison Noir",
+      websiteUrl: "https://maisonnoir.com",
+      instagramHandle: "@maisonnoir",
+      industry: "fashion",
+      goal: "grow-online",
+    };
+    const parsed = parseDraftAnswers(legacyRaw);
+    expect(parsed).toMatchObject({
+      brandName: "Maison Noir",
+      websiteUrl: "https://maisonnoir.com",
+      instagramHandle: "@maisonnoir",
+      industry: "fashion",
+      goal: "grow-online",
+    });
+    expect(serializeDraftAnswers(parsed)).toEqual(legacyRaw);
+  });
+
+  it("normalizes known fields while leaving unknown keys byte-for-byte unchanged", () => {
+    const raw = { brandName: 42, websiteUrl: null, listed: { shopify: true }, grow: "ads" };
+    const parsed = parseDraftAnswers(raw);
+    expect(parsed).toMatchObject({ brandName: "", websiteUrl: "", listed: { shopify: true }, grow: "ads" });
+    expect(serializeDraftAnswers(parsed)).toEqual({
+      brandName: "",
+      websiteUrl: "",
+      listed: { shopify: true },
+      grow: "ads",
+    });
+  });
+
+  it("round-trips a draft with no unknown keys exactly as before (no regression)", () => {
+    const raw = { brandName: "Maison Noir", websiteUrl: "" };
+    expect(serializeDraftAnswers(parseDraftAnswers(raw))).toEqual(raw);
+  });
+});
+
 function mockSupabase(): any {
   const calls: { table: string; op: string }[] = [];
   const supabase = {

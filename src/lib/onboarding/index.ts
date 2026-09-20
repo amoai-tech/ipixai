@@ -11,7 +11,17 @@ import {
 
 export { validateUrl } from "./validate-url";
 export { getOrCreateOnboardingIdempotencyKey } from "./idempotency-key";
-export { serializeDraftAnswers, parseDraftAnswers, EMPTY_DRAFT } from "./session-draft";
+export {
+  serializeDraftAnswers,
+  parseDraftAnswers,
+  EMPTY_DRAFT,
+  type LegacyDraftAnswers,
+} from "./session-draft";
+export {
+  resolveSemanticStep,
+  type SemanticOnboardingStep,
+  type StepMappingInput,
+} from "./step-mapping";
 export {
   onboardingSessionSchema,
   onboardingSessionStatusSchema,

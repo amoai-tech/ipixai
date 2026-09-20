@@ -21,10 +21,11 @@ import {
   hasMaterializedOnboardingSession,
   materializeOnboarding,
   parseDraftAnswers,
+  resolveSemanticStep,
   serializeDraftAnswers,
   updateOnboardingSessionDraft,
   validateUrl,
-  type OnboardingDraft,
+  type LegacyDraftAnswers,
   type OnboardingSessionId,
 } from "@/lib/onboarding";
 import { createClient } from "@/lib/supabase/client";
@@ -58,8 +59,12 @@ export function OnboardingForm({ userId }: { userId: string }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const sessionIdRef = useRef<OnboardingSessionId | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingSaveRef = useRef<OnboardingDraft | null>(null);
+  const pendingSaveRef = useRef<LegacyDraftAnswers | null>(null);
   const saveInFlightRef = useRef(false);
+  // IPI-1263 · ONBOARD-COMPAT-001 — keys draft_answers holds that this app
+  // version doesn't understand (an older onboarding iteration's fields).
+  // Carried through every autosave so they're never dropped on write.
+  const legacyDraftRef = useRef<Record<string, unknown>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -70,8 +75,19 @@ export function OnboardingForm({ userId }: { userId: string }) {
         const key = getOrCreateOnboardingIdempotencyKey(operatorId);
         const session = await getOrCreateOnboardingSession(supabase, operatorId, key);
         if (cancelled) return;
+        const draft = parseDraftAnswers(session.draft_answers) as LegacyDraftAnswers;
+        // Same mapper IPI-1260's lean wizard will consume — one compatibility
+        // implementation, not a second ad-hoc check. current_screen is only a
+        // hint here; durable status/brand_id/organization_id decide.
+        const step = resolveSemanticStep({
+          status: session.status,
+          currentScreen: session.current_screen,
+          brandId: session.brand_id,
+          organizationId: session.organization_id,
+          draft,
+        });
         // Already materialized (idempotent resume) — the workspace owns the user now.
-        if (session.status === "materialized") {
+        if (step === "materialized") {
           router.replace("/app");
           return;
         }
@@ -84,9 +100,10 @@ export function OnboardingForm({ userId }: { userId: string }) {
           return;
         }
         sessionIdRef.current = asOnboardingSessionId(session.id);
-        const draft = parseDraftAnswers(session.draft_answers);
-        setBrandName(draft.brandName);
-        setWebsiteUrl(draft.websiteUrl);
+        const { brandName: draftBrandName, websiteUrl: draftWebsiteUrl, ...legacy } = draft;
+        legacyDraftRef.current = legacy;
+        setBrandName(draftBrandName);
+        setWebsiteUrl(draftWebsiteUrl);
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
@@ -144,7 +161,9 @@ export function OnboardingForm({ userId }: { userId: string }) {
 
   const saveDraft = useCallback(
     (name: string, url: string) => {
-      pendingSaveRef.current = { brandName: name, websiteUrl: url };
+      // Merge onto any preserved legacy keys so autosave never overwrites
+      // draft_answers with a smaller object than what was loaded.
+      pendingSaveRef.current = { ...legacyDraftRef.current, brandName: name, websiteUrl: url };
       if (saveTimerRef.current != null) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
         void flushSave();
