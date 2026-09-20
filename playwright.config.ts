@@ -13,7 +13,6 @@ dotenv.config({ path: path.resolve(__dirname, ".env") });
 
 const hasExplicitBaseURL = Boolean(process.env.E2E_BASE_URL);
 const baseURL = process.env.E2E_BASE_URL || "http://localhost:3015";
-const isLocalTarget = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(baseURL);
 
 // These tests perform real sign-ins with real credentials — fail closed
 // rather than let a misconfigured/malicious E2E_BASE_URL point that at
@@ -24,11 +23,18 @@ const isLocalTarget = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(baseUR
 // Project "ipixai" under the "amoco" Vercel team/scope — any other
 // vercel.app subdomain, including a bare one, is rejected.
 const ALLOWED_PREVIEW_HOST = /^ipixai(-[a-z0-9-]+)?-amoco\.vercel\.app$/i;
-const parsedBaseUrl = new URL(baseURL);
-const isAllowedBaseUrl =
-  isLocalTarget ||
-  (parsedBaseUrl.protocol === "https:" && ALLOWED_PREVIEW_HOST.test(parsedBaseUrl.hostname));
-if (!isAllowedBaseUrl) {
+
+export function isAllowedE2EBaseUrl(candidate: string): boolean {
+  const isLocalTarget = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(candidate);
+  if (isLocalTarget) return true;
+
+  const parsedCandidate = new URL(candidate);
+  return parsedCandidate.protocol === "https:" && ALLOWED_PREVIEW_HOST.test(parsedCandidate.hostname);
+}
+
+const isLocalTarget = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(baseURL);
+
+if (!isAllowedE2EBaseUrl(baseURL)) {
   throw new Error(
     `E2E_BASE_URL "${baseURL}" is not localhost or an ipixai/amoco Vercel preview — refusing to run real sign-in against it.`,
   );
