@@ -1,4 +1,4 @@
-import type { CopilotRuntimeHooks } from "@copilotkit/runtime/v2";
+import type { CopilotRuntimeHooks } from "@copilotkit/runtime";
 
 import * as threadClaim from "./thread-claim";
 import {
