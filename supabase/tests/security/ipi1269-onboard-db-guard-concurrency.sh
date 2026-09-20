@@ -96,10 +96,17 @@ if [ "$FAIL" -ne 0 ]; then
 fi
 
 # The RPC's own jsonb_build_object result is the last output line of each run.
-RESULT_A=$(tail -n 1 "$OUT_A")
-RESULT_B=$(tail -n 1 "$OUT_B")
-if [ -z "$RESULT_A" ] || [ -z "$RESULT_B" ]; then
+# Normalize both JSON values before comparing so key order/whitespace cannot make
+# semantically identical results look different. jq -e also fails fast if either
+# session unexpectedly returns malformed/non-JSON output.
+RESULT_A_RAW=$(tail -n 1 "$OUT_A")
+RESULT_B_RAW=$(tail -n 1 "$OUT_B")
+if [ -z "$RESULT_A_RAW" ] || [ -z "$RESULT_B_RAW" ]; then
   echo "IPI-1269 FAIL: expected a non-empty materialize result from both concurrent calls" >&2
+  exit 1
+fi
+if ! RESULT_A=$(printf '%s\n' "$RESULT_A_RAW" | jq -e -cS .) || ! RESULT_B=$(printf '%s\n' "$RESULT_B_RAW" | jq -e -cS .); then
+  echo "IPI-1269 FAIL: expected valid JSON materialize results from both concurrent calls" >&2
   exit 1
 fi
 if [ "$RESULT_A" != "$RESULT_B" ]; then
