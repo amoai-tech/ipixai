@@ -106,6 +106,14 @@ function spawnOwner(threadId: string, runId: string) {
   });
   const messages: WorkerMessage[] = [];
   let stderr = "";
+  let spawnError: Error | undefined;
+  // spawnOwner has no promise to reject into (its caller isn't awaiting
+  // spawn itself) — capture the error so every waitFor(...) diagnose
+  // callback surfaces the real cause instead of a bare "waitFor timed out"
+  // if e.g. tsx fails to launch.
+  child.on("error", (error) => {
+    spawnError = error;
+  });
   child.stderr.on("data", (chunk: Buffer) => {
     stderr += chunk.toString("utf8");
   });
@@ -115,6 +123,9 @@ function spawnOwner(threadId: string, runId: string) {
     messages,
     get stderr() {
       return stderr;
+    },
+    get spawnError() {
+      return spawnError;
     },
   };
 }
@@ -147,7 +158,8 @@ function tickCount(messages: WorkerMessage[]) {
 }
 
 function diag(owner: ReturnType<typeof spawnOwner>) {
-  return `messages=${JSON.stringify(owner.messages)} stderr=${owner.stderr}`;
+  const spawnErrorText = owner.spawnError ? ` spawnError=${owner.spawnError.message}` : "";
+  return `messages=${JSON.stringify(owner.messages)} stderr=${owner.stderr}${spawnErrorText}`;
 }
 
 describe("IPI-1117 · cross-process CopilotKit runner contract (permanent P0-1/P0-2/P0-3)", () => {
@@ -211,22 +223,31 @@ describe("IPI-1117 · cross-process CopilotKit runner contract (permanent P0-1/P
     // Required distributed behavior: stop() must succeed...
     expect(result.value).toBe(true);
 
-    // ...AND process A must actually terminate. Baseline is captured AFTER
-    // runRemote() resolves, not before it was called — runRemote spawns a
-    // real child process, which takes real wall-clock time during which the
-    // owner legitimately keeps ticking. Comparing against a pre-call
-    // baseline would count those legitimate ticks as "didn't stop", making
-    // this assertion fail forever even once stop() is implemented correctly
-    // (caught independently by 3 review bots on this PR — confirmed real).
-    // `stop() === true` alone is explicitly insufficient per the Linear
-    // spec; both conditions must hold together.
-    const ticksAfterStop = tickCount(owner.messages);
+    // ...AND process A must actually terminate — not just report stop()
+    // as true. `stop() === true` alone is explicitly insufficient per the
+    // Linear spec; both conditions must hold together.
+    //
+    // Proof of termination is "owner_complete arrives within a bounded
+    // window", not an exact tick-count comparison. owner_complete only
+    // fires from inside the owner fixture's `if (this.stopped)` branch
+    // (fixtures/copilot-runner-worker.ts), which is the same synchronous
+    // callback that stops scheduling further ticks — so by the time it
+    // arrives, no more ticks are possible, full stop. An earlier version of
+    // this assertion additionally required the exact tick count to match a
+    // baseline captured right when `runRemote` resolved. That is a strictly
+    // stronger (and strictly redundant) requirement: it demands stop()
+    // resolving and the owner actually stopping are atomic with each other,
+    // which the Linear spec never asks for — only that A actually
+    // terminates, which owner_complete alone already proves. A correct
+    // future implementation that acknowledges stop() slightly before the
+    // owner's stream fully drains (one legitimate in-flight tick) would
+    // have failed that stronger check even though it satisfies the actual
+    // required contract. Dropped for exactly that reason.
     await waitFor(
       () => owner.messages.some((m) => m.kind === "owner_complete"),
       2000,
       20,
       () => diag(owner),
     );
-    expect(tickCount(owner.messages)).toBe(ticksAfterStop);
   }, 15000);
 });
