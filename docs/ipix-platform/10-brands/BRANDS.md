@@ -1,8 +1,8 @@
 # iPix Brands — Current State, Reuse Matrix, and Implementation Plan
 
-**Route:** https://www.ipix.co/app/brands  
-**Status:** Current-state verified against `origin/main` baseline `4b0f15dde30800baf8d972d03c247ceee57f3fd5` on 2026-09-20.  
-**Standard:** `../00-platform/DOC-STANDARDS.md`  
+**Route:** https://www.ipix.co/app/brands
+**Status:** Current-state verified against `origin/main` baseline `4b0f15dde30800baf8d972d03c247ceee57f3fd5` on 2026-09-20.
+**Standard:** `../00-platform/DOC-STANDARDS.md`
 **Purpose:** document the current Brands implementation, the real user journeys it supports, what should be kept, and which external patterns are worth adapting before any replacement work is planned.
 
 ## 1. Current State
@@ -106,20 +106,136 @@ The next architecture step should enrich this handoff without duplicating the Br
 | Planner brand context | **KEEP / EXPAND** | Correct downstream handoff point; expand data deliberately |
 | Existing browser/unit/security tests | **KEEP** | Already cover real tenant and status behavior |
 
-## 4. Brands Reuse Matrix
+## 4. Brands Reuse Matrix — What We Are Adapting for iPix
 
-| Capability | Current iPix | Reference | Full URL | Local path / verified ref | Action | Reuse | Do not copy | Verification |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Brand/competitor research loop | Durable crawl + extraction exists | Mastra Deep Search | https://github.com/mastra-ai/template-deep-search | `/home/sk/ipixai/github/mastra/clones/template-deep-search` @ `c2c8fa478d5a25d3a9e188efe757b670d03d97fb` | **ADAPT** | Research decomposition, gap analysis, evaluation/citation loop | Whole starter app, provider/storage assumptions | **VERIFIED SOURCE PRESENT** |
-| Browser fallback | Current crawl provider / Edge Functions | Mastra Browsing Agent | https://github.com/mastra-ai/template-browsing-agent | `/home/sk/ipixai/github/mastra/clones/template-browsing-agent` @ `fe841f7d12b82ce4de2eabf8e61d0fae5878ad96` | **ADAPT LATER** | Browser session, navigation, extraction fallback | Browser-first architecture, Browserbase dependency unless justified | **VERIFIED SOURCE PRESENT** |
-| Approved knowledge retrieval | Brand profile and scores are canonical DB state | Mastra Company Knowledge | https://github.com/mastra-ai/template-company-knowledge | `/home/sk/ipixai/github/mastra/clones/template-company-knowledge` @ `6fc6a774ae13f97095a6e1d2288049c9e9ee1aab` | **ADAPT** | Index approved evidence for semantic recall; retrieval-first then fresh lookup | Neon-specific setup, duplicating canonical Brand truth | **VERIFIED SOURCE PRESENT** |
-| Structured review UI | `BrandDNAReviewCard` exists | CopilotKit Generative UI | https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/generative-ui | CopilotKit clone `/home/sk/ipixai/github/CopilotKit` @ `47c5510b4909f6728288ecf28d7b14cd14922d33` | **ADAPT** | Typed controlled GenUI patterns for evidence/scores/recommendations | Open-ended generated product chrome | **VERIFIED CURRENT MONOREPO LOCATION** |
-| Shared editable planning state | Planner context is minimal today | CopilotKit Mastra PM Canvas | https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/mastra-pm | CopilotKit clone @ `47c5510b4909f6728288ecf28d7b14cd14922d33` | **MODEL / ADAPT** | Shared structured planning state for Brand strategy/shoot handoff | Archived standalone repo or full PM product | **VERIFIED CURRENT MONOREPO LOCATION** |
-| Mastra runtime/workflows | Existing Mastra implementation | Mastra core | https://github.com/mastra-ai/mastra | `/home/sk/ipixai/github/mastra/clones/mastra` | **KEEP / REFERENCE** | Current workflow/storage APIs and first-party tests | Latest `main` semantics without installed-version check | **VERIFIED LOCAL CLONE** |
-| CopilotKit integration | Existing CopilotKit route/runtime | CopilotKit Mastra integration | https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra | CopilotKit clone @ `47c5510b4909f6728288ecf28d7b14cd14922d33` | **REFERENCE / ADAPT** | Runtime/agent registration and current AG-UI conventions | Treating an in-process demo as distributed-runner proof | **VERIFIED CURRENT MONOREPO LOCATION** |
-| Product image/media evidence | Cloudinary already integrated elsewhere in iPix | Cloudinary | https://cloudinary.com/documentation | Existing iPix Cloudinary integration | **KEEP / ADAPT** | Link selected approved assets/products into Brand context | Replace Cloudinary storage with template-specific media handling | **CURRENT IPIX INTEGRATION; DOMAIN LINKAGE TO VERIFY** |
+Use this section as the implementation map. Each row answers five questions: **which repo**, **what pattern we are taking**, **how we change it for iPix**, **where it lands in iPix**, and **what the user actually experiences**.
 
-**Important:** the older standalone `https://github.com/CopilotKit/mastra-pm-canvas` is archived; the active reference is the CopilotKit monorepo path above.
+| Repo / example | Action | What we adapt | Where it lands in iPix | Real iPix example |
+| --- | --- | --- | --- | --- |
+| Mastra Deep Search — https://github.com/mastra-ai/template-deep-search | **ADAPT** | Research decomposition, iterative search, evidence gathering, gap checking, evaluator loop | `src/mastra/workflows/brand-intelligence.ts` and supporting research tools | A fashion brand enters `maaji.com.co`; iPix researches collections, product positioning, visual themes, sustainability claims and competitors, then produces evidence-backed Brand DNA instead of one-pass extraction |
+| Mastra Company Knowledge — https://github.com/mastra-ai/template-company-knowledge | **ADAPT** | Index approved knowledge into pgvector; search approved corpus first; fall back to fresh sources only when needed | Supabase Postgres/pgvector projection of approved Brand DNA, evidence and approved assets | During a later swimwear shoot, Planner asks “what colors, tone and customer profile define Maaji?” and gets approved Brand knowledge immediately instead of researching the website again |
+| Mastra Browsing Agent — https://github.com/mastra-ai/template-browsing-agent | **ADAPT LATER** | Browser session handling, navigation, observation and structured extraction | Fallback research tool called only when the primary crawler cannot reliably extract required pages | A Shopify collection hides product details behind client-side interactions; the browser agent opens the page, selects the collection and extracts the missing details, while normal brands keep using the cheaper crawler |
+| CopilotKit Generative UI — https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/generative-ui | **ADAPT** | Typed agent-rendered React components and controlled HITL UI | `BrandDNAReviewCard` and future evidence/competitor/recommendation cards | Instead of a long chat response, the operator sees Brand Voice, Audience, Palette, Competitors and evidence as structured cards and explicitly approves or rejects the draft |
+| CopilotKit Mastra PM Canvas — https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/mastra-pm | **MODEL / ADAPT** | Shared structured state that humans and agents can edit together | Planner/Shoots Brand context handoff; not a new competing Brand database | Operator changes “Primary shoot goal” from editorial to ecommerce PDP; Planner and the agent see the same updated plan while approved Brand DNA remains unchanged |
+| CopilotKit Mastra integration — https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra | **REFERENCE / ADAPT** | Current CopilotKit ↔ Mastra registration and AG-UI integration conventions | Shared CopilotKit runtime and Brand-facing agent integration | A user asks the iPix copilot to “analyze this brand”; CopilotKit invokes the existing Mastra Brand workflow without creating a second brand-analysis backend |
+| Mastra core — https://github.com/mastra-ai/mastra | **KEEP / REFERENCE** | First-party workflow suspend/resume, storage and current APIs compatible with installed versions | Existing Brand Intelligence workflow/runtime | Crawl finishes after the browser session is gone; persisted workflow state still reaches draft review when the operator returns |
+| Cloudinary — https://cloudinary.com/documentation | **KEEP / ADAPT** | Existing media storage/transforms plus selected approved asset references in Brand context | Existing Cloudinary integration + BrandContext projection | Brand DNA says “bright tropical prints”; Planner can also retrieve approved campaign/product images that demonstrate that style instead of relying only on text |
+
+### 4.1 Exact repo-to-iPix adaptation details
+
+#### A. Mastra Deep Search → better Brand research
+
+**Repo:** https://github.com/mastra-ai/template-deep-search
+**Local clone:** `/home/sk/ipixai/github/mastra/clones/template-deep-search` @ `c2c8fa478d5a25d3a9e188efe757b670d03d97fb`
+
+**We are NOT copying:** its whole app, provider setup, storage or `latest` package versions.
+
+**We ARE adapting:** research decomposition, multiple evidence passes, gap detection, evaluation before finalization, and evidence attached to conclusions.
+
+**iPix implementation:** extend the existing Brand Intelligence workflow rather than replace it. Current crawl → extraction → approval stays intact. The adapted research stage enriches the draft before review.
+
+**Real-world iPix example:** for Maaji, research can separately investigate customer, product categories, visual language, pricing/positioning and competitors. The final Brand DNA can say *why* a conclusion was made and link it to evidence.
+
+#### B. Mastra Company Knowledge → approved Brand memory
+
+**Repo:** https://github.com/mastra-ai/template-company-knowledge
+**Local clone:** `/home/sk/ipixai/github/mastra/clones/template-company-knowledge` @ `6fc6a774ae13f97095a6e1d2288049c9e9ee1aab`
+
+**We are NOT copying:** Neon-specific infrastructure, Linear/Notion connectors, or its database as a new source of truth.
+
+**We ARE adapting:** retrieval-first behavior: index approved knowledge, search that corpus first, and use fresh external research only when the approved corpus cannot answer the question.
+
+**iPix implementation:** approved Brand DNA, approved research evidence and selected approved assets become a derived pgvector knowledge projection in Supabase. `brands` remains authoritative.
+
+**Real-world iPix example:** three weeks after Brand onboarding, a stylist asks the Planner for Maaji’s visual rules. iPix retrieves the approved Brand DNA immediately; it does not pay to crawl and reinterpret Maaji’s site again unless fresh information is needed.
+
+#### C. Mastra Browsing Agent → controlled browser fallback
+
+**Repo:** https://github.com/mastra-ai/template-browsing-agent
+**Local clone:** `/home/sk/ipixai/github/mastra/clones/template-browsing-agent` @ `fe841f7d12b82ce4de2eabf8e61d0fae5878ad96`
+
+**We are NOT copying:** browser-first architecture or mandatory Browserbase usage for every Brand analysis.
+
+**We ARE adapting:** browser navigation, element observation, actions, structured extraction, session timeout and reconnection patterns.
+
+**iPix implementation:** browser automation is a fallback tool invoked by Brand Intelligence only for pages the normal crawler cannot extract reliably.
+
+**Real-world iPix example:** a product collection renders only after JavaScript and requires clicking “Load more.” The fallback browser can do that specific work and return structured evidence to the same Brand workflow.
+
+#### D. CopilotKit Generative UI → better Brand review UX
+
+**Repo:** https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/generative-ui
+**Local monorepo:** `/home/sk/ipixai/github/CopilotKit` @ `47c5510b4909f6728288ecf28d7b14cd14922d33`
+
+**We are NOT copying:** arbitrary AI-generated application chrome or allowing the model to decide approval.
+
+**We ARE adapting:** typed React renderers, structured agent output and explicit human-in-the-loop interactions.
+
+**iPix implementation:** evolve `src/components/brand/brand-dna-review-card.tsx` into richer structured review cards while keeping the current exact-draft-hash approval contract.
+
+**Real-world iPix example:** instead of reading a large paragraph, the operator reviews separate cards for Audience, Brand Voice, Visual Direction, Competitors and Evidence, then explicitly approves the exact draft shown.
+
+#### E. CopilotKit Mastra PM Canvas → shared planning state
+
+**Repo:** https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/mastra-pm
+**Local monorepo:** `/home/sk/ipixai/github/CopilotKit` @ `47c5510b4909f6728288ecf28d7b14cd14922d33`
+
+**We are NOT copying:** the project-management product or creating another canonical Brand store.
+
+**We ARE adapting:** shared structured state between agent and operator, multiple clients/views, and editable cards.
+
+**iPix implementation:** use these patterns when Brand context is handed into Planner/Shoots. Approved Brand DNA stays read-only business truth; the shoot/strategy plan becomes the editable shared state.
+
+**Real-world iPix example:** the agent proposes “editorial resort campaign,” the operator changes it to “ecommerce PDP + 20% editorial,” and the Shoot Planner immediately works from that updated shared plan without modifying Brand DNA.
+
+#### F. CopilotKit Mastra integration → one agent/runtime path
+
+**Repo:** https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra
+**Local monorepo:** `/home/sk/ipixai/github/CopilotKit` @ `47c5510b4909f6728288ecf28d7b14cd14922d33`
+
+**We are NOT copying:** demo assumptions that a single in-process runtime proves cross-instance production behavior.
+
+**We ARE adapting:** current first-party patterns for registering Mastra agents/workflows with CopilotKit and exposing them through AG-UI.
+
+**iPix implementation:** keep the existing CopilotKit route as the user-facing agent gateway and call the same hardened Brand tools/workflows from it. Do not create a second Brand Intelligence API just for chat.
+
+**Real-world iPix example:** an operator types “analyze this brand” in the iPix copilot. The chat invokes the same `startBrandAnalysis` tool used elsewhere, so auth, duplicate-run protection and durable review behavior stay consistent.
+
+#### G. Mastra core → keep the durable workflow foundation
+
+**Repo:** https://github.com/mastra-ai/mastra
+**Local clone:** `/home/sk/ipixai/github/mastra/clones/mastra`
+
+**Action:** **KEEP / REFERENCE**, not a rewrite.
+
+**We ARE using:** Mastra workflow steps, suspend/resume and persisted workflow state already present in Brand Intelligence. New patterns must be reconciled with installed `@mastra/core` `1.63.2` and IPI-1290 before adoption.
+
+**Real-world iPix example:** a crawl starts, the user closes the browser, and the workflow later reaches draft review from persisted state. That is why Brand Intelligence should remain a durable workflow instead of being rewritten as one long chat request.
+
+#### H. Cloudinary → connect visual evidence to Brand context
+
+**Reference:** https://cloudinary.com/documentation
+
+**Action:** **KEEP / ADAPT** the existing iPix Cloudinary integration.
+
+**We ARE adapting:** the Brand context should reference selected approved product/editorial assets and their existing Cloudinary delivery/transformation metadata.
+
+**We are NOT doing:** replacing Cloudinary with storage from a reference template.
+
+**Real-world iPix example:** when Planner says Maaji uses vivid tropical patterns, the operator can see approved iPix assets that demonstrate the visual direction alongside the textual Brand DNA.
+
+### 4.2 Adaptation priority
+
+| Order | Adaptation | Reason |
+| --- | --- | --- |
+| 1 | **Deep Search → Brand research quality** | Highest direct improvement to Brand DNA without replacing the existing workflow |
+| 2 | **Company Knowledge → approved Brand memory** | Prevents repeated research and gives Shoots/Planner reliable approved context |
+| 3 | **Generative UI → Brand review** | Makes evidence and decisions much easier for operators to understand |
+| 4 | **Mastra PM → Brand-to-Shoot shared plan** | Connects Brands to the next core iPix user journey |
+| 5 | **Browsing Agent → fallback only** | Useful, but more expensive/complex and only needed for hard-to-extract sites |
+| 6 | **CopilotKit Mastra integration / Mastra core** | Shared platform alignment; do not treat these as Brands-specific rewrites |
+
+**Important:** the standalone https://github.com/CopilotKit/mastra-pm-canvas repository is archived and points to the active CopilotKit monorepo path `examples/canvas/mastra-pm`.
 
 ## 5. Gaps / Blockers
 
