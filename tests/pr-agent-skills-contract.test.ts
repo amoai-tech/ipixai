@@ -15,19 +15,14 @@ const mastraSkill = readFileSync(
 );
 
 describe("IPI-1213 PR-Agent review skills contract", () => {
-  it("selects trusted rollout-safe skills without autonomous fixes", () => {
+  it("selects trusted review skills through the deterministic router without autonomous fixes", () => {
     expect(workflow).toContain("ref: ${{ github.event.pull_request.base.sha }}");
     expect(workflow).toContain("persist-credentials: false");
-    expect(workflow).toContain("Select trusted PR-Agent skills");
-    expect(workflow).toContain(
-      "if [[ -e .claude/skills/mastra-review/SKILL.md && -e .claude/skills/copilotkit-review/SKILL.md ]]; then",
-    );
-    expect(workflow).toContain('"/github/workspace/.claude/skills/mastra-review"');
-    expect(workflow).toContain('"/github/workspace/.claude/skills/copilotkit-review"');
-    expect(workflow).toContain('"/github/workspace/.claude/skills/mastra"');
-    expect(workflow).toContain("max_tokens=8000");
-    expect(workflow).toContain("max_tokens=3500");
-    expect(workflow).toContain("skills.enabled: \"true\"");
+    expect(workflow).toContain("Select trusted iPix review skills");
+    expect(workflow).toContain("scripts/select-pr-agent-skills.mjs");
+    expect(workflow).toContain("skills.enabled: ${{ steps.reviewer-skills.outputs.enabled }}");
+    expect(workflow).toContain("skills.paths: ${{ steps.reviewer-skills.outputs.paths }}");
+    expect(workflow).toContain("skills.max_skills_tokens: ${{ steps.reviewer-skills.outputs.max_tokens }}");
     expect(workflow).toContain("github_action_config.auto_improve: \"false\"");
   });
 

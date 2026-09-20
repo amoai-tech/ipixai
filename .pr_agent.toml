@@ -39,6 +39,8 @@ Prioritize only material findings: correctness defects; security and tenant-isol
 
 Do not report style-only suggestions, subjective preferences, speculative problems without a realistic failure scenario, or issues unrelated to changed code.
 
+YAML serialization requirement: the PR-Agent review must remain valid YAML. For every free-text field in the PR-Agent review, always use a YAML block scalar (`|`) with indented content. Never start an unquoted YAML scalar with a backtick. This is an output-format requirement, not a style preference.
+
 Use `changes_required` only when at least one material finding proves a changed-code defect, violated safety/compatibility invariant, failed required deterministic proof, or realistic failure scenario that must be fixed before merge. If there is no such finding, do not return `changes_required`. Keep advisory observations out of `key_issues_to_review`.
 
 Do not flag the intentional trusted-base checkout used for reviewer skills as a defect: loading `SKILL.md` from `github.event.pull_request.base.sha` is the security boundary that prevents a PR from rewriting its own reviewer instructions. For dependency upgrades, do not create a finding that merely says to verify a changelog or documentation; require concrete incompatibility evidence, a violated pinned-family invariant, or missing required proof for a material risk.
