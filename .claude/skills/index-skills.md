@@ -14,9 +14,9 @@ Use the smallest skill set that owns the task. Do not load overlapping skills �
 
 For skill maintenance, follow Anthropic's current skill guidance:
 
-- https://github.com/anthropics/skills
-- https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md
-- https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator
+- https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator/skills/skill-creator
+- https://github.com/anthropics/claude-plugins-official/blob/main/plugins/skill-creator/skills/skill-creator/SKILL.md
+- https://github.com/mastra-ai/skills
 
 Apply those references as follows: keep `name` + `description` in YAML frontmatter, make descriptions state both **what the skill does and when it should trigger**, keep `SKILL.md` focused (under ~500 lines is the preferred target), move deeper material into `references/`, and use realistic trigger/evaluation cases before claiming a skill is optimized.
 
@@ -55,8 +55,7 @@ These are **static audit scores**, not benchmark scores. They measure current re
 | `ipix-wireframe` | 88% | B | Keep | Separate reusable design rules from screen-specific references if it grows further. |
 | `lean` | 78% | C | Consolidate | Significant overlap with `fastest` + `tasks`; move unique velocity-audit rules into `fastest` or a `tasks` reference. |
 | `linear` | 92% | A | Keep | Keep task/source-of-truth behavior narrow and current. |
-| `mastra-review` | 70% | C | Replace alias | Currently aliases the full `mastra` skill; create a small review-only skill like `copilotkit-review` for PR-Agent precision. |
-| `mastra` | 96% | A | Keep canonical | Strong installed-types-first rule and repo-specific runtime contract. |
+| `mastra` | 97% | A | Keep canonical | One Mastra owner for implementation + PR review; synced to official 2.2.0 trace-query guidance while preserving iPix auth/HITL/persistence rules. |
 | `mermaid-diagrams` | 84% | B | Keep | Good utility; move large syntax/catalog detail to references if further expanded. |
 | `nextjs-developer` | 91% | A | Keep canonical | Continue verifying the installed Next.js version for changing APIs. |
 | `nextjs-review` | 90% | A | Keep | Review-only specialist; intentional separation from implementation skill. |
@@ -70,6 +69,7 @@ These are **static audit scores**, not benchmark scores. They measure current re
 | `research` | 87% | B | Keep symlink | One source under `.agents`; add trigger evals for research vs direct documentation lookup. |
 | `resolving-merge-conflicts` | 89% | B | Keep | Good intent-based narrow skill; add high-risk data/migration conflict examples. |
 | `shadcn` | 92% | A | Keep canonical | Prefer registry/component reuse before custom UI. |
+| `skill-creator` | 96% | A | Keep canonical | Official Anthropic workflow, fully vendored with eval scripts, schemas, grader/analyzer prompts, viewer, and license. |
 | `subagent-driven-development` | 80% | B | Keep, trim later | Root skill is ~568 lines; preserve upstream behavior but consider references if iPix customizes it further. |
 | `supabase-review` | 94% | A | Keep | Review-only specialist; intentional separation from `ipix-supabase`. |
 | `task-verifier` | 97% | A | Keep canonical gate | Strong independent evidence owner; must stay separate from task execution. |
@@ -101,27 +101,25 @@ Do **not** merge these into their implementation skills while PR-Agent routing e
 - `ci-review`
 - `cloudinary-review`
 - `copilotkit-review`
-- `mastra-review`
 - `nextjs-review`
 - `supabase-review`
 - `pr-agent-code-review`
 
-`scripts/select-pr-agent-skills.mjs` selects these by changed file path and `tests/pr-agent-routing.test.ts` / `tests/pr-agent-skills-contract.test.ts` enforce the contract. The specialist skills should stay small, review-only, and materially different from implementation guidance.
+`scripts/select-pr-agent-skills.mjs` selects these by changed file path and `tests/pr-agent-routing.test.ts` / `tests/pr-agent-skills-contract.test.ts` enforce the contract. The specialist skills stay small and review-only. **Mastra is the deliberate exception:** PR-Agent now loads the canonical `mastra` skill in PR-review mode instead of maintaining a duplicate `mastra-review` alias.
 
 ### Consolidate / retire
 
 1. **`ipix-task-lifecycle` → `tasks`** — already documented as deprecated. Search all callers, update them, then delete the alias.
 2. **`pr-workflow` → `tasks` + `pr`** — already deprecated. Keep `pr` for explicit PR operations and `tasks` for lifecycle/process guidance.
 3. **`lean` → `fastest` / `tasks` references** — retain only unique velocity-audit logic; avoid three skills answering “what is the fastest safe path?”
-4. **`mastra-review`** — replace the current alias to the full `mastra` skill with a focused review-only `SKILL.md`; keep the name because PR-Agent routing depends on it.
 
 ## Highest-value improvements
 
 ### P1 — fix correctness / routing clarity
 
-- Replace `mastra-review` alias with a focused review skill covering Mastra agent/tool/workflow/memory/storage/HITL regressions.
+- Keep a **single canonical `mastra` skill** for implementation, debugging, upgrades, and PR review; PR-Agent routing now selects `mastra` directly.
 - Remove deprecated `ipix-task-lifecycle` and `pr-workflow` only after `git grep` proves no active caller still depends on them.
-- Add the official Anthropic `skill-creator` workflow to the repository before large-scale skill optimization. Use it to create realistic trigger cases, with-skill/baseline comparisons, and description optimization instead of scoring by intuition alone.
+- Use the vendored official Anthropic `skill-creator` workflow for realistic trigger cases, with-skill/baseline comparisons, benchmark variance, and description optimization instead of scoring by intuition alone.
 
 ### P2 — reduce context cost
 
@@ -133,7 +131,7 @@ Do **not** merge these into their implementation skills while PR-Agent routing e
 
 For each canonical skill, add 3–5 realistic task cases and near-miss trigger cases. For high-value skills (`tasks`, `task-verifier`, `mastra`, `copilotkit`, `ipix-supabase`, `cloudinary`) add repeatable assertions and compare results before/after changes.
 
-Reference implementation: https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md
+Reference implementation: https://github.com/anthropics/claude-plugins-official/blob/main/plugins/skill-creator/skills/skill-creator/SKILL.md
 
 ## Production-ready skill checklist
 
@@ -154,16 +152,19 @@ Reference implementation: https://github.com/anthropics/skills/blob/main/skills/
 
 1. Compare this table against `git ls-tree main:.claude/skills`; every current top-level skill must appear exactly once.
 2. Verify symlink targets rather than treating symlinks as missing skills.
-3. Run PR-Agent routing contract tests before removing/renaming any `*-review` skill.
+3. Run PR-Agent routing contract tests before removing/renaming any review specialist or changing canonical `mastra` routing.
 4. Run repository documentation checks after changing paths or references.
 5. Re-score only after code/skill changes or after running actual skill evals.
 
 ## External provenance
 
 - Anthropic Agent Skills examples/spec implementation: https://github.com/anthropics/skills
-- Anthropic Skill Creator: https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md
-- Anthropic official plugin Skill Creator: https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator
+- Anthropic official Skill Creator: https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator/skills/skill-creator
 - Superpowers methodology: https://github.com/obra/superpowers
 - Mastra skill source: https://github.com/mastra-ai/skills
 
 Scores should be treated as provisional until the highest-value skills have repeatable eval results.
+## Upstream versions synced
+
+- Anthropic `skill-creator`: vendored from `anthropics/claude-plugins-official` commit `c447c3207a425bc4e2a0d068435f64b0477ae981` (2026-09-20 audit), including license, eval scripts, schemas, grader/analyzer prompts, assets, and viewer; two upstream trailing-whitespace defects are normalized to satisfy `git diff --check`.
+- Mastra `mastra`: synced through official `mastra-ai/skills` 2.2.0 commit `f79b794df9201b671b6602c6fc8ac0ad95478750`; iPix-specific auth, HITL, persistence, and dev-command overlays remain authoritative.

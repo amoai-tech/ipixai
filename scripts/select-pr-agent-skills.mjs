@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 const UNIVERSAL = "pr-agent-code-review";
 const SPECIALISTS = [
   "copilotkit-review",
-  "mastra-review",
+  "mastra",
   "supabase-review",
   "cloudinary-review",
   "nextjs-review",
@@ -14,7 +14,7 @@ const SPECIALISTS = [
 
 const matches = {
   "supabase-review": (p) => /(^supabase\/|(^|\/)supabase([\/_.-]|$)|^src\/app\/auth\/|^src\/lib\/auth\/|^src\/(proxy|middleware)\.)/i.test(p),
-  "mastra-review": (p) => /(^|\/)mastra(\/|[-_.])|requestcontext/i.test(p),
+  "mastra": (p) => /(^|\/)mastra(\/|[-_.])|requestcontext/i.test(p),
   "copilotkit-review": (p) => /copilotkit|ag-ui/i.test(p),
   "cloudinary-review": (p) => /cloudinary/i.test(p) || /(^|\/)(media|asset|assets)(\/|[-_.])/i.test(p) && /upload|transform|webhook|signature|delivery/i.test(p),
   "nextjs-review": (p) => /(^src\/app\/|next\.config\.|^src\/(proxy|middleware)\.)/i.test(p),
