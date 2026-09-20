@@ -5,3 +5,5 @@ Purpose: verify the merged iPix PR-Agent reviewer does not invent a material blo
 This file intentionally changes no runtime code, workflow logic, dependencies, Supabase schema, secrets, or application behavior.
 
 Expected review outcome: no material defect. Advisory wording or documentation suggestions are acceptable; a fabricated security/runtime blocker is not.
+
+Incremental certification update: this additional documentation-only sentence is intentionally harmless and exists only to trigger a same-base synchronize event.
