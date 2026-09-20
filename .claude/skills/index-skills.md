@@ -14,8 +14,6 @@ Use the smallest skill set that owns the task. Do not load overlapping skills �
 
 For skill maintenance, follow Anthropic's current skill guidance:
 
-- https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator/skills/skill-creator
-- https://github.com/anthropics/claude-plugins-official/blob/main/plugins/skill-creator/skills/skill-creator/SKILL.md
 - https://github.com/mastra-ai/skills
 
 Apply those references as follows: keep `name` + `description` in YAML frontmatter, make descriptions state both **what the skill does and when it should trigger**, keep `SKILL.md` focused (under ~500 lines is the preferred target), move deeper material into `references/`, and use realistic trigger/evaluation cases before claiming a skill is optimized.
@@ -31,7 +29,7 @@ These are **static audit scores**, not benchmark scores. They measure current re
 | 70–79 | C | Useful but should be simplified or tightened |
 | <70 | D | Deprecated, redundant, or should be consolidated |
 
-## Complete current inventory — 44 skills
+## Complete current inventory — 43 skills
 
 | Skill | Score | Grade | Decision | Main improvement |
 |---|---:|:---:|---|---|
@@ -69,7 +67,6 @@ These are **static audit scores**, not benchmark scores. They measure current re
 | `research` | 87% | B | Keep symlink | One source under `.agents`; add trigger evals for research vs direct documentation lookup. |
 | `resolving-merge-conflicts` | 89% | B | Keep | Good intent-based narrow skill; add high-risk data/migration conflict examples. |
 | `shadcn` | 92% | A | Keep canonical | Prefer registry/component reuse before custom UI. |
-| `skill-creator` | 96% | A | Keep canonical | Official Anthropic workflow, fully vendored with eval scripts, schemas, grader/analyzer prompts, viewer, and license. |
 | `subagent-driven-development` | 80% | B | Keep, trim later | Root skill is ~568 lines; preserve upstream behavior but consider references if iPix customizes it further. |
 | `supabase-review` | 94% | A | Keep | Review-only specialist; intentional separation from `ipix-supabase`. |
 | `task-verifier` | 97% | A | Keep canonical gate | Strong independent evidence owner; must stay separate from task execution. |
@@ -119,7 +116,6 @@ Do **not** merge these into their implementation skills while PR-Agent routing e
 
 - Keep a **single canonical `mastra` skill** for implementation, debugging, upgrades, and PR review; PR-Agent routing now selects `mastra` directly.
 - Remove deprecated `ipix-task-lifecycle` and `pr-workflow` only after `git grep` proves no active caller still depends on them.
-- Use the vendored official Anthropic `skill-creator` workflow for realistic trigger cases, with-skill/baseline comparisons, benchmark variance, and description optimization instead of scoring by intuition alone.
 
 ### P2 — reduce context cost
 
@@ -130,8 +126,6 @@ Do **not** merge these into their implementation skills while PR-Agent routing e
 ### P3 — add measurable skill quality
 
 For each canonical skill, add 3–5 realistic task cases and near-miss trigger cases. For high-value skills (`tasks`, `task-verifier`, `mastra`, `copilotkit`, `ipix-supabase`, `cloudinary`) add repeatable assertions and compare results before/after changes.
-
-Reference implementation: https://github.com/anthropics/claude-plugins-official/blob/main/plugins/skill-creator/skills/skill-creator/SKILL.md
 
 ## Production-ready skill checklist
 
@@ -159,12 +153,10 @@ Reference implementation: https://github.com/anthropics/claude-plugins-official/
 ## External provenance
 
 - Anthropic Agent Skills examples/spec implementation: https://github.com/anthropics/skills
-- Anthropic official Skill Creator: https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator/skills/skill-creator
 - Superpowers methodology: https://github.com/obra/superpowers
 - Mastra skill source: https://github.com/mastra-ai/skills
 
 Scores should be treated as provisional until the highest-value skills have repeatable eval results.
 ## Upstream versions synced
 
-- Anthropic `skill-creator`: vendored from `anthropics/claude-plugins-official` commit `c447c3207a425bc4e2a0d068435f64b0477ae981` (2026-09-20 audit), including license, eval scripts, schemas, grader/analyzer prompts, assets, and viewer; two upstream trailing-whitespace defects are normalized to satisfy `git diff --check`.
 - Mastra `mastra`: synced through official `mastra-ai/skills` 2.2.0 commit `f79b794df9201b671b6602c6fc8ac0ad95478750`; iPix-specific auth, HITL, persistence, and dev-command overlays remain authoritative.
