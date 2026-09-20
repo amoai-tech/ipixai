@@ -60,19 +60,35 @@ function describeForModel(context: PlannerContext): string {
  * still belongs to this reporter's own `scopeKey`, so Brand A's cleanup can
  * never erase Brand B's context if Brand B already replaced it before Brand
  * A's effect cleanup ran.
+ *
+ * Split into two effects (bug caught in PR review, 2026-09-19): the ref
+ * must only be updated from inside an effect, never during render. A
+ * single combined effect keyed on `[context, ...]` would re-run its own
+ * cleanup on every re-render — including one where `context` is a new
+ * object but `scopeKey` is unchanged (e.g. the Shoot page revalidating
+ * after an approval) — and by then the ref already held the *new*
+ * scopeKey, so the stale cleanup would match and clear the shared context
+ * for one tick before the new effect put it right back. The unmount-only
+ * effect below is keyed on the stable `setSharedContext` alone, so its
+ * cleanup fires exactly once, at real unmount, against whatever scopeKey
+ * was last committed.
  */
 export function ReportPlannerContext({ context }: { context: PlannerContext }) {
   const setSharedContext = useContext(PlannerReactContext)?.setContext;
-  const scopeKeyRef = useRef(context.scopeKey);
-  scopeKeyRef.current = context.scopeKey;
+  const lastReportedScopeKeyRef = useRef(context.scopeKey);
 
   useEffect(() => {
     setSharedContext?.(context);
-    return () => {
-      setSharedContext?.((current) => (current?.scopeKey === scopeKeyRef.current ? null : current));
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    lastReportedScopeKeyRef.current = context.scopeKey;
   }, [context, setSharedContext]);
+
+  useEffect(() => {
+    return () => {
+      setSharedContext?.((current) =>
+        current?.scopeKey === lastReportedScopeKeyRef.current ? null : current,
+      );
+    };
+  }, [setSharedContext]);
 
   useAgentContext({
     description: describeForModel(context),
