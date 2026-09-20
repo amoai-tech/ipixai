@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type CSSProperties, type Ref } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type Ref } from "react";
 import { CopilotChat, CopilotKit, useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 import type { AbstractAgent } from "@ag-ui/client";
 
@@ -32,6 +32,7 @@ const MOBILE_NAV = "(max-width: 767px)";
 // mobile (a real ~900px tablet width crushes it to a couple hundred px) —
 // only the Copilot panel reacts to this breakpoint, not the nav.
 const COPILOT_COMPACT = "(max-width: 1023px)";
+const RUN_FAILURE_MESSAGE = "The AI run stopped before it completed";
 
 /** Single source of truth for "N brand(s) · N shoot(s)" — the pinned bar and
  *  the chat welcome each rendered their own brandNoun/shootNoun before this,
@@ -479,7 +480,6 @@ function IntelligenceDrawer({ contextLine, insights, onBack, onAsk, askDisabled 
  *  (a thrown Error, not a protocol error event). */
 type RunFailure = {
   code?: string;
-  message: string;
   runId?: string;
 };
 
@@ -510,7 +510,6 @@ function useAgentRunError(agent: AbstractAgent): {
       onRunErrorEvent: ({ event, input }) => {
         const failure: RunFailure = {
           code: event.code,
-          message: event.message,
           runId: input.runId,
         };
         console.error("ProductionCopilotPanel: agent run error", {
@@ -521,7 +520,7 @@ function useAgentRunError(agent: AbstractAgent): {
         setRunFailure(failure);
       },
       onRunFailed: ({ error, input }) => {
-        const failure: RunFailure = { message: error.message, runId: input.runId };
+        const failure: RunFailure = { runId: input.runId };
         console.error("ProductionCopilotPanel: agent run failed", {
           errorName: error.name,
           runId: failure.runId,
@@ -533,7 +532,8 @@ function useAgentRunError(agent: AbstractAgent): {
     return unsubscribe;
   }, [agent]);
 
-  return { runFailure, dismiss: () => setRunFailure(null) };
+  const dismiss = useCallback(() => setRunFailure(null), []);
+  return { runFailure, dismiss };
 }
 
 /** Compact inline banner (not ErrorState — that component's EmptyState-
@@ -547,7 +547,7 @@ function RunFailureBanner({ failure, onDismiss }: { failure: RunFailure; onDismi
     <Alert variant="destructive" data-testid="copilot-run-failure" className={styles.runFailureBanner}>
       <AlertTitle>{failure.code ? `Run failed (${failure.code})` : "Run failed"}</AlertTitle>
       <AlertDescription>
-        The AI run stopped before it completed
+        {RUN_FAILURE_MESSAGE}
         {failure.runId ? ` · run ${failure.runId.slice(0, 8)}` : ""}
       </AlertDescription>
       <button type="button" className={styles.runFailureDismiss} onClick={onDismiss}>
