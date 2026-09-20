@@ -194,7 +194,7 @@ Each row must answer: **which repo, what we take, what changes for iPix, where i
 ### 4.1 Mastra Deep Search → better Brand research
 
 **Repo:** https://github.com/mastra-ai/template-deep-search
-**Local clone:** `/home/sk/ipixai/github/mastra/clones/template-deep-search` @ `c2c8fa478d5a25d3a9e188efe757b670d03d97fb`
+**Local clone:** `/home/sk/github-repos/mastra/template-deep-search` @ `c2c8fa478d5a25d3a9e188efe757b670d03d97fb`
 
 **What the repo teaches us**
 
@@ -223,7 +223,7 @@ The starter app, its provider setup, storage choices, or blindly using its lates
 ### 4.2 Mastra Company Knowledge → approved Brand memory
 
 **Repo:** https://github.com/mastra-ai/template-company-knowledge
-**Local clone:** `/home/sk/ipixai/github/mastra/clones/template-company-knowledge` @ `6fc6a774ae13f97095a6e1d2288049c9e9ee1aab`
+**Local clone:** `/home/sk/github-repos/mastra/template-company-knowledge` @ `6fc6a774ae13f97095a6e1d2288049c9e9ee1aab`
 
 **What the repo teaches us**
 
@@ -248,7 +248,7 @@ Neon-specific infrastructure, unrelated Linear/Notion connectors, or a separate 
 ### 4.3 Mastra Browsing Agent → fallback for difficult websites
 
 **Repo:** https://github.com/mastra-ai/template-browsing-agent
-**Local clone:** `/home/sk/ipixai/github/mastra/clones/template-browsing-agent` @ `fe841f7d12b82ce4de2eabf8e61d0fae5878ad96`
+**Local clone:** `/home/sk/github-repos/mastra/template-browsing-agent` @ `fe841f7d12b82ce4de2eabf8e61d0fae5878ad96`
 
 **What we adapt**
 
@@ -269,7 +269,7 @@ A browser-first architecture or mandatory Browserbase usage for every Brand.
 ### 4.4 CopilotKit Generative UI → easier Brand review
 
 **Repo:** https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/generative-ui
-**Local repo:** `/home/sk/ipixai/github/CopilotKit` @ `47c5510b4909f6728288ecf28d7b14cd14922d33`
+**Local repo:** `/home/sk/github-repos/copilotkit/CopilotKit` @ `5ffe92689c3322ccc90a5137db1c8f1a6ffd79f2`
 
 **What we adapt**
 
@@ -290,7 +290,7 @@ Arbitrary AI-generated application UI or AI self-approval.
 ### 4.5 CopilotKit Mastra PM → shared Brand-to-Shoot plan
 
 **Repo:** https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/mastra-pm
-**Local repo:** `/home/sk/ipixai/github/CopilotKit` @ `47c5510b4909f6728288ecf28d7b14cd14922d33`
+**Local repo:** `/home/sk/github-repos/copilotkit/CopilotKit` @ `5ffe92689c3322ccc90a5137db1c8f1a6ffd79f2`
 
 **What we adapt**
 

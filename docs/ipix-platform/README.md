@@ -155,28 +155,41 @@ These live in the primary working tree at `/home/sk/ipixai/docs/copilotkit-mastr
 
 ### Local GitHub reference clones
 
-These are the **actual local Git repositories currently present** under `/home/sk/ipixai/github` (verified from each clone's `remote.origin.url` + current HEAD on 2026-09-20).
+These are the **actual local Git repositories currently present** under `/home/sk/github-repos` (verified from each clone's `remote.origin.url` + current HEAD on 2026-09-20).
 
 | Local clone | GitHub origin | Local HEAD | Best iPix use | Default action |
 | --- | --- | --- | --- | --- |
-| `/home/sk/ipixai/github/CopilotKit` | https://github.com/CopilotKit/CopilotKit | `47c5510b4909` | Primary CopilotKit source, current examples, Mastra integration, GenUI, canvas, CRM/MCP references | **ADAPT / REFERENCE** |
-| `/home/sk/ipixai/github/mastra/clones/mastra` | https://github.com/mastra-ai/mastra | `25d768317009` | Mastra framework source, tests, APIs, workflows, agents, storage | **REFERENCE / VERIFY AGAINST INSTALLED VERSION** |
-| `/home/sk/ipixai/github/mastra/clones/template-deep-search` | https://github.com/mastra-ai/template-deep-search | `c2c8fa478d5a` | Brand/market research decomposition, evidence, gap checking | **ADAPT** |
-| `/home/sk/ipixai/github/mastra/clones/template-company-knowledge` | https://github.com/mastra-ai/template-company-knowledge | `6fc6a774ae13` | Approved Brand knowledge retrieval / RAG patterns | **ADAPT LATER** |
-| `/home/sk/ipixai/github/mastra/clones/template-browsing-agent` | https://github.com/mastra-ai/template-browsing-agent | `fe841f7d12b8` | Browser fallback for JS-only/unstructured sites | **REFERENCE / ADAPT LATER** |
-| `/home/sk/ipixai/github/mastra/clones/template-agent-harness` | https://github.com/mastra-ai/template-agent-harness | `3f10a93da682` | Tasks, approvals, workspace, schedules, long-running agent patterns | **MODEL / ADVANCED** |
-| `/home/sk/ipixai/github/mastra/clones/workshops` | https://github.com/mastra-ai/workshops | `734b8c167037` | Official learning/pattern library for unfamiliar Mastra features | **REFERENCE** |
-| `/home/sk/ipixai/github/mastra/clones/ui-dojo` | https://github.com/mastra-ai/ui-dojo | `7f9893734b59` | Mastra UI / CopilotKit / HITL experiments | **REFERENCE** |
-| `/home/sk/ipixai/github/mastra/clones/mastra-auth-examples` | https://github.com/mastra-ai/mastra-auth-examples | `72b9db6351a7` | Auth integration patterns | **REFERENCE / ADAPT ONLY IF CURRENT** |
-| `/home/sk/ipixai/github/mastra/clones/mastra-observational-memory-workshop` | https://github.com/mastra-ai/mastra-observational-memory-workshop | `25bff24b385b` | Observational memory research | **ADVANCED / REFERENCE** |
-| `/home/sk/ipixai/github/mastra/clones/mastra-smoke` | https://github.com/mastra-ai/mastra-smoke | `25c3c647481d` | Framework smoke/testing examples | **REFERENCE** |
-| `/home/sk/ipixai/github/mastra/clones/template-text-to-sql` | https://github.com/mastra-ai/template-text-to-sql | `15e66ee04ed8` | Analytics research only; do not add text-to-SQL without a proven need | **REFERENCE / DEFER** |
-| `/home/sk/ipixai/github/mastra/clones/OpenBot` | https://github.com/CopilotKit/OpenBot | `61cc46ae0217` | Governance/audit/HITL architecture and CopilotKit production patterns | **MODEL / REFERENCE** |
-| `/home/sk/ipixai/github/mastra/clones/generative-ui` | https://github.com/CopilotKit/generative-ui | `12aa81e3deeb` | Historical GenUI reference; prefer current monorepo example where available | **REFERENCE** |
-| `/home/sk/ipixai/github/mastra/clones/agents-everywhere-starter-kit` | https://github.com/CopilotKit/agents-everywhere-starter-kit | `5c8bf4c810bc` | Hackathon/demo reference only | **SKIP FOR PRODUCTION** |
-| `/home/sk/ipixai/github/mastra/clones/mastra-supabase-starter` | https://github.com/thedistance/mastra-supabase-starter | `7d33a505055f` | Community Supabase/Mastra test/auth ideas | **REFERENCE ONLY** |
-| `/home/sk/ipixai/github/mastra/clones/mastra-base` | https://github.com/hamchowderr/mastra-base | `a065cea10599` | Community Mastra starter ideas | **REFERENCE ONLY** |
-| `/home/sk/ipixai/github/mastra/clones/saas-starter-ai` | https://github.com/jorgepedraza88/saas-starter-ai | `d492f6eb2995` | Community SaaS/AI patterns | **REFERENCE ONLY** |
+| `/home/sk/github-repos/copilotkit/CopilotKit` | https://github.com/CopilotKit/CopilotKit | `5ffe92689c33` | Primary current CopilotKit source: Mastra integration, GenUI, canvas, MCP, CRM, A2A and shared-state examples | **ADAPT / REFERENCE** |
+| `/home/sk/github-repos/copilotkit/OpenBot` | https://github.com/CopilotKit/OpenBot | `82e10c5525a8` | Governed agents, browser/files/tools, action approval and audit patterns | **MODEL / REFERENCE** |
+| `/home/sk/github-repos/copilotkit/harness-sdk` | https://github.com/CopilotKit/harness-sdk | `1fd743a7fe7c` | Strands agent harness SDK patterns: hooks, guardrails, MCP, tracing, multi-agent | **REFERENCE ONLY — VERIFY UPSTREAM** |
+| `/home/sk/github-repos/copilotkit/open-research-ANA` | https://github.com/CopilotKit/open-research-ANA | `39d0cd772b99` | Research canvas + HITL concepts; latest implementation is consolidated into CopilotKit monorepo | **HISTORICAL / MODEL** |
+| `/home/sk/github-repos/copilotkit/aimock` | https://github.com/CopilotKit/aimock | `a8773ddd6bdc` | Deterministic mocks for LLM, MCP, A2A, AG-UI, vector DB and search tests | **ADAPT FOR TESTING** |
+| `/home/sk/github-repos/copilotkit/agents-everywhere-starter-kit` | https://github.com/CopilotKit/agents-everywhere-starter-kit | `5c8bf4c810bc` | Cross-surface agent starter/demo ideas | **REFERENCE / SKIP FOR CORE MVP** |
+| `/home/sk/github-repos/copilotkit/atomic-crm` | https://github.com/CopilotKit/atomic-crm | `c4c889c7dcb8` | CRM contacts/tasks/deals/activity + Supabase + CopilotKit runtime/MCP patterns | **MODEL / ADAPT FOR CRM** |
+| `/home/sk/github-repos/copilotkit/open-mcp-client` | https://github.com/CopilotKit/open-mcp-client | `c8ea97b205ac` | MCP Apps/client integration and rendering patterns | **ADAPT / REFERENCE** |
+| `/home/sk/github-repos/copilotkit/generative-ui` | https://github.com/CopilotKit/generative-ui | `12aa81e3deeb` | Historical GenUI reference; prefer current monorepo examples where available | **REFERENCE** |
+| `/home/sk/github-repos/mastra/mastra` | https://github.com/mastra-ai/mastra | `25d768317009` | Mastra framework source, tests, APIs, workflows, agents, storage | **REFERENCE / VERIFY AGAINST INSTALLED VERSION** |
+| `/home/sk/github-repos/mastra/template-deep-search` | https://github.com/mastra-ai/template-deep-search | `c2c8fa478d5a` | Brand/market research decomposition, evidence, gap checking | **ADAPT** |
+| `/home/sk/github-repos/mastra/template-company-knowledge` | https://github.com/mastra-ai/template-company-knowledge | `6fc6a774ae13` | Approved Brand knowledge retrieval / RAG patterns | **ADAPT LATER** |
+| `/home/sk/github-repos/mastra/template-browsing-agent` | https://github.com/mastra-ai/template-browsing-agent | `fe841f7d12b8` | Browser fallback for JS-only/unstructured sites | **REFERENCE / ADAPT LATER** |
+| `/home/sk/github-repos/mastra/template-agent-harness` | https://github.com/mastra-ai/template-agent-harness | `3f10a93da682` | Tasks, approvals, workspace, schedules, long-running agent patterns | **MODEL / ADVANCED** |
+| `/home/sk/github-repos/mastra/workshops` | https://github.com/mastra-ai/workshops | `734b8c167037` | Official learning/pattern library for unfamiliar Mastra features | **REFERENCE** |
+| `/home/sk/github-repos/mastra/ui-dojo` | https://github.com/mastra-ai/ui-dojo | `7f9893734b59` | Mastra UI / CopilotKit / HITL experiments | **REFERENCE** |
+| `/home/sk/github-repos/mastra/mastra-auth-examples` | https://github.com/mastra-ai/mastra-auth-examples | `72b9db6351a7` | Auth integration patterns | **REFERENCE / ADAPT ONLY IF CURRENT** |
+| `/home/sk/github-repos/mastra/mastra-observational-memory-workshop` | https://github.com/mastra-ai/mastra-observational-memory-workshop | `25bff24b385b` | Observational memory research | **ADVANCED / REFERENCE** |
+| `/home/sk/github-repos/mastra/mastra-smoke` | https://github.com/mastra-ai/mastra-smoke | `25c3c647481d` | Framework smoke/testing examples | **REFERENCE** |
+| `/home/sk/github-repos/mastra/template-text-to-sql` | https://github.com/mastra-ai/template-text-to-sql | `15e66ee04ed8` | Analytics research only; do not add text-to-SQL without a proven need | **REFERENCE / DEFER** |
+| `/home/sk/github-repos/community/mastra-supabase-starter` | https://github.com/thedistance/mastra-supabase-starter | `7d33a505055f` | Community Supabase/Mastra test/auth ideas | **REFERENCE ONLY** |
+| `/home/sk/github-repos/community/mastra-base` | https://github.com/hamchowderr/mastra-base | `a065cea10599` | Community Mastra starter ideas | **REFERENCE ONLY** |
+| `/home/sk/github-repos/community/saas-starter-ai` | https://github.com/jorgepedraza88/saas-starter-ai | `d492f6eb2995` | Community SaaS/AI patterns | **REFERENCE ONLY** |
+
+### Additional CopilotKit repos — do we need local clones?
+
+| Repo | Decision | Why |
+| --- | --- | --- |
+| https://github.com/CopilotKit/open-multi-agent-canvas | **REFERENCE, DO NOT CLONE YET** | Useful multi-agent/MCP UI, but current `CopilotKit` monorepo already contains the active `multi-agent-canvas` example. Core/MVP does not need another standalone copy. |
+| https://github.com/CopilotKit/pathfinder | **REFERENCE ONLY** | Useful self-hosted docs/code search MCP ideas, but not required for current product journeys. |
+| https://github.com/CopilotKit/outpost | **DEFER** | Customer-support operations product; potentially useful for Operations later, not a current Core/MVP dependency. |
 
 **Clone rule:** a local clone means "available to inspect," **not** "approved to copy." Before COPY/ADAPT, verify the exact source path, commit/tag, license, dependency versions, auth/tenancy assumptions, and tests. Prefer the current CopilotKit monorepo and official Mastra repos/templates over older standalone or community starters.
 ## 7. Docs still to create
