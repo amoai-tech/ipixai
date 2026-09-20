@@ -98,6 +98,24 @@ This is the simple ordered task path. Add new tasks using the next number inside
 | ---: | --- | ---: | --- | --- |
 | 9.1 | 🔵 | 0% | `docs/ipix-platform/80-plans/PLANS.md` | Audit after Analytics |
 
+### Mermaid diagram placeholders
+
+These are **diagram slots, not tasks**. They do not consume task numbers and do not require separate files until the domain audit proves the diagram is useful. Prefer embedding the smallest useful Mermaid diagram in the owning domain document.
+
+| Area | Placeholder diagrams | Use case |
+| --- | --- | --- |
+| **1.0 Shared Platform** | Architecture · runtime sequence · data ownership | Show Next.js/CopilotKit/Mastra/Supabase/Cloudinary ownership and request flow |
+| **2.0 Brands** | User journey · analysis sequence · approval state · Brand ER | Explain website → Brand DNA → review → approved context |
+| **3.0 Shoots** | User journey · Planner sequence · HITL state · Shoot ER · architecture · task dependencies · requirement traceability | Explain plan → references → review → approve → save → production and prove the current critical path |
+| **4.0 Talent** | User journey · availability/booking state · booking sequence · Talent ER | Explain discover → shortlist → availability → request → confirm/reschedule/cancel |
+| **5.0 Assets** | Asset lifecycle state · upload/review sequence · Asset ER · media architecture | Explain upload → Cloudinary → QA/DNA → review → approval → delivery |
+| **6.0 CRM** | CRM journey · deal state · CRM ER · shoot-opportunity handoff sequence | Explain company/contact → deal → won → Brand/Shoot handoff |
+| **7.0 Operations** | Work-queue flow · exception/approval state · coordination sequence | Explain active work → assignment → exception → human decision → completion |
+| **8.0 Analytics** | Data flow · analytics architecture · event-model ER · optional Sankey/XY | Explain trusted events → metrics → insight → decision support |
+| **9.0 Plans** | Plan lifecycle state · Plan ER · save/restore sequence | Explain saved plan → reopen → revise → approve/use without creating a second Planner |
+
+**Mermaid rule:** use a diagram only when it makes ownership, sequence, state, relationships, dependencies, or verification easier to understand than prose. Current code, tests, live database contracts, and verified runtime state remain authoritative over stale diagrams.
+
 **Task rule:** add `2.2`, `2.3`, `3.2`, `3.3`, etc. only when new work is proven. This keeps room for growth without changing the overall order.
 
 Every domain document uses the same compact tracker: `task → dot → % complete → item → current state → next`.
