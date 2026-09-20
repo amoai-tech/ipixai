@@ -6,23 +6,21 @@
 
 ## Summary
 
-| Status | % Complete | Area | Current state | Next |
-| --- | ---: | --- | --- | --- |
-| 🟢 | 100% | Reference index | Published for review | Maintain |
-| 🟢 | 100% | Documentation standard | Defined | Maintain |
-| 🟢 | 100% | Brands | Current-state + reuse plan documented | Implement only proven gaps |
-| 🟡 | 70% | Reference repo library | CopilotKit organized; Mastra curation underway | Finish selected Mastra clones |
-| 🔵 | 0% | Shoots | Not started | Audit current implementation |
-| 🔵 | 0% | Talent | Not started | Start after Shoots |
-| 🔵 | 0% | Assets | Not started | Start after Talent |
-| 🔵 | 0% | CRM | Not started | Start after Assets |
-| 🔵 | 0% | Operations | Not started | Start after CRM |
-| 🔵 | 0% | Analytics | Not started | Start after Operations |
-| 🔵 | 0% | Plans | Not started | Start after Analytics |
-| 🔵 | 0% | Platform architecture | Not started | Reconcile current code + IPI-1293 |
-| 🔵 | 0% | Global reuse matrix | Not started | Build from verified domain decisions |
+| Order | Status | % Complete | Area | Current state | Next |
+| ---: | --- | ---: | --- | --- | --- |
+| **1.0** | 🟡 | 60% | Shared Platform | Core docs exist; architecture/reuse docs remain | Complete 1.4 next |
+| **2.0** | 🟢 | 100% | Brands | Domain document complete | Add 2.2 only when a proven Brands task exists |
+| **3.0** | 🔵 | 0% | Shoots | Not started | Complete 3.1 |
+| **4.0** | 🔵 | 0% | Talent | Not started | Complete after Shoots |
+| **5.0** | 🔵 | 0% | Assets | Not started | Complete after Talent |
+| **6.0** | 🔵 | 0% | CRM | Not started | Complete after Assets |
+| **7.0** | 🔵 | 0% | Operations | Not started | Complete after CRM |
+| **8.0** | 🔵 | 0% | Analytics | Not started | Complete after Operations |
+| **9.0** | 🔵 | 0% | Plans | Not started | Complete after Analytics |
 
 **Legend:** 🟢 complete · 🟡 in progress · 🔴 blocked/failed · 🔵 not started
+
+**Numbering rule:** `1.0`, `2.0`, `3.0` are product areas. Tasks inside each area use `.1`, `.2`, `.3` and continue upward as new work is added. Never renumber later areas.
 
 ## 1. Strategy
 
@@ -40,69 +38,69 @@ Rules:
 
 ## 2. Product Areas & Planned Docs
 
-Each product area has its own table. File names live here once; other sections refer to the product area instead of repeating paths.
+This is the simple ordered task path. Add new tasks using the next number inside that product area; do not renumber later sections.
 
-### Shared Platform
+### 1.0 Shared Platform
 
-| Status | % Complete | Document | What it covers | Next |
-| --- | ---: | --- | --- | --- |
-| 🟢 | 100% | `docs/docs-index.md` | GitHub-native documentation map and source-of-truth rules | Maintain |
-| 🟢 | 100% | `docs/reference-index.md` | Product areas, planned docs, Linear, repos, research, execution order | Maintain |
-| 🟢 | 100% | `docs/ipix-platform/00-platform/DOC-STANDARDS.md` | Evidence, reuse, migration, testing, readability, MVP rules | Maintain |
-| 🔵 | 0% | `docs/ipix-platform/00-platform/IPIX-PLATFORM-ARCHITECTURE.md` | Shared auth, tenancy, CopilotKit, Mastra, Supabase, Cloudinary, runtime boundaries | Reconcile current code + platform tasks |
-| 🔵 | 0% | `docs/ipix-platform/00-platform/IPIX-GLOBAL-REUSE-MATRIX.md` | Verified repo/example → product area → exact adaptation decision | Build from completed domain audits |
+| Task | Status | % Complete | Document / item | Next |
+| ---: | --- | ---: | --- | --- |
+| 1.1 | 🟢 | 100% | `docs/docs-index.md` | Maintain |
+| 1.2 | 🟢 | 100% | `docs/reference-index.md` | Maintain |
+| 1.3 | 🟢 | 100% | `docs/ipix-platform/00-platform/DOC-STANDARDS.md` | Maintain |
+| 1.4 | 🔵 | 0% | `docs/ipix-platform/00-platform/IPIX-PLATFORM-ARCHITECTURE.md` | Reconcile current code + platform tasks |
+| 1.5 | 🔵 | 0% | `docs/ipix-platform/00-platform/IPIX-GLOBAL-REUSE-MATRIX.md` | Build from completed domain audits |
 
-### Brands
+### 2.0 Brands
 
-| Status | % Complete | Document | What it covers | Next |
-| --- | ---: | --- | --- | --- |
-| 🟢 | 100% | `docs/ipix-platform/10-brands/BRANDS.md` | Brand list/detail, intelligence, Brand DNA review, approval, Planner handoff, reuse decisions | Implement only proven gaps |
+| Task | Status | % Complete | Document / item | Next |
+| ---: | --- | ---: | --- | --- |
+| 2.1 | 🟢 | 100% | `docs/ipix-platform/10-brands/BRANDS.md` | Add 2.2 only for the next proven Brands task |
 
-### Shoots
+### 3.0 Shoots
 
-| Status | % Complete | Document | What it covers | Next |
-| --- | ---: | --- | --- | --- |
-| 🔵 | 0% | `docs/ipix-platform/30-shoots/SHOOTS.md` | Brief, shoot type, direction, shot list, approvals, booking, production, handoff to Assets | Audit current Shoots flow |
+| Task | Status | % Complete | Document / item | Next |
+| ---: | --- | ---: | --- | --- |
+| 3.1 | 🔵 | 0% | `docs/ipix-platform/30-shoots/SHOOTS.md` | Audit current Shoots flow |
 
-### Talent
+### 4.0 Talent
 
-| Status | % Complete | Document | What it covers | Next |
-| --- | ---: | --- | --- | --- |
-| 🔵 | 0% | `docs/ipix-platform/20-talent/TALENT.md` | Profiles, portfolios, skills, availability, matching, shortlist, booking | Audit after Shoots |
+| Task | Status | % Complete | Document / item | Next |
+| ---: | --- | ---: | --- | --- |
+| 4.1 | 🔵 | 0% | `docs/ipix-platform/20-talent/TALENT.md` | Audit after Shoots |
 
-### Assets
+### 5.0 Assets
 
-| Status | % Complete | Document | What it covers | Next |
-| --- | ---: | --- | --- | --- |
-| 🔵 | 0% | `docs/ipix-platform/40-assets/ASSETS.md` | Upload, Cloudinary, metadata, QA, review, approval, delivery | Audit after Talent |
+| Task | Status | % Complete | Document / item | Next |
+| ---: | --- | ---: | --- | --- |
+| 5.1 | 🔵 | 0% | `docs/ipix-platform/40-assets/ASSETS.md` | Audit after Talent |
 
-### CRM
+### 6.0 CRM
 
-| Status | % Complete | Document | What it covers | Next |
-| --- | ---: | --- | --- | --- |
-| 🔵 | 0% | `docs/ipix-platform/50-crm/CRM.md` | Companies, contacts, deals, activities, proposals, shoot handoff | Audit after Assets |
+| Task | Status | % Complete | Document / item | Next |
+| ---: | --- | ---: | --- | --- |
+| 6.1 | 🔵 | 0% | `docs/ipix-platform/50-crm/CRM.md` | Audit after Assets |
 
-### Operations
+### 7.0 Operations
 
-| Status | % Complete | Document | What it covers | Next |
-| --- | ---: | --- | --- | --- |
-| 🔵 | 0% | `docs/ipix-platform/60-operations/OPERATIONS.md` | Work queue, assignments, staffing, vendors, approvals, exceptions, delivery | Audit after CRM |
+| Task | Status | % Complete | Document / item | Next |
+| ---: | --- | ---: | --- | --- |
+| 7.1 | 🔵 | 0% | `docs/ipix-platform/60-operations/OPERATIONS.md` | Audit after CRM |
 
-### Analytics
+### 8.0 Analytics
 
-| Status | % Complete | Document | What it covers | Next |
-| --- | ---: | --- | --- | --- |
-| 🔵 | 0% | `docs/ipix-platform/70-analytics/ANALYTICS.md` | Trusted product/agent events, KPIs, funnels, operational metrics | Audit after Operations |
+| Task | Status | % Complete | Document / item | Next |
+| ---: | --- | ---: | --- | --- |
+| 8.1 | 🔵 | 0% | `docs/ipix-platform/70-analytics/ANALYTICS.md` | Audit after Operations |
 
-### Plans
+### 9.0 Plans
 
-| Status | % Complete | Document | What it covers | Next |
-| --- | ---: | --- | --- | --- |
-| 🔵 | 0% | `docs/ipix-platform/80-plans/PLANS.md` | Saved production plans, entitlements, usage, Stripe lifecycle | Audit after Analytics |
+| Task | Status | % Complete | Document / item | Next |
+| ---: | --- | ---: | --- | --- |
+| 9.1 | 🔵 | 0% | `docs/ipix-platform/80-plans/PLANS.md` | Audit after Analytics |
 
-**Per-domain rule:** start with one main domain document. Create extra implementation-plan docs only when a verified gap is complex enough to need one. Do not pre-create umbrella documents.
+**Task rule:** add `2.2`, `2.3`, `3.2`, `3.3`, etc. only when new work is proven. This keeps room for growth without changing the overall order.
 
-Every domain document uses the same compact tracker: `dot → % complete → item → current state → next`.
+Every domain document uses the same compact tracker: `task → dot → % complete → item → current state → next`.
 
 ## 3. Linear
 
