@@ -3,63 +3,45 @@ import { describe, expect, it } from "vitest";
 
 const workflow = readFileSync(new URL("../.github/workflows/pr-agent.yml", import.meta.url), "utf8");
 const config = readFileSync(new URL("../.pr_agent.toml", import.meta.url), "utf8");
+const reviewPolicy = readFileSync(new URL("../scripts/pr-agent/review-policy.mjs", import.meta.url), "utf8");
+const evidenceBuilder = readFileSync(new URL("../scripts/pr-agent/build-evidence.mjs", import.meta.url), "utf8");
+const sharedSha = "a3c9600de7a31184266fade8387359ccbb8e6d68";
 
-describe("IPI-1246 PR-Agent workflow contract", () => {
-  it("keeps the trusted-base and same-repository secret boundary", () => {
+describe("IPI-1246 shared PR-Agent caller contract", () => {
+  it("pins iPix to the immutable shared workflow", () => {
+    expect(workflow).toContain(`amoai-tech/pr-review-infra/.github/workflows/pr-agent.yml@${sharedSha}`);
+    expect(workflow).toContain("evidence_title: iPix PR-Agent Evidence");
+    expect(workflow).toContain("NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}");
+  });
+
+  it("keeps the same-repository trust boundary and exact permissions", () => {
     expect(workflow).toContain("github.event.pull_request.head.repo.full_name == github.repository");
     expect(workflow).toContain("github.event.sender.type != 'Bot'");
-    expect(workflow).toContain("ref: ${{ github.event.pull_request.base.sha }}");
-    expect(workflow).toContain("persist-credentials: false");
     expect(workflow).toContain("actions: read");
     expect(workflow).toContain("contents: read");
     expect(workflow).toContain("issues: write");
     expect(workflow).toContain("pull-requests: write");
   });
 
-  it("loads fs inside the changed-file discovery github-script block", () => {
-    const block = workflow.split("- name: Read changed filenames")[1]?.split("- name: Checkout PR head lockfile")[0] ?? "";
-    expect(block).toContain('const fs = require("fs");');
+  it("moves provider/model runtime ownership out of iPix", () => {
+    expect(workflow).not.toContain("docker://pragent/pr-agent");
+    expect(workflow).not.toContain("NVIDIA_NIM_API_BASE");
+    expect(workflow).not.toContain("nemotron-3-ultra");
+    expect(config).not.toMatch(/^model\s*=/m);
+    expect(config).not.toMatch(/^fallback_models\s*=/m);
+    expect(config).not.toMatch(/^custom_model_max_tokens\s*=/m);
   });
 
-  it("uses deterministic changed-file routing and evidence from trusted helpers", () => {
-    expect(workflow).toContain("Read changed filenames");
-    expect(workflow).toContain(".pr-agent/changed-files.json");
-    expect(workflow).toContain("--changed-files-file .pr-agent/changed-files.json");
-    expect(workflow).not.toContain('--changed-files "$CHANGED_FILES_JSON"');
-    expect(workflow).toContain("scripts/select-pr-agent-skills.mjs");
-    expect(workflow).toContain("scripts/pr-agent/build-evidence.mjs");
-    expect(workflow).toContain("scripts/pr-agent/review-policy.mjs");
-    expect(workflow).toContain("ARTIFACT_PATH: \".pr-agent/evidence.md\"");
+  it("keeps repo-local policy/evidence compatible with the shared core", () => {
+    expect(reviewPolicy).toContain("export const CERT_HISTORY_MARKER");
+    expect(reviewPolicy).toContain("export function selectReviewCommand");
+    expect(reviewPolicy).toContain("export function verifyReviewResult");
+    expect(reviewPolicy).toContain("export function appendCertification");
+    expect(evidenceBuilder).toContain('args["changed-files-file"]');
+    expect(evidenceBuilder).toContain('missing --changed-files-file or --changed-files');
   });
 
-  it("selects full vs incremental review and independently verifies a fresh result", () => {
-    expect(workflow).toContain("Select full or incremental review from certified base context");
-    expect(workflow).toContain("verify-review-result:");
-    expect(workflow).toContain("Require a fresh base-aware PR-Agent review result");
-    expect(workflow).toContain("ipix-pr-agent-cert-history");
-  });
-
-  it("keeps verifier polling comfortably inside the job timeout", () => {
-    const verifier = workflow.split("  verify-review-result:")[1] ?? "";
-    const timeoutMinutes = Number(verifier.match(/timeout-minutes:\s*(\d+)/)?.[1]);
-    const maxAttempts = Number(verifier.match(/const maxAttempts = (\d+);/)?.[1]);
-    const sleepMs = Number(verifier.match(/setTimeout\(resolve, (\d+)\)/)?.[1]);
-    const deliberateWaitMs = (maxAttempts - 1) * sleepMs;
-    const safetyMarginMs = 30_000;
-    expect(timeoutMinutes).toBeGreaterThan(0);
-    expect(maxAttempts).toBeGreaterThan(1);
-    expect(sleepMs).toBeGreaterThan(0);
-    expect(deliberateWaitMs).toBeLessThan(timeoutMinutes * 60_000 - safetyMarginMs);
-  });
-
-  it("keeps the immutable PR-Agent image and current NVIDIA production profile", () => {
-    expect(workflow).toContain("pragent/pr-agent@sha256:548b760b81ab4b3f729182428695ccc1194bbf87528c2b1e2b2b07e5223af7b6");
-    expect(workflow).toContain("nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b");
-    expect(workflow).toContain("nvidia_nim/nvidia/nemotron-3.5-lightning-30b-a3b");
-    expect(workflow).toContain("timeout-minutes: 25");
-  });
-
-  it("requires YAML-safe free-text serialization to avoid blank-review false failures", () => {
+  it("keeps YAML-safe free-text review serialization local", () => {
     expect(config).toContain("For every free-text field in the PR-Agent review, always use a YAML block scalar (`|`) with indented content.");
     expect(config).toContain("Never start an unquoted YAML scalar with a backtick.");
   });
