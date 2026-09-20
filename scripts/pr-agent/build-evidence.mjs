@@ -76,8 +76,13 @@ export function buildEvidence({ baseSha, headSha, changedFiles, baseLock, headLo
   validateLockfile(headLock, "head lockfile");
   const domains = detectDomains(changedFiles);
   const { missing, unsafe, versionLines } = collectVersionEvidence(domains, baseLock, headLock);
+  const noFrameworkDomains = domains.length === 0;
   const noVersionContract = domains.length > 0 && domains.every((domain) => DOMAIN_PACKAGES[domain].length === 0);
-  const status = missing.length || unsafe.length || noVersionContract ? "NEEDS VERIFICATION" : "VERIFIED";
+  const status = noFrameworkDomains
+    ? "NOT APPLICABLE"
+    : missing.length || unsafe.length || noVersionContract
+      ? "NEEDS VERIFICATION"
+      : "VERIFIED";
   const lines = [
     "# iPix PR-Agent Evidence", "",
     `Version evidence: **${status}**`,
@@ -89,6 +94,7 @@ export function buildEvidence({ baseSha, headSha, changedFiles, baseLock, headLo
     "## Exact resolved package versions",
     ...(versionLines.length ? versionLines : ["- No version-sensitive framework packages detected."]),
   ];
+  if (noFrameworkDomains) lines.push("", "No version-sensitive framework domains were touched; version evidence is not applicable to this change.");
   if (noVersionContract) lines.push("", "No version-sensitive package contract for touched domains; version evidence remains NEEDS VERIFICATION.");
   if (unsafe.length) {
     lines.push("", "## Unsafe exact version metadata");

@@ -185,7 +185,7 @@ jobs:
     needs: review
     if: needs.review.result == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 3
     steps:
       - name: Checkout trusted PR-Agent verification policy
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0

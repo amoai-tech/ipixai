@@ -39,6 +39,19 @@ describe("IPI-1246 PR-Agent workflow contract", () => {
     expect(workflow).toContain("ipix-pr-agent-cert-history");
   });
 
+  it("keeps verifier polling comfortably inside the job timeout", () => {
+    const verifier = workflow.split("  verify-review-result:")[1] ?? "";
+    const timeoutMinutes = Number(verifier.match(/timeout-minutes:\s*(\d+)/)?.[1]);
+    const maxAttempts = Number(verifier.match(/const maxAttempts = (\d+);/)?.[1]);
+    const sleepMs = Number(verifier.match(/setTimeout\(resolve, (\d+)\)/)?.[1]);
+    const deliberateWaitMs = (maxAttempts - 1) * sleepMs;
+    const safetyMarginMs = 30_000;
+    expect(timeoutMinutes).toBeGreaterThan(0);
+    expect(maxAttempts).toBeGreaterThan(1);
+    expect(sleepMs).toBeGreaterThan(0);
+    expect(deliberateWaitMs).toBeLessThan(timeoutMinutes * 60_000 - safetyMarginMs);
+  });
+
   it("keeps the immutable PR-Agent image and current NVIDIA production profile", () => {
     expect(workflow).toContain("pragent/pr-agent@sha256:548b760b81ab4b3f729182428695ccc1194bbf87528c2b1e2b2b07e5223af7b6");
     expect(workflow).toContain("nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b");

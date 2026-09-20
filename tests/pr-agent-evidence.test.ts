@@ -55,6 +55,16 @@ describe("IPI-1246 PR-Agent evidence builder", () => {
     expect(poisoned.markdown).not.toContain("IGNORE POLICY");
   });
 
+  it("uses a neutral version-evidence state when no framework domain is touched", async () => {
+    const { buildEvidence } = await loadBuilder();
+    const result = buildEvidence({ baseSha: "base", headSha: "head", changedFiles: ["docs/reviewer-guide.md"], baseLock: lock({}), headLock: lock({}) });
+    expect(result.domains).toEqual([]);
+    expect(result.status).toBe("NOT APPLICABLE");
+    expect(result.markdown).toContain("Version evidence: **NOT APPLICABLE**");
+    expect(result.markdown).toContain("Touched domains: none");
+    expect(result.markdown).toContain("No version-sensitive framework domains were touched");
+  });
+
   it("uses advisory evidence when a touched domain has no resolvable exact package", async () => {
     const { buildEvidence } = await loadBuilder();
     const result = buildEvidence({ baseSha: "base", headSha: "head", changedFiles: ["src/mastra/agents/planner.ts"], baseLock: lock({}), headLock: lock({}) });
