@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type Ref } from "react";
+// CopilotKit v2 and AG-UI form the operator panel's browser-to-agent bridge.
 import { CopilotChat, CopilotKit, useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 import type { AbstractAgent } from "@ag-ui/client";
 
