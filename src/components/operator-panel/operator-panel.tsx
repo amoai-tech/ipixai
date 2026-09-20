@@ -12,6 +12,7 @@ import { navItemIsActive, OPERATOR_NAV } from "./nav";
 import styles from "./operator-panel.module.css";
 import { useWorkspaceStats, WorkspaceStatsProvider } from "./workspace-stats";
 import type { WorkspaceStats } from "./workspace-stats";
+import { PlannerContextProvider, usePlannerContext } from "./planner-context";
 import { RestoreMastraHistory } from "@/components/restore-mastra-history";
 import { ComposeShootPlanRenderer } from "@/components/shoot/compose-shoot-plan-renderer";
 import { ShootPlanReviewHitl } from "@/components/shoot/shoot-plan-review-hitl";
@@ -489,7 +490,21 @@ function ProductionCopilotPanel({
   onClose: () => void;
 }) {
   const stats = useWorkspaceStats();
-  const { contextLine, insights } = useIntelligence(pathname, stats);
+  const plannerContext = usePlannerContext();
+  const { contextLine: dashboardContextLine, insights } = useIntelligence(pathname, stats);
+  // IPI-1087 · PLANNER-CONTEXT-001 — on a Brand/Shoot page, show the same
+  // server-authorized PlannerContext the model itself receives (see
+  // ReportPlannerContext's useAgentContext call) instead of the Dashboard's
+  // WorkspaceStats-derived line, which useIntelligence already correctly
+  // leaves empty off `/app`. This is display-only; it never becomes the
+  // model's context source, and it never overrides the Dashboard case.
+  const contextLine = plannerContext?.shoot
+    ? plannerContext.brand
+      ? `${plannerContext.brand.name} · ${plannerContext.shoot.name}`
+      : plannerContext.shoot.name
+    : plannerContext?.brand
+      ? plannerContext.brand.name
+      : dashboardContextLine;
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Whichever control opened the drawer (header badge or "View all
   // intelligence") gets focus back once it closes — standard disclosure
@@ -723,6 +738,7 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
   // authenticated e2e smoke run — Quick Links stopped navigating with
   // the CopilotKit provider mounted and these left on their default).
   return (
+    <PlannerContextProvider>
     <WorkspaceStatsProvider>
     <CopilotKit
       runtimeUrl="/api/copilotkit"
@@ -825,5 +841,6 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
       </div>
     </CopilotKit>
     </WorkspaceStatsProvider>
+    </PlannerContextProvider>
   );
 }
