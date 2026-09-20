@@ -5,6 +5,7 @@ const workflow = readFileSync(
   new URL("../.github/workflows/pr-agent.yml", import.meta.url),
   "utf8",
 );
+const routing = readFileSync(new URL("../scripts/select-pr-agent-skills.mjs", import.meta.url), "utf8");
 const copilotReviewSkill = readFileSync(
   new URL("../.claude/skills/copilotkit-review/SKILL.md", import.meta.url),
   "utf8",
@@ -15,15 +16,16 @@ const mastraSkill = readFileSync(
 );
 
 describe("IPI-1213 PR-Agent review skills contract", () => {
-  it("selects trusted review skills through the deterministic router without autonomous fixes", () => {
-    expect(workflow).toContain("ref: ${{ github.event.pull_request.base.sha }}");
-    expect(workflow).toContain("persist-credentials: false");
-    expect(workflow).toContain("Select trusted iPix review skills");
-    expect(workflow).toContain("scripts/select-pr-agent-skills.mjs");
-    expect(workflow).toContain("skills.enabled: ${{ steps.reviewer-skills.outputs.enabled }}");
-    expect(workflow).toContain("skills.paths: ${{ steps.reviewer-skills.outputs.paths }}");
-    expect(workflow).toContain("skills.max_skills_tokens: ${{ steps.reviewer-skills.outputs.max_tokens }}");
-    expect(workflow).toContain("github_action_config.auto_improve: \"false\"");
+  it("keeps deterministic review-skill ownership local while the shared core orchestrates it", () => {
+    expect(workflow).toContain("amoai-tech/pr-review-infra/.github/workflows/pr-agent.yml@a3c9600de7a31184266fade8387359ccbb8e6d68");
+    expect(routing).toContain("pr-agent-code-review");
+    expect(routing).toContain("mastra-review");
+    expect(routing).toContain("copilotkit-review");
+    expect(routing).toContain("supabase-review");
+    expect(routing).toContain("nextjs-review");
+    expect(routing).toContain("ci-review");
+    expect(routing).toContain("cloudinary-review");
+    expect(routing).toContain("max_tokens=${result.maxTokens}");
   });
 
   it("reuses the existing Mastra skill body without recursively inlining references", () => {
