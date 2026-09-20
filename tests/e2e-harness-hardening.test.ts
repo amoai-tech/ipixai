@@ -7,6 +7,7 @@ vi.mock("../e2e/support/context", () => ({
 }));
 
 import { SIGN_IN_TIMEOUT_MS, signInWithCredentials } from "../e2e/support/login";
+import { isAllowedE2EBaseUrl } from "../playwright.config";
 
 function never<T>(): Promise<T> {
   return new Promise<T>(() => {});
@@ -18,6 +19,16 @@ function timeoutError() {
   return error;
 }
 describe("Playwright E2E harness hardening", () => {
+  it("allows current amoco iPix Vercel previews and rejects unsafe hosts", () => {
+    expect(isAllowedE2EBaseUrl("https://ipixai-5y1wsa98w-amoco.vercel.app")).toBe(true);
+    expect(isAllowedE2EBaseUrl("https://ipixai-amoco.vercel.app")).toBe(true);
+    expect(isAllowedE2EBaseUrl("http://localhost:3015")).toBe(true);
+    expect(isAllowedE2EBaseUrl("https://ipixai-5y1wsa98w-amo1000.vercel.app")).toBe(false);
+    expect(isAllowedE2EBaseUrl("https://evil-amoco.vercel.app")).toBe(false);
+    expect(isAllowedE2EBaseUrl("https://ipix.co")).toBe(false);
+    expect(isAllowedE2EBaseUrl("http://ipixai-5y1wsa98w-amoco.vercel.app")).toBe(false);
+  });
+
   it("reports a clear Supabase Auth timeout instead of a raw Playwright TimeoutError", async () => {
     const passwordFill = vi.fn(async () => undefined);
     const genericLocator = { fill: vi.fn(async () => undefined) };
