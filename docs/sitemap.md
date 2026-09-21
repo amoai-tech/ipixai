@@ -14,7 +14,7 @@ description: "iPix V2 routes and phases. /app is the single authenticated produc
 |---|---|
 | **This file** | Routes, phases, nav, booking vs shoot |
 | [Live execution board](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues) | Task status, blockers, and current execution |
-| [Documentation map](./docs-index.md) | Current documentation map; legacy route audits are historical evidence |
+| [Documentation map](./index-docs.md) | Current documentation map; legacy route audits are historical evidence |
 | `Universal-design-prompt-4/Pages/*.dc.html` | Visual SCR mockups (not “built in this repo”) |
 
 **This repo today `[VERIFIED]`:** real Next.js routes exist for marketing/auth/onboarding, `/app`, `/app/brands`, `/app/shoots`, `/app/plans`, plus API routes. HTML prototypes remain design reference; route files and verified runtime behavior determine what is shipped.
