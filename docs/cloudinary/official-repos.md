@@ -55,6 +55,6 @@ cloudinary_npm verification APIs
 
 - [Cloudinary media requirements](./prd.md)
 - [Master product requirements](../prd.md)
-- [Documentation inventory](../docs-index.md)
+- [Documentation inventory](../index-docs.md)
 
 Live task status and ownership remain in [Linear](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues).
