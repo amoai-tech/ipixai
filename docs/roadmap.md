@@ -86,4 +86,4 @@ The immediate goal is one trustworthy end-to-end operator experience, not broad 
 - [AI runtime](./copilotkit-mastra/README.md)
 - [Data architecture](./data/README.md)
 - [Media architecture](./cloudinary/README.md)
-- [Documentation inventory](./docs-index.md)
+- [Documentation inventory](./index-docs.md)
