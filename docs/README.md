@@ -12,7 +12,7 @@ This is the GitHub-native documentation home for iPix. Use these files for curre
 | AI runtime | [copilotkit-mastra/README.md](./copilotkit-mastra/README.md) |
 | Data / Supabase | [data/README.md](./data/README.md) |
 | Media / Cloudinary | [cloudinary/README.md](./cloudinary/README.md) |
-| Documentation map | [docs-index.md](./docs-index.md) |
+| Documentation map | [index-docs.md](./index-docs.md) |
 | Historical evidence | [archive/README.md](./archive/README.md) |
 
 ## Source-of-truth order
