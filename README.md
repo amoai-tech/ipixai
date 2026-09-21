@@ -12,7 +12,7 @@ iPix is an AI-native operating system for fashion brands and production teams. T
 | Architecture decisions | [docs/adr/README.md](docs/adr/README.md) |
 | Durable roadmap | [docs/roadmap.md](docs/roadmap.md) |
 | Live execution status, blockers, sequencing | [Linear v2-ipix](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues) |
-| Documentation map | [docs/docs-index.md](docs/docs-index.md) |
+| Documentation map | [docs/index-docs.md](docs/index-docs.md) |
 
 **Repository:** https://github.com/amoai-tech/ipixai
 
