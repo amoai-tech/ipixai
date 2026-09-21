@@ -99,7 +99,7 @@ export function AuthForm({ mode, next }: { mode: AuthFormMode; next: string | nu
         provider: "google",
         options: { redirectTo: callback.toString() },
       });
-      if (error) setError("Sign in failed");
+      if (error) setError(getAuthSubmitErrorMessage(error, mode));
     } catch (error) {
       setError(getAuthSubmitErrorMessage(error, mode));
     } finally {
