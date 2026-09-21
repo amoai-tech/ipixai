@@ -82,4 +82,4 @@ existing iPix implementation
 - [Official Cloudinary repositories and examples](./official-repos.md)
 - [Master product requirements](../prd.md)
 - [Product roadmap](../roadmap.md)
-- [Documentation inventory](../docs-index.md)
+- [Documentation inventory](../index-docs.md)
