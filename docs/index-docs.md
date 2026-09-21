@@ -152,6 +152,8 @@ This table is the global completeness boundary. Every top-level document or docu
 |---|---|---:|
 | [`README.md`](./README.md) | Active | ✅ |
 | [`index-docs.md`](./index-docs.md) | Active / **canonical global index** | ✅ |
+| [`docs-index.md`](./docs-index.md) | Compatibility pointer → `index-docs.md` | ✅ |
+| [`reference-index.md`](./reference-index.md) | Compatibility pointer → `index-docs.md` | ✅ |
 | [`prd.md`](./prd.md) | Active | ✅ |
 | [`sitemap.md`](./sitemap.md) | Active | ✅ |
 | [`roadmap.md`](./roadmap.md) | Active | ✅ |
@@ -172,6 +174,8 @@ This table is the global completeness boundary. Every top-level document or docu
 ### Completeness rule
 
 Whenever a new top-level file or directory is added under `docs/`, update this table in the same PR. Files inside a documented directory must be represented by that directory's local README/index where one exists.
+
+The compatibility-pointer files above are **not separate indexes**. They only preserve old links and point to `index-docs.md`.
 
 ---
 
@@ -214,15 +218,16 @@ Brand URL
 ## 13. Documentation maintenance rules
 
 1. **One global index:** `docs/index-docs.md`.
-2. Domain/folder README files organize only their own directory.
-3. Do not create another repository-wide documentation index.
-4. Product truth belongs in `prd.md` / `sitemap.md`.
-5. Architecture decisions belong in ADRs.
-6. Live task status belongs in Linear.
-7. Superseded material moves to `archive/`.
-8. Add new docs to the appropriate existing domain before creating a new top-level folder.
-9. Run `npm run docs:check` after documentation changes.
-10. Any new top-level `docs/*` file/folder must be added to the inventory above in the same change.
+2. `docs/docs-index.md` and `docs/reference-index.md` are compatibility pointers only.
+3. Domain/folder README files organize only their own directory.
+4. Do not create another repository-wide documentation index.
+5. Product truth belongs in `prd.md` / `sitemap.md`.
+6. Architecture decisions belong in ADRs.
+7. Live task status belongs in Linear.
+8. Superseded material moves to `archive/`.
+9. Add new docs to the appropriate existing domain before creating a new top-level folder.
+10. Run `npm run docs:check` after documentation changes.
+11. Any new top-level `docs/*` file/folder must be added to the inventory above in the same change.
 
 ---
 
