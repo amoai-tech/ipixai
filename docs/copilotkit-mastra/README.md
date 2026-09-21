@@ -33,7 +33,7 @@ CopilotKit is the operator-facing AI interface. Mastra owns agents, tools, workf
 - [Product requirements](../prd.md)
 - [Runtime compatibility family](../mastra/runtime-family.md)
 - [Postgres schema contract](../mastra/db-001-matrix.md)
-- [Documentation map](../docs-index.md)
+- [Documentation map](../index-docs.md)
 - [Historical AI plans and audits](../archive/copilotkit-mastra/)
 
 Dated conversion plans, repo research, tool surveys, and old runtime audits are preserved in `docs/archive/`; they are not current runtime authority.
