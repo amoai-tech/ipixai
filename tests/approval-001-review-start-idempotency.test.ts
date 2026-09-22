@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -64,9 +64,13 @@ beforeEach(() => {
   mocks.createClientFromRequest.mockReturnValue(client());
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("POST /api/plans/reviews retry identity", () => {
-  it("binds retries to the caller's stable reviewStartId and uses a server-owned expiry", async () => {
-    const start = vi.fn(async ({ inputData }: { inputData: Record<string, unknown> }) => ({
+  it("groups retries under one server-bound run id and uses a server-owned expiry", async () => {
+    const start = vi.fn(async () => ({
       status: "suspended",
       suspendPayload: {
         approvalId: APPROVAL_ID,
@@ -74,7 +78,6 @@ describe("POST /api/plans/reviews retry identity", () => {
         revision: 1,
         planHash: "hash-1",
       },
-      inputData,
     }));
     const createRun = vi.fn(async (options?: { runId?: string }) => ({
       runId: options?.runId ?? "unexpected-run",
@@ -87,8 +90,11 @@ describe("POST /api/plans/reviews retry identity", () => {
 
     expect(first.status).toBe(201);
     expect(second.status).toBe(201);
-    expect(createRun).toHaveBeenNthCalledWith(1, { runId: START_ID });
-    expect(createRun).toHaveBeenNthCalledWith(2, { runId: START_ID });
+    const firstRunId = createRun.mock.calls[0]?.[0]?.runId;
+    const secondRunId = createRun.mock.calls[1]?.[0]?.runId;
+    expect(firstRunId).toMatch(/^wizard-review-[0-9a-f]{64}$/);
+    expect(secondRunId).toBe(firstRunId);
+    expect(firstRunId).not.toBe(START_ID);
 
     for (const call of start.mock.calls) {
       const inputData = call[0].inputData;
