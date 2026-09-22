@@ -268,6 +268,48 @@ describe("composeShootPlan", () => {
     expect(result.success).toBe(false);
   });
 
+  it("preserves exact ProductRef identity from compose input to canonical ShootPlan output", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY];
+    const productRef = {
+      provider: "catalog",
+      providerProductId: "product-123",
+      providerVariantId: "variant-size-m",
+      title: "Black Dress",
+      variantTitle: "Size M",
+      sku: "DRESS-BLK-M",
+      imageUrl: "https://example.com/dress.jpg",
+    };
+
+    const plan = await composeShootPlan({ ...baseInput(), productRefs: [productRef] } as ComposeShootPlanInput);
+
+    expect(plan.productRefs).toEqual([productRef]);
+  });
+
+  it("returns an explicit empty productRefs array when no products were supplied", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY];
+    const plan = await composeShootPlan(baseInput());
+    expect(plan.productRefs).toEqual([]);
+  });
+
+  it("rejects more than 100 ProductRefs at the compose input schema boundary", () => {
+    const productRef = { provider: "catalog", providerProductId: "product-123", title: "Black Dress" };
+    const result = ComposeShootPlanInputSchema.safeParse({
+      channels: ["shopify"],
+      productRefs: Array.from({ length: 101 }, () => productRef),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("the canonical ShootPlanSchema rejects a malformed ProductRef", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY];
+    const validPlan = await composeShootPlan(baseInput());
+    const result = ShootPlanSchema.safeParse({
+      ...validPlan,
+      productRefs: [{ provider: "catalog", title: "Missing provider product id" }],
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("rejects an empty channels array — channels is the one truly required input", () => {
     const result = ComposeShootPlanInputSchema.safeParse({ channels: [] });
     expect(result.success).toBe(false);

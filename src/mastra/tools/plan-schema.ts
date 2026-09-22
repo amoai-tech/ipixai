@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ProductRefSchema } from "@/lib/commerce/product-ref";
 import {
   RecommendShootTypeOutputSchema,
   PlanDeliverablesOutputSchema,
@@ -69,6 +70,7 @@ export const ShootPlanSchema = z.object({
   // Verified, always-known inputs to the plan (required to call
   // composeShootPlan at all — never a fabrication risk).
   channels: z.array(ChannelSchema).min(1).max(MAX_CHANNELS_INPUT),
+  productRefs: z.array(ProductRefSchema),
 
   // Sections owned by IPI-1049 · TOOL-001 — embedded whole, unmodified.
   shootTypeResult: RecommendShootTypeOutputSchema,
