@@ -5,12 +5,12 @@ parent: mastra
 impact: HIGH
 impactDescription: Agent-readable inspect/call loop against Studio/API
 tags: mastra, cli, api, studio
-source: https://github.com/mastra-ai/skills/blob/690d5d6cc6e918e73264b483ad3894ade7c763d9/skills/mastra/references/mastra-api.md
+source: https://github.com/mastra-ai/skills/blob/f79b794df9201b671b6602c6fc8ac0ad95478750/skills/mastra/references/mastra-api.md
 ---
 
 # Mastra API CLI Reference
 
-Upstream: [mastra-ai/skills `mastra-api.md` @ 690d5d6](https://github.com/mastra-ai/skills/blob/690d5d6cc6e918e73264b483ad3894ade7c763d9/skills/mastra/references/mastra-api.md) (skill 2.1.0). Official CLI: [`mastra api`](https://mastra.ai/reference/cli/mastra.md). Develop loop: [Develop](https://mastra.ai/docs/getting-started/develop.md).
+Upstream: [mastra-ai/skills `mastra-api.md` @ f79b794](https://github.com/mastra-ai/skills/blob/f79b794df9201b671b6602c6fc8ac0ad95478750/skills/mastra/references/mastra-api.md) (skill 2.2.0). Official CLI: [`mastra api`](https://mastra.ai/reference/cli/mastra.md). Develop loop: [Develop](https://mastra.ai/docs/getting-started/develop.md).
 
 ## iPixai — how the local server is started
 
@@ -176,6 +176,8 @@ Use the narrowest discovery command that can answer the question. Example for tr
 ```bash
 npx --no-install mastra api trace --help
 npx --no-install mastra api trace list --help
+npx --no-install mastra api trace query --help
+npx --no-install mastra api trace query --schema
 npx --no-install mastra api trace list --schema
 ```
 
@@ -242,3 +244,7 @@ curl -fsS "$MASTRA_URL/api/system/api-schema" \
 - Working memory update requires the agent's memory to have working memory enabled.
 - Empty lists may simply mean the server has no matching stored data yet.
 - `trace list` and `trace get` return lightweight payloads by default (no span input, output, attributes, or metadata). Pass `--verbose` to fetch full span records, or use `trace span` to fetch one specific span in full.
+
+## Advanced trace query
+
+Use `trace query` instead of `trace list` when selection requires recursive predicates, metadata filters, or conditions over related spans, scores, or feedback. First confirm the repo-pinned CLI exposes the command with `npx --no-install mastra api trace query --help` and `--schema`. Preserve opaque pagination cursors unchanged. See [`trace-query.md`](trace-query.md).

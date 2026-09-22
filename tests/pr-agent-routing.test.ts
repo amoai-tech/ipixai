@@ -33,7 +33,7 @@ describe("IPI-1246 PR-Agent changed-file routing", () => {
   });
 
   it("routes Mastra and CopilotKit independently", () => {
-    expect(names(["src/mastra/agents/planner.ts"])).toEqual(["pr-agent-code-review", "mastra-review"]);
+    expect(names(["src/mastra/agents/planner.ts"])).toEqual(["pr-agent-code-review", "mastra"]);
     expect(names(["src/app/api/copilotkit/route.ts"])).toEqual(["pr-agent-code-review", "copilotkit-review", "nextjs-review"]);
   });
 
@@ -63,7 +63,7 @@ describe("IPI-1246 PR-Agent changed-file routing", () => {
 
   it("loads all version-sensitive specialists for package changes", () => {
     const result = names(["package.json"]);
-    for (const skill of ["copilotkit-review", "mastra-review", "supabase-review", "cloudinary-review", "nextjs-review"]) {
+    for (const skill of ["copilotkit-review", "mastra", "supabase-review", "cloudinary-review", "nextjs-review"]) {
       expect(result).toContain(skill);
     }
     expect(result).not.toContain("ci-review");
