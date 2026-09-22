@@ -1,6 +1,6 @@
 # iPix GitBook & Documentation Progress Tracker
 
-Verified against the local curated docs worktree, GitHub `main`, and the live GitBook site on 2026-09-21.
+Verified against the local curated docs worktree, GitHub `main`, PR evidence, and the GitBook preview/site on 2026-09-22.
 
 **Legend:** 🟢 completed · 🟡 in progress · 🔴 failed/blocker · 🔵 not started / needs completion
 
@@ -52,7 +52,7 @@ Verified against the local curated docs worktree, GitHub `main`, and the live Gi
 | Operations | 🔵 | 0% | Folder contains only `.gitkeep`; create `60-operations/OPERATIONS.md`. |
 | Analytics | 🔵 | 0% | Folder contains only `.gitkeep`; create `70-analytics/ANALYTICS.md`. |
 | Plans | 🔵 | 0% | Folder contains only `.gitkeep`; create `80-plans/PLANS.md`. |
-| Shared platform architecture | 🔵 | 0% | Planned `00-platform/IPIX-PLATFORM-ARCHITECTURE.md` is not present. |
+| Shared platform architecture | 🟡 | 95% | `00-platform/IPIX-PLATFORM-ARCHITECTURE.md` is implemented in PR #249, linked from `SUMMARY.md` and `index-docs.md`, and its GitBook preview passes. Remaining proof: merge to `main` and verify live GitBook readback before marking 100%. |
 | Global reuse matrix | 🔵 | 0% | Planned `00-platform/IPIX-GLOBAL-REUSE-MATRIX.md` is not present. |
 
 ## Immediate blockers / fixes
