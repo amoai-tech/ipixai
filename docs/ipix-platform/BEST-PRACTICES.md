@@ -245,9 +245,36 @@ Purpose → Outcome → Implementation → Acceptance criteria → Verification 
 
 Use the approved template that matches the work: normal implementation → `Universal Engineering Task`; audit/research only → `iPix Task Audit & Implementation Plan`; confirmed root-cause repair → `Forensic Error Audit & Fix`; production certification → `Production Readiness / Release Gate`.
 
+### External references inside approved templates
+
+The four template types share one external-reference contract; do not create a separate rule-only execution template. When a task step consumes an external source, the step must record:
+
+```text
+exact URL + exact source file/example/section/symbol
+→ tracking class: COPY / ADAPT / MODEL / REFERENCE ONLY
+→ Inspect
+→ approved implementation Action
+→ Current owner / truth
+→ exact target/destination
+→ reuse/adapt behavior + explicit do-not-copy/defer/drop boundary
+→ applicable Constraints
+→ precise change
+→ exact verification
+→ Checkpoint: PASS + evidence
+→ STOP condition
+```
+
+A tracking class describes how the reference is used; it is not the implementation action. In particular, bare `ADAPT` is not an action. The canonical detailed rule lives in `.claude/skills/tasks/references/external-reference-mapping.md` and remains subordinate to `.claude/skills/tasks/SKILL.md` and `task-format.md`.
+
 Use one-week cycles while they remain effective. Once per cycle, review active work and backlog: close duplicates, cancel genuinely stale work with a reason, move still-valid work to the right cycle/owner, and preserve historical evidence rather than deleting it just to reduce counts.
 
 For GitHub integration, include the Linear identifier from the relevant task—for example **IPI-1234 · VERCEL-BUNDLE-003 — Load Shiki client-side-only to drop ~10 MiB of deployment storage**—in the branch, commit, or PR so Linear can associate implementation with the issue. Verify team Git automations under Linear team settings rather than assuming status transitions are configured.
+
+### PR follow-up after opening or pushing
+
+Opening a PR starts a repeatable review loop; it does not finish the task. After every push, refresh the exact head/base, current `main`, unresolved threads, reviews, required checks, and mergeability. Classify review feedback as `VALID / PARTIAL / NOISE`, fix only evidence-backed root causes, re-run the touched-file maintainability review and risk-matched tests, reply with the exact fix/evidence, and resolve only after proof exists. Keep the detailed execution contract in `.claude/skills/tasks/SKILL.md` rather than duplicating it here.
+
+The exact-head merge gate is PASS only when required checks are green, strict-main is current, no actionable thread remains unresolved, the PR and Linear task agree materially, and every touched auth/security/tenant/data/provider boundary has the required proof.
 
 Coding agents must start from the live Linear issue plus current code/runtime truth, not past chat context. `todo.md` is only a short handoff pointer; `changelog.md` receives notable verified outcomes; durable behavior changes update `docs/**` in the same PR and GitBook publishes them after merge.
 
@@ -258,6 +285,10 @@ Coding agents must start from the live Linear issue plus current code/runtime tr
 - GitBook CLI: https://gitbook.com/docs/docs-as-code/gitbook-cli
 - Diátaxis: https://diataxis.fr/
 - Keep a Changelog: https://keepachangelog.com/en/1.1.0/
+
+- Linear issue templates: https://linear.app/docs/issue-templates
+- Linear GitHub integration: https://linear.app/docs/github-integration
+- Linear code & reviews: https://linear.app/docs/code-and-reviews
 
 ## Final rule
 

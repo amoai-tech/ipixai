@@ -6,6 +6,10 @@ function readRepoFile(path: string) {
   return readFileSync(join(process.cwd(), path), "utf8");
 }
 
+let agents: string;
+let bestPractices: string;
+let todo: string;
+let changelog: string;
 let refactorPlan: string;
 let domainModeling: string;
 let adrFormat: string;
@@ -17,6 +21,10 @@ let mergeConflicts: string;
 
 describe("iPix engineering skill contracts", () => {
   beforeAll(() => {
+    agents = readRepoFile("AGENTS.md");
+    bestPractices = readRepoFile("docs/ipix-platform/BEST-PRACTICES.md");
+    todo = readRepoFile("todo.md");
+    changelog = readRepoFile("changelog.md");
     refactorPlan = readRepoFile(".claude/skills/refactor-plan/SKILL.md");
     domainModeling = readRepoFile(".claude/skills/domain-modeling/SKILL.md");
     adrFormat = readRepoFile(".claude/skills/domain-modeling/ADR-FORMAT.md");
@@ -57,6 +65,99 @@ describe("iPix engineering skill contracts", () => {
     expect(tasks).toContain("### Wide-refactor exception — expand → migrate → contract");
     expect(tasks).toContain("whose blast radius cannot stay green as a vertical slice");
     expect(tasks).toContain("Do not pretend a horizontal breaking change is a tracer bullet");
+  });
+
+  test("Linear governance routes each work type to exactly four approved templates and preserves the ordered reference contract", () => {
+    const routingSection = tasks.match(
+      /## Linear template routing — mandatory([\s\S]*?)Rules:/,
+    )?.[1] ?? "";
+    const routingLines = routingSection
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line && line !== "```text" && line !== "```");
+
+    const expectedRoutes = [
+      ["Production/release certification?", "Production Readiness / Release Gate"],
+      ["Confirmed failure requiring root-cause repair?", "Forensic Error Audit & Fix"],
+      ["Audit/research only with no implementation?", "iPix Task Audit & Implementation Plan"],
+      ["Otherwise", "Universal Engineering Task"],
+    ] as const;
+
+    for (const [question, template] of expectedRoutes) {
+      const index = routingLines.indexOf(question);
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(routingLines[index + 1]).toBe(`→ ${template}`);
+    }
+    expect(routingLines.filter((line) => line.startsWith("→ "))).toHaveLength(4);
+    expect(agents).toContain("- Normal feature/fix → `Universal Engineering Task`");
+    expect(agents).toContain("- Audit/research only; no implementation → `iPix Task Audit & Implementation Plan`");
+    expect(agents).toContain("- Confirmed bug/root-cause repair → `Forensic Error Audit & Fix`");
+    expect(agents).toContain("- Production/release certification → `Production Readiness / Release Gate`");
+    expect(agents).toContain("Before implementation, use one of two explicit paths:");
+    expect(agents).toContain("**Standard path:**");
+    expect(agents).toContain("**Exception path:**");
+    expect(tasks).toContain("Before implementation, use one of two explicit paths:");
+    expect(tasks).toContain("**Standard path:**");
+    expect(tasks).toContain("**Exception path:**");
+    const canonicalStandardPath =
+      "**Standard path:** verify template/type, project/milestone, dependencies/blockers, relations, observable outcome, acceptance criteria, verification plan, and exact next action.";
+    expect(agents).toContain(canonicalStandardPath);
+    expect(tasks).toContain(canonicalStandardPath);
+    expect(agents).toContain("Existing-issue decision:");
+    expect(tasks).toContain("Existing-issue decision:");
+    expect(agents).toContain("do not create a duplicate solely to change template metadata");
+    expect(tasks).toContain("do not create a duplicate solely to change template metadata");
+    expect(agents).toContain("If Linear is temporarily unavailable");
+    expect(agents).toContain("reconcile that handoff back into Linear before marking the issue Done");
+    expect(tasks).toContain("If Linear is temporarily unavailable");
+    expect(tasks).toContain("reconcile that handoff back into Linear before marking the issue Done");
+
+    for (const source of [agents, tasks, bestPractices]) {
+      expect(source).not.toContain("reuse-rule-linear-task");
+    }
+
+    expect(bestPractices).toMatch(
+      /exact URL \+ exact source file\/example\/section\/symbol[\s\S]*tracking class:[\s\S]*Inspect[\s\S]*approved implementation Action[\s\S]*Current owner \/ truth[\s\S]*exact target\/destination[\s\S]*do-not-copy\/defer\/drop boundary[\s\S]*Constraints[\s\S]*precise change[\s\S]*exact verification[\s\S]*Checkpoint: PASS \+ evidence[\s\S]*STOP condition/,
+    );
+  });
+
+  test("tasks requires a repeatable PR follow-up review loop after a PR opens", () => {
+    expect(tasks).toContain("## PR follow-up loop — mandatory after PR opens");
+    expect(tasks).toContain("classify each review thread as `VALID`, `PARTIAL`, or `NOISE`");
+    expect(tasks).toContain("resolve a thread only after the fix and evidence exist");
+    expect(tasks).toContain("Re-check current `main` and required exact-head checks after every push");
+    expect(tasks).toContain("KEEP / REFACTOR NOW / FOLLOW-UP");
+    expect(tasks).toContain("Update the PR title/body");
+    expect(tasks).toContain("Repeat this loop after every push");
+    expect(bestPractices).toContain("### PR follow-up after opening or pushing");
+    expect(bestPractices).toContain("VALID / PARTIAL / NOISE");
+    expect(bestPractices).toContain("exact-head merge gate");
+  });
+
+  test("todo stays a short Linear handoff while changelog stays curated shipped history", () => {
+    expect(todo).toContain("Linear is the authoritative task/status source");
+    expect(todo).toContain("## Current");
+    expect(todo).toContain("## Durable sources");
+    expect(todo).toContain("- State:");
+    expect(todo).toContain("- Last proof:");
+    expect(todo).toContain("- Remaining blocker:");
+    expect(todo).toContain("- Next action:");
+    expect(todo).toContain("IPI-1294");
+    expect(todo).not.toContain("Exact head:");
+    expect(todo).not.toContain("PR merge gate:");
+    expect(todo).not.toContain("complete the live Linear template + integration settings work, then merge/certify PR #258");
+    expect(changelog).toContain("# Changelog");
+    expect(changelog).toContain("## [Unreleased]");
+    expect(changelog).toContain("### Added");
+    expect(changelog).toContain("### Security");
+    expect(changelog).toContain("notable verified");
+    expect(changelog).toContain("IPI-1294");
+    expect(changelog).toContain("four-template routing");
+    expect(todo).toContain("full canonical external-reference contract");
+    expect(todo).toContain("Live template inventory is exactly four");
+    expect(todo).toContain("Linear Reviews/Diffs does not currently discover `amoai-tech/ipixai`");
+    expect(todo).not.toContain("synchronize/retire live Linear template definitions");
   });
 
   test("tasks makes the external-reference mapping supplement discoverable from governing guidance", () => {
