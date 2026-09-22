@@ -192,7 +192,7 @@ Frontend tools may update UI state or perform browser-local conveniences. They a
 **CopilotKit shared state — MODEL / ADAPT**
 
 - URL: https://docs.copilotkit.ai/mastra/shared-state
-- Source: current installed `@copilotkit/react-core 1.68.1` types + current CopilotKit examples.
+- Source: current installed `@copilotkit/react-core 1.68.1` types + CopilotKit pinned at `5ffe92689c3322ccc90a5137db1c8f1a6ffd79f2`.
 - Use: agent/UI collaboration around an editable proposal.
 - Do not copy: shared state as durable business truth.
 - Apply to: proposal/editing surfaces only.
@@ -201,7 +201,7 @@ Frontend tools may update UI state or perform browser-local conveniences. They a
 **Controlled state rendering — ADAPT**
 
 - URL: https://docs.copilotkit.ai/mastra/generative-ui/state-rendering
-- Example: https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/generative-ui
+- Source: https://github.com/CopilotKit/CopilotKit/tree/5ffe92689c3322ccc90a5137db1c8f1a6ffd79f2/examples/showcases/generative-ui
 - Use: structured React rendering around known proposal schemas.
 - Do not copy: unconstrained generated application UI for consequential approvals.
 - Apply to: domain-specific iPix review components.
@@ -210,7 +210,7 @@ Frontend tools may update UI state or perform browser-local conveniences. They a
 **Frontend tools — ADAPT, UI-only**
 
 - URL: https://docs.copilotkit.ai/mastra/frontend-tools
-- Source: https://github.com/CopilotKit/CopilotKit/blob/main/packages/react-core/src/v2/hooks/use-frontend-tool.tsx
+- Source: https://github.com/CopilotKit/CopilotKit/blob/5ffe92689c3322ccc90a5137db1c8f1a6ffd79f2/packages/react-core/src/v2/hooks/use-frontend-tool.tsx
 - Use: browser/UI-only capabilities.
 - Do not copy: browser tool arguments as trusted tenant/auth data.
 - Verify: privileged operations still derive identity/org server-side.
@@ -247,7 +247,7 @@ stateDiagram-v2
 
 ### Current live Supabase proof
 
-Read-only verification on 2026-09-22 confirms `public.decide_shoot_plan_revision(uuid,integer,text,text,text,text)` is `SECURITY DEFINER`, has `search_path=''`, grants execute to `authenticated`, checks `auth.uid()`, requires editor-or-owner authority through `public.is_org_editor_or_above`, validates exact `revision` + `plan_hash`, rejects superseded revisions, uses transaction-scoped advisory locking, and protects replays with actor-bound idempotency/request hashes.
+Read-only verification for IPI-1300 against baseline `main` commit `8086de52a2579cd7828c64eedb9e6635bb65e853` on 2026-09-22 confirms `public.decide_shoot_plan_revision(uuid,integer,text,text,text,text)` is `SECURITY DEFINER`, has `search_path=''`, grants execute to `authenticated`, checks `auth.uid()`, requires editor-or-owner authority through `public.is_org_editor_or_above`, validates exact `revision` + `plan_hash`, rejects superseded revisions, uses transaction-scoped advisory locking, and protects replays with actor-bound idempotency/request hashes.
 
 `public.get_shoot_plan_approval_proof(uuid)` is service-only and recomputes the stored plan hash before the workflow trusts the decision.
 
@@ -305,12 +305,14 @@ Current iPix already uses Firecrawl through Supabase Edge Functions. Gemini Goog
 flowchart TD
     A[Need evidence] --> B{Approved iPix knowledge sufficient?}
     B -->|Yes| Z[Use internal evidence]
-    B -->|No| C{Need broad current discovery?}
-    C -->|Yes| D[Google Search capability if adopted]
-    C -->|No| E{Known useful URL?}
-    D --> E
-    E -->|Yes| F[URL Context capability if adopted]
-    E -->|No| G{Need deeper multi-page extraction?}
+    B -->|No| C{Already have a useful URL?}
+    C -->|Yes| F[URL Context capability if adopted]
+    C -->|No| D{Need broad current discovery?}
+    D -->|Yes| S[Google Search capability if adopted]
+    D -->|No| G{Need deeper multi-page extraction?}
+    S --> E{Search produced a useful URL to inspect?}
+    E -->|Yes| F
+    E -->|No| G
     F --> G
     G -->|Yes| H[Firecrawl]
     G -->|No| I[Stop with evidence]

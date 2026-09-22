@@ -53,7 +53,7 @@ Verified against the local curated docs worktree, GitHub `main`, PR evidence, an
 | Analytics | 🔵 | 0% | Folder contains only `.gitkeep`; create `70-analytics/ANALYTICS.md`. |
 | Plans | 🔵 | 0% | Folder contains only `.gitkeep`; create `80-plans/PLANS.md`. |
 | Shared platform architecture | 🟢 | 100% | PR #249 merged at `8086de52a2579cd7828c64eedb9e6635bb65e853`; clean-main docs check passed and GitBook imported/read back `00-platform/IPIX-PLATFORM-ARCHITECTURE.md`. |
-| Shared AI feature pattern | 🟡 | 95% | `00-platform/IPIX-AI-FEATURE-PATTERN.md` is implemented in IPI-1300 branch and linked from navigation/standards. Remaining proof: PR merge to `main` + live GitBook import/readback. |
+| Shared AI feature pattern | 🟡 | 95% | PR #251 implements `00-platform/IPIX-AI-FEATURE-PATTERN.md` and links it from navigation/standards; merge to `main` plus live GitBook import/readback will complete verification. |
 | Global reuse matrix | 🔵 | 0% | Planned `00-platform/IPIX-GLOBAL-REUSE-MATRIX.md` is not present. |
 
 ## Immediate blockers / fixes
