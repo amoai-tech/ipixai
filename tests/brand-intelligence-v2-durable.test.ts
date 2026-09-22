@@ -122,6 +122,68 @@ describe("brand-intelligence-v2 durable crawl parity", () => {
       firecrawlJobId: "fc-job-1",
     });
   });
+
+  it("routes durable client construction failure through failAnalysis cleanup", async () => {
+    mocks.serviceClient
+      .mockReturnValueOnce(null)
+      .mockReturnValueOnce(fakeAdmin());
+
+    await expect(
+      stepExecute("waitForCrawl")({
+        inputData: {
+          brandId: BRAND_ID,
+          crawlId: CRAWL_ID,
+          firecrawlJobId: "fc-job-1",
+        },
+        resumeData: undefined,
+        suspend: vi.fn(),
+        runId: RUN_ID,
+      }),
+    ).rejects.toThrow("Durable crawl client unavailable");
+
+    expect(mocks.updateEq).toHaveBeenCalledWith("id", BRAND_ID);
+  });
+
+  it("rejects a failed resume with no crawl id without mutating brand status", async () => {
+    await expect(
+      stepExecute("waitForCrawl")({
+        inputData: {
+          brandId: BRAND_ID,
+          crawlId: CRAWL_ID,
+          firecrawlJobId: "fc-job-1",
+        },
+        resumeData: { failed: true, error: "provider failure" },
+        suspend: vi.fn(),
+        runId: RUN_ID,
+      }),
+    ).rejects.toThrow();
+
+    expect(mocks.updateEq).not.toHaveBeenCalled();
+  });
+
+  it("rejects a failed resume with the wrong crawl id without mutating brand status", async () => {
+    const foreignCrawlId = "44444444-4444-4444-8444-444444444444";
+
+    await expect(
+      stepExecute("waitForCrawl")({
+        inputData: {
+          brandId: BRAND_ID,
+          crawlId: CRAWL_ID,
+          firecrawlJobId: "fc-job-1",
+        },
+        resumeData: {
+          crawlId: foreignCrawlId,
+          failed: true,
+          error: "provider failure",
+        },
+        suspend: vi.fn(),
+        runId: RUN_ID,
+      }),
+    ).rejects.toThrow("Crawl ID mismatch");
+
+    expect(mocks.updateEq).not.toHaveBeenCalled();
+  });
+
   it("re-reads Supabase durable truth before suspending and before accepting webhook resume", async () => {
     const inputData = {
       brandId: BRAND_ID,

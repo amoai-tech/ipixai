@@ -14,7 +14,7 @@ vi.mock("firecrawl", () => ({
     startCrawl = mocks.startCrawl;
   },
 }));
-import { startBrandSiteCrawl } from "@/mastra/tools/firecrawl";
+import { startBrandSiteCrawl } from "@/mastra/integrations/firecrawl";
 
 beforeEach(() => {
   vi.stubEnv("FIRECRAWL_API_KEY", "fc-test-key");

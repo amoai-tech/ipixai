@@ -32,7 +32,7 @@ const crawlIdentitySchema = z.object({
 });
 
 const waitResumeSchema = z.object({
-  crawlId: z.string().uuid().optional(),
+  crawlId: z.string().uuid(),
   failed: z.boolean().optional(),
   error: z.string().optional(),
 });
@@ -116,18 +116,18 @@ const waitForCrawl = createStep({
   resumeSchema: waitResumeSchema,
   suspendSchema: waitSuspendSchema,
   execute: async ({ inputData, resumeData, suspend, runId }) => {
-    if (resumeData?.failed) {
-      throw await failAnalysis(
-        inputData.brandId,
-        "Crawl failed",
-        resumeData.error || "Firecrawl crawl failed",
-      );
-    }
-    if (resumeData && (!resumeData.crawlId || resumeData.crawlId !== inputData.crawlId)) {
-      throw await failAnalysis(inputData.brandId, "Crawl ID mismatch", resumeData.crawlId);
+    // A resume signal must first prove it belongs to this exact suspended crawl.
+    // Do not mutate Brand status from an uncorrelated callback.
+    if (resumeData && resumeData.crawlId !== inputData.crawlId) {
+      throw new Error("Crawl ID mismatch");
     }
 
-    const admin = requireAdmin();
+    let admin: ReturnType<typeof requireAdmin>;
+    try {
+      admin = requireAdmin();
+    } catch (error) {
+      throw await failAnalysis(inputData.brandId, "Durable crawl client unavailable", error);
+    }
     const { data: crawl, error } = await admin
       .from("brand_crawls")
       .select("brand_id, firecrawl_job_id, job_status, workflow_id")
@@ -155,6 +155,16 @@ const waitForCrawl = createStep({
     // provider webhook. Never let a new run wait on another run's active crawl.
     if (crawl.workflow_id !== runId) {
       throw await failAnalysis(inputData.brandId, "Durable crawl belongs to another workflow", crawl.workflow_id);
+    }
+
+    // Only after provider + durable workflow correlation is proven may a failed
+    // terminal event transition the Brand to failed.
+    if (resumeData?.failed) {
+      throw await failAnalysis(
+        inputData.brandId,
+        "Crawl failed",
+        resumeData.error || "Firecrawl crawl failed",
+      );
     }
 
     if (resumeData) {
