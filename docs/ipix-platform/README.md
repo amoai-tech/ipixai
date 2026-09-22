@@ -224,12 +224,13 @@ Create docs only when they have a clear job. Do **not** create a large document 
 Create in this order:
 
 1. `30-shoots/SHOOTS.md`
-2. `20-talent/TALENT.md`
-3. `40-assets/ASSETS.md`
-4. `50-crm/CRM.md`
-5. `60-operations/OPERATIONS.md`
-6. `70-analytics/ANALYTICS.md`
-7. `80-plans/PLANS.md`
+2. `40-assets/ASSETS.md`
+3. `50-crm/CRM.md`
+4. `60-operations/OPERATIONS.md`
+5. `70-analytics/ANALYTICS.md`
+6. `80-plans/PLANS.md`
+
+Talent documentation belongs under Shoots unless iPix introduces a standalone `/app/talent` product surface.
 
 ### Task/implementation docs
 

@@ -1,6 +1,8 @@
 # Table of contents
 
 * [iPix Platform](README.md)
+* [Product Requirements](PRD.md)
+* [Documentation Roadmap](ROADMAP.md)
 * [Documentation Index](index-docs.md)
 * [Product Sitemap](SITEMAP.md)
 * [Best Practices](BEST-PRACTICES.md)
