@@ -7,7 +7,7 @@ description: >
   review-comment troubleshooting, and post-merge proof. Defines the task standard; it does not
   replace task-verifier Done checks.
 metadata:
-  version: "1.12.0"
+  version: "1.13.0"
 ---
 
 # tasks — iPix Linear task specification standard
@@ -44,6 +44,42 @@ Production-ready when: <one observable success sentence>
 ```
 
 If any line is unknown, say `Needs verification` instead of guessing.
+
+## Linear template routing — mandatory
+
+Before creating or materially restructuring a substantial `IPI-*` issue, select the approved workspace template by work type:
+
+```text
+Production/release certification?
+→ Production Readiness / Release Gate
+
+Confirmed failure requiring root-cause repair?
+→ Forensic Error Audit & Fix
+
+Audit/research only with no implementation?
+→ iPix Task Audit & Implementation Plan
+
+Otherwise
+→ Universal Engineering Task
+```
+
+Rules:
+- Search Linear first and reuse/update an existing owner instead of creating duplicate work.
+- For a new issue, apply the actual Linear template through the template field. Do not recreate it from memory.
+- Do not pass a replacement free-form description during template creation; that would discard the template body. Apply the template first, then fill/correct its sections.
+- Preserve the closest applicable template structure when materially rewriting an existing issue.
+- Fill only relevant sections; use `Needs verification` rather than inventing values.
+- Before implementation, verify template/type, project/milestone, relations, observable outcome, acceptance criteria, verification plan, and exact next action.
+
+### Cross-tool handoff and completion
+
+Linear remains the authoritative per-task execution record. Keep a concise handoff in the issue with: current verified state, last completed checkpoint, blocker, exact next action, branch/PR, and exact SHA when available. `todo.md` may point to that task for local session continuity but must not duplicate the full backlog.
+
+At the Done gate, explicitly decide whether the change requires durable docs and/or a changelog entry:
+
+- behavior, architecture, contracts, runbooks, or user journeys changed → update the canonical `docs/**` in the same PR; GitBook publishes after merge;
+- notable shipped product, security, reliability, or operational change → update `changelog.md`;
+- neither applies → record the reason briefly in the task/PR.
 
 ## Mandatory task structure
 

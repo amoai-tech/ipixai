@@ -227,6 +227,19 @@ Rules: `.cursor/rules/`. Skills: `.claude/skills/` (`.cursor/skills` symlink). I
 
 For substantial executable `IPI-*` work, load `.claude/skills/tasks/SKILL.md` before planning or implementation and only the domain skills relevant to the task.
 
+### Linear template routing — mandatory
+
+For every new substantial `IPI-*` issue, use one approved Linear workspace template. Do not create a free-form issue when an approved template fits.
+
+- Normal feature/fix → `Universal Engineering Task`
+- Audit/research only; no implementation → `iPix Task Audit & Implementation Plan`
+- Confirmed bug/root-cause repair → `Forensic Error Audit & Fix`
+- Production/release certification → `Production Readiness / Release Gate`
+
+Before creating an issue: search Linear for an existing owner and reuse/update it when possible. If a new issue is required, apply the template through Linear's template field; do not replace the template body with a free-form description. Fill only relevant sections and write `Needs verification` for unknown facts. When materially correcting an existing issue, preserve the closest applicable template structure.
+
+Before implementation, verify the issue has the correct template/type, project/milestone, dependencies/blockers, observable outcome, acceptance criteria, and verification plan. The issue must remain resumable by another agent from Linear alone.
+
 Before coding:
 
 1. Re-read the live Linear issue, dependencies, blockers, and acceptance criteria.

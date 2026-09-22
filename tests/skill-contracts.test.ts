@@ -6,6 +6,10 @@ function readRepoFile(path: string) {
   return readFileSync(join(process.cwd(), path), "utf8");
 }
 
+let agents: string;
+let bestPractices: string;
+let todo: string;
+let changelog: string;
 let refactorPlan: string;
 let domainModeling: string;
 let adrFormat: string;
@@ -17,6 +21,10 @@ let mergeConflicts: string;
 
 describe("iPix engineering skill contracts", () => {
   beforeAll(() => {
+    agents = readRepoFile("AGENTS.md");
+    bestPractices = readRepoFile("docs/ipix-platform/BEST-PRACTICES.md");
+    todo = readRepoFile("todo.md");
+    changelog = readRepoFile("changelog.md");
     refactorPlan = readRepoFile(".claude/skills/refactor-plan/SKILL.md");
     domainModeling = readRepoFile(".claude/skills/domain-modeling/SKILL.md");
     adrFormat = readRepoFile(".claude/skills/domain-modeling/ADR-FORMAT.md");
@@ -57,6 +65,41 @@ describe("iPix engineering skill contracts", () => {
     expect(tasks).toContain("### Wide-refactor exception — expand → migrate → contract");
     expect(tasks).toContain("whose blast radius cannot stay green as a vertical slice");
     expect(tasks).toContain("Do not pretend a horizontal breaking change is a tracer bullet");
+  });
+
+  test("Linear governance routes work through the four approved templates and canonical reference contract", () => {
+    const approvedTemplates = [
+      "Universal Engineering Task",
+      "iPix Task Audit & Implementation Plan",
+      "Forensic Error Audit & Fix",
+      "Production Readiness / Release Gate",
+    ];
+
+    for (const template of approvedTemplates) {
+      expect(agents).toContain(template);
+      expect(tasks).toContain(template);
+      expect(bestPractices).toContain(template);
+    }
+
+    for (const source of [agents, tasks, bestPractices]) {
+      expect(source).not.toContain("reuse-rule-linear-task");
+    }
+
+    expect(bestPractices).toContain("tracking class");
+    expect(bestPractices).toContain("approved implementation Action");
+    expect(bestPractices).toContain("Current owner / truth");
+    expect(bestPractices).toContain("STOP condition");
+  });
+
+  test("todo stays a short Linear handoff while changelog stays curated shipped history", () => {
+    expect(todo).toContain("Linear is the authoritative task/status source");
+    expect(todo).toContain("## Current");
+    expect(todo).toContain("## Durable sources");
+    expect(changelog).toContain("# Changelog");
+    expect(changelog).toContain("## [Unreleased]");
+    expect(changelog).toContain("### Added");
+    expect(changelog).toContain("### Security");
+    expect(changelog).toContain("notable verified");
   });
 
   test("tasks makes the external-reference mapping supplement discoverable from governing guidance", () => {

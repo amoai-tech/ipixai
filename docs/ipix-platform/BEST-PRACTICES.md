@@ -245,6 +245,27 @@ Purpose → Outcome → Implementation → Acceptance criteria → Verification 
 
 Use the approved template that matches the work: normal implementation → `Universal Engineering Task`; audit/research only → `iPix Task Audit & Implementation Plan`; confirmed root-cause repair → `Forensic Error Audit & Fix`; production certification → `Production Readiness / Release Gate`.
 
+### External references inside approved templates
+
+The four template types share one external-reference contract; do not create a separate rule-only execution template. When a task step consumes an external source, the step must record:
+
+```text
+exact URL + exact source file/example/section/symbol
+→ tracking class: COPY / ADAPT / MODEL / REFERENCE ONLY
+→ Inspect
+→ approved implementation Action
+→ Current owner / truth
+→ exact target/destination
+→ reuse/adapt behavior + explicit do-not-copy/defer/drop boundary
+→ applicable Constraints
+→ precise change
+→ exact verification
+→ Checkpoint: PASS + evidence
+→ STOP condition
+```
+
+A tracking class describes how the reference is used; it is not the implementation action. In particular, bare `ADAPT` is not an action. The canonical detailed rule lives in `.claude/skills/tasks/references/external-reference-mapping.md` and remains subordinate to `.claude/skills/tasks/SKILL.md` and `task-format.md`.
+
 Use one-week cycles while they remain effective. Once per cycle, review active work and backlog: close duplicates, cancel genuinely stale work with a reason, move still-valid work to the right cycle/owner, and preserve historical evidence rather than deleting it just to reduce counts.
 
 For GitHub integration, include the Linear identifier from the relevant task—for example **IPI-1234 · VERCEL-BUNDLE-003 — Load Shiki client-side-only to drop ~10 MiB of deployment storage**—in the branch, commit, or PR so Linear can associate implementation with the issue. Verify team Git automations under Linear team settings rather than assuming status transitions are configured.
@@ -258,6 +279,10 @@ Coding agents must start from the live Linear issue plus current code/runtime tr
 - GitBook CLI: https://gitbook.com/docs/docs-as-code/gitbook-cli
 - Diátaxis: https://diataxis.fr/
 - Keep a Changelog: https://keepachangelog.com/en/1.1.0/
+
+- Linear issue templates: https://linear.app/docs/issue-templates
+- Linear GitHub integration: https://linear.app/docs/github-integration
+- Linear code & reviews: https://linear.app/docs/code-and-reviews
 
 ## Final rule
 

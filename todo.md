@@ -1,9 +1,22 @@
 ---
-title: Execution status
+title: Current execution handoff
 ---
 
-Live task status, ownership, and blockers are in [Linear v2-ipix](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues).
+# Current execution handoff
 
-For durable planning context use [docs/roadmap.md](docs/roadmap.md). Product requirements are in [docs/prd.md](docs/prd.md), and routes are in [docs/sitemap.md](docs/sitemap.md).
+Linear is the authoritative task/status source: https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues
 
-Historical task-order documents are preserved under [docs/archive/](docs/archive/README.md) and are not current execution authority.
+## Current
+
+- IPI-1294 · LINEAR-WORKFLOW-001 — Standardize Linear, GitHub, Docs, TODO, and Changelog Workflow
+- State: four-template routing and cross-system governance are being verified on branch `ipi-1294-linear-workflow-governance`.
+- Last proof: governance contract tests were RED on clean `origin/main` for missing template routing and handoff/changelog contracts.
+- Blocker: the installed Linear connector can read/apply issue templates but does not expose template edit/delete operations.
+- Next: finish repo verification, open the focused PR, verify exact-head CI, and record the remaining live-template edit action in IPI-1294.
+
+## Durable sources
+
+- Product: `docs/prd.md`
+- Roadmap: `docs/roadmap.md`
+- Documentation/workflow standard: `docs/ipix-platform/BEST-PRACTICES.md`
+- Shipped history: `changelog.md`
