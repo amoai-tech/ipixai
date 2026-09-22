@@ -8,9 +8,11 @@ import type { OnboardingBuildType } from "@/lib/onboarding";
 export function BuildTypeQuestion({
   value,
   onChange,
+  disabled = false,
 }: {
   value: OnboardingBuildType | null;
   onChange: (value: OnboardingBuildType) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="grid gap-5">
@@ -20,7 +22,7 @@ export function BuildTypeQuestion({
           This helps iPix understand your Brand. You can skip this for now.
         </p>
       </div>
-      <fieldset className="grid gap-3 border-0 p-0">
+      <fieldset className="grid gap-3 border-0 p-0" disabled={disabled}>
         <legend className="sr-only">What are you building?</legend>
         {BUILD_OPTIONS.map((option) => {
           const selected = value === option.id;

@@ -76,11 +76,13 @@ export function OnboardingForm({ userId }: { userId: string }) {
   const [step, setStep] = useState<OnboardingResumeStep>("build-type");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [submitting, setSubmitting] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const sessionIdRef = useRef<OnboardingSessionId | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSaveRef = useRef<(LegacyDraftAnswers & OnboardingDraft) | null>(null);
   const saveInFlightRef = useRef(false);
+  const transitionInFlightRef = useRef(false);
   const headingRegionRef = useRef<HTMLDivElement>(null);
 
   const flushSave = useCallback(async (): Promise<boolean> => {
@@ -149,9 +151,12 @@ export function OnboardingForm({ userId }: { userId: string }) {
         }
         if (cancelled) return;
         sessionIdRef.current = asOnboardingSessionId(session.id);
-        const initialStep = hasV2DraftMarker(session.draft_answers)
+        const resumedStep = hasV2DraftMarker(session.draft_answers)
           ? resolveLeanStep(parsed)
           : legacyStepToLean(legacyStep);
+        const initialStep: OnboardingResumeStep = STEP_ORDER.includes(resumedStep)
+          ? resumedStep
+          : "growth-preference";
         const migratedDraft = hasV2DraftMarker(session.draft_answers)
           ? ({ ...parsed, flowVersion: 2 as const, resumeStep: initialStep } as LegacyDraftAnswers & OnboardingDraft)
           : migrateLegacyDraftToV2(parsed, initialStep);
@@ -205,11 +210,25 @@ export function OnboardingForm({ userId }: { userId: string }) {
     [draft, flushSave],
   );
 
+  const runTransition = useCallback(async (action: () => Promise<void>) => {
+    if (transitionInFlightRef.current) return;
+    transitionInFlightRef.current = true;
+    setTransitioning(true);
+    try {
+      await action();
+    } finally {
+      transitionInFlightRef.current = false;
+      setTransitioning(false);
+    }
+  }, []);
+
   const goBack = useCallback(async () => {
-    const index = STEP_ORDER.indexOf(step);
-    if (index <= 0) return;
-    await moveTo(STEP_ORDER[index - 1]);
-  }, [moveTo, step]);
+    await runTransition(async () => {
+      const index = STEP_ORDER.indexOf(step);
+      if (index <= 0) return;
+      await moveTo(STEP_ORDER[index - 1]);
+    });
+  }, [moveTo, runTransition, step]);
 
   const retrySave = useCallback(() => {
     void flushSave();
@@ -226,34 +245,38 @@ export function OnboardingForm({ userId }: { userId: string }) {
   );
 
   async function handleContinue() {
-    if (step === "build-type") {
-      await moveTo("brand-details");
-      return;
-    }
-    if (step === "brand-details") {
-      if (!draft.brandName.trim()) {
-        setSubmitError("Brand name is required.");
+    await runTransition(async () => {
+      if (step === "build-type") {
+        await moveTo("brand-details");
         return;
       }
-      if (validateUrl(draft.websiteUrl)) return;
-      await moveTo("channels");
-      return;
-    }
-    if (step === "channels") {
-      await moveTo("growth-preference");
-      return;
-    }
-    await handleMaterialize();
+      if (step === "brand-details") {
+        if (!draft.brandName.trim()) {
+          setSubmitError("Brand name is required.");
+          return;
+        }
+        if (validateUrl(draft.websiteUrl)) return;
+        await moveTo("channels");
+        return;
+      }
+      if (step === "channels") {
+        await moveTo("growth-preference");
+        return;
+      }
+      await handleMaterialize();
+    });
   }
 
   async function handleSkip() {
-    if (step === "build-type") {
-      await moveTo("brand-details", { buildType: null });
-      return;
-    }
-    if (step === "growth-preference") {
-      await handleMaterialize({ growthPreference: null });
-    }
+    await runTransition(async () => {
+      if (step === "build-type") {
+        await moveTo("brand-details", { buildType: null });
+        return;
+      }
+      if (step === "growth-preference") {
+        await handleMaterialize({ growthPreference: null });
+      }
+    });
   }
 
   async function handleMaterialize(patch: Partial<LegacyDraftAnswers> = {}) {
@@ -307,12 +330,13 @@ export function OnboardingForm({ userId }: { userId: string }) {
     return <div className="p-8"><ErrorState message={loadError} /></div>;
   }
 
+  const busy = submitting || transitioning;
   const currentIndex = STEP_ORDER.indexOf(step);
   const stepNumber = currentIndex >= 0 ? currentIndex + 1 : 4;
   const publicIdentity = draft.channelIdentities.public ?? "";
 
   return (
-    <Card className="mx-auto w-full max-w-xl" data-testid="onboarding-form">
+    <Card className="mx-auto w-full max-w-xl" data-testid="onboarding-form" aria-busy={busy}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-4 text-xs text-[var(--muted-foreground)]">
           <span>iPix onboarding</span>
@@ -331,6 +355,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
             <BuildTypeQuestion
               value={draft.buildType}
               onChange={(buildType) => updateDraft({ buildType })}
+              disabled={busy}
             />
           ) : null}
           {step === "brand-details" ? (
@@ -339,6 +364,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
               websiteUrl={draft.websiteUrl}
               onBrandNameChange={(brandName) => updateDraft({ brandName })}
               onWebsiteUrlChange={(websiteUrl) => updateDraft({ websiteUrl })}
+              disabled={busy}
             />
           ) : null}
           {step === "channels" ? (
@@ -349,12 +375,14 @@ export function OnboardingForm({ userId }: { userId: string }) {
               onIdentityChange={(value) =>
                 updateDraft({ channelIdentities: { ...draft.channelIdentities, public: value } })
               }
+              disabled={busy}
             />
           ) : null}
           {step === "growth-preference" ? (
             <GrowthPreferenceQuestion
               value={draft.growthPreference}
               onChange={(growthPreference) => updateDraft({ growthPreference })}
+              disabled={busy}
             />
           ) : null}
         </div>
@@ -367,16 +395,16 @@ export function OnboardingForm({ userId }: { userId: string }) {
 
         <div className="flex flex-wrap items-center gap-3">
           {step !== "build-type" ? (
-            <Button type="button" variant="outline" onClick={() => void goBack()} disabled={submitting}>
+            <Button type="button" variant="outline" onClick={() => void goBack()} disabled={busy}>
               Back
             </Button>
           ) : null}
           {(step === "build-type" || step === "growth-preference") ? (
-            <Button type="button" variant="ghost" onClick={() => void handleSkip()} disabled={submitting}>
+            <Button type="button" variant="ghost" onClick={() => void handleSkip()} disabled={busy}>
               Skip for now
             </Button>
           ) : null}
-          <Button type="button" onClick={() => void handleContinue()} disabled={submitting} className="ml-auto">
+          <Button type="button" onClick={() => void handleContinue()} disabled={busy} className="ml-auto">
             {submitting ? "Creating…" : step === "growth-preference" ? "Create Brand" : "Continue"}
           </Button>
         </div>
@@ -387,7 +415,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
           {saveState === "error" ? (
             <>
               <span>Draft save failed.</span>
-              <Button type="button" variant="ghost" size="sm" onClick={retrySave}>Retry</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={retrySave} disabled={busy}>Retry</Button>
             </>
           ) : null}
         </div>

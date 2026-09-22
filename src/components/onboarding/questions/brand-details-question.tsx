@@ -9,11 +9,13 @@ export function BrandDetailsQuestion({
   websiteUrl,
   onBrandNameChange,
   onWebsiteUrlChange,
+  disabled = false,
 }: {
   brandName: string;
   websiteUrl: string;
   onBrandNameChange: (value: string) => void;
   onWebsiteUrlChange: (value: string) => void;
+  disabled?: boolean;
 }) {
   const nameId = useId();
   const urlId = useId();
@@ -33,6 +35,7 @@ export function BrandDetailsQuestion({
             id={nameId}
             name="brandName"
             value={brandName}
+            disabled={disabled}
             onChange={(event) => onBrandNameChange(event.target.value)}
             autoComplete="organization"
             placeholder="Maison Noir"
@@ -47,6 +50,7 @@ export function BrandDetailsQuestion({
             id={urlId}
             name="websiteUrl"
             value={websiteUrl}
+            disabled={disabled}
             onChange={(event) => onWebsiteUrlChange(event.target.value)}
             inputMode="url"
             autoComplete="url"

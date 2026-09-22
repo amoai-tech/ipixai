@@ -8,11 +8,13 @@ export function ChannelsQuestion({
   identity,
   onToggle,
   onIdentityChange,
+  disabled = false,
 }: {
   channels: OnboardingChannelId[];
   identity: string;
   onToggle: (id: OnboardingChannelId) => void;
   onIdentityChange: (value: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="grid gap-5">
@@ -22,7 +24,7 @@ export function ChannelsQuestion({
           Choose any that apply. These are declarations, not verified evidence.
         </p>
       </div>
-      <fieldset className="grid grid-cols-1 gap-3 border-0 p-0 sm:grid-cols-2">
+      <fieldset className="grid grid-cols-1 gap-3 border-0 p-0 sm:grid-cols-2" disabled={disabled}>
         <legend className="sr-only">Where is your Brand active?</legend>
         {CHANNEL_OPTIONS.map((channel) => {
           const selected = channels.includes(channel.id);
@@ -53,6 +55,7 @@ export function ChannelsQuestion({
           id="channelIdentity"
           name="channelIdentity"
           value={identity}
+          disabled={disabled}
           onChange={(event) => onIdentityChange(event.target.value)}
           placeholder="@maisonnoir or public profile/store URL"
           className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm"

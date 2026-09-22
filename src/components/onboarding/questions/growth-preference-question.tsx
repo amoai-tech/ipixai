@@ -6,9 +6,11 @@ import type { OnboardingGrowthPreference } from "@/lib/onboarding";
 export function GrowthPreferenceQuestion({
   value,
   onChange,
+  disabled = false,
 }: {
   value: OnboardingGrowthPreference | null;
   onChange: (value: OnboardingGrowthPreference) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="grid gap-5">
@@ -18,7 +20,7 @@ export function GrowthPreferenceQuestion({
           Pick a direction or skip it. You stay in control of the strategy.
         </p>
       </div>
-      <fieldset className="grid gap-3 border-0 p-0">
+      <fieldset className="grid gap-3 border-0 p-0" disabled={disabled}>
         <legend className="sr-only">How do you want to grow?</legend>
         {GROWTH_OPTIONS.map((option) => {
           const selected = value === option.id;

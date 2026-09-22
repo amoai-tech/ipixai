@@ -468,6 +468,46 @@ describe("OnboardingForm — IPI-1260 four-question flow", () => {
     expect(screen.getByRole("heading", { name: "Tell us about your Brand" })).toBeDefined();
   });
 
+  it("resumes a draft stuck at complete on the final rendered question", async () => {
+    const COMPLETE_DRAFT_SESSION: TestSession = {
+      ...READY_SESSION,
+      draft_answers: { ...READY_SESSION.draft_answers, resumeStep: "complete" },
+    };
+    supabaseMock = fakeSupabase(COMPLETE_DRAFT_SESSION);
+    render(<OnboardingForm userId={TEST_USER_ID} />);
+    expect(await screen.findByRole("heading", { name: "How do you want to grow?" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Create Brand" })).toBeDefined();
+  });
+
+  it("locks controls while a step transition save is in flight", async () => {
+    supabaseMock = fakeSupabase(DRAFT_SESSION);
+    let resolveUpdate!: (value: { data: { id: string }; error: null }) => void;
+    const updateGate = new Promise<{ data: { id: string }; error: null }>((resolve) => {
+      resolveUpdate = resolve;
+    });
+    supabaseMock.update.mockImplementation(() => ({
+      eq: () => ({
+        eq: () => ({
+          select: () => ({ single: () => updateGate }),
+        }),
+      }),
+    }) as never);
+
+    render(<OnboardingForm userId={TEST_USER_ID} />);
+    const name = await screen.findByLabelText("Brand name") as HTMLInputElement;
+    const continueButton = screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement;
+    fireEvent.click(continueButton);
+    fireEvent.click(continueButton);
+
+    await waitFor(() => expect(name.disabled).toBe(true));
+    expect(continueButton.disabled).toBe(true);
+    expect(supabaseMock.update).toHaveBeenCalledTimes(1);
+
+    resolveUpdate({ data: { id: DRAFT_SESSION.id }, error: null });
+    await screen.findByRole("heading", { name: "Where is your Brand active?" });
+    expect(supabaseMock.update).toHaveBeenCalledTimes(1);
+  });
+
   it("persists semantic Back navigation before rendering the previous step", async () => {
     const CHANNEL_SESSION: TestSession = {
       ...DRAFT_SESSION,
