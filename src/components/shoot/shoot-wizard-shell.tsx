@@ -37,6 +37,28 @@ function productRefsFingerprint(productRefs: ProductRef[]): string {
   ]));
 }
 
+function saveFailureMessage(reason: unknown): string {
+  switch (reason) {
+    case "superseded_revision":
+      return "A newer plan revision exists. Reload and review the latest revision before saving.";
+    case "hash_mismatch":
+      return "The approved plan changed after review. Reload and review the current revision before saving.";
+    case "not_approved":
+      return "This plan revision is not approved. Review and approve the current revision before saving.";
+    case "forbidden":
+      return "You do not have permission to save this Shoot.";
+    case "not_found":
+      return "The approved plan revision could not be found. Reload the Wizard and review it again.";
+    case "unauthenticated":
+      return "Your session expired. Sign in again before saving this Shoot.";
+    case "invalid_input":
+    case "invalid_plan":
+      return "The approved plan is no longer valid for saving. Reload and review the current plan.";
+    default:
+      return "The approved shoot could not be saved. Please retry.";
+  }
+}
+
 const STEPS = ["Basics", "Brief", "Deliverables", "Shot List", "Budget", "Confirmation"] as const;
 export function ShootWizardShell({ brands, productRefs = EMPTY_PRODUCT_REFS }: Props) {
   const router = useRouter();
@@ -111,9 +133,13 @@ export function ShootWizardShell({ brands, productRefs = EMPTY_PRODUCT_REFS }: P
     setComposing(true);
     setPlanError(null);
     try {
+      const validCrewCount = Number.isInteger(crewSize) && crewSize >= 1 ? crewSize : undefined;
       const result = await composeShootPlanForWizard({
         channels, shootName: shootName.trim(), objective: objective.trim(), brief: brief.trim(),
-        productNames: productRefs.map((ref) => ref.title), productRefs, mediaType, crewCount: crewSize, studioType,
+        productNames: productRefs.map((ref) => ref.title), productRefs,
+        mediaType: mediaType || undefined,
+        crewCount: validCrewCount,
+        studioType: studioType || undefined,
         location: location.trim(), lighting: lighting.trim(), setBackground: setBackground.trim(), talent: talent.trim(),
         crew: crew.trim(), studio: studio.trim(), equipment: equipment.trim(), scheduleStartDate, scheduleEndDate,
       });
@@ -146,12 +172,12 @@ export function ShootWizardShell({ brands, productRefs = EMPTY_PRODUCT_REFS }: P
       const record = typeof body === "object" && body !== null ? body as Record<string, unknown> : null;
       const shootId = record && typeof record.shootId === "string" ? record.shootId : "";
       if (!response.ok || record?.ok !== true || !shootId) {
-        setSaveError("The approved shoot could not be saved. Please retry.");
+        setSaveError(saveFailureMessage(record?.reason));
         return;
       }
       router.push(`/app/shoots/${shootId}`);
     } catch {
-      setSaveError("The approved shoot could not be saved. Please retry.");
+      setSaveError(saveFailureMessage(null));
     } finally {
       saveInFlightRef.current = false;
       setSaving(false);
