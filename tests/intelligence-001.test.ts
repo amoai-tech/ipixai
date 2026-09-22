@@ -235,9 +235,16 @@ describe("IPI-1009 intelligence tenant safety", () => {
     enableIntelligence();
     const sseStop = vi.spyOn(InMemoryAgentRunner.prototype, "stop");
     const intelligenceStop = vi.spyOn(IntelligenceAgentRunner.prototype, "stop");
-    const fetchSpy = vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify({ runId: "R1" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ aborted: true }), { status: 200 }));
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith("/ipix/run-control/active")) {
+        return new Response(JSON.stringify({ runId: "R1" }), { status: 200 });
+      }
+      if (url.endsWith("/ipix/run-control/abort")) {
+        return new Response(JSON.stringify({ aborted: true }), { status: 200 });
+      }
+      return new Response(null, { status: 204 });
+    });
     memberships.rows = [{ org_id: ORG_A }];
 
     const info = await GET(copilotRequest("/api/copilotkit/info", { method: "GET" }));
