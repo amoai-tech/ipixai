@@ -255,7 +255,7 @@ Read-only verification for IPI-1300 against baseline `main` commit `8086de52a257
 
 - URL: https://docs.copilotkit.ai/mastra/human-in-the-loop/index
 - URL: https://docs.copilotkit.ai/mastra/human-in-the-loop/interrupt-flow
-- Source: https://github.com/CopilotKit/CopilotKit/blob/main/packages/react-core/src/v2/hooks/use-human-in-the-loop.tsx
+- Source: https://github.com/CopilotKit/CopilotKit/blob/5ffe92689c3322ccc90a5137db1c8f1a6ffd79f2/packages/react-core/src/v2/hooks/use-human-in-the-loop.tsx
 - Use: operator interaction/approval rendering and interrupt UX.
 - Do not copy: UI decision payload as final durable authority.
 - Apply to: exact-artifact review UI; current ShootPlan flow remains the server/database authority model.
