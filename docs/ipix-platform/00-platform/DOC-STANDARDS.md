@@ -153,7 +153,7 @@ Use one main doc per product area initially.
 
 ## 6.1 AI-enabled feature contract
 
-AI-enabled product/domain docs must reference [IPIX-AI-FEATURE-PATTERN.md](./IPIX-AI-FEATURE-PATTERN.md) instead of redefining cross-cutting AI architecture. Each feature must declare:
+When an AI-enabled product/domain doc is created or materially updated, it must reference the canonical [IPIX-AI-FEATURE-PATTERN.md](./IPIX-AI-FEATURE-PATTERN.md) instead of redefining cross-cutting AI architecture. Use the correct relative path from that document (for example, `../00-platform/IPIX-AI-FEATURE-PATTERN.md` from `10-brands/`). Each feature must declare:
 
 - experience owner / interactive surface;
 - intelligence owner (Agent responsibility);
