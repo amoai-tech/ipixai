@@ -88,7 +88,16 @@ describe("AuthForm Google OAuth errors", () => {
     );
   });
 
-  it("uses the current form mode when signInWithOAuth returns an error", async () => {
+  it("shows a sign-in failure when signInWithOAuth returns an error", async () => {
+    mockReturnedOAuthError();
+    render(<AuthForm mode="signin" next={null} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue with Google" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe("Sign in failed");
+  });
+
+  it("shows a sign-up failure when signInWithOAuth returns an error", async () => {
     mockReturnedOAuthError();
     render(<AuthForm mode="signup" next={null} />);
 
