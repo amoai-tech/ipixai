@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const MAX_PRODUCT_REFS = 100;
+
 /**
  * IPI-1165 · PRODUCTS-001 — canonical external product/variant identity.
  *

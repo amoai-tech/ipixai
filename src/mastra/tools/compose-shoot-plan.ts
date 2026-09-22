@@ -2,7 +2,7 @@ import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { loadTrustedShotReferences } from "@/lib/shoot/shot-type-references";
 import type { SelectedDeliverable } from "@/lib/shoot/shot-list-from-references";
-import { ProductRefSchema } from "@/lib/commerce/product-ref";
+import { MAX_PRODUCT_REFS, ProductRefSchema } from "@/lib/commerce/product-ref";
 import {
   recommendShootType,
   planDeliverables,
@@ -54,7 +54,7 @@ const ComposeShootPlanInputSchema = z.object({
   // below, which is free-text production detail, not a comparable class.
   modelType: z.string().max(MAX_TEXT_LENGTH).optional(),
   productNames: z.array(z.string().max(MAX_TEXT_LENGTH)).max(MAX_PRODUCT_NAMES).optional(),
-  productRefs: z.array(ProductRefSchema).max(100).optional(),
+  productRefs: z.array(ProductRefSchema).max(MAX_PRODUCT_REFS).optional(),
   shootType: ShootTypeSchema.optional(),
   mediaType: z.enum(["photo", "video", "both"]).optional(),
   crewCount: z.number().int().min(1).max(200).optional(),

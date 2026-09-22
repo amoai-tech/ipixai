@@ -310,6 +310,17 @@ describe("composeShootPlan", () => {
     expect(result.success).toBe(false);
   });
 
+  it("the canonical ShootPlanSchema rejects more than 100 ProductRefs", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY];
+    const validPlan = await composeShootPlan(baseInput());
+    const productRef = { provider: "catalog", providerProductId: "product-123", title: "Black Dress" };
+    const result = ShootPlanSchema.safeParse({
+      ...validPlan,
+      productRefs: Array.from({ length: 101 }, () => productRef),
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("rejects an empty channels array — channels is the one truly required input", () => {
     const result = ComposeShootPlanInputSchema.safeParse({ channels: [] });
     expect(result.success).toBe(false);
