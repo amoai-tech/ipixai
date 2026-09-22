@@ -5,6 +5,7 @@ import {
   IntelligenceAgentRunner,
 } from "@copilotkit/runtime/v2";
 
+import * as agent from "../src/agent";
 import { GET, POST } from "../src/app/api/copilotkit/[[...slug]]/route";
 import { memoryResourceId } from "../src/lib/auth/verified-operator";
 
@@ -135,6 +136,7 @@ describe("IPI-1009 intelligence tenant safety", () => {
   // IPI-1191 · COPILOT-INTEL-001 — route.ts reads CPK_INTELLIGENCE_API_KEY
   // (COPILOTKIT_API_KEY alias), not the stale INTELLIGENCE_API_KEY name.
   const previousIntelligence = process.env.CPK_INTELLIGENCE_API_KEY;
+  const previousMastraBaseUrl = process.env.MASTRA_BASE_URL;
 
   afterEach(() => {
     memberships.rows = [];
@@ -150,6 +152,11 @@ describe("IPI-1009 intelligence tenant safety", () => {
     } else {
       process.env.CPK_INTELLIGENCE_API_KEY = previousIntelligence;
     }
+    if (previousMastraBaseUrl === undefined) {
+      delete process.env.MASTRA_BASE_URL;
+    } else {
+      process.env.MASTRA_BASE_URL = previousMastraBaseUrl;
+    }
     vi.restoreAllMocks();
   });
 
@@ -159,6 +166,10 @@ describe("IPI-1009 intelligence tenant safety", () => {
   // below reflect that; the mixed-config case has its own dedicated test.
   function enableIntelligence() {
     process.env.CPK_INTELLIGENCE_API_KEY = "test-intelligence-key";
+    process.env.MASTRA_BASE_URL = "http://mastra.test";
+    vi.spyOn(agent, "createRemoteAgents").mockImplementation(async (resourceId) =>
+      agent.createLocalAgents(resourceId),
+    );
   }
 
   it("encodes Intelligence identity as org+user, not JWT user id", () => {
@@ -178,6 +189,10 @@ describe("IPI-1009 intelligence tenant safety", () => {
     const previousAlias = process.env.COPILOTKIT_API_KEY;
     delete process.env.CPK_INTELLIGENCE_API_KEY;
     process.env.COPILOTKIT_API_KEY = "test-alias-key";
+    process.env.MASTRA_BASE_URL = "http://mastra.test";
+    vi.spyOn(agent, "createRemoteAgents").mockImplementation(async (resourceId) =>
+      agent.createLocalAgents(resourceId),
+    );
     memberships.rows = [{ org_id: ORG_A }];
     try {
       const info = await GET(
@@ -216,18 +231,25 @@ describe("IPI-1009 intelligence tenant safety", () => {
     }
   });
 
-  it("selects Intelligence mode without TenantAbortRunner", async () => {
+  it("selects Intelligence mode and fails closed on a thread-only Stop", async () => {
     enableIntelligence();
     const sseStop = vi.spyOn(InMemoryAgentRunner.prototype, "stop");
     const intelligenceStop = vi.spyOn(IntelligenceAgentRunner.prototype, "stop");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith("/ipix/run-control/active")) {
+        return new Response(JSON.stringify({ runId: "R1" }), { status: 200 });
+      }
+      if (url.endsWith("/ipix/run-control/abort")) {
+        return new Response(JSON.stringify({ aborted: true }), { status: 200 });
+      }
+      return new Response(null, { status: 204 });
+    });
     memberships.rows = [{ org_id: ORG_A }];
 
-    const info = await GET(
-      copilotRequest("/api/copilotkit/info", { method: "GET" }),
-    );
+    const info = await GET(copilotRequest("/api/copilotkit/info", { method: "GET" }));
     expect(info.status).toBe(200);
-    const payload = (await info.json()) as { mode?: string };
-    expect(payload.mode).toBe("intelligence");
+    expect((await info.json() as { mode?: string }).mode).toBe("intelligence");
 
     const stop = await POST(
       copilotRequest(
@@ -237,9 +259,11 @@ describe("IPI-1009 intelligence tenant safety", () => {
     );
     expect(stop.status).toBe(200);
     expect(sseStop).not.toHaveBeenCalled();
-    expect(intelligenceStop).toHaveBeenCalledWith(
-      expect.objectContaining({ threadId: ORG_A_THREAD }),
+    expect(intelligenceStop).not.toHaveBeenCalled();
+    const controlCalls = fetchSpy.mock.calls.filter(([input]) =>
+      String(input).includes("/ipix/run-control/"),
     );
+    expect(controlCalls).toHaveLength(0);
   });
 
   it("lists threads under the org+user Intelligence identity", async () => {

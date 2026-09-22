@@ -1,4 +1,5 @@
 import { createTool } from "@mastra/core/tools";
+import { MASTRA_AUTH_TOKEN_KEY, type RequestContext } from "@mastra/core/request-context";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requestToken } from "@/lib/request-token";
@@ -46,8 +47,11 @@ const APPROVAL_MESSAGES: Record<string, string> = {
   DECISION_FINALIZED: "This exact draft already has a final decision that cannot be reversed — run a new analysis for a fresh draft.",
 };
 
-function requireAccessToken(): string {
-  const token = requestToken.getStore();
+function requireAccessToken(requestContext?: RequestContext): string {
+  const contextToken = requestContext?.get(MASTRA_AUTH_TOKEN_KEY);
+  const token =
+    (typeof contextToken === "string" ? contextToken : undefined) ||
+    requestToken.getStore();
   if (!token) {
     throw new Error("Access token not available in request context");
   }
@@ -95,8 +99,9 @@ export const startBrandAnalysis = createTool({
   // implicit `any` (TS7022).
   execute: async (
     inputData,
+    { requestContext },
   ): Promise<{ runId: string; message: string }> => {
-    const accessToken = requireAccessToken();
+    const accessToken = requireAccessToken(requestContext);
     const operatorId = await resolveOperatorId(accessToken);
 
     const { getMastra } = await import("@/mastra/runtime");
@@ -137,9 +142,10 @@ export const approveDraft = createTool({
   // circular-inference chain through the dynamic `import("@/mastra/runtime")`.
   execute: async (
     inputData,
+    { requestContext },
   ): Promise<{ ok: boolean; approved: boolean; message: string }> => {
     const { brandId, draftHash, approved } = inputData;
-    const accessToken = requireAccessToken();
+    const accessToken = requireAccessToken(requestContext);
     const config = requireSupabaseConfig();
 
     const sb = createClient(config.url, config.publishableKey, {
