@@ -10,7 +10,7 @@ Linear is the authoritative task/status source: https://linear.app/amo100/projec
 
 - IPI-1294 · LINEAR-WORKFLOW-001 — Standardize Linear, GitHub, Docs, TODO, and Changelog Workflow
 - Branch: `ipi-1294-postmerge-handoff`
-- PR: pending — post-merge handoff follow-up
+- PR: https://github.com/amoai-tech/ipixai/pull/259
 - State: PR #258 is merged and exact-main certified. The four approved Linear execution templates now use the full canonical external-reference contract, and the stale rule-only `reuse-rule-linear-task` template is retired. Live template inventory is exactly four.
 - Last proof: exact-main CI #1285 passed on the PR #258 merge SHA; `test:skills` is 13/13 and docs validation is 72 active files with 0 broken local links. Durable SHA/CI/template evidence is recorded in IPI-1294 and PR #258.
 - Remaining blocker: Linear team Git automations are configured correctly (`start → In Progress`, `review → In Review`, `merge → Done`), but Linear Reviews/Diffs does not currently discover `amoai-tech/ipixai`; a documented PR-state resync did not change IPI-1294 from In Progress.
