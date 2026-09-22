@@ -34,8 +34,24 @@ type RunControlPath =
 
 const RUN_CONTROL_TIMEOUT_MS = 10_000;
 
+/**
+ * Absolute control URL for `path`, preserving any base-path prefix on `base`.
+ *
+ * The base href is slash-normalized first because `new URL()` resolves a
+ * relative path against the *last* segment of the base: with a base of
+ * `https://host/runtime` the control path would resolve to
+ * `https://host/ipix/...`, silently dropping the prefix so every
+ * cross-instance stop 404s. Forcing a trailing slash keeps it:
+ * `https://host/runtime/` + `ipix/...` -> `https://host/runtime/ipix/...`.
+ */
+function controlUrl(base: URL, path: RunControlPath): URL {
+  const prefix = base.href.endsWith("/") ? base.href : `${base.href}/`;
+  return new URL(path.replace(/^\//, ""), prefix);
+}
+
 export class MastraControlRunner extends AgentRunner {
-  private readonly baseUrl: URL;
+  /** Resolved once per runner: both control endpoints are fixed literals. */
+  private readonly controlUrls: Readonly<Record<RunControlPath, URL>>;
 
   constructor(
     private readonly delegate: AgentRunner,
@@ -43,7 +59,11 @@ export class MastraControlRunner extends AgentRunner {
     private readonly accessToken: string,
   ) {
     super();
-    this.baseUrl = requireHttpBaseUrl(baseUrl);
+    const base = requireHttpBaseUrl(baseUrl);
+    this.controlUrls = {
+      "/ipix/run-control/active": controlUrl(base, "/ipix/run-control/active"),
+      "/ipix/run-control/abort": controlUrl(base, "/ipix/run-control/abort"),
+    };
   }
 
   run(request: AgentRunnerRunRequest) {
@@ -55,8 +75,7 @@ export class MastraControlRunner extends AgentRunner {
   }
 
   private async post(path: RunControlPath, body: Record<string, string>) {
-    const base = this.baseUrl.href.replace(/\/$/, "");
-    return fetch(`${base}${path}`, {
+    return fetch(this.controlUrls[path], {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.accessToken}`,

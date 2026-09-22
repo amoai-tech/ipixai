@@ -8,8 +8,11 @@ async function main() {
   const resourceId = mode === "org-b" ? "org:b::user:u" : "org:a::user:u";
   const client = new MastraClient({ baseUrl, headers: { Authorization: `Bearer ${token}` } });
   const agent = client.getAgent("default");
+  // Slash-normalized so `new URL` resolves control paths *under* any base path
+  // instead of replacing the last segment.
+  const controlBase = new URL(baseUrl).href.replace(/\/?$/, "/");
   const post = async (path: string, body: object) => {
-    const r = await fetch(`${baseUrl}${path}`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(body) });
+    const r = await fetch(new URL(path.replace(/^\//, ""), controlBase), { method: "POST", headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(body) });
     return r.json() as Promise<any>;
   };
   if (mode === "org-b") {

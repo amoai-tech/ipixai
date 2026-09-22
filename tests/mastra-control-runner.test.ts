@@ -61,7 +61,18 @@ describe("MastraControlRunner", () => {
     );
     const runner = new MastraControlRunner(delegate, "https://mastra.example.com/runtime/", "jwt");
     await expect(runner.isRunning({ threadId: "thread-1" })).resolves.toBe(false);
-    expect(fetchSpy.mock.calls[0]?.[0]).toBe(
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(
+      "https://mastra.example.com/runtime/ipix/run-control/active",
+    );
+  });
+
+  it("preserves a base-path prefix when the base URL has no trailing slash", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ runId: null }), { status: 200 }),
+    );
+    const runner = new MastraControlRunner(delegate, "https://mastra.example.com/runtime", "jwt");
+    await expect(runner.isRunning({ threadId: "thread-1" })).resolves.toBe(false);
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(
       "https://mastra.example.com/runtime/ipix/run-control/active",
     );
   });
