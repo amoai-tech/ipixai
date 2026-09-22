@@ -1,12 +1,11 @@
 $schema: https://api.gitbook.com/gitbook-docs.yaml
 site:
-  title: Ipix Docs
+  title: iPix Docs
   structure:
     - type: space
-      key: space-1
+      key: ipix-platform
       title: iPix Platform Docs
-      path: ipix-platform-docs
+      path: docs
       default: true
       content:
-        directory: ./ipix-platform-docs
-        language: en
+        directory: ./docs/ipix-platform

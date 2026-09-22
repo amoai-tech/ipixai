@@ -4,6 +4,7 @@
 * [Product Requirements](PRD.md)
 * [Documentation Roadmap](ROADMAP.md)
 * [Documentation Index](index-docs.md)
+* [Progress Tracker](progress-tracker.md)
 * [Product Sitemap](SITEMAP.md)
 * [Best Practices](BEST-PRACTICES.md)
 
