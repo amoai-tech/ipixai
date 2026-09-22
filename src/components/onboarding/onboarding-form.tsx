@@ -268,13 +268,18 @@ export function OnboardingForm({ userId }: { userId: string }) {
       const created = await materializeOnboarding(supabase, finalDraft, { idempotencyKey: key });
       if (finalDraft.websiteUrl.trim()) {
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
-        const timeout = new Promise<null>((resolve) => {
-          timeoutId = setTimeout(() => resolve(null), ANALYSIS_HANDOFF_TIMEOUT_MS);
-        });
-        const analysis = await Promise.race([startBrandAnalysisAction(created.brandId), timeout]);
-        if (timeoutId) clearTimeout(timeoutId);
-        if (analysis && !analysis.ok) {
-          console.warn("brand analysis handoff failed", analysis.message);
+        try {
+          const timeout = new Promise<null>((resolve) => {
+            timeoutId = setTimeout(() => resolve(null), ANALYSIS_HANDOFF_TIMEOUT_MS);
+          });
+          const analysis = await Promise.race([startBrandAnalysisAction(created.brandId), timeout]);
+          if (analysis && !analysis.ok) {
+            console.warn("brand analysis handoff failed", analysis.message);
+          }
+        } catch (error) {
+          console.warn("brand analysis handoff threw", error);
+        } finally {
+          if (timeoutId) clearTimeout(timeoutId);
         }
       }
       router.replace(`/app/brands/${created.brandId}`);

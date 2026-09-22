@@ -504,4 +504,21 @@ describe("OnboardingForm — IPI-1260 four-question flow", () => {
     expect(startAnalysisMock).toHaveBeenCalledTimes(1);
   });
 
+
+  it("keeps the created Brand destination when Brand Intelligence throws", async () => {
+    const WEBSITE_READY_SESSION: TestSession = {
+      ...READY_SESSION,
+      draft_answers: { ...READY_SESSION.draft_answers, websiteUrl: "https://maisonnoir.com" },
+    };
+    supabaseMock = fakeSupabase(WEBSITE_READY_SESSION);
+    startAnalysisMock.mockRejectedValueOnce(new Error("runner transport failed"));
+    render(<OnboardingForm userId={TEST_USER_ID} />);
+    await screen.findByRole("heading", { name: "How do you want to grow?" });
+    fireEvent.click(screen.getByRole("button", { name: "Create Brand" }));
+    await waitFor(() =>
+      expect(replaceMock).toHaveBeenCalledWith("/app/brands/44444444-4444-4444-4444-444444444444"),
+    );
+    expect(replaceMock).not.toHaveBeenCalledWith("/app");
+  });
+
 });
