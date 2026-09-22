@@ -21,7 +21,10 @@
 
 ## Product Areas
 
+* [Product Areas & Current Status](SITEMAP.md)
 * [Brands](10-brands/README.md)
+
+> Onboarding, Shoots, Assets, CRM, Operations, Analytics, and Plans are part of the documented product structure but do not yet have publishable domain pages. They are intentionally not linked to empty placeholder pages.
 
 ## Architecture Decisions
 

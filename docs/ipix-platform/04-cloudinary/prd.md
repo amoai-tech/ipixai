@@ -1,6 +1,7 @@
 ---
 title: Cloudinary media
 status: Canonical media layer
+verified_against: PR #245 branch, 2026-09-21
 parent: docs/prd.md
 ---
 
@@ -12,7 +13,7 @@ Cloudinary is the **media layer** for iPix. It owns image/video bytes, transform
 
 Current iPix already has:
 
-- `cloudinary` and `next-cloudinary` dependencies;
+- the `cloudinary` Node SDK (`^2.11.0`); `next-cloudinary` is **not** installed at the verified PR #245 baseline;
 - a server signing route at `src/app/api/cloudinary/sign/route.ts`;
 - a webhook route at `src/app/api/cloudinary/webhook/route.ts`;
 - Supabase as durable business-data owner;

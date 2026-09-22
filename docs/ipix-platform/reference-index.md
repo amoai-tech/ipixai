@@ -2,25 +2,25 @@
 
 **Purpose:** one simple starting point for iPix product documentation, live Linear work, external reference repos, and execution order.
 
-**Status snapshot:** 2026-09-20. Linear remains the live authority for issue status, blockers, assignees, and changing completion state.
+**Status snapshot:** 2026-09-21. Linear remains the live authority for issue status, blockers, assignees, and changing completion state.
 
 ## Summary
 
 | Order | Status | % Complete | Area | Current state | Next |
 | ---: | --- | ---: | --- | --- | --- |
 | **1.0** | 🟡 | 60% | Shared Platform | Core docs exist; architecture/reuse docs remain | Complete 1.4 next |
-| **2.0** | 🟢 | 100% | Brands | Domain document complete | Add 2.2 only when a proven Brands task exists |
-| **3.0** | 🔵 | 0% | Shoots | Not started | Complete 3.1 |
-| **4.0** | 🔵 | 0% | Talent | Not started | Complete after Shoots |
-| **5.0** | 🔵 | 0% | Assets | Not started | Complete after Talent |
-| **6.0** | 🔵 | 0% | CRM | Not started | Complete after Assets |
-| **7.0** | 🔵 | 0% | Operations | Not started | Complete after CRM |
-| **8.0** | 🔵 | 0% | Analytics | Not started | Complete after Operations |
-| **9.0** | 🔵 | 0% | Plans | Not started | Complete after Analytics |
+| **2.0** | 🔵 | 0% | Onboarding | Publishable domain doc not created | Audit current onboarding flow |
+| **3.0** | 🟢 | 100% | Brands | Domain document complete | Add 3.2 only when a proven Brands task exists |
+| **4.0** | 🔵 | 0% | Shoots | Publishable domain doc not created | Audit current Shoots flow |
+| **5.0** | 🔵 | 0% | Assets | Publishable domain doc not created | Audit after Shoots |
+| **6.0** | 🔵 | 0% | CRM | Publishable domain doc not created | Audit after Assets |
+| **7.0** | 🔵 | 0% | Operations | Publishable domain doc not created | Audit after CRM |
+| **8.0** | 🔵 | 0% | Analytics | Publishable domain doc not created | Audit after Operations |
+| **9.0** | 🔵 | 0% | Plans | Publishable domain doc not created | Audit after Analytics |
 
 **Legend:** 🟢 complete · 🟡 in progress · 🔴 blocked/failed · 🔵 not started
 
-**Numbering rule:** `1.0`, `2.0`, `3.0` are product areas. Tasks inside each area use `.1`, `.2`, `.3` and continue upward as new work is added. Never renumber later areas.
+**Numbering rule:** the current `1.0`–`9.0` sequence is aligned to the curated publication structure. Tasks inside each area use `.1`, `.2`, `.3` and continue upward as new work is added. Do not renumber again.
 
 ## 1. Strategy
 
@@ -38,7 +38,7 @@ Rules:
 
 ## 2. Product Areas & Planned Docs
 
-This is the simple ordered task path. Add new tasks using the next number inside that product area; do not renumber later sections.
+This is the simple ordered task path aligned to the current `docs/ipix-platform/` product folders. Add new tasks using the next number inside that product area; do not renumber again.
 
 ### 1.0 Shared Platform
 
@@ -50,53 +50,53 @@ This is the simple ordered task path. Add new tasks using the next number inside
 | 1.4 | 🔵 | 0% | `docs/ipix-platform/00-platform/IPIX-PLATFORM-ARCHITECTURE.md` | Reconcile current code + platform tasks |
 | 1.5 | 🔵 | 0% | `docs/ipix-platform/00-platform/IPIX-GLOBAL-REUSE-MATRIX.md` | Build from completed domain audits |
 
-### 2.0 Brands
+### 2.0 Onboarding
 
 | Task | Status | % Complete | Document / item | Next |
 | ---: | --- | ---: | --- | --- |
-| 2.1 | 🟢 | 100% | `docs/ipix-platform/10-brands/BRANDS.md` | Add 2.2 only for the next proven Brands task |
+| 2.1 | 🔵 | 0% | `docs/ipix-platform/09-onboarding/` | Audit current onboarding flow before creating a domain page |
 
-### 3.0 Shoots
-
-| Task | Status | % Complete | Document / item | Next |
-| ---: | --- | ---: | --- | --- |
-| 3.1 | 🔵 | 0% | `docs/ipix-platform/30-shoots/SHOOTS.md` | Audit current Shoots flow |
-
-### 4.0 Talent
+### 3.0 Brands
 
 | Task | Status | % Complete | Document / item | Next |
 | ---: | --- | ---: | --- | --- |
-| 4.1 | 🔵 | 0% | `docs/ipix-platform/20-talent/TALENT.md` | Audit after Shoots |
+| 3.1 | 🟢 | 100% | `docs/ipix-platform/10-brands/BRANDS.md` | Add 3.2 only for the next proven Brands task |
+
+### 4.0 Shoots
+
+| Task | Status | % Complete | Document / item | Next |
+| ---: | --- | ---: | --- | --- |
+| 4.1 | 🔵 | 0% | `docs/ipix-platform/30-shoots/` | Audit current Shoots flow before creating `SHOOTS.md` |
 
 ### 5.0 Assets
 
 | Task | Status | % Complete | Document / item | Next |
 | ---: | --- | ---: | --- | --- |
-| 5.1 | 🔵 | 0% | `docs/ipix-platform/40-assets/ASSETS.md` | Audit after Talent |
+| 5.1 | 🔵 | 0% | `docs/ipix-platform/40-assets/` | Audit current Assets flow before creating `ASSETS.md` |
 
 ### 6.0 CRM
 
 | Task | Status | % Complete | Document / item | Next |
 | ---: | --- | ---: | --- | --- |
-| 6.1 | 🔵 | 0% | `docs/ipix-platform/50-crm/CRM.md` | Audit after Assets |
+| 6.1 | 🔵 | 0% | `docs/ipix-platform/50-crm/` | Audit current CRM flow before creating `CRM.md` |
 
 ### 7.0 Operations
 
 | Task | Status | % Complete | Document / item | Next |
 | ---: | --- | ---: | --- | --- |
-| 7.1 | 🔵 | 0% | `docs/ipix-platform/60-operations/OPERATIONS.md` | Audit after CRM |
+| 7.1 | 🔵 | 0% | `docs/ipix-platform/60-operations/` | Audit current Operations flow before creating `OPERATIONS.md` |
 
 ### 8.0 Analytics
 
 | Task | Status | % Complete | Document / item | Next |
 | ---: | --- | ---: | --- | --- |
-| 8.1 | 🔵 | 0% | `docs/ipix-platform/70-analytics/ANALYTICS.md` | Audit after Operations |
+| 8.1 | 🔵 | 0% | `docs/ipix-platform/70-analytics/` | Audit current Analytics flow before creating `ANALYTICS.md` |
 
 ### 9.0 Plans
 
 | Task | Status | % Complete | Document / item | Next |
 | ---: | --- | ---: | --- | --- |
-| 9.1 | 🔵 | 0% | `docs/ipix-platform/80-plans/PLANS.md` | Audit after Analytics |
+| 9.1 | 🔵 | 0% | `docs/ipix-platform/80-plans/` | Audit current Plans flow before creating `PLANS.md` |
 
 ### Mermaid diagram placeholders
 
@@ -105,9 +105,9 @@ These are **diagram slots, not tasks**. They do not consume task numbers and do 
 | Area | Placeholder diagrams | Use case |
 | --- | --- | --- |
 | **1.0 Shared Platform** | Architecture · runtime sequence · data ownership | Show Next.js/CopilotKit/Mastra/Supabase/Cloudinary ownership and request flow |
-| **2.0 Brands** | User journey · analysis sequence · approval state · Brand ER | Explain website → Brand DNA → review → approved context |
-| **3.0 Shoots** | User journey · Planner sequence · HITL state · Shoot ER · architecture · task dependencies · requirement traceability | Explain plan → references → review → approve → save → production and prove the current critical path |
-| **4.0 Talent** | User journey · availability/booking state · booking sequence · Talent ER | Explain discover → shortlist → availability → request → confirm/reschedule/cancel |
+| **2.0 Onboarding** | Intake journey · draft/review state | Explain Brand URL → draft → review → approved Brand DNA |
+| **3.0 Brands** | User journey · analysis sequence · approval state · Brand ER | Explain website → Brand DNA → review → approved context |
+| **4.0 Shoots** | User journey · Planner sequence · HITL state · Shoot/Talent booking ER · architecture · task dependencies · requirement traceability | Explain plan → talent/booking → references → review → approve → save → production and prove the current critical path |
 | **5.0 Assets** | Asset lifecycle state · upload/review sequence · Asset ER · media architecture | Explain upload → Cloudinary → QA/DNA → review → approval → delivery |
 | **6.0 CRM** | CRM journey · deal state · CRM ER · shoot-opportunity handoff sequence | Explain company/contact → deal → won → Brand/Shoot handoff |
 | **7.0 Operations** | Work-queue flow · exception/approval state · coordination sequence | Explain active work → assignment → exception → human decision → completion |
@@ -116,31 +116,31 @@ These are **diagram slots, not tasks**. They do not consume task numbers and do 
 
 **Mermaid rule:** use a diagram only when it makes ownership, sequence, state, relationships, dependencies, or verification easier to understand than prose. Current code, tests, live database contracts, and verified runtime state remain authoritative over stale diagrams.
 
-**Task rule:** add `2.2`, `2.3`, `3.2`, `3.3`, etc. only when new work is proven. This keeps room for growth without changing the overall order.
+**Task rule:** add `.2`, `.3`, etc. inside the owning area only when new work is proven. The one-time numbering correction above aligns this index with the published `09/10/30/40/50/60/70/80` folder structure; do not renumber again. This keeps room for growth without changing the overall order.
 
 Every domain document uses the same compact tracker: `task → dot → % complete → item → current state → next`.
 
 ## 3. Linear
 
-**Live project:** https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues
+**Live project:** [v2-ipix Linear project](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues)
 
 Use Linear as the live execution/status authority.
 
 | Area | Primary Linear reference |
 | --- | --- |
-| Platform | https://linear.app/amo100/issue/IPI-1293/ipix-agent-platform-agent-platform-001-rebuild-forward-from-proven |
-| Distributed runner | https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross |
-| Runner defect | https://linear.app/amo100/issue/IPI-1117/ipi-1117-fix-copilot-runs-across-vercel-instances |
-| CopilotKit upgrade | https://linear.app/amo100/issue/IPI-1290/ipi-1290-safely-upgrade-copilotkit-to-1730-channels-0100 |
-| Brands | https://linear.app/amo100/issue/IPI-1099/ipi-1099-brand-epic-browse-brands-and-approve-brand-dna |
-| Shoots | https://linear.app/amo100/issue/IPI-1222/ipi-epic-shoot-v2-complete-the-v2-shoot-planning-approval-save-and |
-| Production Copilot | https://linear.app/amo100/issue/IPI-1241/epic-production-copilot-001-complete-the-unified-production-copilot |
-| Talent / booking | https://linear.app/amo100/issue/IPI-1101/ipi-1101-booking-epic-coordinate-talent-studio-crew-availability-and |
-| Assets | https://linear.app/amo100/issue/IPI-1102/ipi-1102-ipi-epic-production-and-media-browse-assets-and-deliver-shoot |
-| CRM | https://linear.app/amo100/issue/IPI-1103/ipi-epic-crm-run-the-relationship-hub-in-the-new-app |
-| Operations | https://linear.app/amo100/issue/IPI-1104/ipi-epic-operations-operator-inbox-and-coordination |
-| Analytics | https://linear.app/amo100/issue/IPI-1106/ipi-1106-ipi-epic-analytics-turn-trusted-ipix-data-into-business |
-| Plans | https://linear.app/amo100/issue/IPI-1107/ipi-epic-plans-saved-production-plans-not-a-second-planner |
+| Platform | [IPI-1293 · AGENT-PLATFORM-001 — Rebuild forward from proven CopilotKit + Mastra architecture](https://linear.app/amo100/issue/IPI-1293/ipix-agent-platform-agent-platform-001-rebuild-forward-from-proven) |
+| Distributed runner | [IPI-1292 · RUNNER-SPIKE-001 — Spike 3 candidate architectures for cross-instance Copilot run ownership](https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross) |
+| Runner defect | [IPI-1117 · Fix Copilot runs across Vercel instance changes](https://linear.app/amo100/issue/IPI-1117/ipi-1117-fix-copilot-runs-across-vercel-instances) |
+| CopilotKit upgrade | [IPI-1290 · Safely upgrade CopilotKit to 1.73.0 + Channels 0.10.0](https://linear.app/amo100/issue/IPI-1290/ipi-1290-safely-upgrade-copilotkit-to-1730-channels-0100) |
+| Brands | [IPI-1099 · Brand epic — Browse Brands and approve Brand DNA](https://linear.app/amo100/issue/IPI-1099/ipi-1099-brand-epic-browse-brands-and-approve-brand-dna) |
+| Shoots | [IPI-1222 · Shoot V2 epic — Complete the V2 shoot planning, approval, save, and production flow](https://linear.app/amo100/issue/IPI-1222/ipi-epic-shoot-v2-complete-the-v2-shoot-planning-approval-save-and) |
+| Production Copilot | [IPI-1241 · Production Copilot epic — Complete the unified Production Copilot](https://linear.app/amo100/issue/IPI-1241/epic-production-copilot-001-complete-the-unified-production-copilot) |
+| Talent / booking | [IPI-1101 · Booking epic — Coordinate talent, studio, crew availability, and booking](https://linear.app/amo100/issue/IPI-1101/ipi-1101-booking-epic-coordinate-talent-studio-crew-availability-and) |
+| Assets | [IPI-1102 · Production and media epic — Browse assets and deliver shoot media](https://linear.app/amo100/issue/IPI-1102/ipi-1102-ipi-epic-production-and-media-browse-assets-and-deliver-shoot) |
+| CRM | [IPI-1103 · CRM epic — Run the relationship hub in the new app](https://linear.app/amo100/issue/IPI-1103/ipi-epic-crm-run-the-relationship-hub-in-the-new-app) |
+| Operations | [IPI-1104 · Operations epic — Operator inbox and coordination](https://linear.app/amo100/issue/IPI-1104/ipi-epic-operations-operator-inbox-and-coordination) |
+| Analytics | [IPI-1106 · Analytics epic — Turn trusted iPix data into business insight](https://linear.app/amo100/issue/IPI-1106/ipi-1106-ipi-epic-analytics-turn-trusted-ipix-data-into-business) |
+| Plans | [IPI-1107 · Plans epic — Saved production plans, not a second planner](https://linear.app/amo100/issue/IPI-1107/ipi-epic-plans-saved-production-plans-not-a-second-planner) |
 
 ### Linear documents
 
