@@ -64,12 +64,12 @@ Otherwise
 ```
 
 Rules:
-- Search Linear first and reuse/update an existing owner instead of creating duplicate work.
+- Search Linear first and reuse/update an existing issue when the same TASK-ID or materially overlapping scope already exists.
 - For a new issue, apply the actual Linear template through the template field. Do not recreate it from memory.
 - Do not pass a replacement free-form description during template creation; that would discard the template body. Apply the template first, then fill/correct its sections.
 - Preserve the closest applicable template structure when materially rewriting an existing issue.
 - Fill only relevant sections; use `Needs verification` rather than inventing values.
-- Before implementation, verify template/type, project/milestone, relations, observable outcome, acceptance criteria, verification plan, and exact next action.
+- Before implementation, verify template/type, project/milestone, relations, observable outcome, acceptance criteria, verification plan, and exact next action. If a non-standard issue cannot use an approved template, document the concrete reason in the issue and preserve these required fields.
 
 ### Cross-tool handoff and completion
 

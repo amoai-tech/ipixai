@@ -9,10 +9,12 @@ Linear is the authoritative task/status source: https://linear.app/amo100/projec
 ## Current
 
 - IPI-1294 · LINEAR-WORKFLOW-001 — Standardize Linear, GitHub, Docs, TODO, and Changelog Workflow
-- State: four-template routing and cross-system governance are being verified on branch `ipi-1294-linear-workflow-governance`.
-- Last proof: governance contract tests were RED on clean `origin/main` for missing template routing and handoff/changelog contracts.
-- Blocker: the installed Linear connector can read/apply issue templates but does not expose template edit/delete operations.
-- Next: finish repo verification, open the focused PR, verify exact-head CI, and record the remaining live-template edit action in IPI-1294.
+- State: focused governance implementation is in PR #258 on branch `ipi-1294-linear-workflow-governance`.
+- Exact head: `d2604ef06177cbfea748d43aeab0e399503c9837` before review-fix follow-up commit.
+- Latest local proof: `npm run test:skills` 12/12 passed; `npm run docs:check` 72 active docs / 0 broken links; `npm test` 110 files / 1,424 passed / 3 skipped; `npm run typecheck` passed; `git diff --check` passed.
+- Exact-head GitHub proof: PR Agent passed; CI build/full tests/typecheck/build and Supabase replay/security jobs passed; Playwright jobs were still running at the last recorded check.
+- Remaining blockers: synchronize/retire live Linear template definitions through an authorized template-edit path, verify/fix GitHub ↔ Linear PR/status automation, finish exact-head review/CI, then merge and run exact-main post-merge proof.
+- PR: https://github.com/amoai-tech/ipixai/pull/258
 
 ## Durable sources
 

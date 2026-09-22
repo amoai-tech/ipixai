@@ -67,28 +67,40 @@ describe("iPix engineering skill contracts", () => {
     expect(tasks).toContain("Do not pretend a horizontal breaking change is a tracer bullet");
   });
 
-  test("Linear governance routes work through the four approved templates and canonical reference contract", () => {
-    const approvedTemplates = [
-      "Universal Engineering Task",
-      "iPix Task Audit & Implementation Plan",
-      "Forensic Error Audit & Fix",
-      "Production Readiness / Release Gate",
-    ];
+  test("Linear governance routes each work type to exactly four approved templates and preserves the ordered reference contract", () => {
+    const routingBlock = tasks.match(
+      /## Linear template routing — mandatory[\s\S]*?```text\n([\s\S]*?)```/,
+    )?.[1];
 
-    for (const template of approvedTemplates) {
-      expect(agents).toContain(template);
-      expect(tasks).toContain(template);
-      expect(bestPractices).toContain(template);
-    }
+    expect(routingBlock?.trim()).toBe(
+      [
+        "Production/release certification?",
+        "→ Production Readiness / Release Gate",
+        "",
+        "Confirmed failure requiring root-cause repair?",
+        "→ Forensic Error Audit & Fix",
+        "",
+        "Audit/research only with no implementation?",
+        "→ iPix Task Audit & Implementation Plan",
+        "",
+        "Otherwise",
+        "→ Universal Engineering Task",
+      ].join("\n"),
+    );
+
+    expect(routingBlock?.match(/^→ /gm)).toHaveLength(4);
+    expect(agents).toContain("- Normal feature/fix → `Universal Engineering Task`");
+    expect(agents).toContain("- Audit/research only; no implementation → `iPix Task Audit & Implementation Plan`");
+    expect(agents).toContain("- Confirmed bug/root-cause repair → `Forensic Error Audit & Fix`");
+    expect(agents).toContain("- Production/release certification → `Production Readiness / Release Gate`");
 
     for (const source of [agents, tasks, bestPractices]) {
       expect(source).not.toContain("reuse-rule-linear-task");
     }
 
-    expect(bestPractices).toContain("tracking class");
-    expect(bestPractices).toContain("approved implementation Action");
-    expect(bestPractices).toContain("Current owner / truth");
-    expect(bestPractices).toContain("STOP condition");
+    expect(bestPractices).toMatch(
+      /exact URL \+ exact source file\/example\/section\/symbol[\s\S]*tracking class:[\s\S]*Inspect[\s\S]*approved implementation Action[\s\S]*Current owner \/ truth[\s\S]*exact target\/destination[\s\S]*do-not-copy\/defer\/drop boundary[\s\S]*Constraints[\s\S]*precise change[\s\S]*exact verification[\s\S]*Checkpoint: PASS \+ evidence[\s\S]*STOP condition/,
+    );
   });
 
   test("todo stays a short Linear handoff while changelog stays curated shipped history", () => {

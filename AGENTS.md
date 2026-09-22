@@ -236,9 +236,9 @@ For every new substantial `IPI-*` issue, use one approved Linear workspace templ
 - Confirmed bug/root-cause repair → `Forensic Error Audit & Fix`
 - Production/release certification → `Production Readiness / Release Gate`
 
-Before creating an issue: search Linear for an existing owner and reuse/update it when possible. If a new issue is required, apply the template through Linear's template field; do not replace the template body with a free-form description. Fill only relevant sections and write `Needs verification` for unknown facts. When materially correcting an existing issue, preserve the closest applicable template structure.
+Before creating an issue: search Linear for an existing issue and reuse/update it if a task with the same TASK-ID or materially overlapping scope already exists. If a new issue is required, apply the template through Linear's template field; do not replace the template body with a free-form description. Fill only relevant sections and write `Needs verification` for unknown facts. When materially correcting an existing issue, preserve the closest applicable template structure.
 
-Before implementation, verify the issue has the correct template/type, project/milestone, dependencies/blockers, observable outcome, acceptance criteria, and verification plan. The issue must remain resumable by another agent from Linear alone.
+Before implementation, verify the issue has the correct template/type, project/milestone, dependencies/blockers, observable outcome, acceptance criteria, and verification plan. If a non-standard issue cannot use an approved template, document the concrete reason in the issue before implementation and preserve the same required outcome/evidence fields. The issue must remain resumable by another agent from Linear alone.
 
 Before coding:
 
