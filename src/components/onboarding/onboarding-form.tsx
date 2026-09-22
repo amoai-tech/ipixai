@@ -53,6 +53,21 @@ function legacyStepToLean(step: ReturnType<typeof resolveSemanticStep>): Onboard
   return "growth-preference";
 }
 
+async function handoffBrandAnalysis(brandId: string): Promise<void> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeout = new Promise<null>((resolve) => {
+      timeoutId = setTimeout(() => resolve(null), ANALYSIS_HANDOFF_TIMEOUT_MS);
+    });
+    const analysis = await Promise.race([startBrandAnalysisAction(brandId), timeout]);
+    if (analysis && !analysis.ok) console.warn("brand analysis handoff failed", analysis.message);
+  } catch (error) {
+    console.warn("brand analysis handoff threw", error);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 export function OnboardingForm({ userId }: { userId: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -266,22 +281,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
       const supabase = createClient();
       const key = getOrCreateOnboardingIdempotencyKey(asOnboardingUserId(userId));
       const created = await materializeOnboarding(supabase, finalDraft, { idempotencyKey: key });
-      if (finalDraft.websiteUrl.trim()) {
-        let timeoutId: ReturnType<typeof setTimeout> | undefined;
-        try {
-          const timeout = new Promise<null>((resolve) => {
-            timeoutId = setTimeout(() => resolve(null), ANALYSIS_HANDOFF_TIMEOUT_MS);
-          });
-          const analysis = await Promise.race([startBrandAnalysisAction(created.brandId), timeout]);
-          if (analysis && !analysis.ok) {
-            console.warn("brand analysis handoff failed", analysis.message);
-          }
-        } catch (error) {
-          console.warn("brand analysis handoff threw", error);
-        } finally {
-          if (timeoutId) clearTimeout(timeoutId);
-        }
-      }
+      if (finalDraft.websiteUrl.trim()) await handoffBrandAnalysis(created.brandId);
       router.replace(`/app/brands/${created.brandId}`);
       return;
     } catch (error) {
