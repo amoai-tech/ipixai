@@ -30,18 +30,34 @@ describe("IPI-1165 · ProductRefSchema", () => {
   it.each([
     [{ ...PRODUCT_ONLY, provider: undefined }, "provider"],
     [{ ...PRODUCT_ONLY, providerProductId: undefined }, "providerProductId"],
-  ])("rejects a missing identity field: %s", (candidate, _field) => {
+    [{ ...PRODUCT_ONLY, title: undefined }, "title"],
+  ])("rejects a missing required field: %s", (candidate, _field) => {
     expect(ProductRefSchema.safeParse(candidate).success).toBe(false);
   });
 
-  it("rejects oversized ProductRef strings", () => {
-    const tooLong = "x".repeat(2001);
-    expect(
-      ProductRefSchema.safeParse({ ...PRODUCT_ONLY, providerProductId: tooLong }).success,
-    ).toBe(false);
-    expect(
-      ProductRefSchema.safeParse({ ...PRODUCT_ONLY, title: tooLong }).success,
-    ).toBe(false);
+  it.each([
+    ["provider", { provider: "x".repeat(2001) }],
+    ["providerProductId", { providerProductId: "x".repeat(2001) }],
+    ["providerVariantId", { providerVariantId: "x".repeat(2001) }],
+    ["title", { title: "x".repeat(2001) }],
+    ["variantTitle", { variantTitle: "x".repeat(2001) }],
+    ["sku", { sku: "x".repeat(2001) }],
+    ["imageUrl", { imageUrl: `https://example.com/${"x".repeat(2000)}` }],
+  ])("rejects an oversized %s", (_field, patch) => {
+    expect(ProductRefSchema.safeParse({ ...PRODUCT_ONLY, ...patch }).success).toBe(false);
+  });
+
+  it.each([
+    ["providerVariantId", { providerVariantId: "" }],
+    ["variantTitle", { variantTitle: "" }],
+    ["sku", { sku: "" }],
+  ])("rejects an empty optional string when %s is present", (_field, patch) => {
+    expect(ProductRefSchema.safeParse({ ...PRODUCT_ONLY, ...patch }).success).toBe(false);
+  });
+
+  it("validates imageUrl format when present", () => {
+    expect(ProductRefSchema.safeParse({ ...PRODUCT_ONLY, imageUrl: "not-a-url" }).success).toBe(false);
+    expect(ProductRefSchema.safeParse({ ...PRODUCT_ONLY, imageUrl: "https://example.com/image.jpg" }).success).toBe(true);
   });
 
   it("rejects unexpected fields", () => {

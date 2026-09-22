@@ -321,6 +321,16 @@ describe("composeShootPlan", () => {
     expect(result.success).toBe(false);
   });
 
+  it("keeps pre-PRODUCTS persisted ShootPlans readable by defaulting missing productRefs to []", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY];
+    const validPlan = await composeShootPlan(baseInput());
+    const { productRefs: _productRefs, ...legacyPlan } = validPlan;
+
+    const parsed = ShootPlanSchema.parse(legacyPlan);
+
+    expect(parsed.productRefs).toEqual([]);
+  });
+
   it("rejects an empty channels array — channels is the one truly required input", () => {
     const result = ComposeShootPlanInputSchema.safeParse({ channels: [] });
     expect(result.success).toBe(false);
