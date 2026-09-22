@@ -77,6 +77,7 @@ Every substantial executable `IPI-*` task must be organized as an **executable d
 
 For agent-prompt structure, read [agent-instructions.md](references/agent-instructions.md).
 For detailed layout, read [task-format.md](references/task-format.md).
+For every task that uses external or Lumina references, also read [external-reference-mapping.md](references/external-reference-mapping.md); it supplements `task-format.md` and does not introduce a second action vocabulary.
 For progress rules, read [progress-tracker.md](references/progress-tracker.md).
 For Lumina migrations, also read [migration-lumina.md](references/migration-lumina.md).
 Before commit, read [pre-commit.md](references/pre-commit.md), then choose the risk-matched verification set from [pre-merge-tests.md](references/pre-merge-tests.md).
