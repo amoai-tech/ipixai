@@ -73,6 +73,11 @@ beforeEach(() => {
     const [url, init] = mocks.fetch.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://example.supabase.co/functions/v1/start-brand-crawl");
     expect(init.method).toBe("POST");
+    expect(init.headers).toMatchObject({
+      "Content-Type": "application/json",
+      apikey: "test-service-role",
+    });
+    expect(init.headers).not.toHaveProperty("Authorization");
     expect(JSON.parse(String(init.body))).toEqual({
       brandId: BRAND_ID,
       url: "https://brand.example",

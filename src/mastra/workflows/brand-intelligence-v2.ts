@@ -64,7 +64,7 @@ const startDurableCrawl = createStep({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`,
+        apikey: key,
       },
       body: JSON.stringify({
         brandId: inputData.brandId,
