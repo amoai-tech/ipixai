@@ -29,15 +29,11 @@ function configuredServiceApiKeys(): string[] {
         return [...keys];
       }
 
-      let modernKeyCount = 0;
-      for (const value of Object.values(parsed as Record<string, unknown>)) {
-        if (typeof value === "string" && value.trim()) {
-          keys.add(value.trim());
-          modernKeyCount += 1;
-        }
-      }
-      if (modernKeyCount === 0) {
-        logSecretKeyConfigError("object contains no usable secret-key values");
+      const modernDefault = (parsed as Record<string, unknown>).default;
+      if (typeof modernDefault === "string" && modernDefault.trim()) {
+        keys.add(modernDefault.trim());
+      } else {
+        logSecretKeyConfigError("default key is unavailable");
       }
     } catch {
       logSecretKeyConfigError("value is not valid JSON");

@@ -158,3 +158,29 @@ Deno.test({
     }
   },
 });
+
+Deno.test({
+  name: "resolveCaller accepts only the canonical default modern secret key",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    try {
+      Deno.env.set("SUPABASE_URL", "http://127.0.0.1:54321");
+      Deno.env.set("SUPABASE_ANON_KEY", "anon-test-key");
+      Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "legacy-service-role-test");
+      Deno.env.set("SUPABASE_SECRET_KEYS", JSON.stringify({ default: "sb_secret_default_test", custom: "sb_secret_custom_test" }));
+
+      const custom = await resolveCaller(new Request("http://localhost/functions/v1/start-brand-crawl", { headers: { apikey: "sb_secret_custom_test" } }));
+      if (!("response" in custom) || custom.response.status !== 401) {
+        throw new Error("non-default modern secret key must not authorize the caller");
+      }
+
+      const canonical = await resolveCaller(new Request("http://localhost/functions/v1/start-brand-crawl", { headers: { apikey: "sb_secret_default_test" } }));
+      if ("response" in canonical || canonical.userId !== null) {
+        throw new Error("default modern secret key must authorize the service caller");
+      }
+    } finally {
+      restoreEnv();
+    }
+  },
+});

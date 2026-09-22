@@ -38,6 +38,32 @@ beforeEach(() => {
 });
 
 describe("Brand crawl service auth runtime", () => {
+  it.each([
+    ["empty object", JSON.stringify({})],
+    ["custom-only object", JSON.stringify({ custom: "sb_secret_custom_test" })],
+    ["empty default", JSON.stringify({ default: "" })],
+  ])("falls back to the legacy backend key when modern config has %s", async (_label, modernConfig) => {
+    process.env.SUPABASE_SECRET_KEYS = modernConfig;
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "legacy-service-role-test";
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await startCrawlExecute()({
+      inputData: {
+        brandId: "11111111-1111-4111-8111-111111111111",
+        brandUrl: "https://brand.example",
+        brandName: "Example",
+        actorId: "22222222-2222-4222-8222-222222222222",
+      },
+      runId: "run-auth-fallback-missing-default",
+    });
+
+    const [, init] = mocks.fetch.mock.calls[0] as [string, RequestInit];
+    expect(init.headers).toMatchObject({ apikey: "legacy-service-role-test" });
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Invalid SUPABASE_SECRET_KEYS"),
+    );
+  });
+
   it("logs malformed modern config and falls back to the legacy backend key", async () => {
     process.env.SUPABASE_SECRET_KEYS = "{invalid-json";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "legacy-service-role-test";
