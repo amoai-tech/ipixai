@@ -24,7 +24,7 @@ Claude / ChatGPT / Codex = assistants, not sources of truth
 ## 1. Documentation source of truth
 
 - Write and review documentation in GitHub first.
-- Publish `docs/` through GitBook Git Sync.
+- Publish `docs/ipix-platform/` through GitBook Git Sync.
 - Keep Linear as the only live task/status tracker.
 - Use code, tests, runtime evidence, and accepted ADRs to resolve stale-doc conflicts.
 - Link to canonical pages instead of copying the same explanation into multiple files.
@@ -87,7 +87,7 @@ GitHub docs/
 → published docs
 ```
 
-For the current iPix Free-plan setup, prefer one space mapped to `./docs` instead of recreating many GitBook spaces and sections.
+For the current iPix Free-plan setup, prefer one space mapped to `./docs/ipix-platform` instead of recreating many GitBook spaces and sections.
 
 Do not manually maintain GitBook-generated AI outputs such as `llms.txt` unless a separate non-GitBook consumer specifically requires it.
 
@@ -247,7 +247,7 @@ Use the approved template that matches the work: normal implementation → `Univ
 
 Use one-week cycles while they remain effective. Once per cycle, review active work and backlog: close duplicates, cancel genuinely stale work with a reason, move still-valid work to the right cycle/owner, and preserve historical evidence rather than deleting it just to reduce counts.
 
-For GitHub integration, include the Linear identifier (`IPI-1234`) in the branch, commit, or PR so Linear can associate implementation with the issue. Verify team Git automations under Linear team settings rather than assuming status transitions are configured.
+For GitHub integration, include the Linear identifier from the relevant task—for example **IPI-1234 · VERCEL-BUNDLE-003 — Load Shiki client-side-only to drop ~10 MiB of deployment storage**—in the branch, commit, or PR so Linear can associate implementation with the issue. Verify team Git automations under Linear team settings rather than assuming status transitions are configured.
 
 Coding agents must start from the live Linear issue plus current code/runtime truth, not past chat context. `todo.md` is only a short handoff pointer; `changelog.md` receives notable verified outcomes; durable behavior changes update `docs/**` in the same PR and GitBook publishes them after merge.
 

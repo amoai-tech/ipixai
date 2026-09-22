@@ -1,6 +1,6 @@
 # CopilotKit Progress
 
-> Status: Placeholder — this is a verified readiness snapshot, not a task tracker.
+> Status: Readiness draft — verification is still TBD for the areas below; this is not a task tracker.
 
 Linear owns live task status, blockers, assignees, and sequencing.
 
@@ -11,7 +11,7 @@ Linear owns live task status, blockers, assignees, and sequencing.
 | Runtime/auth | TBD | Current repo + Agent Platform PRD | Re-verify exact HEAD |
 | Streaming/AG-UI | TBD | Current tests | Confirm current package family |
 | Reconnect/replay | TBD | Cross-process/replay tests | Re-run on target architecture |
-| Stop/cancel | TBD | IPI-1117 / IPI-1292 evidence | Cross-instance termination proof |
+| Stop/cancel | TBD | [IPI-1117 · Fix Copilot runs across Vercel instance changes](https://linear.app/amo100/issue/IPI-1117/ipi-1117-fix-copilot-runs-across-vercel-instances) + [IPI-1292 · RUNNER-SPIKE-001 — Spike 3 candidate architectures for cross-instance Copilot run ownership](https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross) evidence | Cross-instance termination proof |
 | HITL | TBD | Existing approval patterns | Domain E2E proof |
 | GenUI | TBD | Existing components/references | MVP workflow proof |
 | Reuse qualification | TBD | Reuse matrix | Pin exact sources/versions |

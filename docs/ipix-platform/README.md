@@ -4,10 +4,6 @@
 
 **Repo source of truth:** this `docs/ipix-platform/` tree. Linear is the planning/review mirror.
 
-**Current worktree:** `/home/sk/ipixai-worktrees/ipix-product-area-architecture`
-
-**Branch:** `docs/ipix-product-area-architecture`
-
 ## Table of contents
 
 1. [Progress tracker](#progress-tracker)
@@ -30,13 +26,13 @@
 | 🟢 | Brands | Implement only proven gaps |
 | 🟡 | Reference repo library | Finish curated Mastra additions + keep index current |
 | 🔵 | Shoots | Current-state audit + `SHOOTS.md` |
-| 🔵 | Talent | Current-state audit + `TALENT.md` |
+| 🔵 | Onboarding | Current-state audit + onboarding docs |
 | 🔵 | Assets | Current-state audit + `ASSETS.md` |
 | 🔵 | CRM | After Assets |
 | 🔵 | Operations | After CRM |
 | 🔵 | Analytics | After Operations |
 | 🔵 | Plans | After Analytics |
-| 🔵 | Shared platform architecture | Reconcile current code + IPI-1293 before creating doc |
+| 🔵 | Shared platform architecture | Reconcile current code + IPI-1293 · AGENT-PLATFORM-001 — Rebuild forward from proven CopilotKit + Mastra architecture before creating doc |
 | 🔵 | Global reuse matrix | Consolidate verified domain reuse decisions |
 
 **Legend:** 🟢 completed · 🟡 in progress · 🔴 failed/blocked · 🔵 not started / needs completion
@@ -89,7 +85,7 @@ When sources disagree:
 | Order | Domain | Local doc | First core journey |
 | ---: | --- | --- | --- |
 | 10 | Brands | [10-brands/BRANDS.md](10-brands/BRANDS.md) | Brand website → Brand DNA → human review → approved context |
-| 20 | Talent | `20-talent/TALENT.md` | Talent profile → availability → shortlist → approve/book |
+| 09 | Onboarding | `09-onboarding/` | Brand URL → Brand DNA draft → human review → approved Brand DNA |
 | 30 | Shoots | `30-shoots/SHOOTS.md` | Brand → shoot plan → shot list → approval → booking/production |
 | 40 | Assets | `40-assets/ASSETS.md` | Upload → attach to shoot → QA/DNA → approve → deliver |
 | 50 | CRM | `50-crm/CRM.md` | Lead/company → deal → shoot opportunity → follow-up |
@@ -106,7 +102,7 @@ Every repo recommendation must answer:
 `Repo → What it teaches → What iPix adapts → Where it goes → Real user example → What we do NOT copy`
 ## 5. Linear docs and issues
 
-**Live v2-ipix project issues:** https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues
+**Live v2-ipix project issues:** [v2-ipix Linear project](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues)
 
 Use that project issue list as the **live task/status authority**. Do not copy task status from old Markdown exports. Before creating a new domain gap task, search this project first for an existing issue or epic.
 
@@ -114,102 +110,102 @@ Use that project issue list as the **live task/status authority**. Do not copy t
 
 | Domain / concern | Primary live Linear references |
 | --- | --- |
-| Platform / CopilotKit + Mastra | https://linear.app/amo100/issue/IPI-1078/ipi-1078-ipi-epic-mastra-copilotkit-secure-planner-runtime-sequence · https://linear.app/amo100/issue/IPI-1293/ipix-agent-platform-agent-platform-001-rebuild-forward-from-proven |
-| Distributed runner | https://linear.app/amo100/issue/IPI-1117/ipi-1117-fix-copilot-runs-across-vercel-instances · https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross |
-| Brands | https://linear.app/amo100/issue/IPI-1099/ipi-1099-brand-epic-browse-brands-and-approve-brand-dna · https://linear.app/amo100/issue/IPI-1093/ipi-1093-brand-intel-001-turn-a-brand-website-into-an-approved-brand |
-| Shoots / Production Copilot | https://linear.app/amo100/issue/IPI-1222/ipi-epic-shoot-v2-complete-the-v2-shoot-planning-approval-save-and · https://linear.app/amo100/issue/IPI-1241/epic-production-copilot-001-complete-the-unified-production-copilot |
-| Talent / booking | https://linear.app/amo100/issue/IPI-1101/ipi-1101-booking-epic-coordinate-talent-studio-crew-availability-and · https://linear.app/amo100/issue/IPI-1071/ipi-1071-talent-booking-001-let-operators-find-talent-and-manage |
-| Assets / media | https://linear.app/amo100/issue/IPI-1102/ipi-1102-ipi-epic-production-and-media-browse-assets-and-deliver-shoot · https://linear.app/amo100/issue/IPI-1097/ipi-1097-cloudinary-mvp-epic-upload-review-approve-and-deliver-shoot |
-| CRM | https://linear.app/amo100/issue/IPI-1103/ipi-epic-crm-run-the-relationship-hub-in-the-new-app · https://linear.app/amo100/issue/IPI-1070/ipi-1070-crm-001-bring-the-proven-ipix-crm-workspace-into-the-new-app |
-| Operations | https://linear.app/amo100/issue/IPI-1104/ipi-epic-operations-operator-inbox-and-coordination · https://linear.app/amo100/issue/IPI-1072/ipi-1072-operations-001-bring-the-operator-inbox-and-coordination |
-| Analytics | https://linear.app/amo100/issue/IPI-1106/ipi-1106-ipi-epic-analytics-turn-trusted-ipix-data-into-business · https://linear.app/amo100/issue/IPI-1073/ipi-1073-analytics-001-bring-the-existing-analytics-workspace-into-the |
-| Plans | https://linear.app/amo100/issue/IPI-1107/ipi-epic-plans-saved-production-plans-not-a-second-planner · https://linear.app/amo100/issue/IPI-1074/ipi-1074-plans-001-bring-the-existing-production-planning-workspace |
+| Platform / CopilotKit + Mastra | [Mastra + CopilotKit secure runtime epic](https://linear.app/amo100/issue/IPI-1078/ipi-1078-ipi-epic-mastra-copilotkit-secure-planner-runtime-sequence) · [Agent Platform rebuild](https://linear.app/amo100/issue/IPI-1293/ipix-agent-platform-agent-platform-001-rebuild-forward-from-proven) |
+| Distributed runner | [Fix Copilot runs across Vercel instance changes](https://linear.app/amo100/issue/IPI-1117/ipi-1117-fix-copilot-runs-across-vercel-instances) · [Cross-instance runner architecture spike](https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross) |
+| Brands | [Brands epic — browse Brands and approve Brand DNA](https://linear.app/amo100/issue/IPI-1099/ipi-1099-brand-epic-browse-brands-and-approve-brand-dna) · [Brand Intelligence — turn a website into approved Brand DNA](https://linear.app/amo100/issue/IPI-1093/ipi-1093-brand-intel-001-turn-a-brand-website-into-an-approved-brand) |
+| Shoots / Production Copilot | [Shoot V2 epic](https://linear.app/amo100/issue/IPI-1222/ipi-epic-shoot-v2-complete-the-v2-shoot-planning-approval-save-and) · [Production Copilot epic](https://linear.app/amo100/issue/IPI-1241/epic-production-copilot-001-complete-the-unified-production-copilot) |
+| Talent / booking | [Booking epic — coordinate availability and booking](https://linear.app/amo100/issue/IPI-1101/ipi-1101-booking-epic-coordinate-talent-studio-crew-availability-and) · [Talent booking workspace](https://linear.app/amo100/issue/IPI-1071/ipi-1071-talent-booking-001-let-operators-find-talent-and-manage) |
+| Assets / media | [Production and media epic](https://linear.app/amo100/issue/IPI-1102/ipi-1102-ipi-epic-production-and-media-browse-assets-and-deliver-shoot) · [Cloudinary MVP epic](https://linear.app/amo100/issue/IPI-1097/ipi-1097-cloudinary-mvp-epic-upload-review-approve-and-deliver-shoot) |
+| CRM | [CRM relationship-hub epic](https://linear.app/amo100/issue/IPI-1103/ipi-epic-crm-run-the-relationship-hub-in-the-new-app) · [CRM workspace migration](https://linear.app/amo100/issue/IPI-1070/ipi-1070-crm-001-bring-the-proven-ipix-crm-workspace-into-the-new-app) |
+| Operations | [Operations inbox and coordination epic](https://linear.app/amo100/issue/IPI-1104/ipi-epic-operations-operator-inbox-and-coordination) · [Operations workspace migration](https://linear.app/amo100/issue/IPI-1072/ipi-1072-operations-001-bring-the-operator-inbox-and-coordination) |
+| Analytics | [Analytics trusted-data epic](https://linear.app/amo100/issue/IPI-1106/ipi-1106-ipi-epic-analytics-turn-trusted-ipix-data-into-business) · [Analytics workspace migration](https://linear.app/amo100/issue/IPI-1073/ipi-1073-analytics-001-bring-the-existing-analytics-workspace-into-the) |
+| Plans | [Saved production plans epic](https://linear.app/amo100/issue/IPI-1107/ipi-epic-plans-saved-production-plans-not-a-second-planner) · [Plans workspace migration](https://linear.app/amo100/issue/IPI-1074/ipi-1074-plans-001-bring-the-existing-production-planning-workspace) |
 
 ### Current Linear documents
 
 | Linear doc | Purpose | URL |
 | --- | --- | --- |
-| iPix Documentation Standards | Mirror of `DOC-STANDARDS.md` | https://linear.app/amo100/document/ipix-documentation-standards-architecture-reuse-plans-migration-and-9c36e48b4c74 |
-| iPix Brands — How It Works, What We Keep & What We Improve | Mirror of `10-brands/BRANDS.md` | https://linear.app/amo100/document/ipix-brands-how-it-works-what-we-keep-and-what-we-improve-8c0b3961a8ff |
-| iPix Repo Implementation Index | GitHub/reference-repo inventory and product-area mapping | https://linear.app/amo100/document/ipix-repo-implementation-index-github-references-local-clones-product-c3760f47abcc |
-| iPix Agent Platform PRD | Shared runtime/platform requirements | https://linear.app/amo100/document/ipix-agent-platform-prd-163f1a8f0274 |
-| iPix Agent Platform Roadmap | Platform/runtime phase sequence | https://linear.app/amo100/document/ipix-agent-platform-roadmap-6b301eb8d809 |
-| iPix Reference Reuse Matrix | Existing platform/runtime reuse decisions | https://linear.app/amo100/document/ipix-reference-reuse-matrix-3ed7c0ed1057 |
-| iPix Agent Platform Migration Plan | Runtime migration/cutover planning | https://linear.app/amo100/document/ipix-agent-platform-migration-plan-e35d93623a32 |
+| iPix Documentation Standards | Mirror of `DOC-STANDARDS.md` | [iPix Documentation Standards — Linear document](https://linear.app/amo100/document/ipix-documentation-standards-architecture-reuse-plans-migration-and-9c36e48b4c74) |
+| iPix Brands — How It Works, What We Keep & What We Improve | Mirror of `10-brands/BRANDS.md` | [iPix Brands — How It Works, What We Keep & What We Improve — Linear document](https://linear.app/amo100/document/ipix-brands-how-it-works-what-we-keep-and-what-we-improve-8c0b3961a8ff) |
+| iPix Repo Implementation Index | GitHub/reference-repo inventory and product-area mapping | [iPix Repo Implementation Index — Linear document](https://linear.app/amo100/document/ipix-repo-implementation-index-github-references-local-clones-product-c3760f47abcc) |
+| iPix Agent Platform PRD | Shared runtime/platform requirements | [iPix Agent Platform PRD — Linear document](https://linear.app/amo100/document/ipix-agent-platform-prd-163f1a8f0274) |
+| iPix Agent Platform Roadmap | Platform/runtime phase sequence | [iPix Agent Platform Roadmap — Linear document](https://linear.app/amo100/document/ipix-agent-platform-roadmap-6b301eb8d809) |
+| iPix Reference Reuse Matrix | Existing platform/runtime reuse decisions | [iPix Reference Reuse Matrix — Linear document](https://linear.app/amo100/document/ipix-reference-reuse-matrix-3ed7c0ed1057) |
+| iPix Agent Platform Migration Plan | Runtime migration/cutover planning | [iPix Agent Platform Migration Plan — Linear document](https://linear.app/amo100/document/ipix-agent-platform-migration-plan-e35d93623a32) |
 
 ### Key Linear issues
 
-| Issue | Why it matters | URL |
-| --- | --- | --- |
-| IPI-1293 · Agent Platform | Master platform/index issue; keep platform/runtime work separate from domain MVPs | https://linear.app/amo100/issue/IPI-1293/ipix-agent-platform-agent-platform-001-rebuild-forward-from-proven |
-| IPI-1292 · Runner Spike | Prove cross-instance run lifecycle architecture; separate from product-domain docs | https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross |
-| IPI-1290 · CopilotKit upgrade | Version alignment/certification dependency | https://linear.app/amo100/issue/IPI-1290/ipi-1290-safely-upgrade-copilotkit-to-1730-channels-0100 |
-| IPI-1117 · Cross-instance runner | Root distributed runner defect/evidence | https://linear.app/amo100/issue/IPI-1117/ipi-1117-fix-copilot-runs-across-vercel-instances |
+| Issue | Why it matters |
+| --- | --- |
+| [IPI-1293 · AGENT-PLATFORM-001 — Rebuild forward from proven CopilotKit + Mastra architecture](https://linear.app/amo100/issue/IPI-1293/ipix-agent-platform-agent-platform-001-rebuild-forward-from-proven) | Master platform/index issue; keep platform/runtime work separate from domain MVPs |
+| [IPI-1292 · RUNNER-SPIKE-001 — Spike 3 candidate architectures for cross-instance Copilot run ownership](https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross) | Prove cross-instance run lifecycle architecture; separate from product-domain docs |
+| [IPI-1290 · Safely upgrade CopilotKit to 1.73.0 + Channels 0.10.0](https://linear.app/amo100/issue/IPI-1290/ipi-1290-safely-upgrade-copilotkit-to-1730-channels-0100) | Version alignment/certification dependency |
+| [IPI-1117 · Fix Copilot runs across Vercel instance changes](https://linear.app/amo100/issue/IPI-1117/ipi-1117-fix-copilot-runs-across-vercel-instances) | Root distributed runner defect/evidence |
 
 **Rule:** domain docs may reference these platform issues, but should not duplicate or solve them inside Brands/Shoots/Talent/Assets.
 ## 6. Research/reference sources
 
-These live in the primary working tree at `/home/sk/ipixai/docs/copilotkit-mastra/`. They are research inputs, not automatically current implementation authority.
+Historical research inputs may exist outside the curated GitBook tree. Treat them as research only, not current implementation authority.
 
 | Local source | Use it for |
 | --- | --- |
-| `/home/sk/ipixai/docs/copilotkit-mastra/README.md` | Existing folder overview |
-| `/home/sk/ipixai/docs/copilotkit-mastra/09-mastra-repos.md` | Mastra repo/template survey and reuse ideas |
-| `/home/sk/ipixai/docs/copilotkit-mastra/copilotkit-links.md` | Official CopilotKit docs/examples reference pack |
-| `/home/sk/ipixai/docs/copilotkit-mastra/MASTRA-COPILOTKIT-SEPT1.md` | Large historical Linear/task export; use for research only and verify live status before acting |
-| `/home/sk/ipixai/docs/copilotkit-mastra/copilotkit-mastra-prd.md` | Earlier CopilotKit/Mastra product architecture notes |
-| `/home/sk/ipixai/docs/copilotkit-mastra/mastra-copilotkit.prd.md` | Earlier canonical PRD/reuse architecture; contains valuable references but some historical assumptions must be rechecked |
-| `/home/sk/ipixai/docs/copilotkit-mastra/mastra-links.md` | Mastra official docs/repos and reuse matrix |
-| `/home/sk/ipixai/docs/copilotkit-mastra/mastra-plan.md` | Historical Mastra execution planning |
-| `/home/sk/ipixai/docs/copilotkit-mastra/plan.md` | Historical CopilotKit × Mastra execution plan |
-| `/home/sk/ipixai/docs/copilotkit-mastra/prd.md` | Historical product requirements notes |
-| `/home/sk/ipixai/docs/copilotkit-mastra/roadmap.md` | Historical sequencing/roadmap notes |
-| `/home/sk/ipixai/docs/copilotkit-mastra/templates.md` | Template/reuse catalog and screen-to-template mapping |
-| `/home/sk/ipixai/docs/copilotkit-mastra/tools.md` | Firecrawl/Tavily/browser/channel tool research |
-| `/home/sk/ipixai/docs/copilotkit-mastra/supabase-mastra.md` | Supabase/Mastra storage research |
-| `/home/sk/ipixai/docs/copilotkit-mastra/brand-plan.md` | Earlier Brand planning notes |
-| `/home/sk/ipixai/docs/copilotkit-mastra/todo.md` | Historical task checklist; do not treat statuses as live |
-| `/home/sk/ipixai/docs/copilotkit-mastra/links.md` | General reference link collection |
-| `/home/sk/ipixai/docs/copilotkit-mastra/reuse-audit/INDEX.md` | Forensic CopilotKit/Mastra proven-model reuse audit, including runner findings |
-| `/home/sk/ipixai/docs/copilotkit-mastra/reuse-audit/PLANNING.md` | Runner/platform spike planning derived from the reuse audit |
+| `<REPO_ROOT>/docs/copilotkit-mastra/README.md` | Existing folder overview |
+| `<REPO_ROOT>/docs/copilotkit-mastra/09-mastra-repos.md` | Mastra repo/template survey and reuse ideas |
+| `<REPO_ROOT>/docs/copilotkit-mastra/copilotkit-links.md` | Official CopilotKit docs/examples reference pack |
+| `<REPO_ROOT>/docs/copilotkit-mastra/MASTRA-COPILOTKIT-SEPT1.md` | Large historical Linear/task export; use for research only and verify live status before acting |
+| `<REPO_ROOT>/docs/copilotkit-mastra/copilotkit-mastra-prd.md` | Earlier CopilotKit/Mastra product architecture notes |
+| `<REPO_ROOT>/docs/copilotkit-mastra/mastra-copilotkit.prd.md` | Earlier canonical PRD/reuse architecture; contains valuable references but some historical assumptions must be rechecked |
+| `<REPO_ROOT>/docs/copilotkit-mastra/mastra-links.md` | Mastra official docs/repos and reuse matrix |
+| `<REPO_ROOT>/docs/copilotkit-mastra/mastra-plan.md` | Historical Mastra execution planning |
+| `<REPO_ROOT>/docs/copilotkit-mastra/plan.md` | Historical CopilotKit × Mastra execution plan |
+| `<REPO_ROOT>/docs/copilotkit-mastra/prd.md` | Historical product requirements notes |
+| `<REPO_ROOT>/docs/copilotkit-mastra/roadmap.md` | Historical sequencing/roadmap notes |
+| `<REPO_ROOT>/docs/copilotkit-mastra/templates.md` | Template/reuse catalog and screen-to-template mapping |
+| `<REPO_ROOT>/docs/copilotkit-mastra/tools.md` | Firecrawl/Tavily/browser/channel tool research |
+| `<REPO_ROOT>/docs/copilotkit-mastra/supabase-mastra.md` | Supabase/Mastra storage research |
+| `<REPO_ROOT>/docs/copilotkit-mastra/brand-plan.md` | Earlier Brand planning notes |
+| `<REPO_ROOT>/docs/copilotkit-mastra/todo.md` | Historical task checklist; do not treat statuses as live |
+| `<REPO_ROOT>/docs/copilotkit-mastra/links.md` | General reference link collection |
+| `<REPO_ROOT>/docs/copilotkit-mastra/reuse-audit/INDEX.md` | Forensic CopilotKit/Mastra proven-model reuse audit, including runner findings |
+| `<REPO_ROOT>/docs/copilotkit-mastra/reuse-audit/PLANNING.md` | Runner/platform spike planning derived from the reuse audit |
 
 ### Local GitHub reference clones
 
-These are the **actual local Git repositories currently present** under `/home/sk/github-repos` (verified from each clone's `remote.origin.url` + current HEAD on 2026-09-20).
+These are the **actual local Git repositories currently present** under `<LOCAL_REPOS_ROOT>` when those optional clones are present (previously verified from each clone's `remote.origin.url` + current HEAD on 2026-09-20).
 
 | Local clone | GitHub origin | Local HEAD | Best iPix use | Default action |
 | --- | --- | --- | --- | --- |
-| `/home/sk/github-repos/copilotkit/CopilotKit` | https://github.com/CopilotKit/CopilotKit | `5ffe92689c33` | Primary current CopilotKit source: Mastra integration, GenUI, canvas, MCP, CRM, A2A and shared-state examples | **ADAPT / REFERENCE** |
-| `/home/sk/github-repos/copilotkit/OpenBot` | https://github.com/CopilotKit/OpenBot | `82e10c5525a8` | Governed agents, browser/files/tools, action approval and audit patterns | **MODEL / REFERENCE** |
-| `/home/sk/github-repos/copilotkit/harness-sdk` | https://github.com/CopilotKit/harness-sdk | `1fd743a7fe7c` | Strands agent harness SDK patterns: hooks, guardrails, MCP, tracing, multi-agent | **REFERENCE ONLY — VERIFY UPSTREAM** |
-| `/home/sk/github-repos/copilotkit/open-research-ANA` | https://github.com/CopilotKit/open-research-ANA | `39d0cd772b99` | Research canvas + HITL concepts; latest implementation is consolidated into CopilotKit monorepo | **HISTORICAL / MODEL** |
-| `/home/sk/github-repos/copilotkit/aimock` | https://github.com/CopilotKit/aimock | `a8773ddd6bdc` | Deterministic mocks for LLM, MCP, A2A, AG-UI, vector DB and search tests | **ADAPT FOR TESTING** |
-| `/home/sk/github-repos/copilotkit/agents-everywhere-starter-kit` | https://github.com/CopilotKit/agents-everywhere-starter-kit | `5c8bf4c810bc` | Cross-surface agent starter/demo ideas | **REFERENCE / SKIP FOR CORE MVP** |
-| `/home/sk/github-repos/copilotkit/atomic-crm` | https://github.com/CopilotKit/atomic-crm | `c4c889c7dcb8` | CRM contacts/tasks/deals/activity + Supabase + CopilotKit runtime/MCP patterns | **MODEL / ADAPT FOR CRM** |
-| `/home/sk/github-repos/copilotkit/open-mcp-client` | https://github.com/CopilotKit/open-mcp-client | `c8ea97b205ac` | MCP Apps/client integration and rendering patterns | **ADAPT / REFERENCE** |
-| `/home/sk/github-repos/copilotkit/generative-ui` | https://github.com/CopilotKit/generative-ui | `12aa81e3deeb` | Historical GenUI reference; prefer current monorepo examples where available | **REFERENCE** |
-| `/home/sk/github-repos/mastra/mastra` | https://github.com/mastra-ai/mastra | `25d768317009` | Mastra framework source, tests, APIs, workflows, agents, storage | **REFERENCE / VERIFY AGAINST INSTALLED VERSION** |
-| `/home/sk/github-repos/mastra/template-deep-search` | https://github.com/mastra-ai/template-deep-search | `c2c8fa478d5a` | Brand/market research decomposition, evidence, gap checking | **ADAPT** |
-| `/home/sk/github-repos/mastra/template-company-knowledge` | https://github.com/mastra-ai/template-company-knowledge | `6fc6a774ae13` | Approved Brand knowledge retrieval / RAG patterns | **ADAPT LATER** |
-| `/home/sk/github-repos/mastra/template-browsing-agent` | https://github.com/mastra-ai/template-browsing-agent | `fe841f7d12b8` | Browser fallback for JS-only/unstructured sites | **REFERENCE / ADAPT LATER** |
-| `/home/sk/github-repos/mastra/template-agent-harness` | https://github.com/mastra-ai/template-agent-harness | `3f10a93da682` | Tasks, approvals, workspace, schedules, long-running agent patterns | **MODEL / ADVANCED** |
-| `/home/sk/github-repos/mastra/workshops` | https://github.com/mastra-ai/workshops | `734b8c167037` | Official learning/pattern library for unfamiliar Mastra features | **REFERENCE** |
-| `/home/sk/github-repos/mastra/ui-dojo` | https://github.com/mastra-ai/ui-dojo | `7f9893734b59` | Mastra UI / CopilotKit / HITL experiments | **REFERENCE** |
-| `/home/sk/github-repos/mastra/mastra-auth-examples` | https://github.com/mastra-ai/mastra-auth-examples | `72b9db6351a7` | Auth integration patterns | **REFERENCE / ADAPT ONLY IF CURRENT** |
-| `/home/sk/github-repos/mastra/mastra-observational-memory-workshop` | https://github.com/mastra-ai/mastra-observational-memory-workshop | `25bff24b385b` | Observational memory research | **ADVANCED / REFERENCE** |
-| `/home/sk/github-repos/mastra/mastra-smoke` | https://github.com/mastra-ai/mastra-smoke | `25c3c647481d` | Framework smoke/testing examples | **REFERENCE** |
-| `/home/sk/github-repos/mastra/template-text-to-sql` | https://github.com/mastra-ai/template-text-to-sql | `15e66ee04ed8` | Analytics research only; do not add text-to-SQL without a proven need | **REFERENCE / DEFER** |
-| `/home/sk/github-repos/community/mastra-supabase-starter` | https://github.com/thedistance/mastra-supabase-starter | `7d33a505055f` | Community Supabase/Mastra test/auth ideas | **REFERENCE ONLY** |
-| `/home/sk/github-repos/community/mastra-base` | https://github.com/hamchowderr/mastra-base | `a065cea10599` | Community Mastra starter ideas | **REFERENCE ONLY** |
-| `/home/sk/github-repos/community/saas-starter-ai` | https://github.com/jorgepedraza88/saas-starter-ai | `d492f6eb2995` | Community SaaS/AI patterns | **REFERENCE ONLY** |
+| `<LOCAL_REPOS_ROOT>/copilotkit/CopilotKit` | [CopilotKit/CopilotKit](https://github.com/CopilotKit/CopilotKit) | `5ffe92689c33` | Primary current CopilotKit source: Mastra integration, GenUI, canvas, MCP, CRM, A2A and shared-state examples | **ADAPT / REFERENCE** |
+| `<LOCAL_REPOS_ROOT>/copilotkit/OpenBot` | [CopilotKit/OpenBot](https://github.com/CopilotKit/OpenBot) | `82e10c5525a8` | Governed agents, browser/files/tools, action approval and audit patterns | **MODEL / REFERENCE** |
+| `<LOCAL_REPOS_ROOT>/copilotkit/harness-sdk` | [CopilotKit/harness-sdk](https://github.com/CopilotKit/harness-sdk) | `1fd743a7fe7c` | Strands agent harness SDK patterns: hooks, guardrails, MCP, tracing, multi-agent | **REFERENCE ONLY — VERIFY UPSTREAM** |
+| `<LOCAL_REPOS_ROOT>/copilotkit/open-research-ANA` | [CopilotKit/open-research-ANA](https://github.com/CopilotKit/open-research-ANA) | `39d0cd772b99` | Research canvas + HITL concepts; latest implementation is consolidated into CopilotKit monorepo | **HISTORICAL / MODEL** |
+| `<LOCAL_REPOS_ROOT>/copilotkit/aimock` | [CopilotKit/aimock](https://github.com/CopilotKit/aimock) | `a8773ddd6bdc` | Deterministic mocks for LLM, MCP, A2A, AG-UI, vector DB and search tests | **ADAPT FOR TESTING** |
+| `<LOCAL_REPOS_ROOT>/copilotkit/agents-everywhere-starter-kit` | [CopilotKit/agents-everywhere-starter-kit](https://github.com/CopilotKit/agents-everywhere-starter-kit) | `5c8bf4c810bc` | Cross-surface agent starter/demo ideas | **REFERENCE / SKIP FOR CORE MVP** |
+| `<LOCAL_REPOS_ROOT>/copilotkit/atomic-crm` | [CopilotKit/atomic-crm](https://github.com/CopilotKit/atomic-crm) | `c4c889c7dcb8` | CRM contacts/tasks/deals/activity + Supabase + CopilotKit runtime/MCP patterns | **MODEL / ADAPT FOR CRM** |
+| `<LOCAL_REPOS_ROOT>/copilotkit/open-mcp-client` | [CopilotKit/open-mcp-client](https://github.com/CopilotKit/open-mcp-client) | `c8ea97b205ac` | MCP Apps/client integration and rendering patterns | **ADAPT / REFERENCE** |
+| `<LOCAL_REPOS_ROOT>/copilotkit/generative-ui` | [CopilotKit/generative-ui](https://github.com/CopilotKit/generative-ui) | `12aa81e3deeb` | Historical GenUI reference; prefer current monorepo examples where available | **REFERENCE** |
+| `<LOCAL_REPOS_ROOT>/mastra/mastra` | [mastra-ai/mastra](https://github.com/mastra-ai/mastra) | `25d768317009` | Mastra framework source, tests, APIs, workflows, agents, storage | **REFERENCE / VERIFY AGAINST INSTALLED VERSION** |
+| `<LOCAL_REPOS_ROOT>/mastra/template-deep-search` | [mastra-ai/template-deep-search](https://github.com/mastra-ai/template-deep-search) | `c2c8fa478d5a` | Brand/market research decomposition, evidence, gap checking | **ADAPT** |
+| `<LOCAL_REPOS_ROOT>/mastra/template-company-knowledge` | [mastra-ai/template-company-knowledge](https://github.com/mastra-ai/template-company-knowledge) | `6fc6a774ae13` | Approved Brand knowledge retrieval / RAG patterns | **ADAPT LATER** |
+| `<LOCAL_REPOS_ROOT>/mastra/template-browsing-agent` | [mastra-ai/template-browsing-agent](https://github.com/mastra-ai/template-browsing-agent) | `fe841f7d12b8` | Browser fallback for JS-only/unstructured sites | **REFERENCE / ADAPT LATER** |
+| `<LOCAL_REPOS_ROOT>/mastra/template-agent-harness` | [mastra-ai/template-agent-harness](https://github.com/mastra-ai/template-agent-harness) | `3f10a93da682` | Tasks, approvals, workspace, schedules, long-running agent patterns | **MODEL / ADVANCED** |
+| `<LOCAL_REPOS_ROOT>/mastra/workshops` | [mastra-ai/workshops](https://github.com/mastra-ai/workshops) | `734b8c167037` | Official learning/pattern library for unfamiliar Mastra features | **REFERENCE** |
+| `<LOCAL_REPOS_ROOT>/mastra/ui-dojo` | [mastra-ai/ui-dojo](https://github.com/mastra-ai/ui-dojo) | `7f9893734b59` | Mastra UI / CopilotKit / HITL experiments | **REFERENCE** |
+| `<LOCAL_REPOS_ROOT>/mastra/mastra-auth-examples` | [mastra-ai/mastra-auth-examples](https://github.com/mastra-ai/mastra-auth-examples) | `72b9db6351a7` | Auth integration patterns | **REFERENCE / ADAPT ONLY IF CURRENT** |
+| `<LOCAL_REPOS_ROOT>/mastra/mastra-observational-memory-workshop` | [mastra-ai/mastra-observational-memory-workshop](https://github.com/mastra-ai/mastra-observational-memory-workshop) | `25bff24b385b` | Observational memory research | **ADVANCED / REFERENCE** |
+| `<LOCAL_REPOS_ROOT>/mastra/mastra-smoke` | [mastra-ai/mastra-smoke](https://github.com/mastra-ai/mastra-smoke) | `25c3c647481d` | Framework smoke/testing examples | **REFERENCE** |
+| `<LOCAL_REPOS_ROOT>/mastra/template-text-to-sql` | [mastra-ai/template-text-to-sql](https://github.com/mastra-ai/template-text-to-sql) | `15e66ee04ed8` | Analytics research only; do not add text-to-SQL without a proven need | **REFERENCE / DEFER** |
+| `<LOCAL_REPOS_ROOT>/community/mastra-supabase-starter` | [thedistance/mastra-supabase-starter](https://github.com/thedistance/mastra-supabase-starter) | `7d33a505055f` | Community Supabase/Mastra test/auth ideas | **REFERENCE ONLY** |
+| `<LOCAL_REPOS_ROOT>/community/mastra-base` | [hamchowderr/mastra-base](https://github.com/hamchowderr/mastra-base) | `a065cea10599` | Community Mastra starter ideas | **REFERENCE ONLY** |
+| `<LOCAL_REPOS_ROOT>/community/saas-starter-ai` | [jorgepedraza88/saas-starter-ai](https://github.com/jorgepedraza88/saas-starter-ai) | `d492f6eb2995` | Community SaaS/AI patterns | **REFERENCE ONLY** |
 
 ### Additional CopilotKit repos — do we need local clones?
 
 | Repo | Decision | Why |
 | --- | --- | --- |
-| https://github.com/CopilotKit/open-multi-agent-canvas | **REFERENCE, DO NOT CLONE YET** | Useful multi-agent/MCP UI, but current `CopilotKit` monorepo already contains the active `multi-agent-canvas` example. Core/MVP does not need another standalone copy. |
-| https://github.com/CopilotKit/pathfinder | **REFERENCE ONLY** | Useful self-hosted docs/code search MCP ideas, but not required for current product journeys. |
-| https://github.com/CopilotKit/outpost | **DEFER** | Customer-support operations product; potentially useful for Operations later, not a current Core/MVP dependency. |
+| [CopilotKit/open-multi-agent-canvas](https://github.com/CopilotKit/open-multi-agent-canvas) | **REFERENCE, DO NOT CLONE YET** | Useful multi-agent/MCP UI, but current `CopilotKit` monorepo already contains the active `multi-agent-canvas` example. Core/MVP does not need another standalone copy. |
+| [CopilotKit/pathfinder](https://github.com/CopilotKit/pathfinder) | **REFERENCE ONLY** | Useful self-hosted docs/code search MCP ideas, but not required for current product journeys. |
+| [CopilotKit/outpost](https://github.com/CopilotKit/outpost) | **DEFER** | Customer-support operations product; potentially useful for Operations later, not a current Core/MVP dependency. |
 
 **Clone rule:** a local clone means "available to inspect," **not** "approved to copy." Before COPY/ADAPT, verify the exact source path, commit/tag, license, dependency versions, auth/tenancy assumptions, and tests. Prefer the current CopilotKit monorepo and official Mastra repos/templates over older standalone or community starters.
 ## 7. Docs still to create
@@ -255,7 +251,7 @@ Possible task names are examples, not approved work:
 
 Use dependency order, but keep platform and product work separate:
 
-1. **Platform proof** — IPI-1292 / IPI-1117 only where required for distributed run lifecycle.
+1. **Platform proof** — [IPI-1292 · RUNNER-SPIKE-001 — Spike 3 candidate architectures for cross-instance Copilot run ownership](https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross) / [IPI-1117 · Fix Copilot runs across Vercel instance changes](https://linear.app/amo100/issue/IPI-1117/ipi-1117-fix-copilot-runs-across-vercel-instances) only where required for distributed run lifecycle.
 2. **Brands** — approved Brand context becomes the upstream source for product planning.
 3. **Shoots** — plan, shot list, approvals, booking/production orchestration.
 4. **Talent** — availability, matching, shortlist, booking.
@@ -302,7 +298,7 @@ A new chat should begin here:
 4. Inspect the current worktree and `origin/main` before trusting old research notes.
 5. For the next domain, audit current iPix code first, then verify reference repos, then write the domain doc.
 6. Use the reuse-first/MVP guardrail; custom architecture is the last option.
-7. Keep IPI-1292/IPI-1117 platform work separate from product-domain planning.
+7. Keep the [Runner Spike](https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross) and [cross-instance runner fix](https://linear.app/amo100/issue/IPI-1117/ipi-1117-fix-copilot-runs-across-vercel-instances) separate from product-domain planning.
 
 ### Current documentation branch history
 

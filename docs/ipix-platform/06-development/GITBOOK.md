@@ -15,25 +15,30 @@ Claude / ChatGPT / Codex = documentation assistants
 
 ## Recommended GitHub structure
 
-Keep the canonical product files at the top of `docs/`:
+GitBook publishes only the curated `docs/ipix-platform/` subtree:
 
 ```text
-docs/
+docs/ipix-platform/
 ├── README.md
-├── prd.md
-├── sitemap.md
-├── roadmap.md
-├── index-docs.md
-├── gitbook.md
-├── architecture/
-├── adr/
-├── cloudinary/
-├── copilotkit-mastra/
-├── data/
-├── supabase/
-├── testing/
-├── reference/
-└── archive/
+├── SUMMARY.md
+├── PRD.md
+├── ROADMAP.md
+├── SITEMAP.md
+├── BEST-PRACTICES.md
+├── architecture-decisions/
+├── 00-platform/
+├── 01-copilotkit/
+├── 02-mastra/
+├── 04-cloudinary/
+├── 06-development/
+├── 09-onboarding/
+├── 10-brands/
+├── 30-shoots/
+├── 40-assets/
+├── 50-crm/
+├── 60-operations/
+├── 70-analytics/
+└── 80-plans/
 ```
 
 ## Organization rules
@@ -49,12 +54,12 @@ docs/
 
 ## iPix GitBook structure
 
-For the Free plan, use **one GitBook space** synced to `./docs`.
+Use **one GitBook space** synced to the curated `./docs/ipix-platform` directory unless a proven need requires another space.
 
 ```text
 iPix Docs
 └── iPix Documentation
-    └── content.directory: ./docs
+    └── content.directory: ./docs/ipix-platform
 ```
 
 Do not recreate separate GitBook spaces for Mastra, Supabase, Product Docs, Changelog, etc. unless there is a proven need. The repository folder hierarchy should do most of the organization.
@@ -72,12 +77,12 @@ site:
   title: iPix Docs
   structure:
     - type: space
-      key: space-ipix-docs
-      title: iPix Documentation
+      key: ipix-platform
+      title: iPix Platform Docs
       path: docs
       default: true
       content:
-        directory: ./docs
+        directory: ./docs/ipix-platform
 ```
 
 ## Development workflow
@@ -165,7 +170,7 @@ Before merging a docs change:
 ```bash
 npm run docs:check --if-present
 git diff --check
-git diff -- docs/
+git diff -- docs/ipix-platform/
 ```
 
 Then verify after merge:
@@ -178,17 +183,17 @@ Then verify after merge:
 
 ## Official references
 
-- Documentation structure best practices: https://gitbook.com/docs/guides/docs-best-practices/documentation-structure-tips
-- Publishing docs in GitBook: https://gitbook.com/docs/guides/editing-and-publishing-documentation/complete-guide-to-publishing-docs-gitbook
-- GitBook CLI: https://gitbook.com/docs/docs-as-code/gitbook-cli
-- Git Sync overview: https://www.gitbook.com/features/git-sync
+- [GitBook documentation structure best practices](https://gitbook.com/docs/guides/docs-best-practices/documentation-structure-tips)
+- [GitBook complete guide to publishing documentation](https://gitbook.com/docs/guides/editing-and-publishing-documentation/complete-guide-to-publishing-docs-gitbook)
+- [GitBook CLI documentation](https://gitbook.com/docs/docs-as-code/gitbook-cli)
+- [GitBook Git Sync overview](https://www.gitbook.com/features/git-sync)
 
 ## iPix decision
 
 Use GitBook as the publishing and retrieval layer, not as a second source of truth.
 
 ```text
-GitHub docs/ → review → merge → Git Sync → GitBook
+GitHub docs/ipix-platform/ → review → merge → Git Sync → GitBook
 ```
 
 This keeps the documentation cheap, reviewable, AI-friendly, and aligned with the actual iPix codebase.

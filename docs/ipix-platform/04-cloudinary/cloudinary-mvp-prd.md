@@ -52,7 +52,7 @@ Reuse: `CldUploadWidget`, named `t_asset-*`, `image_specs` / `platforms` (not de
 - Analyze API / AI Vision on the **critical path** (optional enrichment only)
 - Cloudinary Search as library SoT
 - CopilotKit replacing the gallery
-- Planner HITL (**IPI-1084 · APPROVAL-001**) as asset approval — assets are **IPI-1119**
+- Planner shoot-plan approval as asset approval — media uses its own exact-version human approval workflow
 - Gemini for dimensions/format/version
 
 ---
@@ -129,7 +129,7 @@ Routes match the hub (`/app/...`). If the live sitemap uses a different group, *
 | 9 | QA | Channel readiness | `image_specs` + bytes/w/h | quality/format from upload payload | scoring UI | M3 | Ready | warn ≠ block unless policy | **IPI-1138** |
 | 10 | Brand DNA | Alignment advice | Brand Brain | optional Analyze later | Mastra tool read-only | M3 | Brand Core + Ready | DNA fail still human | **IPI-1136** |
 | 11 | Approval | Lock version | `asset` approval fields or events | none | HITL | M3 | QA/DNA optional complete | wrong version | **IPI-1119** |
-| 12 | Approved delivery | Named print | server URL | **eager** `t_*` + signed authenticated | check approval **and** derived exists | M3 | 1119 | unapproved or missing derived 403 | **IPI-1120** |
+| 12 | Approved delivery | Named print | server URL | **eager** `t_*` + signed authenticated | check approval **and** derived exists | M3 | 1119 | unapproved or missing derived 403 | **IPI-1120 · MEDIA-DELIVERY-001 — Deliver Only Approved Named-Transform Asset Versions** |
 | 13 | Reconcile | Drift | Admin | 1114 | report UI later | M3 | 1111 | stale row | **IPI-1114** |
 
 QA ∥ DNA: **parallel after Ready**, both HITL. Neither auto-approves.
@@ -185,7 +185,7 @@ Ready asset
 → operator review
 ```
 
-Reject uploads over plan max (**10 MB** on current Free) in the widget/sign allowlist with an operator-visible error.
+Reject uploads over the verified account limit (**10 MB images on the connected Free environment, reverified 2026-09-21 via Cloudinary usage limits**) in the widget/sign allowlist with an operator-visible error. Reverify this limit whenever the Cloudinary plan changes; do not assume 10 MB forever.
 
 Manual moderation is already on `ipix-signed-upload`. MVP **stores** status; it does not require Amazon Rekognition.
 
@@ -353,7 +353,7 @@ Right-rail: “Why did QA warn?” / “How does this miss Brand color?” Tools
 | `checkAssetQuality` | `assetId`, optional `platformId` | `AssetQaResult` | org | evidence optional | no |
 | `checkBrandAlignment` | `assetId`, `version`, `brandId` | scores + citations | org + approved brain | evidence optional | no |
 | `prepareMediaApproval` | `assetId`, `version` | review payload | org | no | no |
-| `commitMediaApproval` | `assetId`, `version`, `decision` | audit row | org + role | **yes** | **yes — CopilotKit card, never silent** |
+| `commitMediaApproval` | `assetId`, `version`, `decision` | audit row | authenticated user JWT → server-derived asset/org → editor-or-owner role → authenticated-only `decide_asset_version` SECURITY DEFINER RPC (`search_path = ''`); anon, service-role, viewer, and cross-org fail closed | **yes** | **yes — CopilotKit card, never silent** |
 
 Do **not** ship `findAssets` in MVP (Advanced / **MEDIA-AGENT-001**).
 
@@ -455,7 +455,7 @@ CopilotKit review surface. Mastra tools. Brand Brain. Postiz **out of MVP** (pub
 
 ## 30. Implementation Notes
 
-COPY+CLEAN widget from official example; bind AUTH org + shoot_id into signed params (folder/context) **and** Supabase attach. Never implement from `/home/sk/ipix`.
+COPY+CLEAN widget from official example; bind AUTH org + v2_shoot_id into signed params (folder/context) **and** Supabase attach. Never implement from `an unverified local checkout`.
 
 Do not copy example’s post-upload public `CldImage` for DAM.
 

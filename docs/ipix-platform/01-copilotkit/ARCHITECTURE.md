@@ -20,9 +20,10 @@ Document where CopilotKit sits in iPix and the boundary between the browser, Nex
 
 ## Primary source material
 
-- `../80-plans/prd-ipix-agent-platform.md`
-- `../80-plans/iPix Agent Platform — Migration Plan.md`
-- `../80-plans/iPix Agent Platform — Roadmap.md`
-- `../_temp-pr241/PRD.md`
+- Current iPix runtime code, tests, installed package source/types, and lockfile versions.
+- [iPix platform documentation index](../README.md).
+- [Documentation standards](../00-platform/DOC-STANDARDS.md).
+- [IPI-1293 · AGENT-PLATFORM-001 — Rebuild forward from proven CopilotKit + Mastra architecture](https://linear.app/amo100/issue/IPI-1293/ipix-agent-platform-agent-platform-001-rebuild-forward-from-proven).
+- [IPI-1117 · Fix Copilot runs across Vercel instance changes](https://linear.app/amo100/issue/IPI-1117/ipi-1117-fix-copilot-runs-across-vercel-instances) for distributed-run evidence where relevant.
 
 Do not copy stale architecture claims without re-verifying current code and installed package versions.

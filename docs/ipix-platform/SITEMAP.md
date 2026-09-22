@@ -200,7 +200,7 @@ Status = V2 intent, not HTML completeness.
 | MVP | `/app/crm/pipeline[/id]` | Pipeline / deal | SCR-30, 31 |
 | MVP | `/app/inbox` | Notifications | SCR-15 |
 | MVP | `/app/settings` | Org/profile | — |
-| Post-MVP | `/app/analytics` · `/campaigns` | Analytics (honest empty paid KPIs) | SCR-16, 17 |
+| Post-MVP | `/app/analytics` · `/app/campaigns` | Analytics (honest empty paid KPIs) | SCR-16, 17 |
 | Post-MVP | `/app/plans/*` | Production DAG workspace | SCR-32–35 |
 | Post-MVP | `/app/talent/*` | Talent self-serve | SCR-24 |
 | Post-MVP | `/app/operations` | Operations | — |
@@ -213,7 +213,7 @@ Status = V2 intent, not HTML completeness.
 
 **Core:** authenticated user lands on `/app`. The Production Copilot is part of the `/app` shell, not a separate destination.
 
-**Current desktop rail:** Dashboard · Brands · Shoots · Assets · CRM · Talent · Operations · Analytics · Plans. Settings remains outside the primary rail until its dedicated task is delivered.
+**Current desktop rail (implemented shell):** Dashboard · Brands · Shoots · Assets · CRM · Talent · Operations · Analytics · Plans. Some rail destinations are intentionally placeholder or Post-MVP surfaces; appearing in the rail does **not** mean the product phase is complete. `src/components/operator-panel/nav.ts` owns the current shell navigation. Settings remains outside the primary rail until its dedicated task is delivered.
 
 **V2 chrome:** Nav │ Workspace │ Production Copilot. Intelligence is a capability inside the Production Copilot/context panel, not a separate chat mode.
 

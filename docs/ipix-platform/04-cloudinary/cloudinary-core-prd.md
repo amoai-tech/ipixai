@@ -44,8 +44,8 @@ The old lab still receives Cloudinary mail. The new studio has a ledger (`assets
 
 ## 3. Goals
 
-1. Prove Cloudinary tooling against the **existing** product environment (cloud public name `dzqy2ixl0` — reuse; do not mint a second cloud).
-2. Install `cloudinary` + `next-cloudinary` only if missing (they are missing today — **[VERIFIED]** `package.json`).
+1. Prove Cloudinary tooling against the **existing** product environment (cloud public name `ipix-cloudinary` — reuse; do not mint a second cloud).
+2. Reuse the installed `cloudinary` Node SDK; add `next-cloudinary` only when the widget/UI task actually needs it (`next-cloudinary` is not installed at the verified branch baseline).
 3. Public/provider-safe image rendering for M2 screens.
 4. Server-only signing using `api_sign_request`.
 5. Preview webhook: raw body → `verifyNotificationSignature` → persist → **200**; DB fail **503**.
@@ -57,12 +57,12 @@ The old lab still receives Cloudinary mail. The new studio has a ledger (`assets
 
 ## 4. Non-goals
 
-- Upload Widget UI (**IPI-1116 · CLD-UPLOAD-001**).
+- Upload Widget UI (**IPI-1116 · CLD-UPLOAD-001 — Upload Assets with the Official Signed Cloudinary Widget**).
 - Brand DNA / QA / human approval product UI.
 - Visual search, Media Library Widget, video player, MediaFlows.
 - Analyze API / AI Vision / auto-tagging on the Core path.
 - EdDSA `X-Cld-Signature_v2` as the Core verifier (observe header; HMAC via SDK).
-- Production notification cutover (**IPI-1115 · CLD-CUTOVER-001**).
+- Production notification cutover (**IPI-1115 · CLD-CUTOVER-001 — Cut Production Cloudinary Notifications Over Safely**).
 - `create-cloudinary-next` over this repo.
 - Cloudinary Search as the business library database.
 - Mutating production Supabase or production Cloudinary triggers.
@@ -86,7 +86,7 @@ The old lab still receives Cloudinary mail. The new studio has a ledger (`assets
 | --- | --- |
 | Signed-in Org A can cause a disposable authenticated upload (API or widget-less E2E) | **IPI-1113 · CLD-E2E-001** |
 | Preview URL never ships `CLOUDINARY_API_SECRET` | grep + build |
-| Org B cannot fetch Org A’s signed preview | **IPI-1112 · CLD-DELIVERY-001** |
+| Org B cannot fetch Org A’s signed preview | **IPI-1112 · CLD-DELIVERY-001 — Serve Org-Safe Cloudinary Previews with Named Transforms** |
 | Production photographers keep using `www.ipix.co` | MCP `list-triggers` unchanged |
 
 ---
@@ -95,19 +95,19 @@ The old lab still receives Cloudinary mail. The new studio has a ledger (`assets
 
 | Claim | Evidence 2026-09-02 | Label |
 | --- | --- | --- |
-| Vercel + App Router | `package.json` `next@16.1.2` | **VERIFIED** |
-| Cloudinary packages | **not** on `origin/main`; [PR #40](https://github.com/amoai-tech/ipixai/pull/40) has `cloudinary@2.11.0` + `next-cloudinary@6.18.8` + `server-only` | **STALE if you only look at main** |
+| Next.js App Router | Current branch package/runtime | **REVERIFY ON MERGE** |
+| Cloudinary packages | `cloudinary@^2.11.0` is installed; `next-cloudinary` is not installed | **VERIFIED on PR #245 branch, 2026-09-21** |
 | `.env.example` Cloudinary names | Present on this docs branch / PR #40 (`CLOUDINARY_*` + `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`) | **VERIFIED** |
 | Auth foundation Done | Linear **IPI-1037 / 1046** | **VERIFIED** |
 | Hosted tables exist | Supabase `fashionos` read-only: `public.assets`, `cloudinary_assets`, `asset_events`, `asset_variants`, `asset_links`; `shoot.shoot_assets` (0 rows) | **VERIFIED** |
 | Dual shoot namespaces | `public.shoots` (8) and `shoot.shoots` (4) | **VERIFIED** — **IPI-1122** |
 | Upload preset `ipix-signed-upload` | signed, `type=authenticated`, eager thumbs, `notification_url` → `www.ipix.co` | **VERIFIED** MCP |
 | Named transforms | `t_asset-review`, `t_asset-masonry`, `t_asset-detail` **used** | **VERIFIED** MCP — **1112 must eager them** |
-| Free plan ceilings | Hub §2.2: 10 MB image / 100 MB video / 25 credits; Admin hourly 500 on public Free table | **VERIFIED in hub** — recheck Console on **1108** |
+| Free plan ceilings | Connected Free environment: 10 MB image / 100 MB video / 10 MB raw; 25-credit plan limit | **VERIFIED 2026-09-21 via live Cloudinary usage limits** — reverify when the plan changes |
 | Production triggers | upload + delete → `www.ipix.co`, `auth_scheme=legacy_hmac`, `additive=true`; moderation + summary `default` | **VERIFIED** MCP |
-| This repo webhook | none | **VERIFIED** (no route) |
+| Signing/webhook routes | `src/app/api/cloudinary/sign/route.ts` and `src/app/api/cloudinary/webhook/route.ts` exist | **VERIFIED on PR #245 branch, 2026-09-21** |
 | IPI-1108 | Linear **Done**; GitHub **not** on `main` — see [historical corrected audit](https://github.com/amoai-tech/ipixai/blob/main/docs/archive/cloudinary/audit-2026-09-02.md) | **FAKE-DONE RISK** |
-| IPI-1110 / 1111 / 1112 | Linear **Todo** | **VERIFIED** |
+| Cloudinary signing/webhook/delivery tasks | See live Linear status for IPI-1110, IPI-1111, and IPI-1112; do not duplicate volatile status here | **LIVE STATUS IN LINEAR** |
 
 ---
 
@@ -159,9 +159,9 @@ Widget components wait for MVP. Do not put secrets in `src/app` client component
 | Public rendering | Marketing / provider art | Cloudinary public IDs | `CldImage`, `f_auto/q_auto` | none | M2 | 1108 | Broken image, not auth | **IPI-1064** not DAM |
 | Media data audit | Prove RLS | Supabase | — | Grants/FK if 1109 fails | M3 data | 1040 | Stop; no new DAM | **IPI-1109** |
 | Harden grants | Canonical `shoot.shoots` links | Supabase | — | Forward migration only | M3 | 1040, 1109 | Dual-write confusion | **IPI-1122** |
-| Signed upload | Browser never holds secret | Next server | `api_sign_request` | Org + folder/context params | M3 pipe | 1108 | 401 stale timestamp | **IPI-1110** |
-| Webhook mirror | Ledger Ready | Supabase mirror | HMAC notify | Idempotency + 503 | M3 pipe | 1108, 1109 | Retry storm if false 200 | **IPI-1111** |
-| Private preview | Org-safe thumbs | Next + RLS | **eager** `t_asset-*` or preset `c_limit` + signed URL | AuthZ before sign; no on-the-fly authenticated transform | M3 pipe | 1108, 1109 | 404 if derived missing | **IPI-1112** |
+| Signed upload | Browser never holds secret | Next server | `api_sign_request` | Org + folder/context params | M3 pipe | 1108 | 401 stale timestamp | **IPI-1110 · CLD-SIGN-001 — Sign Cloudinary Uploads for the Trusted Organization** |
+| Webhook mirror | Ledger Ready | Supabase mirror | HMAC notify | Idempotency + 503 | M3 pipe | 1108, 1109 | Retry storm if false 200 | **IPI-1111 · CLD-WEBHOOK-001 — Mirror Cloudinary Uploads and Deletes into Supabase** |
+| Private preview | Org-safe thumbs | Next + RLS | **eager** `t_asset-*` or preset `c_limit` + signed URL | AuthZ before sign; no on-the-fly authenticated transform | M3 pipe | 1108, 1109 | 404 if derived missing | **IPI-1112 · CLD-DELIVERY-001 — Serve Org-Safe Cloudinary Previews with Named Transforms** |
 | E2E | Disposable Ready | both | upload + destroy | Fixture cleanup | M3 | 1110–1112 | Leave trash | **IPI-1113** |
 | Reconcile | Drift report | Admin/list | asset-management-js or Admin | Read-only | M3 | 1111 | False positives | **IPI-1114** |
 
@@ -420,7 +420,7 @@ Observe `X-Cld-Signature_v2` on `default` scheme (moderation triggers). Core ver
 | [AI Power Start](https://cloudinary.com/documentation/ai_powerstart) | Stack detect + SDK install | **IPI-1108** | Custom onboarding | Confirmation pauses |
 | [cloudinary_npm](https://github.com/cloudinary/cloudinary_npm) | `api_sign_request`, `verifyNotificationSignature`, signed URLs | 1110–1112 | Hand-rolled HMAC | HMAC not EdDSA |
 | [next-cloudinary](https://github.com/cloudinary-community/next-cloudinary) | `CldImage`, later widget | Public images now | Extra React SDK | `CldImage` ≠ DAM ACL |
-| [control_access_to_media](https://cloudinary.com/documentation/control_access_to_media) | Authenticated = eager + signed | On-the-fly DAM | Missing derived 404 |
+| [control_access_to_media](https://cloudinary.com/documentation/control_access_to_media) | Authenticated = eager + signed | On-the-fly DAM | Missing derived 404 | Authenticated delivery requires authorized signed access and available derived assets |
 | [notifications](https://cloudinary.com/documentation/notifications) | Retry 3/6/9, `auth_scheme` | Webhook contract | Custom retry bus | Additive vs global URL |
 
 Per-ticket cap is **five** URLs. Eager docs: [eager and incoming](https://cloudinary.com/documentation/eager_and_incoming_transformations). Sign-route shape: [cloudinary-examples](https://github.com/cloudinary-community/cloudinary-examples) `nextjs-clduploadwidget-signed` — do **not** copy post-upload public `CldImage` for DAM.
@@ -431,7 +431,7 @@ Cap **five** URLs per implementation ticket.
 
 ## 30. Implementation Notes
 
-Faster path used: **Dashboard/MCP already have preset + named transforms + HMAC triggers** — do not recreate them. Install SDKs in-repo. COPY+CLEAN sign/webhook **shape** from official examples and pinned GitHub — never from local `/home/sk/ipix`.
+Faster path used: **Dashboard/MCP already have preset + named transforms + HMAC triggers** — do not recreate them. Install SDKs in-repo. COPY+CLEAN sign/webhook **shape** from official examples and pinned GitHub — never from local `an unverified local checkout`.
 
 Webhook `notification_url` on presets currently points at production. Preview E2E must use **request-level** `notification_url` (or a preview-only preset) so Core does not retarget production.
 
@@ -474,7 +474,7 @@ Must fail:
 - Dual `public.shoots` vs `shoot.shoots`.
 - Tracker vs Linear status drift.
 - Analyze API Beta/add-on — not Core.
-- Plan quotas **UNVERIFIED** until **IPI-1108** re-reads Console (hub listed Free 10 MB / 25 credits).
+- Plan limits were **reverified 2026-09-21** against the connected Cloudinary Free environment: 10 MB image, 100 MB video, 10 MB raw, 25-credit plan limit. Reverify after any plan/account change.
 - **Authenticated + on-the-fly:** official docs forbid on-the-fly authenticated derivatives — 1112 fails if we only sign a named URL that was never eager-generated.
 
 ---
@@ -523,7 +523,7 @@ Core is **preview-ready plumbing**, not production cutover. Production photograp
 | **IPI-1122 · SB-MEDIA-HARDEN-001** | yes | Dual shoot schemas confirmed live |
 | **IPI-1110 · CLD-SIGN-001** | yes | Linear Todo |
 | **IPI-1111 · CLD-WEBHOOK-001** | yes | Preview URI only |
-| **IPI-1112 · CLD-DELIVERY-001** | yes M3 | Reuse `t_asset-*` **as eager derived + signed URL** |
+| **IPI-1112 · CLD-DELIVERY-001 — Serve Org-Safe Cloudinary Previews with Named Transforms** | yes M3 | Reuse `t_asset-*` **as eager derived + signed URL** |
 | **IPI-1113 · CLD-E2E-001** | yes | After pipe |
 | **IPI-1114 · CLD-RECONCILE-001** | yes | Read-only |
 | **IPI-1115 · CLD-CUTOVER-001** | last | Not Core |

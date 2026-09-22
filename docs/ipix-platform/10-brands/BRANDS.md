@@ -102,7 +102,7 @@ Main implementation:
 | `@supabase/supabase-js` | `2.112.4` |
 | `cloudinary` | `^2.11.0` |
 
-**Rule:** a GitHub example may use newer APIs. We adapt the pattern only after checking it against the versions iPix actually has installed and the IPI-1290 upgrade target.
+**Rule:** a GitHub example may use newer APIs. We adapt the pattern only after checking it against the versions iPix actually has installed and the [IPI-1290 · Safely upgrade CopilotKit to 1.73.0 + Channels 0.10.0](https://linear.app/amo100/issue/IPI-1290/ipi-1290-safely-upgrade-copilotkit-to-1730-channels-0100) upgrade target.
 
 ## 2. Real user journeys
 
@@ -180,21 +180,21 @@ Planner asks: “What does Maaji look and sound like?” Instead of researching 
 
 Each row must answer: **which repo, what we take, what changes for iPix, where it goes, and what the user experiences.**
 
-| Repo / example | Action | What we take | iPix target | Real iPix example |
-| --- | --- | --- | --- | --- |
-| Mastra Deep Search — https://github.com/mastra-ai/template-deep-search | **ADAPT** | Break research into smaller questions, gather evidence, detect gaps, evaluate quality | `brand-intelligence.ts` + research tools | Maaji research becomes audience + product + visual style + positioning + competitors instead of one-pass extraction |
-| Mastra Company Knowledge — https://github.com/mastra-ai/template-company-knowledge | **ADAPT** | Approved knowledge index + retrieval-first behavior | Supabase pgvector projection of approved Brand DNA/evidence/assets | Planner asks for Maaji's visual rules weeks later and gets approved context immediately |
-| Mastra Browsing Agent — https://github.com/mastra-ai/template-browsing-agent | **ADAPT LATER** | Browser navigation, observation, action, extraction, session handling | Fallback research tool only | Shopify PDP needs “Load more”; browser fallback extracts the missing details |
-| CopilotKit Generative UI — https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/generative-ui | **ADAPT** | Typed React cards + explicit human decisions | `BrandDNAReviewCard` and future evidence cards | Operator reviews Audience, Voice, Palette, Competitors, Evidence as cards instead of a wall of text |
-| CopilotKit Mastra PM — https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/mastra-pm | **MODEL / ADAPT** | Shared editable agent/human state | Brand → Planner/Shoots handoff | Operator changes “Editorial” to “Ecommerce PDP + 20% Editorial”; Planner immediately uses the new plan |
-| CopilotKit Mastra integration — https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra | **REFERENCE / ADAPT** | Current CopilotKit ↔ Mastra integration pattern | Existing CopilotKit runtime | “Analyze this Brand” uses the same hardened Brand workflow, not a second backend |
-| Mastra core — https://github.com/mastra-ai/mastra | **KEEP / REFERENCE** | Workflow suspend/resume and persisted state | Existing Brand workflow | Crawl can finish after browser closes and still reach review later |
-| Cloudinary — https://cloudinary.com/documentation | **KEEP / ADAPT** | Existing media storage/transforms + approved asset references | BrandContext + current Cloudinary stack | Planner sees actual approved images that demonstrate “bright tropical prints” |
+| Capability | Current iPix | Reference | Full URL | Local path | Version/commit | Action | Reuse | Do not copy | Verification | Product areas |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Research quality | Existing Brand Intelligence workflow | Mastra Deep Search | https://github.com/mastra-ai/template-deep-search | `<LOCAL_REPOS_ROOT>/mastra/template-deep-search` | `c2c8fa478d5a` | ADAPT | Research decomposition + evidence/gap evaluation → `brand-intelligence.ts` | Starter app/provider/storage choices | VERIFIED source pattern; compatibility recheck required | Brands |
+| Approved Brand knowledge retrieval | Supabase Brand records + current Planner handoff | Mastra Company Knowledge | https://github.com/mastra-ai/template-company-knowledge | `<LOCAL_REPOS_ROOT>/mastra/template-company-knowledge` | `6fc6a774ae13` | ADAPT LATER | Approved knowledge projection/retrieval → Supabase pgvector | Neon/connectors or second source of truth | VERIFIED source pattern; product need pending | Brands / Shoots |
+| Browser fallback research | Primary crawler | Mastra Browsing Agent | https://github.com/mastra-ai/template-browsing-agent | `<LOCAL_REPOS_ROOT>/mastra/template-browsing-agent` | `fe841f7d12b8` | ADAPT LATER | Browser fallback only for crawler failures | Browser-first architecture | VERIFIED source pattern; deferred | Brands |
+| Structured Brand review UI | Existing Brand DNA review card | CopilotKit Generative UI | https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/generative-ui | `<LOCAL_REPOS_ROOT>/copilotkit/CopilotKit` | `5ffe92689c33` local reference snapshot | ADAPT | Typed review/evidence cards → Brand DNA review | Arbitrary generated app UI or self-approval | PARTIAL — verify against installed CopilotKit family | Brands |
+| Shared Brand-to-Shoot plan | Approved Brand DNA + Planner | CopilotKit Mastra PM | https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/mastra-pm | `<LOCAL_REPOS_ROOT>/copilotkit/CopilotKit` | `5ffe92689c33` local reference snapshot | MODEL / ADAPT | Human+AI editable shoot plan; Brand DNA stays immutable truth | Project-management product or second Brand store | PARTIAL — verify against installed CopilotKit family | Brands / Shoots |
+| CopilotKit ↔ Mastra integration | Existing CopilotKit runtime + Brand tools | CopilotKit Mastra integration | https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra | `<LOCAL_REPOS_ROOT>/copilotkit/CopilotKit` | `5ffe92689c33` local reference snapshot | REFERENCE / ADAPT | Expose existing hardened Brand workflow through one runtime path | Demo auth/domain assumptions or in-process distributed claims | PARTIAL — verify against installed CopilotKit family | Platform / Brands |
+| Durable Brand workflow | Existing Mastra Brand Intelligence workflow | Mastra core | https://github.com/mastra-ai/mastra | `<LOCAL_REPOS_ROOT>/mastra/mastra` | installed `@mastra/core@1.63.2` | KEEP / REFERENCE | Keep suspend/resume/persisted workflow behavior | Upstream-main APIs not in installed version | VERIFIED current iPix behavior; upstream source is reference | Brands |
+| Brand visual evidence | Existing Cloudinary stack | Cloudinary documentation | https://cloudinary.com/documentation | N/A — vendor docs | current installed Cloudinary SDK/config | KEEP / ADAPT | Reference selected approved assets from Brand context | Second DAM or Cloudinary-owned tenant truth | VERIFIED existing stack; exact asset linkage needs audit | Brands / Assets |
 
 ### 4.1 Mastra Deep Search → better Brand research
 
 **Repo:** https://github.com/mastra-ai/template-deep-search
-**Local clone:** `/home/sk/github-repos/mastra/template-deep-search` @ `c2c8fa478d5a25d3a9e188efe757b670d03d97fb`
+**Local clone:** `<LOCAL_REPOS_ROOT>/mastra/template-deep-search` @ `c2c8fa478d5a25d3a9e188efe757b670d03d97fb`
 
 **What the repo teaches us**
 
@@ -223,7 +223,7 @@ The starter app, its provider setup, storage choices, or blindly using its lates
 ### 4.2 Mastra Company Knowledge → approved Brand memory
 
 **Repo:** https://github.com/mastra-ai/template-company-knowledge
-**Local clone:** `/home/sk/github-repos/mastra/template-company-knowledge` @ `6fc6a774ae13f97095a6e1d2288049c9e9ee1aab`
+**Local clone:** `<LOCAL_REPOS_ROOT>/mastra/template-company-knowledge` @ `6fc6a774ae13f97095a6e1d2288049c9e9ee1aab`
 
 **What the repo teaches us**
 
@@ -248,7 +248,7 @@ Neon-specific infrastructure, unrelated Linear/Notion connectors, or a separate 
 ### 4.3 Mastra Browsing Agent → fallback for difficult websites
 
 **Repo:** https://github.com/mastra-ai/template-browsing-agent
-**Local clone:** `/home/sk/github-repos/mastra/template-browsing-agent` @ `fe841f7d12b82ce4de2eabf8e61d0fae5878ad96`
+**Local clone:** `<LOCAL_REPOS_ROOT>/mastra/template-browsing-agent` @ `fe841f7d12b82ce4de2eabf8e61d0fae5878ad96`
 
 **What we adapt**
 
@@ -269,7 +269,7 @@ A browser-first architecture or mandatory Browserbase usage for every Brand.
 ### 4.4 CopilotKit Generative UI → easier Brand review
 
 **Repo:** https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/generative-ui
-**Local repo:** `/home/sk/github-repos/copilotkit/CopilotKit` @ `5ffe92689c3322ccc90a5137db1c8f1a6ffd79f2`
+**Local repo:** `<LOCAL_REPOS_ROOT>/copilotkit/CopilotKit` @ `5ffe92689c3322ccc90a5137db1c8f1a6ffd79f2`
 
 **What we adapt**
 
@@ -290,7 +290,7 @@ Arbitrary AI-generated application UI or AI self-approval.
 ### 4.5 CopilotKit Mastra PM → shared Brand-to-Shoot plan
 
 **Repo:** https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/mastra-pm
-**Local repo:** `/home/sk/github-repos/copilotkit/CopilotKit` @ `5ffe92689c3322ccc90a5137db1c8f1a6ffd79f2`
+**Local repo:** `<LOCAL_REPOS_ROOT>/copilotkit/CopilotKit` @ `5ffe92689c3322ccc90a5137db1c8f1a6ffd79f2`
 
 **What we adapt**
 
@@ -326,7 +326,7 @@ User types “analyze this Brand.” Chat calls `startBrandAnalysis`; auth, dupl
 
 **What we do not copy**
 
-The demo assumption that one in-process runtime proves distributed production behavior. IPI-1292 remains the platform task for that problem.
+The demo assumption that one in-process runtime proves distributed production behavior. [IPI-1292 · RUNNER-SPIKE-001 — Spike 3 candidate architectures for cross-instance Copilot run ownership](https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross) remains the platform task for that problem.
 
 ### 4.7 Mastra core → keep durable workflow behavior
 
@@ -368,8 +368,8 @@ Brand DNA says “vivid tropical patterns.” Planner can show approved images t
 
 | Priority | Problem | User/business impact | Fix |
 | --- | --- | --- | --- |
-| P0 | Remote execution cannot depend on request-local `AsyncLocalStorage` | Brand tools could lose authenticated user context if execution moves to another process/service | Solve in shared platform architecture through IPI-1292 before remote execution |
-| P0 | Distributed run ownership/stop/reconnect is not a Brands-specific problem | Interactive AI runs can still fail across server instances even though Brand workflow state is durable | Keep IPI-1292 separate; do not rewrite Brand workflow as a workaround |
+| P0 | Remote execution cannot depend on request-local `AsyncLocalStorage` | Brand tools could lose authenticated user context if execution moves to another process/service | Solve in shared platform architecture through [IPI-1292 · RUNNER-SPIKE-001 — Spike 3 candidate architectures for cross-instance Copilot run ownership](https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross) before remote execution |
+| P0 | Distributed run ownership/stop/reconnect is not a Brands-specific problem | Interactive AI runs can still fail across server instances even though Brand workflow state is durable | Keep [IPI-1292 · RUNNER-SPIKE-001 — Spike 3 candidate architectures for cross-instance Copilot run ownership](https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross) separate; do not rewrite Brand workflow as a workaround |
 | P1 | Approved research is not yet reusable knowledge | Planner/Shoots may pay to research the same Brand again | Add approved Brand knowledge projection using Company Knowledge pattern |
 | P1 | Research orchestration is still relatively one-pass | Brand DNA can miss evidence or weakly supported conclusions | Adapt Deep Search decomposition + gap/evaluation loop |
 | P1 | Planner receives only Brand ID/name | Shoot planning lacks approved audience/style/voice context | Create a small versioned approved `BrandContext` |
@@ -413,7 +413,7 @@ flowchart TD
 3. AI can propose; only a human can approve.
 4. Browser automation is fallback, not default.
 5. Planner/Shoots receive only approved, authorized BrandContext.
-6. Shared runtime/auth/run-ownership problems stay in `00-platform` and IPI-1292.
+6. Shared runtime/auth/run-ownership problems stay in `00-platform` and [IPI-1292 · RUNNER-SPIKE-001 — Spike 3 candidate architectures for cross-instance Copilot run ownership](https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross).
 
 ## 7. Implementation order — what becomes true after each phase
 
@@ -527,8 +527,8 @@ For any Brands migration/RLS/RPC change, run the exact affected Supabase securit
 
 - Production Brands: https://www.ipix.co/app/brands
 - Repository: https://github.com/amoai-tech/ipixai
-- Platform architecture issue: https://linear.app/amo100/issue/IPI-1293/ipix-agent-platform-agent-platform-001-rebuild-forward-from-proven
-- Distributed runner spike: https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross
+- [IPI-1293 · AGENT-PLATFORM-001 — Rebuild forward from proven CopilotKit + Mastra architecture](https://linear.app/amo100/issue/IPI-1293/ipix-agent-platform-agent-platform-001-rebuild-forward-from-proven)
+- [IPI-1292 · RUNNER-SPIKE-001 — Spike 3 candidate architectures for cross-instance Copilot run ownership](https://linear.app/amo100/issue/IPI-1292/ipi-1117-runner-spike-001-spike-3-candidate-architectures-for-cross)
 
 ### CopilotKit
 

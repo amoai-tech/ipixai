@@ -44,8 +44,8 @@ This is the simple ordered task path. Add new tasks using the next number inside
 
 | Task | Status | % Complete | Document / item | Next |
 | ---: | --- | ---: | --- | --- |
-| 1.1 | 🟢 | 100% | `docs/docs-index.md` | Maintain |
-| 1.2 | 🟢 | 100% | `docs/reference-index.md` | Maintain |
+| 1.1 | 🟢 | 100% | `docs/ipix-platform/index-docs.md` | Maintain |
+| 1.2 | 🟢 | 100% | `docs/ipix-platform/reference-index.md` | Maintain |
 | 1.3 | 🟢 | 100% | `docs/ipix-platform/00-platform/DOC-STANDARDS.md` | Maintain |
 | 1.4 | 🔵 | 0% | `docs/ipix-platform/00-platform/IPIX-PLATFORM-ARCHITECTURE.md` | Reconcile current code + platform tasks |
 | 1.5 | 🔵 | 0% | `docs/ipix-platform/00-platform/IPIX-GLOBAL-REUSE-MATRIX.md` | Build from completed domain audits |

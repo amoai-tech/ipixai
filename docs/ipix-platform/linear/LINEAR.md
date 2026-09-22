@@ -173,9 +173,11 @@ Once per cycle:
 
 ## Local linear-cli compatibility note
 
-Installed iPix workstation binary: `linear-cli 0.3.28`.
+**Portability status: LOCAL / NOT A SHARED PRODUCT CONTRACT.** Reverify before relying on this note on another machine.
 
-The upstream v0.3.28 `tpl remote-list` query expected `templates.nodes`, while the current Linear GraphQL API returns `templates` directly as an array. The local binary is patched so remote template listing works.
+Last local verification: 2026-09-21. Installed workstation binary reported `linear-cli 0.3.28`; command behavior below is workstation-specific and not an application dependency.
+
+Historical local patch note (patch provenance is **NOT VERIFIED** in shared repository history): the upstream v0.3.28 `tpl remote-list` query expected `templates.nodes`, while the current Linear GraphQL API returns `templates` directly as an array. The local binary is patched so remote template listing works.
 
 Until the fix ships upstream, do not blindly replace the patched binary with `linear-cli update`. Verify the upstream release first with:
 
@@ -206,7 +208,7 @@ linear-cli whoami
 linear-cli i get IPI-1294 --output json
 linear-cli c current -t IPI
 linear-cli tpl remote-list --type issue
-git diff --check -- docs/reference/linear.md
+git diff --check -- docs/ipix-platform/linear/LINEAR.md
 ```
 
 Expected result: authenticated workspace access, current cycle visible, issue fetch succeeds, and exactly the four approved iPix issue templates are returned.

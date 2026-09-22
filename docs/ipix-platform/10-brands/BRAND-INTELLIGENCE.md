@@ -1,3 +1,3 @@
 # Brand Intelligence
 
-Placeholder for Brand URL → research → draft → review → approved Brand Brain → reuse.
+Placeholder for Brand URL → research → draft → review → approved Brand DNA → reuse.

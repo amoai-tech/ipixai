@@ -10,7 +10,7 @@ checked: 2026-09-02
 
 > **Re-verification rule:** this phase PRD preserves detailed product and implementation requirements from the 2026-09-02 audit. Current code/runtime, installed package versions, live Cloudinary configuration, and Linear status override dated current-state claims.
 
-Parent architecture: [prd.md](./prd.md). Do not mint Linear tickets until **IPI-1120 · MEDIA-DELIVERY-001** is proven and a duplicate search is clean.
+Parent architecture: [prd.md](./prd.md). Do not mint Linear tickets until **IPI-1120 · MEDIA-DELIVERY-001 — Deliver Only Approved Named-Transform Asset Versions** is proven and a duplicate search is clean.
 
 **Plan gates (hub §25):** Visual / Natural Language Search is Assets **Enterprise**. Media Library Widget is Assets/Enterprise with **seat** implications. Analyze API is **Public Beta** + add-ons. Structured metadata: limited on Free; **100 fields** per product environment. Do not hide these in Core/MVP ACs.
 
@@ -89,18 +89,18 @@ Media Library Widget: official React example only — **CLD-MLW-001** later.
 | --- | --- | --- | --- | --- | --- |
 | Structured metadata | season, garment role | Cloudinary SMD | CONFIGURE | after library | **yes if** org stays in Postgres |
 | Visual/semantic search | similar stills | visual search | CONFIGURE | **Enterprise** | **only if** plan paid — else DEFER |
-| `findAssets` | reuse | Postgres + optional Cld | BUILD thin | after 1120 + Brand | **yes** MEDIA-AGENT-001 |
-| Campaign reuse | pick approved | campaign tables | ADAPT | after 1120 | **yes** product; not new DAM |
+| `findAssets` | reuse | Postgres + optional Cld | BUILD thin | after the approved-delivery gate + Brand Core | **yes** MEDIA-AGENT-001 |
+| Campaign reuse | pick approved | campaign tables | ADAPT | after the approved-delivery gate | **yes** product; not new DAM |
 | Media Library Widget | pick existing Cld asset | ML widget | COPY+CLEAN | Enterprise + seats | **maybe** after MVP; must not bypass webhook |
-| Video | motion selects | `CldVideoPlayer` | CONFIGURE | after 1069+1112 | **yes** CLD-VIDEO-001 |
+| Video | motion selects | `CldVideoPlayer` | CONFIGURE | after Assets + org-safe signed-preview foundations | **yes** CLD-VIDEO-001 |
 | AI moderation/tagging | less manual | add-ons | CONFIGURE | optional | **not** critical path |
 | Analyze API | fashion attrs | Analyze **Beta** | optional | add-on | **DEFER** unless fallback |
 | Product-launch-agent | campaign kit | official example | ADAPT patterns | after findAssets | **HITL only** |
 | Generative transforms | fill/replace/remove | URL API | CONFIGURE | Advanced | HITL; never auto-approve |
 | MediaFlows | approve→tag | native | CONFIGURE | named workflow | **or** n8n, not both |
 | Smart collections | Console | DAM | CONFIGURE | ops | Console, not app |
-| Export/manifests | Postiz/ecom pack | named URLs | BUILD manifest | after 1120 | JSON of approved URLs |
-| Bulk | N events | Admin | BUILD | after 1119 | N audit rows |
+| Export/manifests | Postiz/ecom pack | named URLs | BUILD manifest | after the approved-delivery gate | JSON of approved URLs |
+| Bulk | N events | Admin | BUILD | after exact-version media approval | N audit rows |
 | Advanced intelligence | DNA 2.0 | Gemini + optional Cld | ADAPT | after DNA MVP | multimodal only when native insufficient |
 
 ---
@@ -113,12 +113,12 @@ Media Library Widget: official React example only — **CLD-MLW-001** later.
 | AI Vision general/tagging/moderation | add-on | add-on (was Beta historically) | credits | DNA questions | no |
 | Analyze `cld_fashion` | Analyze API | add-on Content Analysis | add-on | garment attributes | no |
 | Quality analysis | mixed | check account | — | QA enrich | no |
-| OCR | add-on | add-on | labels | no |
+| OCR | add-on | add-on | add-on | labels | no |
 | Face / g_auto | core transforms | GA | transform | crop | already in named |
-| Object-aware crop | Content Analysis | add-on | gravity | optional |
-| Background removal | add-on / gen | add-on | ecom | HITL |
+| Object-aware crop | Content Analysis | add-on | add-on | gravity | optional |
+| Background removal | add-on / gen | add-on | add-on | ecom | HITL |
 | Visual search | plan | often Enterprise | plan | find similar | no |
-| Generative fill/replace/remove/restore/recolor | URL | plan/add-on | transform | HITL |
+| Generative fill/replace/remove/restore/recolor | URL | plan/add-on | plan/add-on | transform | HITL |
 | Product photography | examples | — | — | FashionistaAI pattern | no |
 
 **Fallback:** if add-on missing, QA + human + Gemini Brand DNA only.
@@ -254,14 +254,14 @@ Postiz consumes **manifest of approved named URLs**. PostHog = product events. C
 | Repo | Active | Solves | iPix | Reuse | Do not build | Phase |
 | --- | --- | --- | --- | --- | --- | --- |
 | [structured-metadata-mcp](https://github.com/cloudinary/structured-metadata-mcp) | yes 2026-04 | SMD | CLD-META | CONFIGURE | custom meta DB | later |
-| [asset-management-js](https://github.com/cloudinary/asset-management-js) | yes 2026-08 | list/search | reconcile / ops | Search-as-DB | later |
-| [api-schemas](https://github.com/cloudinary/api-schemas) | yes 2026-08 | contracts | types | handmade OpenAPI | later |
-| [mcp-servers](https://github.com/cloudinary/mcp-servers) | yes 2026-07 | env/assets | inspect | custom admin UI | now read-only |
-| [cloudinary-cli](https://github.com/cloudinary/cloudinary-cli) | yes 2026-08 | CLI | named transforms | custom scripts | now |
-| [cloudinary-devs/skills](https://github.com/cloudinary-devs/skills) | yes 2026-08 | agent skills | 1108 | vendored 652k docs | now |
-| product-launch-agent* | yes 2026-08 | agent example | patterns | copy whole agent | later |
-| [analyze_api_reference](https://cloudinary.com/documentation/analyze_api_reference) | docs | fashion model | optional DNA | Core path | later |
-| [cloudinary_ai_vision_addon](https://cloudinary.com/documentation/cloudinary_ai_vision_addon) | add-on | prompts | optional | Core | later |
+| [asset-management-js](https://github.com/cloudinary/asset-management-js) | yes 2026-08 | list/search | reconcile / ops | REFERENCE | Search-as-DB | later |
+| [api-schemas](https://github.com/cloudinary/api-schemas) | yes 2026-08 | contracts | types | REFERENCE | handmade OpenAPI | later |
+| [mcp-servers](https://github.com/cloudinary/mcp-servers) | yes 2026-07 | env/assets | inspect | REFERENCE | custom admin UI | now read-only |
+| [cloudinary-cli](https://github.com/cloudinary/cloudinary-cli) | yes 2026-08 | CLI | named transforms | REFERENCE | custom scripts | now |
+| [cloudinary-devs/skills](https://github.com/cloudinary-devs/skills) | yes 2026-08 | agent skills | 1108 | REFERENCE | vendored 652k docs | now |
+| product-launch-agent* | yes 2026-08 | agent example | patterns | REFERENCE | copy whole agent | later |
+| [analyze_api_reference](https://cloudinary.com/documentation/analyze_api_reference) | docs | fashion model | optional DNA | REFERENCE | Core path | later |
+| [cloudinary_ai_vision_addon](https://cloudinary.com/documentation/cloudinary_ai_vision_addon) | add-on | prompts | optional | REFERENCE | Core | later |
 
 Do not add `cloudinary_js` / `cloudinary-react` to `package.json`.
 
@@ -302,7 +302,7 @@ Classify: Free/Core-safe vs Paid MVP-acceptable vs Optional add-on vs Advanced v
 - [ ] Supabase remains library SoT
 - [ ] findAssets org-scoped, read-only
 - [ ] Add-on missing → graceful fallback
-- [ ] No new Linear mint until 1120 + dup search
+- [ ] No new Linear mint until [IPI-1120 · MEDIA-DELIVERY-001 — Deliver Only Approved Named-Transform Asset Versions](https://linear.app/amo100/issue/IPI-1120/ipi-1120-media-delivery-001-deliver-only-approved-named-transform) is proven and a duplicate search is clean
 
 ---
 
@@ -320,7 +320,7 @@ Tracker **Add later** rows are correct: **CLD-SEARCH-001**, **CLD-META-001**, **
 
 ## 38. Missing Tasks
 
-None now. After 1120, mint at most **MEDIA-AGENT-001** if Brand Core is Done.
+None now. After [IPI-1120 · MEDIA-DELIVERY-001 — Deliver Only Approved Named-Transform Asset Versions](https://linear.app/amo100/issue/IPI-1120/ipi-1120-media-delivery-001-deliver-only-approved-named-transform), mint at most **MEDIA-AGENT-001** if Brand Core is Done.
 
 ---
 

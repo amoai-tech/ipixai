@@ -36,7 +36,7 @@ Required writing pattern:
 
 Default product-area structure:
 
-`30-second summary → Current State → Plain-English Terms → Real User Journeys → What We KEEP → Repo Reuse Map → Exact Adaptation Details → Problem/Impact/Fix → Simple Architecture → Outcome-based Implementation Phases → Tests/Success → Next 3 Actions → References`
+`30-second summary → Current State → Plain-English Terms → Real User Journeys → What We KEEP → Repo Reuse Map → Exact Adaptation Details → Problem/Impact/Fix → Simple Architecture → Outcome-based Implementation Phases → Tests/Success → Related Linear issues/docs → Next 3 Actions → References`
 
 ## 1.2 Core / MVP guardrails
 
@@ -114,7 +114,7 @@ Use to decide what iPix should keep, copy, adapt, model, reference, or skip.
 | Current iPix | Existing file/module/table/flow |
 | Reference | Repo/example/template name |
 | Full URL | Exact GitHub/docs URL |
-| Local path | Local clone/source path if present |
+| Local path | Portable repo-relative path or `<LOCAL_REPOS_ROOT>/...` if an optional external clone is present |
 | Version/commit | Exact ref used for verification |
 | Action | `KEEP / COPY / ADAPT / MODEL / REFERENCE / SKIP` |
 | Reuse | Exact code/pattern/idea to take |
@@ -136,16 +136,19 @@ Use one main doc per product area initially.
 
 **Required sections:**
 
-- Purpose and route
+- 30-second summary, purpose, and route
 - Current-state summary with evidence
+- Plain-English terms
 - 3–6 primary user journeys
 - Existing capabilities to KEEP
 - Domain reuse matrix
-- Gaps / failure points / blockers
+- Exact adaptation details
+- Gaps / failure points / blockers as Problem → Impact → Fix
 - Recommended architecture and Mermaid when useful
-- Ordered implementation sequence
+- Ordered outcome-based implementation phases
 - Success criteria and tests
 - Related Linear issues/docs
+- Next 3 actions
 - Full reference URLs
 
 ## 7. Implementation plan
