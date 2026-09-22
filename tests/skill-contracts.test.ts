@@ -139,10 +139,13 @@ describe("iPix engineering skill contracts", () => {
     expect(todo).toContain("Linear is the authoritative task/status source");
     expect(todo).toContain("## Current");
     expect(todo).toContain("## Durable sources");
-    expect(todo).toContain("Live verification evidence: PR #258 + IPI-1294");
-    expect(todo).toContain("PR merge gate:");
-    expect(todo).toContain("Remaining IPI-1294 work (not PR merge blockers):");
+    expect(todo).toContain("- State:");
+    expect(todo).toContain("- Last proof:");
+    expect(todo).toContain("- Remaining blocker:");
+    expect(todo).toContain("- Next action:");
+    expect(todo).toContain("IPI-1294");
     expect(todo).not.toContain("Exact head:");
+    expect(todo).not.toContain("PR merge gate:");
     expect(todo).not.toContain("complete the live Linear template + integration settings work, then merge/certify PR #258");
     expect(changelog).toContain("# Changelog");
     expect(changelog).toContain("## [Unreleased]");
@@ -151,7 +154,9 @@ describe("iPix engineering skill contracts", () => {
     expect(changelog).toContain("notable verified");
     expect(changelog).toContain("IPI-1294");
     expect(changelog).toContain("four-template routing");
-    expect(todo).toContain("Live Linear template checkpoints: synchronized");
+    expect(todo).toContain("full canonical external-reference contract");
+    expect(todo).toContain("Live template inventory is exactly four");
+    expect(todo).toContain("Linear Reviews/Diffs does not currently discover `amoai-tech/ipixai`");
     expect(todo).not.toContain("synchronize/retire live Linear template definitions");
   });
 
