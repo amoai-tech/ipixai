@@ -119,6 +119,8 @@ Required checkpoint shape:
 - STOP if: <condition that prevents advancing>
 ```
 
+For the detailed external-source mapping checklist, use [external-reference-mapping.md](external-reference-mapping.md). It supplements this format and does not replace the approved action vocabulary or any field below.
+
 When an external/Lumina source is used, put the **full URL in that exact group** and include:
 
 - **Inspect** — exact symbol/API/pattern to read.
