@@ -96,6 +96,11 @@ async function run<T>(promise: Promise<unknown>): Promise<T> {
   return (await promise) as T;
 }
 
+function normalizedTextField(value?: string) {
+  const normalized = value?.trim();
+  return normalized ? confirmedField(normalized) : needsInputField<string>();
+}
+
 export async function composeShootPlan(input: ComposeShootPlanInput): Promise<ShootPlan> {
   const channels = input.channels;
 
@@ -193,19 +198,18 @@ export async function composeShootPlan(input: ComposeShootPlanInput): Promise<Sh
     ),
   );
 
-  const shootNameValue = input.shootName?.trim();
-  const shootName = shootNameValue ? confirmedField(shootNameValue) : needsInputField<string>();
-  const briefValue = input.brief?.trim();
-  const brief = briefValue ? confirmedField(briefValue) : needsInputField<string>();
-  const objective = input.objective ? confirmedField(input.objective) : needsInputField<string>();
+  const shootName = normalizedTextField(input.shootName);
+  const brief = normalizedTextField(input.brief);
+  const objective = normalizedTextField(input.objective);
   const mediaType = input.mediaType ? confirmedField(input.mediaType) : needsInputField<"photo" | "video" | "both">();
-  const location = input.location ? confirmedField(input.location) : needsInputField<string>();
-  const lighting = input.lighting ? confirmedField(input.lighting) : needsInputField<string>();
-  const setBackground = input.setBackground ? confirmedField(input.setBackground) : needsInputField<string>();
-  const talent = input.talent ? confirmedField(input.talent) : needsInputField<string>();
-  const crew = input.crew ? confirmedField(input.crew) : needsInputField<string>();
-  const studio = input.studio ? confirmedField(input.studio) : needsInputField<string>();
-  const equipment = input.equipment ? confirmedField(input.equipment) : needsInputField<string>();
+  const location = normalizedTextField(input.location);
+  const lighting = normalizedTextField(input.lighting);
+  const setBackground = normalizedTextField(input.setBackground);
+  const talent = normalizedTextField(input.talent);
+  const crew = normalizedTextField(input.crew);
+  const studio = normalizedTextField(input.studio);
+  const equipment = normalizedTextField(input.equipment);
+  const scheduleNotes = input.scheduleNotes?.trim() || undefined;
   // A schedule is only "confirmed" once both dates are known — notes alone
   // (or a single date) is a real partial input, but reporting it as
   // confirmed would let the overall plan claim "complete" while the
@@ -215,10 +219,10 @@ export async function composeShootPlan(input: ComposeShootPlanInput): Promise<Sh
       ? confirmedField({
           startDate: input.scheduleStartDate,
           endDate: input.scheduleEndDate,
-          notes: input.scheduleNotes,
+          notes: scheduleNotes,
         })
       : needsInputField<{ startDate?: string; endDate?: string; notes?: string }>();
-  const campaignContext = input.campaignContext ? confirmedField(input.campaignContext) : needsInputField<string>();
+  const campaignContext = normalizedTextField(input.campaignContext);
 
   const localMissingInputs = ([
     ["shootName", shootName],
