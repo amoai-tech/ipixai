@@ -26,13 +26,44 @@ export const materializeResultSchema = z.object({
 
 export type MaterializeResult = z.infer<typeof materializeResultSchema>;
 
-/** Minimal Phase-1 draft: brand name (required) + website (optional). */
+/** IPI-1260 · ONBOARD-LEAN-001 — semantic V2 onboarding contract. */
+export const onboardingResumeStepSchema = z.enum([
+  "build-type",
+  "brand-details",
+  "channels",
+  "growth-preference",
+  "complete",
+]);
+
+export const onboardingBuildTypeSchema = z.enum(["fashion", "clothing", "access", "beauty", "both"]);
+export const onboardingChannelIdSchema = z.enum([
+  "ig",
+  "fb",
+  "shopify",
+  "web",
+  "tiktok",
+  "etsy",
+  "amazon",
+  "ebay",
+]);
+export const onboardingGrowthPreferenceSchema = z.enum(["social", "paid", "both", "unsure"]);
+
 export const onboardingDraftSchema = z.object({
+  flowVersion: z.literal(2),
+  resumeStep: onboardingResumeStepSchema,
+  buildType: onboardingBuildTypeSchema.nullable(),
   brandName: z.string(),
   websiteUrl: z.string(),
+  channels: z.array(onboardingChannelIdSchema),
+  channelIdentities: z.record(z.string(), z.string()),
+  growthPreference: onboardingGrowthPreferenceSchema.nullable(),
 });
 
 export type OnboardingDraft = z.infer<typeof onboardingDraftSchema>;
+export type OnboardingResumeStep = z.infer<typeof onboardingResumeStepSchema>;
+export type OnboardingBuildType = z.infer<typeof onboardingBuildTypeSchema>;
+export type OnboardingChannelId = z.infer<typeof onboardingChannelIdSchema>;
+export type OnboardingGrowthPreference = z.infer<typeof onboardingGrowthPreferenceSchema>;
 
 /**
  * Branded identifiers so onboarding boundaries never mix a user id, session id,
