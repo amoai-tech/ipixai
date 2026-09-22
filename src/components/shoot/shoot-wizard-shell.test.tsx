@@ -6,6 +6,10 @@ vi.mock("./shoot-wizard-shell.module.css", () => ({
   default: new Proxy({}, { get: (_, key) => String(key) }),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 const mocks = vi.hoisted(() => ({ compose: vi.fn() }));
 
 vi.mock("@/app/app/shoots/new/actions", () => ({
