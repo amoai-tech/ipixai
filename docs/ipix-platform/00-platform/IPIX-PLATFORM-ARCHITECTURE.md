@@ -154,7 +154,7 @@ flowchart LR
 Rules:
 
 - Apply tenant/domain constraints before returning knowledge to an agent.
-- Prefer exact SQL for small/curated tables. Current `shot_type_references_view` deliberately uses no pgvector because the catalog is small and curated.
+- Prefer exact SQL for small/curated tables. Current `shot_type_references_view` is the public, RLS-safe read surface over the curated `shoot.shot_type_references` catalog (`src/lib/shoot/shot-type-references.ts`); it deliberately uses no pgvector because the catalog is small and curated.
 - Add FTS when keyword/text matching improves recall.
 - Add pgvector only when semantic retrieval is measured to improve the journey; the live project already has the `vector` extension available.
 - Derived chunks/embeddings must carry source identifiers, timestamps/version where relevant, and enough provenance to trace back to canonical records.
@@ -209,8 +209,8 @@ Current `mastra-base` reference demonstrates Mastra-native observability, sensit
 ## 11. Deployment and runtime constraints
 
 - The current web/runtime integration is Next.js + CopilotKit with local Mastra agents in the app process.
-- Mastra hosted persistence uses a dedicated Postgres runtime role and guarded connection configuration in `src/mastra/pg-store.ts`; hosted runtime refuses unapproved Postgres identity/TLS configuration.
-- The live project currently has separate `mastra`, `planner`, `shoot`, and `public` schemas; read-only verification found 34, 12, 10, and 85 tables respectively.
+- When the current in-process Mastra runtime is deployed in a hosted environment, its **persistence connection** uses a dedicated Postgres runtime role and guarded configuration in `src/mastra/pg-store.ts`; `IPIX_MASTRA_HOSTED` validates that database connection. This does **not** mean iPix currently runs a separate remote Mastra service.
+- The live project currently has separate `mastra`, `planner`, `shoot`, and `public` schemas; read-only verification on **2026-09-22** found 34, 12, 10, and 85 tables respectively using a `pg_tables` count grouped by `schemaname` for those four schemas.
 - RLS is enabled on verified `mastra.mastra_threads`, `mastra.mastra_messages`, `mastra.mastra_workflow_snapshot`, and `shoot.shoot_plan_approvals`.
 - Remote/cross-instance run ownership is not declared solved here. That work remains behind separate runtime qualification tasks.
 
@@ -219,11 +219,11 @@ Current `mastra-base` reference demonstrates Mastra-native observability, sensit
 | Source | Pinned/version evidence | Exact pattern inspected | Action | iPix adaptation | Do not copy |
 | --- | --- | --- | --- | --- | --- |
 | Current iPix | CopilotKit `1.68.1`, Mastra `1.63.2` | Copilot route, auth hooks, runtime, pg-store, workflows, approval RPCs | **KEEP** | Make this the baseline | Do not replace working contracts from generic starters |
-| CopilotKit monorepo | local HEAD `5ffe92689c33…` | `packages/react-core/src/v2/hooks/use-frontend-tool.tsx`, `use-human-in-the-loop.tsx`, `examples/canvas/mastra/**` | **ADAPT** | Controlled UI tools/HITL/shared state concepts | Do not copy deprecated v1 APIs or treat browser tools as authorization |
-| CopilotKit AIMock | local HEAD `a8773ddd6bdc…` | deterministic model/AG-UI testing patterns | **ADAPT** | Use where it can replace expensive live-model tests | Do not replace final real-runtime certification |
-| `mastra-base` | HEAD `a065cea10599…`, core `^1.36.0` | `src/mastra/index.ts`, agent, memory, AIMock, processors, scorers, eval script | **MODEL / ADAPT** | Structure, evals, deterministic mocks, observability concepts | Do not copy A2A/MCP/DuckDB/auth wholesale |
-| `mastra-supabase-starter` | HEAD `7d33a505055f…`, core `1.54.0` | Supabase auth mapping, PostgresStore, PgVector, ingestion/search tool | **ADAPT** | Trusted runtime identity, same-Postgres vector/search, idempotent ingestion | Do not copy “all authenticated users allowed” as tenant authorization |
-| `saas-starter-ai` | HEAD `d492f6eb2995…`, core `0.20.0` | Next/Supabase server client, simple agent/product shell | **REFERENCE ONLY** | UI/SaaS product-shell ideas | Old Mastra APIs, generic admin/service-role shortcuts |
+| CopilotKit monorepo | local HEAD `5ffe92689c3322ccc90a5137db1c8f1a6ffd79f2` | `packages/react-core/src/v2/hooks/use-frontend-tool.tsx`, `use-human-in-the-loop.tsx`, `examples/canvas/mastra/**` | **ADAPT** | Controlled UI tools/HITL/shared state concepts | Do not copy deprecated v1 APIs or treat browser tools as authorization |
+| CopilotKit AIMock | local HEAD `a8773ddd6bdc9c9361c2b32bd16a5288cf5a8536` | deterministic model/AG-UI testing patterns | **ADAPT** | Use where it can replace expensive live-model tests | Do not replace final real-runtime certification |
+| `mastra-base` | HEAD `a065cea10599d8674b8b4b51e54fd281d92e3f68`, core `^1.36.0` | `src/mastra/index.ts`, agent, memory, AIMock, processors, scorers, eval script | **MODEL / ADAPT** | Structure, evals, deterministic mocks, observability concepts | Do not copy A2A/MCP/DuckDB/auth wholesale |
+| `mastra-supabase-starter` | HEAD `7d33a505055f42530493cb5f3e047b5df6ba3d95`, core `1.54.0` | Supabase auth mapping, PostgresStore, PgVector, ingestion/search tool | **ADAPT** | Trusted runtime identity, same-Postgres vector/search, idempotent ingestion | Do not copy “all authenticated users allowed” as tenant authorization |
+| `saas-starter-ai` | HEAD `d492f6eb2995f6c5365ff4027acdc55b3f2a84a2`, core `0.20.0` | Next/Supabase server client, simple agent/product shell | **REFERENCE ONLY** | UI/SaaS product-shell ideas | Old Mastra APIs, generic admin/service-role shortcuts |
 | Official Supabase docs | current | RLS, functions, FTS, semantic/hybrid search | **REFERENCE / ADAPT** | Security and Postgres-native retrieval rules | Do not assume RLS policies cancel broad grants |
 | pgvector | current repo | vector extension / index patterns | **REFERENCE** | Semantic retrieval only where justified | Do not add semantic search to small curated data by default |
 | Firecrawl | current docs/repo | crawl/scrape/webhook model | **KEEP / REFERENCE** | Existing Edge Function integration | Do not bypass webhook verification/idempotency |
