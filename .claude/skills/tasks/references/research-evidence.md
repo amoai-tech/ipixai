@@ -26,6 +26,8 @@ Cap normal task-specific external references at five. Exceed this only when the 
 
 The research packet is a **summary/index only**. Any source that affects implementation must also appear as a full URL inside the exact dependency-ordered implementation step that consumes it, with explicit migration/adaptation instructions and a checkpoint. Do not make an agent jump from a detached research table to unrelated implementation steps.
 
+When a source enters the executable runbook, apply [external-reference-mapping.md](external-reference-mapping.md) as the supplemental mapping checklist; `task-format.md` and `tasks/SKILL.md` remain authoritative for required fields and implementation actions.
+
 ## Rules
 
 - Prefer installed source/types over generic web examples for package behavior.

@@ -10,6 +10,9 @@ let refactorPlan: string;
 let domainModeling: string;
 let adrFormat: string;
 let tasks: string;
+let taskFormat: string;
+let researchEvidence: string;
+let externalReferenceMapping: string;
 let mergeConflicts: string;
 
 describe("iPix engineering skill contracts", () => {
@@ -18,6 +21,9 @@ describe("iPix engineering skill contracts", () => {
     domainModeling = readRepoFile(".claude/skills/domain-modeling/SKILL.md");
     adrFormat = readRepoFile(".claude/skills/domain-modeling/ADR-FORMAT.md");
     tasks = readRepoFile(".claude/skills/tasks/SKILL.md");
+    taskFormat = readRepoFile(".claude/skills/tasks/references/task-format.md");
+    researchEvidence = readRepoFile(".claude/skills/tasks/references/research-evidence.md");
+    externalReferenceMapping = readRepoFile(".claude/skills/tasks/references/external-reference-mapping.md");
     mergeConflicts = readRepoFile(".claude/skills/resolving-merge-conflicts/SKILL.md");
   });
 
@@ -51,6 +57,31 @@ describe("iPix engineering skill contracts", () => {
     expect(tasks).toContain("### Wide-refactor exception — expand → migrate → contract");
     expect(tasks).toContain("whose blast radius cannot stay green as a vertical slice");
     expect(tasks).toContain("Do not pretend a horizontal breaking change is a tracer bullet");
+  });
+
+  test("tasks makes the external-reference mapping supplement discoverable from governing guidance", () => {
+    expect(tasks).toContain("[external-reference-mapping.md](references/external-reference-mapping.md)");
+    expect(taskFormat).toContain("[external-reference-mapping.md](external-reference-mapping.md)");
+    expect(researchEvidence).toContain("[external-reference-mapping.md](external-reference-mapping.md)");
+  });
+
+  test("external-reference mapping supplements the canonical action and source contract", () => {
+    expect(externalReferenceMapping).toMatch(/supplement[s]?, rather than replace[s]?/i);
+    expect(externalReferenceMapping).toContain("Tracking class");
+    expect(externalReferenceMapping).toContain("**Inspect**");
+    expect(externalReferenceMapping).toContain("**Action**");
+    expect(externalReferenceMapping).toContain("**Current owner / truth**");
+    expect(externalReferenceMapping).toContain("**Constraints**");
+    expect(externalReferenceMapping).not.toContain("**Reference 1 — ADAPT**");
+  });
+
+  test("external-reference mapping keeps checkpoint and STOP requirements synchronized", () => {
+    expect(externalReferenceMapping).toMatch(
+      /Required mapping:[\s\S]*checkpoint[\s\S]*STOP condition[\s\S]*```/i,
+    );
+    expect(externalReferenceMapping).toMatch(
+      /## Ready gate[\s\S]*Inspect[\s\S]*Action[\s\S]*Current owner \/ truth[\s\S]*Constraints[\s\S]*checkpoint[\s\S]*STOP condition/i,
+    );
   });
 
   test("merge-conflict skill allows safe pause or abort and requires confirmation for new trade-offs", () => {
