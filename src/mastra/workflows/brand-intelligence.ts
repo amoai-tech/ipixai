@@ -26,6 +26,11 @@ function requireServiceRoleCredentials(): { url: string; key: string } {
   return { url: config.url, key };
 }
 
+function logCrawlSecretConfigError(reason: string): void {
+  // Never include the raw environment value: it contains privileged API keys.
+  console.error(`[brand-intelligence] Invalid SUPABASE_SECRET_KEYS: ${reason}`);
+}
+
 function readDefaultSecretApiKey(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
 
@@ -33,16 +38,19 @@ function readDefaultSecretApiKey(raw: string | undefined): string | undefined {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new Error("SUPABASE_SECRET_KEYS must be valid JSON");
+    logCrawlSecretConfigError("value is not valid JSON; trying legacy fallback");
+    return undefined;
   }
 
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("SUPABASE_SECRET_KEYS must be a JSON object of named secret keys");
+    logCrawlSecretConfigError("expected a JSON object; trying legacy fallback");
+    return undefined;
   }
 
   const value = (parsed as Record<string, unknown>).default;
   if (typeof value !== "string" || !value.trim()) {
-    throw new Error("SUPABASE_SECRET_KEYS.default is unavailable for crawl start");
+    logCrawlSecretConfigError("default key is unavailable; trying legacy fallback");
+    return undefined;
   }
   return value.trim();
 }
