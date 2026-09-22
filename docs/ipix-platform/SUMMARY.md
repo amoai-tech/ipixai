@@ -12,6 +12,7 @@
 
 * [Documentation Standards](00-platform/DOC-STANDARDS.md)
 * [Platform Architecture](00-platform/IPIX-PLATFORM-ARCHITECTURE.md)
+* [AI Feature Pattern](00-platform/IPIX-AI-FEATURE-PATTERN.md)
 * [CopilotKit](01-copilotkit/README.md)
 * [Mastra](02-mastra/README.md)
 * [Cloudinary](04-cloudinary/README.md)

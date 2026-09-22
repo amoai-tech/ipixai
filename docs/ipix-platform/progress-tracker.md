@@ -30,7 +30,7 @@ Verified against the local curated docs worktree, GitHub `main`, PR evidence, an
 | Keep PR governance | 🟢 | 100% | PR required, 0 approvals, review conversations resolved, stale/latest-push approval options off. |
 | Canonical mapping = `./docs/ipix-platform` | 🟢 | 100% | Cleanup branch restores `key: ipix-platform`, `path: docs`, and `content.directory: ./docs/ipix-platform`. |
 | Remove GitBook-exported duplicate tree | 🟢 | 100% | Cleanup branch deletes the 23-file root `ipix-platform-docs/` export and keeps `docs/ipix-platform/`. |
-| Prove GitHub PR merge → automatic GitBook import | 🟡 | 50% | Connection works, but the latest proven operation was an **export**. After cleanup, merge one small docs PR and confirm GitBook imports the resulting `main` commit automatically. |
+| Prove GitHub PR merge → automatic GitBook import | 🟢 | 100% | PR #249 merge was imported automatically from `main` and live Platform Architecture readback matched `docs/ipix-platform/`. |
 
 ## Documentation coverage
 
@@ -52,7 +52,8 @@ Verified against the local curated docs worktree, GitHub `main`, PR evidence, an
 | Operations | 🔵 | 0% | Folder contains only `.gitkeep`; create `60-operations/OPERATIONS.md`. |
 | Analytics | 🔵 | 0% | Folder contains only `.gitkeep`; create `70-analytics/ANALYTICS.md`. |
 | Plans | 🔵 | 0% | Folder contains only `.gitkeep`; create `80-plans/PLANS.md`. |
-| Shared platform architecture | 🟡 | 95% | `00-platform/IPIX-PLATFORM-ARCHITECTURE.md` is implemented in PR #249, linked from `SUMMARY.md` and `index-docs.md`, and its GitBook preview passes. Remaining proof: merge to `main` and verify live GitBook readback before marking 100%. |
+| Shared platform architecture | 🟢 | 100% | PR #249 merged at `8086de52a2579cd7828c64eedb9e6635bb65e853`; clean-main docs check passed and GitBook imported/read back `00-platform/IPIX-PLATFORM-ARCHITECTURE.md`. |
+| Shared AI feature pattern | 🟡 | 95% | `00-platform/IPIX-AI-FEATURE-PATTERN.md` is implemented in IPI-1300 branch and linked from navigation/standards. Remaining proof: PR merge to `main` + live GitBook import/readback. |
 | Global reuse matrix | 🔵 | 0% | Planned `00-platform/IPIX-GLOBAL-REUSE-MATRIX.md` is not present. |
 
 ## Immediate blockers / fixes
@@ -62,7 +63,7 @@ Verified against the local curated docs worktree, GitHub `main`, PR evidence, an
 | 1 | 🟢 | GitBook export duplicated the curated docs into root `ipix-platform-docs/`. | Cleanup branch deletes only the exported duplicate tree and keeps `docs/ipix-platform/` as the durable source. |
 | 2 | 🟢 | GitBook rewrote `gitbook-docs.yaml` to `./ipix-platform-docs`. | Cleanup branch restores `key: ipix-platform`, `path: docs`, and `content.directory: ./docs/ipix-platform`. |
 | 3 | 🟢 | GitBook export modified root `AGENTS.md` and `CLAUDE.md`. | Cleanup branch reverts only the GitBook-generated instruction blocks; future sync remains import-first. |
-| 4 | 🟡 | Automatic GitHub → GitBook import has not been proven after the current setup. | Merge a tiny docs-only PR after cleanup and verify the exact merge commit appears in GitBook. |
+| 4 | 🟢 | Automatic GitHub → GitBook import is proven. | PR #249 merge imported successfully and live readback matched the canonical docs source. |
 | 5 | 🟢 | Progress tracker navigation is wired locally. | `SUMMARY.md` and `index-docs.md` now link `progress-tracker.md`; publish these changes through the cleanup/docs PR. |
 | 6 | 🔵 | Seven product-area docs are missing. | Work in dependency order: Shoots → Assets → CRM → Operations → Analytics → Plans; audit Onboarding in parallel where useful. |
 

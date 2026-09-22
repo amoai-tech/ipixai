@@ -151,6 +151,27 @@ Use one main doc per product area initially.
 - Next 3 actions
 - Full reference URLs
 
+## 6.1 AI-enabled feature contract
+
+AI-enabled product/domain docs must reference [IPIX-AI-FEATURE-PATTERN.md](./IPIX-AI-FEATURE-PATTERN.md) instead of redefining cross-cutting AI architecture. Each feature must declare:
+
+- experience owner / interactive surface;
+- intelligence owner (Agent responsibility);
+- durable truth owner;
+- trusted tenant/role boundary;
+- internal knowledge sources + provenance;
+- Agent / Tool / Workflow choice and why;
+- bounded external research requirement, if any;
+- controlled GenUI proposal/review surface;
+- exact approval point/artifact when consequential;
+- trusted server/RPC/transaction write boundary;
+- audit/provenance and measurable outcome;
+- failure paths: stale, unauthorized, duplicate, timeout, retry, cancellation/recovery;
+- observability;
+- unit/integration/RLS/browser/live verification appropriate to the risk.
+
+**Rule:** AI proposes → human reviews/edits → trusted server/database revalidates → authorized idempotent action executes → durable result is read back. Browser state, thread IDs, model output, and client tenant hints are not authorization.
+
 ## 7. Implementation plan
 
 Use only after the current state and target design are understood.
