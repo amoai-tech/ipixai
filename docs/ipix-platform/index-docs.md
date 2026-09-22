@@ -7,6 +7,7 @@ This is the curated documentation map for the iPix platform. Linear owns live ta
 | Area | Document |
 | --- | --- |
 | Documentation home | [README.md](./README.md) |
+| Progress tracker | [progress-tracker.md](./progress-tracker.md) |
 | Product requirements | [PRD.md](./PRD.md) |
 | Product sitemap | [SITEMAP.md](./SITEMAP.md) |
 | Product roadmap | [ROADMAP.md](./ROADMAP.md) |
