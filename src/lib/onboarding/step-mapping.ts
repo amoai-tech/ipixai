@@ -1,3 +1,5 @@
+import { onboardingResumeStepSchema, type OnboardingResumeStep } from "./schema";
+
 /**
  * IPI-1263 · ONBOARD-COMPAT-001 — legacy/lean onboarding resume mapping.
  *
@@ -88,4 +90,11 @@ export function resolveSemanticStep(input: StepMappingInput): SemanticOnboarding
   if (screen <= 7) return "growth-preference";
   if (screen <= 12) return "analysis";
   return "review";
+}
+
+/** IPI-1260 · ONBOARD-LEAN-001 — pure V2 semantic resolver. */
+export function resolveLeanStep(input: { flowVersion?: unknown; resumeStep?: unknown }): OnboardingResumeStep {
+  if (input.flowVersion !== 2) return "build-type";
+  const parsed = onboardingResumeStepSchema.safeParse(input.resumeStep);
+  return parsed.success ? parsed.data : "build-type";
 }
