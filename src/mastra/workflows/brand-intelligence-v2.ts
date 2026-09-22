@@ -7,6 +7,7 @@ import {
   commitOrReject,
   extractProfile,
   failAnalysis,
+  requireCrawlServiceApiKey,
   saveDraftAndWait,
   validateBrand,
 } from "@/mastra/workflows/brand-intelligence";
@@ -43,11 +44,10 @@ const waitSuspendSchema = z.object({
 
 function requireEdgeCredentials(): { url: string; key: string } {
   const config = getPublicSupabaseConfig();
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!config?.url || !key) {
-    throw new Error("Service-role credentials unavailable");
+  if (!config?.url) {
+    throw new Error("Supabase URL unavailable");
   }
-  return { url: config.url, key };
+  return { url: config.url, key: requireCrawlServiceApiKey() };
 }
 function requireAdmin() {
   const admin = createServiceRoleClient();
@@ -179,14 +179,6 @@ export const officialBrandIntelligenceGoldenPathWorkflow = createWorkflow({
   id: "brand-intelligence-v2-golden",
   inputSchema: workflowInputSchema,
   outputSchema: workflowOutputSchema,
-  steps: [
-    validateBrand,
-    startDurableCrawl,
-    waitForCrawl,
-    extractProfile,
-    saveDraftAndWait,
-    commitOrReject,
-  ],
 })
   .then(validateBrand)
   .then(startDurableCrawl)

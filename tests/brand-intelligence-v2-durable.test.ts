@@ -47,6 +47,7 @@ function fakeAdmin() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  delete process.env.SUPABASE_SECRET_KEYS;
   process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role";
   vi.stubGlobal("fetch", mocks.fetch);
   mocks.serviceClient.mockReturnValue(fakeAdmin());
@@ -72,6 +73,24 @@ beforeEach(() => {
 });
 
 describe("brand-intelligence-v2 durable crawl parity", () => {
+  it("uses the same modern default service key contract as production v1", async () => {
+    process.env.SUPABASE_SECRET_KEYS = JSON.stringify({ default: "sb_secret_v2_modern" });
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    await stepExecute("startDurableCrawl")({
+      inputData: {
+        brandId: BRAND_ID,
+        actorId: ACTOR_ID,
+        brandUrl: "https://brand.example",
+      },
+      runId: RUN_ID,
+    });
+
+    const [, init] = mocks.fetch.mock.calls[0] as [string, RequestInit];
+    expect(init.headers).toMatchObject({ apikey: "sb_secret_v2_modern" });
+    expect(init.headers).not.toHaveProperty("Authorization");
+  });
+
   it("starts through the existing durable Edge seam and binds the Mastra run id", async () => {
     const result = await stepExecute("startDurableCrawl")({
       inputData: {

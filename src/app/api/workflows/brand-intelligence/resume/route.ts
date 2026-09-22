@@ -11,6 +11,17 @@ const BRAND_INTELLIGENCE_WORKFLOW_KEYS = [
   "brand-intelligence-v2-golden",
 ] as const;
 
+class WorkflowRunLookupError extends Error {
+  constructor(
+    message: string,
+    readonly status: 404 | 409,
+    readonly code: "workflow_run_not_found" | "workflow_run_ambiguous",
+  ) {
+    super(message);
+    this.name = "WorkflowRunLookupError";
+  }
+}
+
 async function resolveWorkflowKeyForRun(runId: string) {
   const mastra = getMastra();
   const states = await Promise.all(
@@ -24,10 +35,18 @@ async function resolveWorkflowKeyForRun(runId: string) {
     .map(({ key }) => key);
 
   if (matches.length === 0) {
-    throw new Error(`Brand Intelligence workflow run not found: ${runId}`);
+    throw new WorkflowRunLookupError(
+      `Brand Intelligence workflow run not found: ${runId}`,
+      404,
+      "workflow_run_not_found",
+    );
   }
   if (matches.length > 1) {
-    throw new Error(`Ambiguous workflow run ${runId} exists in multiple Brand Intelligence workflows`);
+    throw new WorkflowRunLookupError(
+      `Ambiguous workflow run ${runId} exists in multiple Brand Intelligence workflows`,
+      409,
+      "workflow_run_ambiguous",
+    );
   }
   return matches[0];
 }
@@ -119,6 +138,12 @@ export async function POST(request: Request) {
     });
     return Response.json({ ok: true, status: result.status }, { status: 200 });
   } catch (error) {
+    if (error instanceof WorkflowRunLookupError) {
+      return Response.json(
+        { ok: false, error: { code: error.code, message: error.message } },
+        { status: error.status },
+      );
+    }
     const message = error instanceof Error ? error.message : "unknown error";
     return Response.json(
       { ok: false, error: { code: "resume_failed", message } },

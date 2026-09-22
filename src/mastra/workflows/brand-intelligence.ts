@@ -55,7 +55,7 @@ function readDefaultSecretApiKey(raw: string | undefined): string | undefined {
   return value.trim();
 }
 
-function requireCrawlServiceApiKey(): string {
+export function requireCrawlServiceApiKey(): string {
   const key =
     readDefaultSecretApiKey(process.env.SUPABASE_SECRET_KEYS) ??
     process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();

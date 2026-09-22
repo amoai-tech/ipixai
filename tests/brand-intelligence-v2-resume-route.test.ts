@@ -76,13 +76,29 @@ describe("brand-intelligence resume route v2 parity", () => {
     expect(res.status).toBe(200);
   });
 
-  it("fails closed if the same run id exists in both workflow definitions", async () => {
+  it("returns 404 when no Brand Intelligence workflow owns the run id", async () => {
+    mocks.v2State.mockResolvedValue(null);
+
+    const res = await POST(req({ runId: RUN_ID, crawlId: CRAWL_ID }));
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      ok: false,
+      error: { code: "workflow_run_not_found", message: expect.stringMatching(/workflow run not found/i) },
+    });
+    expect(mocks.resume).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 if the same run id exists in both workflow definitions", async () => {
     mocks.v1State.mockResolvedValue({ status: "suspended" });
 
     const res = await POST(req({ runId: RUN_ID, crawlId: CRAWL_ID }));
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(409);
     const body = await res.json();
-    expect(body.error.message).toMatch(/ambiguous workflow run/i);
+    expect(body).toMatchObject({
+      ok: false,
+      error: { code: "workflow_run_ambiguous", message: expect.stringMatching(/ambiguous workflow run/i) },
+    });
     expect(mocks.resume).not.toHaveBeenCalled();
   });
 });
