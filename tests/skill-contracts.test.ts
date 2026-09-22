@@ -93,6 +93,12 @@ describe("iPix engineering skill contracts", () => {
     expect(agents).toContain("- Audit/research only; no implementation → `iPix Task Audit & Implementation Plan`");
     expect(agents).toContain("- Confirmed bug/root-cause repair → `Forensic Error Audit & Fix`");
     expect(agents).toContain("- Production/release certification → `Production Readiness / Release Gate`");
+    expect(agents).toContain("Before implementation, use one of two explicit paths:");
+    expect(agents).toContain("**Standard path:**");
+    expect(agents).toContain("**Exception path:**");
+    expect(tasks).toContain("Before implementation, use one of two explicit paths:");
+    expect(tasks).toContain("**Standard path:**");
+    expect(tasks).toContain("**Exception path:**");
 
     for (const source of [agents, tasks, bestPractices]) {
       expect(source).not.toContain("reuse-rule-linear-task");

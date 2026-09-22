@@ -238,7 +238,12 @@ For every new substantial `IPI-*` issue, use one approved Linear workspace templ
 
 Before creating an issue: search Linear for an existing issue and reuse/update it if a task with the same TASK-ID or materially overlapping scope already exists. If a new issue is required, apply the template through Linear's template field; do not replace the template body with a free-form description. Fill only relevant sections and write `Needs verification` for unknown facts. When materially correcting an existing issue, preserve the closest applicable template structure.
 
-Before implementation, verify the issue has the correct template/type, project/milestone, dependencies/blockers, observable outcome, acceptance criteria, and verification plan. If a non-standard issue cannot use an approved template, document the concrete reason in the issue before implementation and preserve the same required outcome/evidence fields. The issue must remain resumable by another agent from Linear alone.
+Before implementation, use one of two explicit paths:
+
+- **Standard path:** verify the issue has the correct template/type, project/milestone, dependencies/blockers, observable outcome, acceptance criteria, and verification plan.
+- **Exception path:** if a genuinely non-standard issue cannot use an approved template, document the concrete reason in the issue before implementation and preserve the same required outcome/evidence fields.
+
+In either path, the issue must remain resumable by another agent from Linear alone.
 
 Before coding:
 
