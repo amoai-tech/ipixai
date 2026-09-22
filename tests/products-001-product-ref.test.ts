@@ -34,6 +34,16 @@ describe("IPI-1165 · ProductRefSchema", () => {
     expect(ProductRefSchema.safeParse(candidate).success).toBe(false);
   });
 
+  it("rejects oversized ProductRef strings", () => {
+    const tooLong = "x".repeat(2001);
+    expect(
+      ProductRefSchema.safeParse({ ...PRODUCT_ONLY, providerProductId: tooLong }).success,
+    ).toBe(false);
+    expect(
+      ProductRefSchema.safeParse({ ...PRODUCT_ONLY, title: tooLong }).success,
+    ).toBe(false);
+  });
+
   it("rejects unexpected fields", () => {
     expect(ProductRefSchema.safeParse({ ...PRODUCT_ONLY, internalId: "do-not-accept" }).success).toBe(false);
   });
