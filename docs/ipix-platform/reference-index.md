@@ -157,7 +157,7 @@ Use Linear as the live execution/status authority.
 
 ## 4. Reference Repositories
 
-Local shared root: `~/github-repos`
+Local shared root: `<LOCAL_REPOS_ROOT>`
 
 A local clone means **available to inspect**, not approved to copy. Before adapting code, verify source path, commit/tag, license, dependency versions, auth/tenant assumptions, and tests.
 
@@ -165,31 +165,31 @@ A local clone means **available to inspect**, not approved to copy. Before adapt
 
 | Repo | Local path | Use |
 | --- | --- | --- |
-| CopilotKit | `~/github-repos/copilotkit/CopilotKit` | Primary current source, runtime, AG-UI, Mastra integration, showcases |
-| OpenBot | `~/github-repos/copilotkit/OpenBot` | Agent governance, permissions, approvals, tools |
-| harness-sdk | `~/github-repos/copilotkit/harness-sdk` | Harness, guardrails, tracing, production agent patterns |
-| open-research-ANA | `~/github-repos/copilotkit/open-research-ANA` | Research canvas/HITL historical reference; prefer current monorepo where newer |
-| aimock | `~/github-repos/copilotkit/aimock` | Deterministic AI, MCP, A2A, AG-UI testing |
-| agents-everywhere-starter-kit | `~/github-repos/copilotkit/agents-everywhere-starter-kit` | Multi-surface agent concepts |
-| atomic-crm | `~/github-repos/copilotkit/atomic-crm` | CRM + Supabase + CopilotKit/MCP patterns |
-| open-mcp-client | `~/github-repos/copilotkit/open-mcp-client` | MCP Apps/client integration |
-| generative-ui | `~/github-repos/copilotkit/generative-ui` | Older standalone GenUI reference |
+| CopilotKit | `<LOCAL_REPOS_ROOT>/copilotkit/CopilotKit` | Primary current source, runtime, AG-UI, Mastra integration, showcases |
+| OpenBot | `<LOCAL_REPOS_ROOT>/copilotkit/OpenBot` | Agent governance, permissions, approvals, tools |
+| harness-sdk | `<LOCAL_REPOS_ROOT>/copilotkit/harness-sdk` | Harness, guardrails, tracing, production agent patterns |
+| open-research-ANA | `<LOCAL_REPOS_ROOT>/copilotkit/open-research-ANA` | Research canvas/HITL historical reference; prefer current monorepo where newer |
+| aimock | `<LOCAL_REPOS_ROOT>/copilotkit/aimock` | Deterministic AI, MCP, A2A, AG-UI testing |
+| agents-everywhere-starter-kit | `<LOCAL_REPOS_ROOT>/copilotkit/agents-everywhere-starter-kit` | Multi-surface agent concepts |
+| atomic-crm | `<LOCAL_REPOS_ROOT>/copilotkit/atomic-crm` | CRM + Supabase + CopilotKit/MCP patterns |
+| open-mcp-client | `<LOCAL_REPOS_ROOT>/copilotkit/open-mcp-client` | MCP Apps/client integration |
+| generative-ui | `<LOCAL_REPOS_ROOT>/copilotkit/generative-ui` | Older standalone GenUI reference |
 
 ### Mastra — saved
 
 | Repo | Local path | Use |
 | --- | --- | --- |
-| mastra | `~/github-repos/mastra/mastra` | Framework source, workflows, agents, storage, tests |
-| workshops | `~/github-repos/mastra/workshops` | Official learning/reference patterns |
-| template-agent-harness | `~/github-repos/mastra/template-agent-harness` | Tasks, approvals, schedules, long-running work |
-| template-deep-search | `~/github-repos/mastra/template-deep-search` | Research decomposition, evidence, gap checking |
-| template-browsing-agent | `~/github-repos/mastra/template-browsing-agent` | Browser fallback patterns |
-| template-company-knowledge | `~/github-repos/mastra/template-company-knowledge` | Approved knowledge/RAG patterns |
-| template-text-to-sql | `~/github-repos/mastra/template-text-to-sql` | Analytics reference only |
-| ui-dojo | `~/github-repos/mastra/ui-dojo` | UI/CopilotKit/HITL experiments |
-| mastra-auth-examples | `~/github-repos/mastra/mastra-auth-examples` | Authentication patterns |
-| mastra-observational-memory-workshop | `~/github-repos/mastra/mastra-observational-memory-workshop` | Advanced memory reference |
-| mastra-smoke | `~/github-repos/mastra/mastra-smoke` | Compatibility/testing examples |
+| mastra | `<LOCAL_REPOS_ROOT>/mastra/mastra` | Framework source, workflows, agents, storage, tests |
+| workshops | `<LOCAL_REPOS_ROOT>/mastra/workshops` | Official learning/reference patterns |
+| template-agent-harness | `<LOCAL_REPOS_ROOT>/mastra/template-agent-harness` | Tasks, approvals, schedules, long-running work |
+| template-deep-search | `<LOCAL_REPOS_ROOT>/mastra/template-deep-search` | Research decomposition, evidence, gap checking |
+| template-browsing-agent | `<LOCAL_REPOS_ROOT>/mastra/template-browsing-agent` | Browser fallback patterns |
+| template-company-knowledge | `<LOCAL_REPOS_ROOT>/mastra/template-company-knowledge` | Approved knowledge/RAG patterns |
+| template-text-to-sql | `<LOCAL_REPOS_ROOT>/mastra/template-text-to-sql` | Analytics reference only |
+| ui-dojo | `<LOCAL_REPOS_ROOT>/mastra/ui-dojo` | UI/CopilotKit/HITL experiments |
+| mastra-auth-examples | `<LOCAL_REPOS_ROOT>/mastra/mastra-auth-examples` | Authentication patterns |
+| mastra-observational-memory-workshop | `<LOCAL_REPOS_ROOT>/mastra/mastra-observational-memory-workshop` | Advanced memory reference |
+| mastra-smoke | `<LOCAL_REPOS_ROOT>/mastra/mastra-smoke` | Compatibility/testing examples |
 
 ### Mastra — next curated additions
 
@@ -211,9 +211,9 @@ A local clone means **available to inspect**, not approved to copy. Before adapt
 
 | Repo | Local path | Rule |
 | --- | --- | --- |
-| mastra-supabase-starter | `~/github-repos/community/mastra-supabase-starter` | Reference only; do not inherit tenant model blindly |
-| mastra-base | `~/github-repos/community/mastra-base` | Structure ideas only |
-| saas-starter-ai | `~/github-repos/community/saas-starter-ai` | SaaS/auth ideas only |
+| mastra-supabase-starter | `<LOCAL_REPOS_ROOT>/community/mastra-supabase-starter` | Reference only; do not inherit tenant model blindly |
+| mastra-base | `<LOCAL_REPOS_ROOT>/community/mastra-base` | Structure ideas only |
+| saas-starter-ai | `<LOCAL_REPOS_ROOT>/community/saas-starter-ai` | SaaS/auth ideas only |
 
 ## 5. Research Archive
 

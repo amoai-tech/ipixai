@@ -1,29 +1,22 @@
 # Mastra in iPix
 
-Mastra owns the **AI execution layer** in iPix: agents, typed tools, durable workflows, memory orchestration, suspend/resume, retries, and runtime state. Supabase/Postgres remains the durable application and tenant truth; CopilotKit owns the operator-facing interactive experience.
+Mastra owns **agents, tools, workflows, memory orchestration, and durable AI execution**. Supabase/Postgres remains the durable application source of truth; CopilotKit owns the operator-facing interactive AI layer.
 
-## Start here
+## Current verified implementation
 
-| Need | Read |
-| --- | --- |
-| Runtime ownership and boundaries | [Architecture](./ARCHITECTURE.md) |
-| Agent responsibilities | [Agents](./AGENTS.md) |
-| Typed tool contracts and authorization | [Tools](./TOOLS.md) |
-| Durable suspend/resume flows | [Workflows](./WORKFLOWS.md) |
-| Memory scope and truth boundaries | [Memory](./MEMORY.md) |
-| Postgres/runtime storage | [Storage](./STORAGE.md) |
-| Deployment, retries, recovery, upgrades | [Operations](./OPERATIONS.md) |
-| Known failures and fixes | [Troubleshooting](./TROUBLESHOOTING.md) |
-| Smallest required foundation | [Core PRD](./mastra-core-prd.md) |
-| Product-facing MVP | [MVP PRD](./mastra-mvp-prd.md) |
-| Later automation/delegation | [Advanced PRD](./mastra-advanced-prd.md) |
-| Proven patterns to reuse | [Reuse](./reuse.md) |
-| Readiness evidence | [Progress](./progress.md) |
-
-## Documentation status
-
-This page is the navigation hub. Several detailed Mastra pages are still drafts/placeholders and must not be treated as verified implementation truth until they contain current code/runtime evidence.
+- Installed runtime: `@mastra/core@1.63.2` and `@mastra/pg@1.22.2`.
+- Runtime entry points: `src/mastra/index.ts` and `src/mastra/runtime.ts`.
+- Postgres storage setup: `src/mastra/pg-store.ts`.
+- Agent registry: `src/mastra/agents/index.ts`.
+- Current tools live under `src/mastra/tools/`.
+- Current durable workflows include `src/mastra/workflows/brand-intelligence.ts` and `src/mastra/workflows/shoot-plan-review.ts`.
+- Thread persistence helpers live in `src/mastra/thread-persistence.ts`.
 
 ## iPix rule
 
-Mastra may propose or prepare consequential work, but approval-sensitive writes stay human-governed. Current code/runtime, tests, installed package types, and accepted architecture decisions override historical planning docs. Linear owns live task status and blockers.
+Use Mastra for AI orchestration, not as a second application database. Consequential writes require the authenticated operator boundary and human approval where appropriate.
+
+## References
+
+- [Mastra documentation](https://mastra.ai/docs)
+- [Mastra GitHub repository](https://github.com/mastra-ai/mastra)

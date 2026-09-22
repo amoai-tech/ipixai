@@ -1,23 +1,21 @@
 # CopilotKit in iPix
 
-CopilotKit owns the **operator-facing interactive AI experience** in iPix: chat, AG-UI events, generative UI, shared interactive state, and human review surfaces. Mastra owns agents, tools, workflows, memory orchestration, and durable AI execution.
+CopilotKit owns the **operator-facing interactive AI layer**: runtime transport, chat/agent interaction, AG-UI-compatible streaming, and UI actions. Durable application truth remains in Supabase/Postgres, while Mastra owns agents, tools, workflows, and durable AI execution.
 
-## Start here
+## Current verified implementation
 
-| Need | Read |
-| --- | --- |
-| Overall runtime/UI boundary | [Architecture](./ARCHITECTURE.md) |
-| Agent ↔ UI event protocol | [AG-UI](./AG-UI.md) |
-| Human review and approval surfaces | [Human-in-the-loop](./HITL.md) |
-| Known failures and recovery | [Troubleshooting](./TROUBLESHOOTING.md) |
-| Smallest required foundation | [Core PRD](./copilotkit-core-prd.md) |
-| Product-facing MVP | [MVP PRD](./copilotkit-mvp-prd.md) |
-| Later capabilities | [Advanced PRD](./copilotkit-advanced-prd.md) |
-| Proven patterns to reuse | [Reuse plan](./reuse.md) |
-| Readiness evidence | [Progress](./progress.md) |
+- Installed package family: `@copilotkit/react-core@1.68.1` and `@copilotkit/runtime@1.68.1`.
+- Runtime endpoint: `src/app/api/copilotkit/[[...slug]]/route.ts`.
+- Request authentication helpers: `src/lib/auth/copilot-hooks.ts` and `src/lib/auth/copilot-mount.ts`.
+- Reconnect/history behavior has targeted coverage in `src/components/operator-panel/copilotkit-reconnect-history.test.tsx`.
+- Consequential writes must follow **AI proposes → human reviews → server revalidates → authorized action executes → system records the result**.
 
-## iPix rule
+## Source of truth
 
-Use CopilotKit for the interactive layer, not durable application truth. Consequential actions follow **AI proposes → human reviews → approved action executes → system records the result**.
+Current code, installed package types, tests, and accepted architecture decisions override historical CopilotKit plans. Linear owns live task status and blockers.
 
-Current code/runtime, installed package types, and tests override historical plans. Linear owns live task status and blockers.
+## References
+
+- [CopilotKit documentation](https://docs.copilotkit.ai/)
+- [CopilotKit GitHub repository](https://github.com/CopilotKit/CopilotKit)
+- [AG-UI protocol](https://docs.ag-ui.com/)
