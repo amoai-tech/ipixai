@@ -26,9 +26,20 @@ function requireServiceRoleCredentials(): { url: string; key: string } {
   return { url: config.url, key };
 }
 
+function requireCrawlServiceApiKey(): string {
+  const key = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) {
+    throw new Error("Supabase backend API key unavailable for crawl start");
+  }
+  return key;
+}
+
 function edgeFnUrl(fn: string): string {
-  const { url } = requireServiceRoleCredentials();
-  return `${url}/functions/v1/${fn}`;
+  const config = getPublicSupabaseConfig();
+  if (!config?.url) {
+    throw new Error("Supabase URL unavailable");
+  }
+  return `${config.url}/functions/v1/${fn}`;
 }
 
 async function requireServiceRoleClient() {
@@ -221,7 +232,7 @@ const startCrawl = createStep({
   outputSchema: startCrawlOutputSchema,
   execute: async ({ inputData, runId }) => {
     const { brandId, brandUrl, actorId } = inputData;
-    const { key } = requireServiceRoleCredentials();
+    const key = requireCrawlServiceApiKey();
     const url = edgeFnUrl("start-brand-crawl");
 
     let res: Response;

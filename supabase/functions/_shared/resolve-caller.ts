@@ -18,8 +18,11 @@ function configuredServiceApiKeys(): string[] {
   const raw = Deno.env.get("SUPABASE_SECRET_KEYS");
   if (raw) {
     try {
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
-      for (const value of Object.values(parsed)) {
+      const parsed: unknown = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return [...keys];
+      }
+      for (const value of Object.values(parsed as Record<string, unknown>)) {
         if (typeof value === "string" && value.trim()) keys.add(value.trim());
       }
     } catch {
