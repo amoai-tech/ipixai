@@ -5008,6 +5008,7 @@ export type Database = {
         Args: { p_brand_id: string; p_expected_draft_hash: string }
         Returns: Json
       }
+      save_approved_shoot: { Args: { p_approval_id: string }; Returns: Json }
       search_brands: {
         Args: {
           p_embedding: string

@@ -549,6 +549,14 @@ jobs:
           # pass vacuously.
           bash supabase/tests/security/ipi1084-shoot-plan-approval-lock.sh 54322
 
+          # IPI-1083 · SHOOT-SAVE-001 — exact approved artifact → one durable
+          # Shoot, with normalized child/provenance mapping, tenant/role denials,
+          # rejected/superseded zero-write behavior, replay, and true two-session
+          # concurrent double-submit proof.
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/ipi1083-save-approved-shoot.sql
+          bash supabase/tests/security/ipi1083-save-approved-shoot-concurrency.sh 54322
+
           # End-to-end proof, not just schema-level: a real signup on this
           # fresh database must actually produce a profiles row (the exact
           # bug this task's own review caught and fixed).

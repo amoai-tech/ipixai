@@ -1,0 +1,28 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+const workflowSource = readFileSync("src/mastra/workflows/brand-intelligence.ts", "utf8");
+const configSource = readFileSync("supabase/config.toml", "utf8");
+
+describe("Brand crawl service authentication contract", () => {
+  it("sends the backend credential as apikey, not as a bearer user session", () => {
+    const start = workflowSource.indexOf('const startCrawl = createStep({');
+    const end = workflowSource.indexOf('const waitForCrawl = createStep({');
+    const startCrawlSource = workflowSource.slice(start, end);
+
+    expect(startCrawlSource).toContain('apikey: key');
+    expect(startCrawlSource).not.toContain('Authorization: `Bearer ${key}`');
+  });
+
+  it("reads the canonical SUPABASE_SECRET_KEYS map with legacy fallback", () => {
+    expect(workflowSource).toContain("process.env.SUPABASE_SECRET_KEYS");
+    expect(workflowSource).not.toContain("process.env.SUPABASE_SECRET_KEY ??");
+    expect(workflowSource).toContain("process.env.SUPABASE_SERVICE_ROLE_KEY");
+  });
+
+  it("disables platform JWT verification for the service-authenticated function", () => {
+    expect(configSource).toMatch(
+      /\[functions\.start-brand-crawl\][\s\S]*?verify_jwt\s*=\s*false/,
+    );
+  });
+});
