@@ -179,3 +179,26 @@ describe("resolveSemanticStep — unknown legacy keys are ignored, not inspected
     expect(withExtra).toBe(withoutExtra);
   });
 });
+
+
+describe("IPI-1260 V2 semantic resolver", () => {
+  it("exports a pure resolver that starts a fresh V2 draft at build-type", async () => {
+    const module = (await import("./step-mapping")) as Record<string, unknown>;
+    const candidate = module.resolveLeanStep;
+    expect(typeof candidate).toBe("function");
+    if (typeof candidate !== "function") return;
+    expect(candidate({ flowVersion: 2, resumeStep: "build-type" })).toBe("build-type");
+  });
+
+  it("returns the persisted semantic step and fails closed to build-type", async () => {
+    const module = (await import("./step-mapping")) as Record<string, unknown>;
+    const candidate = module.resolveLeanStep;
+    expect(typeof candidate).toBe("function");
+    if (typeof candidate !== "function") return;
+    for (const step of ["brand-details", "channels", "growth-preference", "complete"]) {
+      expect(candidate({ flowVersion: 2, resumeStep: step })).toBe(step);
+    }
+    expect(candidate({ flowVersion: 99, resumeStep: "channels" })).toBe("build-type");
+    expect(candidate({ flowVersion: 2, resumeStep: "bogus" })).toBe("build-type");
+  });
+});
