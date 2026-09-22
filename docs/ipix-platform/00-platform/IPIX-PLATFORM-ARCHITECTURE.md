@@ -38,7 +38,7 @@ It does **not** define domain schemas, redesign the current runtime, or authoriz
 | Web crawling | Firecrawl HTTP API through Edge Functions | Deep/multi-page brand crawl/extraction | `supabase/functions/_shared/firecrawl.ts` |
 | Current default planner model | `openai("gpt-5.6-luna")` | Production Planner reasoning/tool selection | `src/mastra/agents/index.ts` |
 
-**Model verification:** `gpt-5.6-luna` is a current OpenAI API model ID: https://developers.openai.com/api/docs/models/gpt-5.6-luna. For iPix, `src/mastra/agents/index.ts` remains the implementation source of truth; do not replace the configured model based on reviewer assumptions alone.
+**Model verification:** the current iPix implementation uses `openai("gpt-5.6-luna")` in `src/mastra/agents/index.ts`. OpenAI's first-party API sources independently confirm that exact model ID: the model catalog lists `gpt-5.6-luna` (https://developers.openai.com/api/docs/models), the dedicated model page documents GPT-5.6 Luna (https://developers.openai.com/api/docs/models/gpt-5.6-luna), and the API changelog records the GPT-5.6 family launch including Luna (https://developers.openai.com/api/docs/changelog). All three URLs returned HTTP 200 during verification on 2026-09-22. Do not replace the configured model from review assumptions; change this line only when the implementation or official OpenAI model support changes.
 
 ### Current runtime topology
 
