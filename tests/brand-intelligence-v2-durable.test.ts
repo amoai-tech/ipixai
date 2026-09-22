@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   serviceClient: vi.fn(),
   fetch: vi.fn(),
   single: vi.fn(),
+  updateEq: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/service-role", () => ({
@@ -25,13 +26,22 @@ type StepExecute = (args: Record<string, unknown>) => Promise<unknown>;
 function stepExecute(id: string): StepExecute {
   const step = officialBrandIntelligenceGoldenPathWorkflow.steps[id] as unknown as { execute: StepExecute };
   return step.execute;
-}function fakeAdmin() {
+}
+
+function fakeAdmin() {
   return {
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({ single: mocks.single })),
-      })),
-    })),
+    from: vi.fn((table: string) => {
+      if (table === "brands") {
+        return {
+          update: vi.fn(() => ({ eq: mocks.updateEq })),
+        };
+      }
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({ single: mocks.single })),
+        })),
+      };
+    }),
   };
 }
 
@@ -44,7 +54,7 @@ beforeEach(() => {
     new Response(
       JSON.stringify({
         ok: true,
-        data: { crawlId: CRAWL_ID, firecrawlJobId: "fc-job-1" },
+        data: { crawlId: CRAWL_ID, firecrawlJobId: "fc-job-1", reused: false },
       }),
       { status: 200, headers: { "content-type": "application/json" } },
     ),
@@ -58,7 +68,10 @@ beforeEach(() => {
     },
     error: null,
   });
-});describe("brand-intelligence-v2 durable crawl parity", () => {
+  mocks.updateEq.mockResolvedValue({ error: null });
+});
+
+describe("brand-intelligence-v2 durable crawl parity", () => {
   it("starts through the existing durable Edge seam and binds the Mastra run id", async () => {
     const result = await stepExecute("startDurableCrawl")({
       inputData: {
@@ -90,9 +103,33 @@ beforeEach(() => {
       firecrawlJobId: "fc-job-1",
     });
   });
-  it("re-reads Supabase durable truth before accepting webhook resume", async () => {
-    const inputData = { brandId: BRAND_ID, crawlId: CRAWL_ID, firecrawlJobId: "fc-job-1" };
+  it("re-reads Supabase durable truth before suspending and before accepting webhook resume", async () => {
+    const inputData = {
+      brandId: BRAND_ID,
+      crawlId: CRAWL_ID,
+      firecrawlJobId: "fc-job-1",
+    };
     const suspend = vi.fn((payload: unknown) => payload);
+
+    mocks.single
+      .mockResolvedValueOnce({
+        data: {
+          brand_id: BRAND_ID,
+          firecrawl_job_id: "fc-job-1",
+          job_status: "running",
+          workflow_id: RUN_ID,
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          brand_id: BRAND_ID,
+          firecrawl_job_id: "fc-job-1",
+          job_status: "complete",
+          workflow_id: RUN_ID,
+        },
+        error: null,
+      });
 
     await stepExecute("waitForCrawl")({ inputData, resumeData: undefined, suspend, runId: RUN_ID });
     expect(suspend).toHaveBeenCalledWith(
@@ -107,7 +144,30 @@ beforeEach(() => {
       runId: RUN_ID,
     });
     expect(resumed).toEqual(inputData);
-    expect(mocks.single).toHaveBeenCalledTimes(1);
+    expect(mocks.single).toHaveBeenCalledTimes(2);
+  });
+
+  it("records analysis failure for a malformed successful Edge response", async () => {
+    mocks.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, data: {} }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    mocks.updateEq.mockResolvedValueOnce({ error: null });
+
+    await expect(
+      stepExecute("startDurableCrawl")({
+        inputData: {
+          brandId: BRAND_ID,
+          actorId: ACTOR_ID,
+          brandUrl: "https://brand.example",
+        },
+        runId: RUN_ID,
+      }),
+    ).rejects.toThrow("Crawl start response missing durable crawl identity");
+
+    expect(mocks.updateEq).toHaveBeenCalledWith("id", BRAND_ID);
   });
 
   it("fails closed when the durable provider job does not match", async () => {
@@ -123,11 +183,42 @@ beforeEach(() => {
 
     await expect(
       stepExecute("waitForCrawl")({
-        inputData: { brandId: BRAND_ID, crawlId: CRAWL_ID, firecrawlJobId: "fc-job-1" },
+        inputData: {
+          brandId: BRAND_ID,
+          crawlId: CRAWL_ID,
+          firecrawlJobId: "fc-job-1",
+            },
         resumeData: { crawlId: CRAWL_ID },
         suspend: vi.fn(),
         runId: RUN_ID,
       }),
     ).rejects.toThrow("Firecrawl job mismatch");
+  });
+
+  it("fails fast instead of suspending on a reused active crawl owned by another workflow", async () => {
+    const suspend = vi.fn();
+    mocks.single.mockResolvedValueOnce({
+      data: {
+        brand_id: BRAND_ID,
+        firecrawl_job_id: "fc-job-1",
+        job_status: "running",
+        workflow_id: "older-workflow-run",
+      },
+      error: null,
+    });
+
+    await expect(
+      stepExecute("waitForCrawl")({
+        inputData: {
+          brandId: BRAND_ID,
+          crawlId: CRAWL_ID,
+          firecrawlJobId: "fc-job-1",
+            },
+        resumeData: undefined,
+        suspend,
+        runId: RUN_ID,
+      }),
+    ).rejects.toThrow("Durable crawl belongs to another workflow");
+    expect(suspend).not.toHaveBeenCalled();
   });
 });

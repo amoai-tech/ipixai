@@ -39,7 +39,7 @@ async function requireServiceRoleClient() {
   return sb;
 }
 
-async function failAnalysis(
+export async function failAnalysis(
   brandId: string,
   summary: string,
   detail: unknown,

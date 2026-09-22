@@ -6,6 +6,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import {
   commitOrReject,
   extractProfile,
+  failAnalysis,
   saveDraftAndWait,
   validateBrand,
 } from "@/mastra/workflows/brand-intelligence";
@@ -59,21 +60,27 @@ const startDurableCrawl = createStep({
   inputSchema: startDurableInputSchema,
   outputSchema: crawlIdentitySchema,
   execute: async ({ inputData, runId }) => {
-    const { url, key } = requireEdgeCredentials();
-    const res = await fetch(`${url}/functions/v1/start-brand-crawl`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: key,
-      },
-      body: JSON.stringify({
-        brandId: inputData.brandId,
-        url: inputData.brandUrl,
-        actorId: inputData.actorId,
-        workflowId: runId,
-      }),
-      signal: AbortSignal.timeout(30_000),
-    });
+    let res: Response;
+    try {
+      const { url, key } = requireEdgeCredentials();
+      res = await fetch(`${url}/functions/v1/start-brand-crawl`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: key,
+        },
+        body: JSON.stringify({
+          brandId: inputData.brandId,
+          url: inputData.brandUrl,
+          actorId: inputData.actorId,
+          workflowId: runId,
+        }),
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (err) {
+      throw await failAnalysis(inputData.brandId, "Failed to start brand crawl", err);
+    }
+
     const body = (await res.json().catch(() => null)) as {
       ok?: boolean;
       data?: { crawlId?: string; firecrawlJobId?: string };
@@ -81,15 +88,21 @@ const startDurableCrawl = createStep({
     } | null;
 
     if (!res.ok || !body?.ok) {
-      throw new Error(
-        body?.error?.message ?? `start-brand-crawl failed (${res.status})`,
+      throw await failAnalysis(
+        inputData.brandId,
+        "Failed to start brand crawl",
+        body?.error?.message ?? `HTTP ${res.status}`,
       );
     }
 
     const crawlId = body.data?.crawlId;
     const firecrawlJobId = body.data?.firecrawlJobId;
     if (!crawlId || !firecrawlJobId) {
-      throw new Error("start-brand-crawl response missing durable crawl identity");
+      throw await failAnalysis(
+        inputData.brandId,
+        "Crawl start response missing durable crawl identity",
+        body,
+      );
     }
 
     return { brandId: inputData.brandId, crawlId, firecrawlJobId };
@@ -103,21 +116,15 @@ const waitForCrawl = createStep({
   resumeSchema: waitResumeSchema,
   suspendSchema: waitSuspendSchema,
   execute: async ({ inputData, resumeData, suspend, runId }) => {
-    if (!resumeData) {
-      return suspend(
-        {
-          crawlId: inputData.crawlId,
-          firecrawlJobId: inputData.firecrawlJobId,
-        },
-        { resumeLabel: "crawl-complete" },
+    if (resumeData?.failed) {
+      throw await failAnalysis(
+        inputData.brandId,
+        "Crawl failed",
+        resumeData.error || "Firecrawl crawl failed",
       );
     }
-
-    if (resumeData.failed) {
-      throw new Error(resumeData.error || "Firecrawl crawl failed");
-    }
-    if (!resumeData.crawlId || resumeData.crawlId !== inputData.crawlId) {
-      throw new Error("Crawl ID mismatch");
+    if (resumeData && (!resumeData.crawlId || resumeData.crawlId !== inputData.crawlId)) {
+      throw await failAnalysis(inputData.brandId, "Crawl ID mismatch", resumeData.crawlId);
     }
 
     const admin = requireAdmin();
@@ -128,22 +135,43 @@ const waitForCrawl = createStep({
       .single();
 
     if (error || !crawl) {
-      throw new Error("Durable crawl row unavailable on resume");
+      throw await failAnalysis(inputData.brandId, "Durable crawl row unavailable", error?.message);
     }
     if (crawl.brand_id !== inputData.brandId) {
-      throw new Error("Durable crawl brand mismatch");
-    }
-    if (crawl.workflow_id !== runId) {
-      throw new Error("Durable crawl workflow mismatch");
+      throw await failAnalysis(inputData.brandId, "Durable crawl brand mismatch", crawl.brand_id);
     }
     if (crawl.firecrawl_job_id !== inputData.firecrawlJobId) {
-      throw new Error("Firecrawl job mismatch");
-    }
-    if (crawl.job_status !== "complete") {
-      throw new Error(`Durable crawl is not complete (${crawl.job_status})`);
+      throw await failAnalysis(inputData.brandId, "Firecrawl job mismatch", crawl.firecrawl_job_id);
     }
 
-    return inputData;
+    // A completed durable crawl is reusable evidence. Its workflow_id may belong
+    // to the earlier run that originally produced it, so do not wait for a webhook
+    // that has already been processed and do not require rebinding that old row.
+    if (crawl.job_status === "complete") {
+      return inputData;
+    }
+
+    // Only a non-terminal crawl owned by this exact run may suspend awaiting its
+    // provider webhook. Never let a new run wait on another run's active crawl.
+    if (crawl.workflow_id !== runId) {
+      throw await failAnalysis(inputData.brandId, "Durable crawl belongs to another workflow", crawl.workflow_id);
+    }
+
+    if (resumeData) {
+      throw await failAnalysis(
+        inputData.brandId,
+        `Durable crawl is not complete (${crawl.job_status})`,
+        inputData.crawlId,
+      );
+    }
+
+    return suspend(
+      {
+        crawlId: inputData.crawlId,
+        firecrawlJobId: inputData.firecrawlJobId,
+      },
+      { resumeLabel: "crawl-complete" },
+    );
   },
 });
 
