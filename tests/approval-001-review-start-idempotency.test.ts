@@ -70,7 +70,7 @@ afterEach(() => {
 
 describe("POST /api/plans/reviews retry identity", () => {
   it("groups retries under one server-bound run id and uses a server-owned expiry", async () => {
-    const start = vi.fn(async () => ({
+    const start = vi.fn(async (_args: { inputData: Record<string, unknown> }) => ({
       status: "suspended",
       suspendPayload: {
         approvalId: APPROVAL_ID,
