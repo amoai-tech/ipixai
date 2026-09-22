@@ -24,7 +24,9 @@ function req(body: Record<string, unknown>) {
     headers: { "content-type": "application/json", "x-internal-secret": SECRET },
     body: JSON.stringify(body),
   });
-}beforeEach(() => {
+}
+
+beforeEach(() => {
   vi.clearAllMocks();
   process.env.INTERNAL_WEBHOOK_SECRET = SECRET;
   mocks.v1State.mockResolvedValue(null);
@@ -50,7 +52,8 @@ describe("brand-intelligence resume route v2 parity", () => {
     }));
 
     expect(res.status).toBe(200);
-    expect(mocks.v2CreateRun).toHaveBeenCalledWith({ runId: RUN_ID });    expect(mocks.resume).toHaveBeenCalledWith({
+    expect(mocks.v2CreateRun).toHaveBeenCalledWith({ runId: RUN_ID });
+    expect(mocks.resume).toHaveBeenCalledWith({
       resumeData: {
         crawlId: CRAWL_ID,
         failed: false,
