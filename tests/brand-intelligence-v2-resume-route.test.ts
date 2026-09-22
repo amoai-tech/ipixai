@@ -60,6 +60,22 @@ describe("brand-intelligence resume route v2 parity", () => {
     });
   });
 
+  it("queries both workflow variants concurrently before deciding ownership", async () => {
+    let releaseV1!: (value: null) => void;
+    mocks.v1State.mockImplementationOnce(
+      () => new Promise<null>((resolve) => { releaseV1 = resolve; }),
+    );
+
+    const pending = POST(req({ runId: RUN_ID, crawlId: CRAWL_ID }));
+    await vi.waitFor(() => expect(mocks.v1State).toHaveBeenCalledWith(RUN_ID));
+
+    expect(mocks.v2State).toHaveBeenCalledWith(RUN_ID);
+
+    releaseV1(null);
+    const res = await pending;
+    expect(res.status).toBe(200);
+  });
+
   it("fails closed if the same run id exists in both workflow definitions", async () => {
     mocks.v1State.mockResolvedValue({ status: "suspended" });
 

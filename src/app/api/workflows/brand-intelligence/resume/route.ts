@@ -13,12 +13,15 @@ const BRAND_INTELLIGENCE_WORKFLOW_KEYS = [
 
 async function resolveWorkflowKeyForRun(runId: string) {
   const mastra = getMastra();
-  const matches: Array<(typeof BRAND_INTELLIGENCE_WORKFLOW_KEYS)[number]> = [];
-
-  for (const key of BRAND_INTELLIGENCE_WORKFLOW_KEYS) {
-    const state = await mastra.getWorkflow(key).getWorkflowRunById(runId);
-    if (state) matches.push(key);
-  }
+  const states = await Promise.all(
+    BRAND_INTELLIGENCE_WORKFLOW_KEYS.map(async (key) => ({
+      key,
+      state: await mastra.getWorkflow(key).getWorkflowRunById(runId),
+    })),
+  );
+  const matches = states
+    .filter(({ state }) => Boolean(state))
+    .map(({ key }) => key);
 
   if (matches.length === 0) {
     throw new Error(`Brand Intelligence workflow run not found: ${runId}`);
