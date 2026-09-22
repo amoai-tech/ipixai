@@ -38,9 +38,17 @@ It does **not** define domain schemas, redesign the current runtime, or authoriz
 | Web crawling | Firecrawl HTTP API through Edge Functions | Deep/multi-page brand crawl/extraction | `supabase/functions/_shared/firecrawl.ts` |
 | Current default planner model | `openai("gpt-5.6-luna")` | Production Planner reasoning/tool selection | `src/mastra/agents/index.ts` |
 
+**Model verification:** `gpt-5.6-luna` is a current OpenAI API model ID: https://developers.openai.com/api/docs/models/gpt-5.6-luna. For iPix, `src/mastra/agents/index.ts` remains the implementation source of truth; do not replace the configured model based on reviewer assumptions alone.
+
 ### Current runtime topology
 
 The current Next.js Copilot route creates local Mastra agents and exposes them through `CopilotRuntime`. iPix currently supports a local custom runner path and a CopilotKit Intelligence path. A separate remote Mastra service is **not yet the canonical production runtime**; cross-instance run ownership/recovery is being proven separately and must not be presented here as completed architecture.
+
+This distinction follows the official integration models:
+
+- **Mastra web-framework deployment:** https://github.com/mastra-ai/mastra/blob/main/docs/src/content/en/docs/deployment/web-framework.mdx — **MODEL** the framework-integrated case: Mastra deploys alongside the Next.js application.
+- **Mastra deployment overview:** https://github.com/mastra-ai/mastra/blob/main/docs/src/content/en/docs/deployment/overview.mdx — **REFERENCE** the separate Mastra server as a different deployment option; do not describe it as current iPix until the remote-runtime qualification tasks pass.
+- **CopilotKit local-agent example:** https://github.com/CopilotKit/CopilotKit/blob/main/showcase/shell-docs/src/content/docs/integrations/mastra/shared-state/in-app-agent-write.mdx — **MODEL** the `MastraAgent.getLocalAgents({ mastra, ... })` embedding pattern; verify against installed `@copilotkit/*` types before copying API syntax.
 
 ## 3. System boundaries
 
@@ -154,7 +162,7 @@ flowchart LR
 Rules:
 
 - Apply tenant/domain constraints before returning knowledge to an agent.
-- Prefer exact SQL for small/curated tables. Current `shot_type_references_view` is the public, RLS-safe read surface over the curated `shoot.shot_type_references` catalog (`src/lib/shoot/shot-type-references.ts`); it deliberately uses no pgvector because the catalog is small and curated.
+- Prefer exact SQL for small/curated tables. Current `public.shot_type_references_view` is a regular `security_invoker=true` Postgres view over the curated `shoot.shot_type_references` catalog, defined in `supabase/migrations/20260915120000_ipi644_shoot_reference_media.sql` and consumed by `src/lib/shoot/shot-type-references.ts`; it deliberately uses no pgvector because the catalog is small and curated. Supabase documents `security_invoker` views here: https://supabase.com/docs/guides/database/views. **MODEL** that least-privilege view pattern; do not call this a materialized view.
 - Add FTS when keyword/text matching improves recall.
 - Add pgvector only when semantic retrieval is measured to improve the journey; the live project already has the `vector` extension available.
 - Derived chunks/embeddings must carry source identifiers, timestamps/version where relevant, and enough provenance to trace back to canonical records.
@@ -208,10 +216,20 @@ Current `mastra-base` reference demonstrates Mastra-native observability, sensit
 
 ## 11. Deployment and runtime constraints
 
-- The current web/runtime integration is Next.js + CopilotKit with local Mastra agents in the app process.
-- When the current in-process Mastra runtime is deployed in a hosted environment, its **persistence connection** uses a dedicated Postgres runtime role and guarded configuration in `src/mastra/pg-store.ts`; `IPIX_MASTRA_HOSTED` validates that database connection. This does **not** mean iPix currently runs a separate remote Mastra service.
-- The live project currently has separate `mastra`, `planner`, `shoot`, and `public` schemas; read-only verification on **2026-09-22** found 34, 12, 10, and 85 tables respectively using a `pg_tables` count grouped by `schemaname` for those four schemas.
-- RLS is enabled on verified `mastra.mastra_threads`, `mastra.mastra_messages`, `mastra.mastra_workflow_snapshot`, and `shoot.shoot_plan_approvals`.
+- The current web/runtime integration is Next.js + CopilotKit with local Mastra agents in the app process. Official Mastra source: https://github.com/mastra-ai/mastra/blob/main/docs/src/content/en/docs/deployment/web-framework.mdx. **MODEL** the web-framework topology.
+- When that same in-process application is deployed on hosted infrastructure, its **Mastra persistence connection** uses a dedicated Postgres runtime role and guarded configuration in `src/mastra/pg-store.ts`; `IPIX_MASTRA_HOSTED` validates the database connection. This does **not** mean iPix currently runs a separate remote Mastra service. Mastra's PostgresStore reference is https://github.com/mastra-ai/mastra/blob/main/docs/src/content/en/integrations/databases/postgresql.mdx. **ADAPT** its `PostgresStore`/pool-reuse pattern; keep iPix's stricter identity/TLS guards.
+- A separately deployed Mastra server is a distinct official deployment option, documented at https://github.com/mastra-ai/mastra/blob/main/docs/src/content/en/docs/deployment/overview.mdx. **REFERENCE ONLY** until iPix's remote/cross-instance qualification tasks prove it.
+- The live project currently has separate `mastra`, `planner`, `shoot`, and `public` schemas; read-only verification on **2026-09-22** found 34, 12, 10, and 85 tables respectively. Exact verification query:
+
+```sql
+select schemaname, count(*)::int as table_count
+from pg_tables
+where schemaname in ('mastra', 'planner', 'shoot', 'public')
+group by schemaname
+order by schemaname;
+```
+
+- RLS is enabled on verified `mastra.mastra_threads`, `mastra.mastra_messages`, `mastra.mastra_workflow_snapshot`, and `shoot.shoot_plan_approvals`. Supabase RLS guidance: https://supabase.com/docs/guides/database/postgres/row-level-security. **MODEL** database-enforced tenant boundaries plus least-privilege grants; do not treat browser state as authorization.
 - Remote/cross-instance run ownership is not declared solved here. That work remains behind separate runtime qualification tasks.
 
 ## 12. Proven reuse matrix
