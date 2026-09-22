@@ -6,13 +6,38 @@ import {
   type AgentRunnerStopRequest,
 } from "@copilotkit/runtime/v2";
 
+function requireHttpBaseUrl(value: string): URL {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("MASTRA_BASE_URL must be a valid URL");
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("MASTRA_BASE_URL must use http or https");
+  }
+  return url;
+}
+
+async function readJson<T>(response: Response, label: string): Promise<T> {
+  if (!response.ok) throw new Error(`${label} failed: ${response.status}`);
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new Error(`${label} returned invalid JSON`);
+  }
+}
+
 export class MastraControlRunner extends AgentRunner {
+  private readonly baseUrl: URL;
+
   constructor(
     private readonly delegate: AgentRunner,
-    private readonly baseUrl: string,
+    baseUrl: string,
     private readonly accessToken: string,
   ) {
     super();
+    this.baseUrl = requireHttpBaseUrl(baseUrl);
   }
 
   run(request: AgentRunnerRunRequest) {
@@ -24,7 +49,7 @@ export class MastraControlRunner extends AgentRunner {
   }
 
   private async post(path: string, body: Record<string, string>) {
-    return fetch(`${this.baseUrl.replace(/\/$/, "")}${path}`, {
+    return fetch(new URL(path, this.baseUrl).toString(), {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.accessToken}`,
@@ -36,9 +61,12 @@ export class MastraControlRunner extends AgentRunner {
 
   private async activeRunId(threadId: string): Promise<string | undefined> {
     const response = await this.post("/ipix/run-control/active", { threadId });
-    if (!response.ok) return undefined;
-    const body = (await response.json()) as { runId?: string | null };
-    return body.runId || undefined;
+    const body = await readJson<{ runId?: unknown }>(response, "Active run lookup");
+    if (body.runId == null) return undefined;
+    if (typeof body.runId !== "string") {
+      throw new Error("Active run lookup returned an invalid payload");
+    }
+    return body.runId;
   }
 
   async isRunning(request: AgentRunnerIsRunningRequest): Promise<boolean> {
@@ -52,8 +80,10 @@ export class MastraControlRunner extends AgentRunner {
       threadId: request.threadId,
       runId,
     });
-    if (!response.ok) return false;
-    const body = (await response.json()) as { aborted?: boolean };
-    return body.aborted === true;
+    const body = await readJson<{ aborted?: unknown }>(response, "Run abort");
+    if (typeof body.aborted !== "boolean") {
+      throw new Error("Run abort returned an invalid payload");
+    }
+    return body.aborted;
   }
 }

@@ -1,21 +1,22 @@
 import { Agent } from "@mastra/core/agent";
 import { Mastra } from "@mastra/core/mastra";
-import type { Middleware } from "@mastra/core/server";
+import { defineAuth } from "@mastra/core/server";
 
-import { applyMastraIdentity, bearerTokenFromHeader } from "@/mastra/server-auth";
 import { plannerRunControlRoutes } from "@/mastra/run-control-routes";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const RESOURCE_A = "org:a::user:u";
 const RESOURCE_B = "org:b::user:u";
 
-const fixtureAuth: Middleware = async (c, next) => {
-  const token = bearerTokenFromHeader(c.req.header("authorization"));
-  const resourceId = token === "org-a-token" ? RESOURCE_A : token === "org-b-token" ? RESOURCE_B : undefined;
-  if (!resourceId) return c.json({ error: "unauthorized" }, 401);
-  applyMastraIdentity(c.get("requestContext"), { accessToken: token!, resourceId });
-  return next();
-};
+const fixtureAuth = defineAuth<{ id: string; resourceId: string }>({
+  protected: ["/ipix/*"],
+  authenticateToken: async (token) => {
+    const resourceId = token === "org-a-token" ? RESOURCE_A : token === "org-b-token" ? RESOURCE_B : undefined;
+    if (!resourceId) throw new Error("unauthorized");
+    return { id: token, resourceId };
+  },
+  mapUserToResourceId: (user) => user.resourceId,
+});
 
 const model = {
   specificationVersion: "v2" as const,
@@ -47,5 +48,5 @@ const agent = new Agent({ id: "default", name: "default", instructions: "Return 
 
 export const mastra = new Mastra({
   agents: { default: agent },
-  server: { host: "127.0.0.1", port: 43112, handleShutdownSignals: false, middleware: fixtureAuth, apiRoutes: plannerRunControlRoutes },
+  server: { host: "127.0.0.1", port: 43112, handleShutdownSignals: false, auth: fixtureAuth, apiRoutes: plannerRunControlRoutes },
 });

@@ -1,22 +1,16 @@
-type ActiveRun = {
-  runId: string;
-  resourceId?: string;
-  threadId: string;
-};
+import type { Agent } from "@mastra/core/agent";
 
-type ActiveRunAgent = {
-  listActiveThreadRuns(): ActiveRun[];
-};
-
-type AbortableActiveRunAgent = ActiveRunAgent & {
-  abortRunStream(runId: string): boolean;
-};
+type ActiveRunAgent = Pick<Agent, "listActiveThreadRuns">;
+type AbortableActiveRunAgent = Pick<
+  Agent,
+  "listActiveThreadRuns" | "abortRunStream"
+>;
 
 export function findOwnedActiveRun(
   agent: ActiveRunAgent,
   resourceId: string,
   threadId: string,
-): ActiveRun | undefined {
+) {
   return agent
     .listActiveThreadRuns()
     .find(

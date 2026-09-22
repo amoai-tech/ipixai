@@ -8,11 +8,20 @@ export function createMastraClientForRequest(accessToken: string): MastraClient 
   if (!baseUrl) {
     throw new Error("MASTRA_BASE_URL is required for remote Planner execution");
   }
+  let parsedBaseUrl: URL;
+  try {
+    parsedBaseUrl = new URL(baseUrl);
+  } catch {
+    throw new Error("MASTRA_BASE_URL must be a valid URL");
+  }
+  if (parsedBaseUrl.protocol !== "http:" && parsedBaseUrl.protocol !== "https:") {
+    throw new Error("MASTRA_BASE_URL must use http or https");
+  }
   if (!accessToken) {
     throw new Error("Authenticated Supabase access token is required for Mastra");
   }
   return new MastraClient({
-    baseUrl,
+    baseUrl: parsedBaseUrl.toString().replace(/\/$/, ""),
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 }

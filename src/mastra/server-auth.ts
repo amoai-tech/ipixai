@@ -1,10 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import {
-  MASTRA_AUTH_TOKEN_KEY,
-  MASTRA_RESOURCE_ID_KEY,
-  type RequestContext,
-} from "@mastra/core/request-context";
-import type { Middleware } from "@mastra/core/server";
+import { defineAuth } from "@mastra/core/server";
 
 import { getPublicSupabaseConfig } from "@/lib/supabase/env";
 import {
@@ -13,22 +8,16 @@ import {
 } from "@/lib/auth/runtime-org";
 import { memoryResourceId } from "@/lib/auth/verified-operator";
 
-export function bearerTokenFromHeader(value: string | null | undefined) {
-  const match = value?.match(/^Bearer\s+(.+)$/i);
-  return match?.[1]?.trim() || undefined;
-}
+type PlannerMastraUser = {
+  id: string;
+  resourceId: string;
+};
 
-export function applyMastraIdentity(
-  requestContext: RequestContext,
-  identity: { accessToken: string; resourceId: string },
-) {
-  requestContext.set(MASTRA_AUTH_TOKEN_KEY, identity.accessToken);
-  requestContext.set(MASTRA_RESOURCE_ID_KEY, identity.resourceId);
-}
-
-export async function resolveMastraIdentity(accessToken: string) {
+export async function resolveMastraIdentity(
+  accessToken: string,
+): Promise<PlannerMastraUser | null> {
   const config = getPublicSupabaseConfig();
-  if (!config?.url || !config.publishableKey) return undefined;
+  if (!config?.url || !config.publishableKey) return null;
 
   const supabase = createClient(config.url, config.publishableKey, {
     auth: { persistSession: false },
@@ -36,37 +25,25 @@ export async function resolveMastraIdentity(accessToken: string) {
   });
   const { data, error } = await supabase.auth.getUser(accessToken);
   const userId = data?.user?.id;
-  if (error || !userId) return undefined;
+  if (error || !userId) return null;
 
   const tenant = await resolveRuntimeTenant({
-    listOrgIds: () =>
-      listMembershipOrgIdsFromServerClient(supabase, userId),
+    listOrgIds: () => listMembershipOrgIdsFromServerClient(supabase, userId),
   });
-  if (tenant.status !== "ok") return undefined;
+  if (tenant.status !== "ok") return null;
 
   return {
-    accessToken,
+    id: userId,
     resourceId: memoryResourceId({ userId, orgId: tenant.orgId }),
   };
 }
 
-function isProtectedPlannerPath(path: string) {
-  return (
-    path.startsWith("/api/agents") ||
-    path.startsWith("/api/memory") ||
-    path.startsWith("/ipix/run-control")
-  );
-}
-
-export const plannerMastraAuthMiddleware: Middleware = async (c, next) => {
-  if (!isProtectedPlannerPath(c.req.path)) return next();
-
-  const accessToken = bearerTokenFromHeader(c.req.header("authorization"));
-  if (!accessToken) return c.json({ error: "unauthorized" }, 401);
-
-  const identity = await resolveMastraIdentity(accessToken);
-  if (!identity) return c.json({ error: "forbidden" }, 403);
-
-  applyMastraIdentity(c.get("requestContext"), identity);
-  return next();
-};
+export const plannerMastraAuth = defineAuth<PlannerMastraUser>({
+  protected: ["/ipix/*"],
+  authenticateToken: async (accessToken) => {
+    const user = await resolveMastraIdentity(accessToken);
+    if (!user) throw new Error("Invalid or unauthorized Supabase token");
+    return user;
+  },
+  mapUserToResourceId: (user) => user.resourceId,
+});

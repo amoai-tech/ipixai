@@ -11,6 +11,13 @@ afterEach(() => {
 });
 
 describe("remote Mastra boundary", () => {
+  it("rejects non-http remote Mastra URLs before creating the client", () => {
+    vi.stubEnv("MASTRA_BASE_URL", "file:///tmp/mastra");
+    expect(() => createMastraClientForRequest("jwt-123")).toThrow(
+      "MASTRA_BASE_URL must use http or https",
+    );
+  });
+
   it("forwards the verified Supabase bearer token to self-hosted Mastra", () => {
     vi.stubEnv("MASTRA_BASE_URL", "http://127.0.0.1:4111");
     const client = createMastraClientForRequest("jwt-123");

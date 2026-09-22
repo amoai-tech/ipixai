@@ -36,6 +36,31 @@ describe("remote Mastra cross-process run control", () => {
     const server = start("server.ts");
     await waitFor(server, "SERVER_READY");
 
+    const unauthenticatedWorkflow = await fetch("http://127.0.0.1:43112/api/workflows");
+    expect(unauthenticatedWorkflow.status).toBe(401);
+
+    const unauthenticatedControl = await fetch("http://127.0.0.1:43112/ipix/run-control/active", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ threadId: "thread-1" }),
+    });
+    expect(unauthenticatedControl.status).toBe(401);
+
+    const malformed = await fetch("http://127.0.0.1:43112/ipix/run-control/abort", {
+      method: "POST",
+      headers: { Authorization: "Bearer org-a-token", "content-type": "application/json" },
+      body: "{",
+    });
+    expect(malformed.status).toBe(400);
+    await expect(malformed.json()).resolves.toEqual({ error: "invalid_request" });
+
+    const empty = await fetch("http://127.0.0.1:43112/ipix/run-control/active", {
+      method: "POST",
+      headers: { Authorization: "Bearer org-a-token", "content-type": "application/json" },
+    });
+    expect(empty.status).toBe(400);
+    await expect(empty.json()).resolves.toEqual({ error: "invalid_request" });
+
     const a1 = start("starter.ts", "R1");
     await waitFor(a1, "START_TICK run=R1");
     const orgB = start("controller.ts", "org-b");
