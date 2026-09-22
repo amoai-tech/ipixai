@@ -46,8 +46,26 @@ describe("remote Mastra cross-process run control", () => {
     expect(port).toBeTruthy();
     const baseUrl = `http://127.0.0.1:${port}`;
 
+    // Installed @mastra/server merges defaultAuthConfig.protected (["/api/*"])
+    // with our protected (["/ipix/*"]) — `protected` is additive, not a
+    // replacement. Assert the built-in surface directly so a future Mastra
+    // change that flips that merge to a replacement fails here instead of
+    // silently exposing agents/memory.
     const unauthenticatedWorkflow = await fetch(`${baseUrl}/api/workflows`);
     expect(unauthenticatedWorkflow.status).toBe(401);
+
+    const unauthenticatedAgents = await fetch(`${baseUrl}/api/agents`);
+    expect(unauthenticatedAgents.status).toBe(401);
+
+    const unauthenticatedMemory = await fetch(`${baseUrl}/api/memory/threads`);
+    expect(unauthenticatedMemory.status).toBe(401);
+
+    // Control: the same built-in route must answer 200 once authenticated.
+    // Without this, a 404 (route absent) would masquerade as a passing 401.
+    const authenticatedAgents = await fetch(`${baseUrl}/api/agents`, {
+      headers: { Authorization: "Bearer org-a-token" },
+    });
+    expect(authenticatedAgents.status).toBe(200);
 
     const unauthenticatedControl = await fetch(`${baseUrl}/ipix/run-control/active`, {
       method: "POST",
