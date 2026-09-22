@@ -7,9 +7,24 @@ export type BrandCrawlMetadata = Record<string, string>;
 
 export type StartBrandSiteCrawlInput = {
   url: string;
-  webhookUrl: string;
   metadata: BrandCrawlMetadata;
 };
+
+function requireFirecrawlWebhookUrl(): string {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!supabaseUrl) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL is not configured");
+  }
+  const origin = new URL(supabaseUrl);
+  if (
+    origin.protocol !== "https:" &&
+    origin.hostname !== "127.0.0.1" &&
+    origin.hostname !== "localhost"
+  ) {
+    throw new Error("Supabase URL must use HTTPS outside local development");
+  }
+  return new URL("/functions/v1/firecrawl-webhook", origin).toString();
+}
 
 function requireFirecrawlApiKey(): string {
   const apiKey = process.env.FIRECRAWL_API_KEY?.trim();
@@ -28,7 +43,7 @@ export async function startBrandSiteCrawl(
     maxDiscoveryDepth: DEFAULT_DISCOVERY_DEPTH,
     scrapeOptions: { formats: ["markdown"] },
     webhook: {
-      url: input.webhookUrl,
+      url: requireFirecrawlWebhookUrl(),
       metadata: input.metadata,
       events: ["started", "page", "completed", "failed"],
     },

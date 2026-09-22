@@ -6,6 +6,29 @@ export const runtime = "nodejs";
 
 const MAX_BODY_BYTES = 1_048_576;
 
+const BRAND_INTELLIGENCE_WORKFLOW_KEYS = [
+  "brand-intelligence",
+  "brand-intelligence-v2-golden",
+] as const;
+
+async function resolveWorkflowKeyForRun(runId: string) {
+  const mastra = getMastra();
+  const matches: Array<(typeof BRAND_INTELLIGENCE_WORKFLOW_KEYS)[number]> = [];
+
+  for (const key of BRAND_INTELLIGENCE_WORKFLOW_KEYS) {
+    const state = await mastra.getWorkflow(key).getWorkflowRunById(runId);
+    if (state) matches.push(key);
+  }
+
+  if (matches.length === 0) {
+    throw new Error(`Brand Intelligence workflow run not found: ${runId}`);
+  }
+  if (matches.length > 1) {
+    throw new Error(`Ambiguous workflow run ${runId} exists in multiple Brand Intelligence workflows`);
+  }
+  return matches[0];
+}
+
 function verifyInternalSecret(header: string | null, expected: string | undefined): boolean {
   if (!header || !expected) return false;
   // Hash both sides to a fixed-length digest before comparing, rather than
@@ -80,7 +103,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const workflow = getMastra().getWorkflow("brand-intelligence");
+    const workflowKey = await resolveWorkflowKeyForRun(body.runId);
+    const workflow = getMastra().getWorkflow(workflowKey);
     const run = await workflow.createRun({ runId: body.runId });
     const result = await run.resume({
       resumeData: {

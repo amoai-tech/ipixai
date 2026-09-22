@@ -16,10 +16,9 @@ vi.mock("firecrawl", () => ({
 }));
 import { startBrandSiteCrawl } from "@/mastra/tools/firecrawl";
 
-const WEBHOOK = "https://example.supabase.co/functions/v1/firecrawl-webhook";
-
 beforeEach(() => {
   vi.stubEnv("FIRECRAWL_API_KEY", "fc-test-key");
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
   mocks.constructor.mockClear();
   mocks.startCrawl.mockReset();
   mocks.startCrawl.mockResolvedValue({ id: "fc-job-123", url: "https://brand.example" });
@@ -33,7 +32,6 @@ describe("official Firecrawl SDK Brand crawl", () => {
   it("starts the bounded async crawl with webhook correlation metadata", async () => {
     const result = await startBrandSiteCrawl({
       url: "https://brand.example",
-      webhookUrl: WEBHOOK,
       metadata: {
         brand_id: "11111111-1111-4111-8111-111111111111",
         crawl_id: "22222222-2222-4222-8222-222222222222",
@@ -46,7 +44,7 @@ describe("official Firecrawl SDK Brand crawl", () => {
       maxDiscoveryDepth: 1,
       scrapeOptions: { formats: ["markdown"] },
       webhook: {
-        url: WEBHOOK,
+        url: "https://example.supabase.co/functions/v1/firecrawl-webhook",
         metadata: {
           brand_id: "11111111-1111-4111-8111-111111111111",
           crawl_id: "22222222-2222-4222-8222-222222222222",
@@ -58,11 +56,29 @@ describe("official Firecrawl SDK Brand crawl", () => {
     expect(result).toEqual({ id: "fc-job-123" });
   });
 
+  it("ignores caller-controlled webhook destinations and derives the fixed Supabase callback", async () => {
+    await startBrandSiteCrawl({
+      url: "https://brand.example",
+      metadata: { workflow_id: "run-safe" },
+      // Deliberately present at runtime even though the TypeScript contract forbids it.
+      ...({ webhookUrl: "https://attacker.example/collect" } as Record<string, string>),
+    });
+
+    expect(mocks.startCrawl).toHaveBeenCalledWith(
+      "https://brand.example",
+      expect.objectContaining({
+        webhook: expect.objectContaining({
+          url: "https://example.supabase.co/functions/v1/firecrawl-webhook",
+        }),
+      }),
+    );
+  });
+
   it("fails closed when the server-side Firecrawl key is missing", async () => {
     vi.stubEnv("FIRECRAWL_API_KEY", "");
 
     await expect(
-      startBrandSiteCrawl({ url: "https://brand.example", webhookUrl: WEBHOOK, metadata: {} }),
+      startBrandSiteCrawl({ url: "https://brand.example", metadata: {} }),
     ).rejects.toThrow("FIRECRAWL_API_KEY is not configured");
     expect(mocks.startCrawl).not.toHaveBeenCalled();
   });

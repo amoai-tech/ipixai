@@ -3,6 +3,7 @@ import { ConsoleLogger, LogLevel } from "@mastra/core/logger";
 import { getProductionPlannerAgent } from "./agents";
 import { createMastraStorage } from "./pg-store";
 import { brandIntelligenceWorkflow } from "./workflows/brand-intelligence";
+import { officialBrandIntelligenceGoldenPathWorkflow } from "./workflows/brand-intelligence-v2";
 import { shootPlanReviewWorkflow } from "./workflows/shoot-plan-review";
 
 let cachedMastra: Mastra | undefined;
@@ -19,6 +20,7 @@ export function getMastra(): Mastra {
     agents: { default: getProductionPlannerAgent() },
     workflows: {
       "brand-intelligence": brandIntelligenceWorkflow,
+      "brand-intelligence-v2-golden": officialBrandIntelligenceGoldenPathWorkflow,
       "shoot-plan-review": shootPlanReviewWorkflow,
     },
     storage: createMastraStorage(),

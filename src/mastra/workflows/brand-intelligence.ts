@@ -157,7 +157,7 @@ const commitOrRejectOutputSchema = z.object({
   status: z.string(),
 });
 
-const validateBrand = createStep({
+export const validateBrand = createStep({
   id: "validateBrand",
   inputSchema: validateBrandInputSchema,
   outputSchema: validateBrandOutputSchema,
@@ -290,7 +290,7 @@ const waitForCrawl = createStep({
   },
 });
 
-const extractProfile = createStep({
+export const extractProfile = createStep({
   id: "extractProfile",
   inputSchema: extractProfileInputSchema,
   outputSchema: extractProfileOutputSchema,
@@ -363,7 +363,7 @@ const extractProfile = createStep({
   },
 });
 
-const saveDraftAndWait = createStep({
+export const saveDraftAndWait = createStep({
   id: "saveDraftAndWait",
   inputSchema: saveDraftAndWaitInputSchema,
   outputSchema: saveDraftAndWaitOutputSchema,
@@ -448,7 +448,7 @@ const saveDraftAndWait = createStep({
   },
 });
 
-const commitOrReject = createStep({
+export const commitOrReject = createStep({
   id: "commitOrReject",
   inputSchema: commitOrRejectInputSchema,
   outputSchema: commitOrRejectOutputSchema,
