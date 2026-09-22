@@ -41,6 +41,7 @@ function loadCatalogOnce(): Promise<ShotReferenceCatalogEntry[]> {
 export type ShootPlanReviewSessionProps = {
   brandId: string;
   plan: Record<string, unknown>;
+  reviewStartId?: string;
   onSettled?: (outcome: PlanReviewSettled, identity: PlanReviewIdentity) => void;
   onStartFailed?: () => void;
   onRevised?: (identity: PlanReviewIdentity) => void;
@@ -50,6 +51,7 @@ export type ShootPlanReviewSessionProps = {
 export function ShootPlanReviewSession({
   brandId,
   plan,
+  reviewStartId,
   onSettled,
   onStartFailed,
   onRevised,
@@ -74,7 +76,7 @@ export function ShootPlanReviewSession({
         const response = await fetch("/api/plans/reviews", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ brandId, plan }),
+          body: JSON.stringify({ brandId, plan, ...(reviewStartId ? { reviewStartId } : {}) }),
           signal: controller.signal,
         });
         const body: unknown = await response.json().catch(() => null);
@@ -103,7 +105,7 @@ export function ShootPlanReviewSession({
         window.clearTimeout(timeoutId);
       }
     })();
-  }, [brandId, plan]);
+  }, [brandId, plan, reviewStartId]);
 
   useEffect(() => {
     if (!failure || failedRef.current) return;
