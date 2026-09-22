@@ -4,8 +4,8 @@ description: "Mastra framework for iPixai: docs lookup, agents, workflows, tools
 license: Apache-2.0
 metadata:
   author: Mastra
-  version: "2.2.2-ipix.4"
-  basedOn: mastra-ai/skills 2.1.0 + iPix/Lumina/web audit 2026-09-08
+  version: "2.2.0-ipix.5"
+  basedOn: mastra-ai/skills 2.2.0 @ f79b794df9201b671b6602c6fc8ac0ad95478750 + iPix overlay
   repository: https://github.com/mastra-ai/skills
   title: Mastra framework guide
   impact: HIGH
@@ -20,6 +20,16 @@ metadata:
 # Mastra Framework Guide
 
 ## How to use this skill
+
+This is the **one canonical Mastra skill for iPix**. Use it for implementation, debugging, upgrades, and PR review; do not create a second `mastra-review` skill that duplicates this guidance.
+
+### Mode selection
+
+- **Implement/debug:** inspect current iPix code and installed `@mastra/*` source/types, then load only the smallest relevant reference.
+- **PR review:** review only changed Mastra behavior. Report material correctness, tenant/auth, persistence, HITL/resume, cancellation, idempotency, or package-compatibility regressions with concrete evidence and the cheapest decisive verification. Do not report style-only or speculative findings.
+- **Upgrade/API claim:** compare the installed package family to current official Mastra guidance. Latest upstream examples never override pinned installed APIs without an intentional upgrade.
+
+PR review preserves the same iPix safety boundaries as implementation: browser IDs are claims until server-authorized; consequential writes remain human-approved; durable workflows/memory cannot silently fall back to ephemeral state; resume/retry paths are idempotent; sensitive credentials stay out of model/memory/trace context; and CopilotKit/AG-UI compatibility is verified across the installed family.
 
 Do not read every Mastra reference. Start here, classify the risk, then load the smallest owner set from [`references/README.md`](references/README.md).
 
@@ -289,6 +299,7 @@ Prefer deterministic tests for safety/authorization/idempotency. Build datasets 
 | End-to-end iPix Mastra user journeys | [`references/user-journeys.md`](references/user-journeys.md) |
 | Failure diagnosis | [`references/common-errors.md`](references/common-errors.md) |
 | Mastra version migration | [`references/migration-guide.md`](references/migration-guide.md) |
+| Advanced trace selection | [`references/trace-query.md`](references/trace-query.md) |
 | Lumina migration | `../tasks/references/migration-lumina.md` |
 
 ## Mastra docs MCP / Studio / CLI
