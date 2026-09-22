@@ -2,12 +2,14 @@ import { MastraClient } from "@mastra/client-js";
 
 async function main() {
   const mode = process.argv[2]!;
+  const baseUrl = process.argv[3];
+  if (!baseUrl) throw new Error("Fixture base URL is required");
   const token = mode === "org-b" ? "org-b-token" : "org-a-token";
   const resourceId = mode === "org-b" ? "org:b::user:u" : "org:a::user:u";
-  const client = new MastraClient({ baseUrl: "http://127.0.0.1:43112", headers: { Authorization: `Bearer ${token}` } });
+  const client = new MastraClient({ baseUrl, headers: { Authorization: `Bearer ${token}` } });
   const agent = client.getAgent("default");
   const post = async (path: string, body: object) => {
-    const r = await fetch(`http://127.0.0.1:43112${path}`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(body) });
+    const r = await fetch(`${baseUrl}${path}`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(body) });
     return r.json() as Promise<any>;
   };
   if (mode === "org-b") {

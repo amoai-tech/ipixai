@@ -28,6 +28,12 @@ async function readJson<T>(response: Response, label: string): Promise<T> {
   }
 }
 
+type RunControlPath =
+  | "/ipix/run-control/active"
+  | "/ipix/run-control/abort";
+
+const RUN_CONTROL_TIMEOUT_MS = 10_000;
+
 export class MastraControlRunner extends AgentRunner {
   private readonly baseUrl: URL;
 
@@ -48,14 +54,16 @@ export class MastraControlRunner extends AgentRunner {
     return this.delegate.connect(request);
   }
 
-  private async post(path: string, body: Record<string, string>) {
-    return fetch(new URL(path, this.baseUrl).toString(), {
+  private async post(path: RunControlPath, body: Record<string, string>) {
+    const base = this.baseUrl.href.replace(/\/$/, "");
+    return fetch(`${base}${path}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.accessToken}`,
         "content-type": "application/json",
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(RUN_CONTROL_TIMEOUT_MS),
     });
   }
 
@@ -74,7 +82,7 @@ export class MastraControlRunner extends AgentRunner {
   }
 
   async stop(request: AgentRunnerStopRequest): Promise<boolean> {
-    const runId = request.runId ?? (await this.activeRunId(request.threadId));
+    const runId = request.runId;
     if (!runId) return false;
     const response = await this.post("/ipix/run-control/abort", {
       threadId: request.threadId,

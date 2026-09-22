@@ -48,6 +48,36 @@ describe("MastraControlRunner", () => {
     ).rejects.toThrow("Run abort failed: 502");
   });
 
+  it("fails closed when Stop does not carry the original runId", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const runner = new MastraControlRunner(delegate, "http://mastra", "jwt");
+    await expect(runner.stop({ threadId: "thread-1" })).resolves.toBe(false);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("preserves a base-path prefix for run-control requests", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ runId: null }), { status: 200 }),
+    );
+    const runner = new MastraControlRunner(delegate, "https://mastra.example.com/runtime/", "jwt");
+    await expect(runner.isRunning({ threadId: "thread-1" })).resolves.toBe(false);
+    expect(fetchSpy.mock.calls[0]?.[0]).toBe(
+      "https://mastra.example.com/runtime/ipix/run-control/active",
+    );
+  });
+
+  it("applies a 10 second timeout to Mastra control requests", async () => {
+    const timeoutSignal = new AbortController().signal;
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout").mockReturnValue(timeoutSignal);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ runId: null }), { status: 200 }),
+    );
+    const runner = new MastraControlRunner(delegate, "http://mastra", "jwt");
+    await runner.isRunning({ threadId: "thread-1" });
+    expect(timeoutSpy).toHaveBeenCalledWith(10_000);
+    expect(fetchSpy.mock.calls[0]?.[1]?.signal).toBe(timeoutSignal);
+  });
+
   it("stops the exact requested run through Mastra", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ aborted: true }), { status: 200 }),

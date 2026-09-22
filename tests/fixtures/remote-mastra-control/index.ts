@@ -48,5 +48,5 @@ const agent = new Agent({ id: "default", name: "default", instructions: "Return 
 
 export const mastra = new Mastra({
   agents: { default: agent },
-  server: { host: "127.0.0.1", port: 43112, handleShutdownSignals: false, auth: fixtureAuth, apiRoutes: plannerRunControlRoutes },
+  server: { host: "127.0.0.1", port: 0, handleShutdownSignals: false, auth: fixtureAuth, apiRoutes: plannerRunControlRoutes },
 });

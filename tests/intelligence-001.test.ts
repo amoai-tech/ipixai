@@ -231,7 +231,7 @@ describe("IPI-1009 intelligence tenant safety", () => {
     }
   });
 
-  it("selects Intelligence mode and stops through shared Mastra control", async () => {
+  it("selects Intelligence mode and fails closed on a thread-only Stop", async () => {
     enableIntelligence();
     const sseStop = vi.spyOn(InMemoryAgentRunner.prototype, "stop");
     const intelligenceStop = vi.spyOn(IntelligenceAgentRunner.prototype, "stop");
@@ -260,10 +260,10 @@ describe("IPI-1009 intelligence tenant safety", () => {
     expect(stop.status).toBe(200);
     expect(sseStop).not.toHaveBeenCalled();
     expect(intelligenceStop).not.toHaveBeenCalled();
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "http://mastra.test/ipix/run-control/abort",
-      expect.objectContaining({ method: "POST" }),
+    const controlCalls = fetchSpy.mock.calls.filter(([input]) =>
+      String(input).includes("/ipix/run-control/"),
     );
+    expect(controlCalls).toHaveLength(0);
   });
 
   it("lists threads under the org+user Intelligence identity", async () => {

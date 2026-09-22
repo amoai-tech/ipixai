@@ -2,7 +2,9 @@ import { MastraClient } from "@mastra/client-js";
 
 async function main() {
   const runId = process.argv[2]!;
-  const client = new MastraClient({ baseUrl: "http://127.0.0.1:43112", headers: { Authorization: "Bearer org-a-token" } });
+  const baseUrl = process.argv[3];
+  if (!baseUrl) throw new Error("Fixture base URL is required");
+  const client = new MastraClient({ baseUrl, headers: { Authorization: "Bearer org-a-token" } });
   const agent = client.getAgent("default");
   console.log(`STARTER_READY run=${runId} pid=${process.pid}`);
   const response = await agent.stream([{ role: "user", content: `start ${runId}` }], {
