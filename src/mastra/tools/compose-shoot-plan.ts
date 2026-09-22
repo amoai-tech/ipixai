@@ -19,7 +19,7 @@ import {
   type EstimateShootBudgetOutput,
 } from "./planning";
 import { CurrencySchema } from "./planning-types";
-import { ShootPlanSchema, confirmedField, needsInputField, type ShootPlan } from "./plan-schema";
+import { ShootPlanSchema, confirmedField, isValidScheduleRange, needsInputField, type ShootPlan } from "./plan-schema";
 
 /**
  * IPI-1081 · PLAN-001 — composes one complete, schema-valid ShootPlan from a
@@ -45,6 +45,7 @@ import { ShootPlanSchema, confirmedField, needsInputField, type ShootPlan } from
 const ComposeShootPlanInputSchema = z.object({
   channels: z.array(ChannelSchema).min(1).max(MAX_CHANNELS_INPUT),
   objective: z.string().max(MAX_TEXT_LENGTH).optional(),
+  shootName: z.string().max(MAX_TEXT_LENGTH).optional(),
   brief: z.string().max(MAX_TEXT_LENGTH).optional(),
   productCategory: z.string().max(MAX_TEXT_LENGTH).optional(),
   brandDnaSummary: z.string().max(MAX_TEXT_LENGTH).optional(),
@@ -192,6 +193,10 @@ export async function composeShootPlan(input: ComposeShootPlanInput): Promise<Sh
     ),
   );
 
+  const shootNameValue = input.shootName?.trim();
+  const shootName = shootNameValue ? confirmedField(shootNameValue) : needsInputField<string>();
+  const briefValue = input.brief?.trim();
+  const brief = briefValue ? confirmedField(briefValue) : needsInputField<string>();
   const objective = input.objective ? confirmedField(input.objective) : needsInputField<string>();
   const mediaType = input.mediaType ? confirmedField(input.mediaType) : needsInputField<"photo" | "video" | "both">();
   const location = input.location ? confirmedField(input.location) : needsInputField<string>();
@@ -206,7 +211,7 @@ export async function composeShootPlan(input: ComposeShootPlanInput): Promise<Sh
   // confirmed would let the overall plan claim "complete" while the
   // schedule is actually still missing a required date.
   const schedule =
-    input.scheduleStartDate && input.scheduleEndDate
+    isValidScheduleRange(input.scheduleStartDate, input.scheduleEndDate)
       ? confirmedField({
           startDate: input.scheduleStartDate,
           endDate: input.scheduleEndDate,
@@ -216,6 +221,8 @@ export async function composeShootPlan(input: ComposeShootPlanInput): Promise<Sh
   const campaignContext = input.campaignContext ? confirmedField(input.campaignContext) : needsInputField<string>();
 
   const localMissingInputs = ([
+    ["shootName", shootName],
+    ["brief", brief],
     ["objective", objective],
     ["mediaType", mediaType],
     ["location", location],
@@ -270,6 +277,8 @@ export async function composeShootPlan(input: ComposeShootPlanInput): Promise<Sh
     deliverablesResult,
     shotListResult,
     budgetResult,
+    shootName,
+    brief,
     objective,
     mediaType,
     location,

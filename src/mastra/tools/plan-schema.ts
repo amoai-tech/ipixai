@@ -55,6 +55,28 @@ const ScheduleSchema = z.object({
   notes: z.string().max(MAX_TEXT_LENGTH).optional(),
 });
 
+const ISO_DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function isCalendarDate(value: string): boolean {
+  const match = ISO_DATE_ONLY.exec(value);
+  if (!match) return false;
+  const [, year, month, day] = match;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime())
+    && parsed.getUTCFullYear() === Number(year)
+    && parsed.getUTCMonth() + 1 === Number(month)
+    && parsed.getUTCDate() === Number(day);
+}
+
+export function isValidScheduleRange(startDate?: string, endDate?: string): boolean {
+  return Boolean(
+    startDate && endDate
+    && isCalendarDate(startDate)
+    && isCalendarDate(endDate)
+    && endDate >= startDate,
+  );
+}
+
 // A *confirmed* schedule specifically must carry both dates — notes alone
 // (or one date) is a real partial input, not a confirmed schedule. This is
 // enforced here, at the schema itself, as a second, independent layer on
@@ -62,8 +84,8 @@ const ScheduleSchema = z.object({
 // constructs a confirmed schedule without both dates) — so the invariant
 // holds even if a schedule is ever constructed a different way in future.
 const ConfirmedScheduleSchema = ScheduleSchema.refine(
-  (schedule) => Boolean(schedule.startDate && schedule.endDate),
-  { message: "A confirmed schedule requires both startDate and endDate" },
+  (schedule) => isValidScheduleRange(schedule.startDate, schedule.endDate),
+  { message: "A confirmed schedule requires valid dates with endDate on or after startDate" },
 );
 
 export const ShootPlanSchema = z.object({
@@ -85,6 +107,10 @@ export const ShootPlanSchema = z.object({
   // Sections no TOOL-001 tool computes. Each is confirmed only when the
   // operator's own request explicitly supplied it (via composeShootPlan's
   // input schema) — otherwise needs_input. Never assumed/invented.
+  // Persisted history predates these two Wizard/save fields, so their absence
+  // normalizes to needs_input without invalidating older plans.
+  shootName: planField(z.string().max(MAX_TEXT_LENGTH)).default({ status: "needs_input" }),
+  brief: planField(z.string().max(MAX_TEXT_LENGTH)).default({ status: "needs_input" }),
   objective: planField(z.string().max(MAX_TEXT_LENGTH)),
   mediaType: planField(z.enum(["photo", "video", "both"])),
   location: planField(z.string().max(MAX_TEXT_LENGTH)),
