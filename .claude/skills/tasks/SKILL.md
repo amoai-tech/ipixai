@@ -64,20 +64,40 @@ Otherwise
 ```
 
 Rules:
-- Search Linear first and reuse/update an existing issue when the same TASK-ID or materially overlapping scope already exists.
+- Search Linear first for an existing issue with the same TASK-ID or materially overlapping scope before creating anything new.
+- Existing-issue decision:
+  - Same work item with the correct or usable template structure → reuse/update it.
+  - Same work item with a wrong or missing template association → preserve the issue/history, migrate its body and fields to the closest applicable template structure, and record the mismatch. If current Linear tooling cannot change the template association after creation, do not create a duplicate solely to change template metadata.
+  - Existing issue is completed/canceled historical work, materially different scope, or requires creation-only form/template behavior → create a new correctly templated issue, link the old issue, and record the reason/relationship.
+  - Assignment alone is not a reason to duplicate work; preserve or intentionally change ownership.
 - For a new issue, apply the actual Linear template through the template field. Do not recreate it from memory.
 - Do not pass a replacement free-form description during template creation; that would discard the template body. Apply the template first, then fill/correct its sections.
 - Preserve the closest applicable template structure when materially rewriting an existing issue.
 - Fill only relevant sections; use `Needs verification` rather than inventing values.
 - Before implementation, use one of two explicit paths:
-  - **Standard path:** verify template/type, project/milestone, relations, observable outcome, acceptance criteria, verification plan, and exact next action.
+  - **Standard path:** verify template/type, project/milestone, dependencies/blockers, relations, observable outcome, acceptance criteria, verification plan, and exact next action.
   - **Exception path:** if a genuinely non-standard issue cannot use an approved template, document the concrete reason in the issue and preserve these required fields.
 
-If Linear is temporarily unavailable, use `todo.md` only as a temporary handoff with the same required state/evidence fields, then reconcile it back into Linear before marking the issue Done.
+If Linear is temporarily unavailable, use `todo.md` only as a temporary handoff with the same required state/evidence fields, then reconcile that handoff back into Linear before marking the issue Done.
 
 ### Cross-tool handoff and completion
 
 Linear remains the authoritative per-task execution record. Keep a concise handoff in the issue with: current verified state, last completed checkpoint, blocker, exact next action, branch/PR, and exact SHA when available. `todo.md` may point to that task for local session continuity but must not duplicate the full backlog.
+
+## PR follow-up loop — mandatory after PR opens
+
+Opening a PR starts the review loop; it does not finish the task. After the PR opens or after any new push:
+
+1. Refresh the PR's exact head/base, current `main`, unresolved review threads, submitted reviews, required checks, and mergeability.
+2. Treat reviewer suggestions as hypotheses: classify each review thread as `VALID`, `PARTIAL`, or `NOISE` using current code, installed versions/types, runtime evidence, and current official sources.
+3. For every `VALID`/actionable part, reproduce the problem or add the smallest failing regression/contract first when practical, identify root cause, then implement the smallest safe fix. Do not bundle unrelated cleanup.
+4. Re-run the structural maintainability review on touched/load-bearing files and classify candidates as `KEEP / REFACTOR NOW / FOLLOW-UP`; move worthwhile out-of-scope work to a linked Linear issue instead of expanding the PR.
+5. Run the cheapest decisive targeted proof, then the risk-matched broader suite. Re-check current `main` and required exact-head checks after every push.
+6. Reply in each actionable thread with the exact fix commit and evidence; resolve a thread only after the fix and evidence exist. Leave threads needing human input unresolved.
+7. Update the PR title/body so a reviewer can understand the real-world outcome, user/system journey, scope, touched tech stack, findings/fixes, verification, pre-merge checklist, production-ready success criteria, post-merge actions, and exact load-bearing references.
+8. Repeat this loop after every push because comments, mergeability, base SHA, and checks can change.
+
+STOP before merge if an actionable thread is unresolved, a required check is red/pending, strict-main is stale, the PR/Linear task disagree materially, or auth/security/tenant/data/provider behavior is unverified for a touched boundary.
 
 At the Done gate, explicitly decide whether the change requires durable docs and/or a changelog entry:
 

@@ -68,27 +68,28 @@ describe("iPix engineering skill contracts", () => {
   });
 
   test("Linear governance routes each work type to exactly four approved templates and preserves the ordered reference contract", () => {
-    const routingBlock = tasks.match(
-      /## Linear template routing — mandatory[\s\S]*?```text\n([\s\S]*?)```/,
-    )?.[1];
+    const routingSection = tasks.match(
+      /## Linear template routing — mandatory([\s\S]*?)Rules:/,
+    )?.[1] ?? "";
+    const routingLines = routingSection
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line && line !== "```text" && line !== "```");
 
-    expect(routingBlock?.trim()).toBe(
-      [
-        "Production/release certification?",
-        "→ Production Readiness / Release Gate",
-        "",
-        "Confirmed failure requiring root-cause repair?",
-        "→ Forensic Error Audit & Fix",
-        "",
-        "Audit/research only with no implementation?",
-        "→ iPix Task Audit & Implementation Plan",
-        "",
-        "Otherwise",
-        "→ Universal Engineering Task",
-      ].join("\n"),
-    );
+    const expectedRoutes = [
+      ["Production/release certification?", "Production Readiness / Release Gate"],
+      ["Confirmed failure requiring root-cause repair?", "Forensic Error Audit & Fix"],
+      ["Audit/research only with no implementation?", "iPix Task Audit & Implementation Plan"],
+      ["Otherwise", "Universal Engineering Task"],
+    ] as const;
 
-    expect(routingBlock?.match(/^→ /gm)).toHaveLength(4);
+    for (const [question, template] of expectedRoutes) {
+      const index = routingLines.indexOf(question);
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(routingLines[index + 1]).toBe(`→ ${template}`);
+    }
+    expect(routingLines.filter((line) => line.startsWith("→ "))).toHaveLength(4);
     expect(agents).toContain("- Normal feature/fix → `Universal Engineering Task`");
     expect(agents).toContain("- Audit/research only; no implementation → `iPix Task Audit & Implementation Plan`");
     expect(agents).toContain("- Confirmed bug/root-cause repair → `Forensic Error Audit & Fix`");
@@ -99,10 +100,18 @@ describe("iPix engineering skill contracts", () => {
     expect(tasks).toContain("Before implementation, use one of two explicit paths:");
     expect(tasks).toContain("**Standard path:**");
     expect(tasks).toContain("**Exception path:**");
+    const canonicalStandardPath =
+      "**Standard path:** verify template/type, project/milestone, dependencies/blockers, relations, observable outcome, acceptance criteria, verification plan, and exact next action.";
+    expect(agents).toContain(canonicalStandardPath);
+    expect(tasks).toContain(canonicalStandardPath);
+    expect(agents).toContain("Existing-issue decision:");
+    expect(tasks).toContain("Existing-issue decision:");
+    expect(agents).toContain("do not create a duplicate solely to change template metadata");
+    expect(tasks).toContain("do not create a duplicate solely to change template metadata");
     expect(agents).toContain("If Linear is temporarily unavailable");
     expect(agents).toContain("reconcile that handoff back into Linear before marking the issue Done");
     expect(tasks).toContain("If Linear is temporarily unavailable");
-    expect(tasks).toContain("reconcile it back into Linear before marking the issue Done");
+    expect(tasks).toContain("reconcile that handoff back into Linear before marking the issue Done");
 
     for (const source of [agents, tasks, bestPractices]) {
       expect(source).not.toContain("reuse-rule-linear-task");
@@ -111,6 +120,19 @@ describe("iPix engineering skill contracts", () => {
     expect(bestPractices).toMatch(
       /exact URL \+ exact source file\/example\/section\/symbol[\s\S]*tracking class:[\s\S]*Inspect[\s\S]*approved implementation Action[\s\S]*Current owner \/ truth[\s\S]*exact target\/destination[\s\S]*do-not-copy\/defer\/drop boundary[\s\S]*Constraints[\s\S]*precise change[\s\S]*exact verification[\s\S]*Checkpoint: PASS \+ evidence[\s\S]*STOP condition/,
     );
+  });
+
+  test("tasks requires a repeatable PR follow-up review loop after a PR opens", () => {
+    expect(tasks).toContain("## PR follow-up loop — mandatory after PR opens");
+    expect(tasks).toContain("classify each review thread as `VALID`, `PARTIAL`, or `NOISE`");
+    expect(tasks).toContain("resolve a thread only after the fix and evidence exist");
+    expect(tasks).toContain("Re-check current `main` and required exact-head checks after every push");
+    expect(tasks).toContain("KEEP / REFACTOR NOW / FOLLOW-UP");
+    expect(tasks).toContain("Update the PR title/body");
+    expect(tasks).toContain("Repeat this loop after every push");
+    expect(bestPractices).toContain("### PR follow-up after opening or pushing");
+    expect(bestPractices).toContain("VALID / PARTIAL / NOISE");
+    expect(bestPractices).toContain("exact-head merge gate");
   });
 
   test("todo stays a short Linear handoff while changelog stays curated shipped history", () => {
@@ -127,6 +149,10 @@ describe("iPix engineering skill contracts", () => {
     expect(changelog).toContain("### Added");
     expect(changelog).toContain("### Security");
     expect(changelog).toContain("notable verified");
+    expect(changelog).toContain("IPI-1294");
+    expect(changelog).toContain("four-template routing");
+    expect(todo).toContain("Live Linear template checkpoints: synchronized");
+    expect(todo).not.toContain("synchronize/retire live Linear template definitions");
   });
 
   test("tasks makes the external-reference mapping supplement discoverable from governing guidance", () => {

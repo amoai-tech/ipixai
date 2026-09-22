@@ -14,8 +14,9 @@ Linear is the authoritative task/status source: https://linear.app/amo100/projec
 - State: four-template routing, canonical workflow docs, handoff/changelog ownership, and strengthened governance regression tests are implemented and pushed.
 - Live verification evidence: PR #258 + IPI-1294. Keep exact SHA, CI, and review state there instead of copying transient values into this handoff.
 - PR merge gate: exact-head CI and review state must be green; then merge PR #258 and run exact-main post-merge proof.
-- Remaining IPI-1294 work (not PR merge blockers): synchronize/retire live Linear template definitions through an authorized template-edit path and verify/fix GitHub ↔ Linear PR/status automation before marking IPI-1294 Done.
-- Next action: finish exact-head PR review/CI; if green, merge/certify PR #258; then complete the live Linear template + integration settings work.
+- Live Linear template checkpoints: synchronized through authenticated `linear-cli` with read-back verification; structural maintainability/refactor gates are also live in all four approved templates.
+- Remaining IPI-1294 work (not PR merge blockers): finish canonical external-reference field synchronization where still missing, retire the rule-only `reuse-rule-linear-task`, and verify/fix GitHub ↔ Linear PR/status automation before marking IPI-1294 Done.
+- Next action: finish current-head review/CI on PR #258; if green, merge/certify exact `main`; then complete the remaining Linear template retirement/reference-field and integration settings work.
 
 ## Durable sources
 

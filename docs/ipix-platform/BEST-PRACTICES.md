@@ -270,6 +270,12 @@ Use one-week cycles while they remain effective. Once per cycle, review active w
 
 For GitHub integration, include the Linear identifier from the relevant task—for example **IPI-1234 · VERCEL-BUNDLE-003 — Load Shiki client-side-only to drop ~10 MiB of deployment storage**—in the branch, commit, or PR so Linear can associate implementation with the issue. Verify team Git automations under Linear team settings rather than assuming status transitions are configured.
 
+### PR follow-up after opening or pushing
+
+Opening a PR starts a repeatable review loop; it does not finish the task. After every push, refresh the exact head/base, current `main`, unresolved threads, reviews, required checks, and mergeability. Classify review feedback as `VALID / PARTIAL / NOISE`, fix only evidence-backed root causes, re-run the touched-file maintainability review and risk-matched tests, reply with the exact fix/evidence, and resolve only after proof exists. Keep the detailed execution contract in `.claude/skills/tasks/SKILL.md` rather than duplicating it here.
+
+The exact-head merge gate is PASS only when required checks are green, strict-main is current, no actionable thread remains unresolved, the PR and Linear task agree materially, and every touched auth/security/tenant/data/provider boundary has the required proof.
+
 Coding agents must start from the live Linear issue plus current code/runtime truth, not past chat context. `todo.md` is only a short handoff pointer; `changelog.md` receives notable verified outcomes; durable behavior changes update `docs/**` in the same PR and GitBook publishes them after merge.
 
 ## Official references
