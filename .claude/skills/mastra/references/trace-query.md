@@ -11,13 +11,13 @@ The command sends `POST /api/observability/traces/query`. It uses the same targe
 The inline JSON input is required. Before recommending the command, confirm that the installed CLI exposes it:
 
 ```bash
-npx mastra api trace query --help
+npx --no-install mastra api trace query --help
 ```
 
 After confirming availability, inspect the target server's current contract:
 
 ```bash
-npx mastra api trace query --schema
+npx --no-install mastra api trace query --schema
 ```
 
 Use `--schema` to confirm that the target supports the route and to inspect the current request and response shape and structural constraints. Predicate paths are generic strings in the schema, so it does not provide the context-specific field/operator matrix. If you need more information, read the [reference docs online](https://mastra.ai/reference/observability/tracing/trace-query). Do not infer unsupported predicates from storage columns or older documentation. The server remains the ultimate validation authority.
@@ -34,7 +34,7 @@ Use `--schema` to confirm that the target supports the route and to inspect the 
 Query a time range:
 
 ```bash
-npx mastra api trace query \
+npx --no-install mastra api trace query \
   '{"timeRange":{"from":"2026-08-01T00:00:00.000Z","to":"2026-08-08T00:00:00.000Z"},"page":{"limit":25}}' \
   | jq '{traces: [.data.traces[] | {traceId, entityName, status, startedAt}], next: .data.page.next}'
 ```
@@ -42,7 +42,7 @@ npx mastra api trace query \
 Find traces containing a failed tool call. Conditions inside one `spans.some` clause must match the same span:
 
 ```bash
-npx mastra api trace query \
+npx --no-install mastra api trace query \
   '{"timeRange":{"from":"2026-08-01T00:00:00.000Z","to":"2026-08-08T00:00:00.000Z"},"where":{"spans":{"some":{"op":"and","args":[{"op":"eq","left":{"path":"spanType"},"right":{"literal":"tool_call"}},{"op":"exists","path":"error"}]}}},"page":{"limit":25}}' \
   | jq '{traces: .data.traces, next: .data.page.next}'
 ```
@@ -50,7 +50,7 @@ npx mastra api trace query \
 Find traces with a low score from one scorer. Conditions inside one `scores.some` clause must match the same score record:
 
 ```bash
-npx mastra api trace query \
+npx --no-install mastra api trace query \
   '{"timeRange":{"from":"2026-08-01T00:00:00.000Z","to":"2026-08-08T00:00:00.000Z"},"where":{"scores":{"some":{"op":"and","args":[{"op":"eq","left":{"path":"scorerId"},"right":{"literal":"factuality"}},{"op":"lt","left":{"path":"score"},"right":{"literal":0.6}}]}}},"page":{"limit":25}}' \
   | jq '{traces: .data.traces, next: .data.page.next}'
 ```
@@ -71,7 +71,7 @@ The query response remains nested under `data` so the pagination cursor is prese
 Pass a non-null cursor back without decoding or modifying it:
 
 ```bash
-npx mastra api trace query \
+npx --no-install mastra api trace query \
   '{"timeRange":{"from":"2026-08-01T00:00:00.000Z","to":"2026-08-08T00:00:00.000Z"},"page":{"limit":25,"after":"<page.next>"}}'
 ```
 

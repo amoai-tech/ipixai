@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const workflow = readFileSync(
@@ -12,6 +12,10 @@ const copilotReviewSkill = readFileSync(
 );
 const mastraSkill = readFileSync(
   new URL("../.claude/skills/mastra/SKILL.md", import.meta.url),
+  "utf8",
+);
+const traceQueryReference = readFileSync(
+  new URL("../.claude/skills/mastra/references/trace-query.md", import.meta.url),
   "utf8",
 );
 
@@ -31,6 +35,8 @@ describe("IPI-1213 PR-Agent review skills contract", () => {
   it("uses one canonical Mastra skill for implementation and PR review", () => {
     expect(routing).toContain('"mastra"');
     expect(routing).not.toContain("mastra-review");
+    expect(existsSync(new URL("../.claude/skills/mastra-review/SKILL.md", import.meta.url))).toBe(false);
+    expect(traceQueryReference).not.toMatch(/\bnpx mastra\b/);
     expect(mastraSkill).toContain("one canonical Mastra skill for iPix");
     expect(mastraSkill).toContain("PR review");
     expect(mastraSkill).toContain("references/trace-query.md");
