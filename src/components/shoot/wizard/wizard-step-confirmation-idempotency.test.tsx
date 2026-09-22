@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { useState } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -38,8 +39,7 @@ afterEach(() => {
 describe("WizardStepConfirmation review-start identity", () => {
   it("reuses one stable reviewStartId after a staging failure and retry", () => {
     function Harness() {
-      const React = require("react") as typeof import("react");
-      const [started, setStarted] = React.useState(false);
+      const [started, setStarted] = useState(false);
       return (
         <WizardStepConfirmation
           plan={PLAN}
