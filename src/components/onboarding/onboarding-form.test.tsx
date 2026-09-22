@@ -533,6 +533,7 @@ describe("OnboardingForm — IPI-1260 four-question flow", () => {
       draft_answers: { ...READY_SESSION.draft_answers, websiteUrl: "https://maisonnoir.com" },
     };
     supabaseMock = fakeSupabase(WEBSITE_READY_SESSION);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     startAnalysisMock.mockImplementation(() => new Promise(() => {}));
     render(<OnboardingForm userId={TEST_USER_ID} />);
     await screen.findByRole("heading", { name: "How do you want to grow?" });
@@ -542,6 +543,11 @@ describe("OnboardingForm — IPI-1260 four-question flow", () => {
       { timeout: 2500 },
     );
     expect(startAnalysisMock).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "brand analysis handoff timed out",
+      expect.objectContaining({ timeoutMs: 1500 }),
+    );
+    warnSpy.mockRestore();
   });
 
 

@@ -60,7 +60,14 @@ async function handoffBrandAnalysis(brandId: string): Promise<void> {
       timeoutId = setTimeout(() => resolve(null), ANALYSIS_HANDOFF_TIMEOUT_MS);
     });
     const analysis = await Promise.race([startBrandAnalysisAction(brandId), timeout]);
-    if (analysis && !analysis.ok) console.warn("brand analysis handoff failed", analysis.message);
+    if (analysis === null) {
+      console.warn("brand analysis handoff timed out", {
+        brandId,
+        timeoutMs: ANALYSIS_HANDOFF_TIMEOUT_MS,
+      });
+    } else if (!analysis.ok) {
+      console.warn("brand analysis handoff failed", analysis.message);
+    }
   } catch (error) {
     console.warn("brand analysis handoff threw", error);
   } finally {
