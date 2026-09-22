@@ -230,7 +230,7 @@ const startCrawl = createStep({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
+          apikey: key,
         },
         body: JSON.stringify({ brandId, url: brandUrl, actorId, workflowId: runId }),
         signal: AbortSignal.timeout(30_000),
