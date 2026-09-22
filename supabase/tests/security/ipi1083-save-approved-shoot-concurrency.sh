@@ -33,8 +33,9 @@ insert into shoot.shoot_plan_approvals
 select '$APPROVAL','$BRAND','$RUN',1,plan,encode(extensions.digest(plan::text,'sha256'),'hex'),'approved','$ACTOR','$ACTOR',now() from p;
 SQL
 
-TMP_A="$(mktemp)"; TMP_B="$(mktemp)"; TMP_LOCK="$(mktemp)"
-trap 'rm -f "$TMP_A" "$TMP_B" "$TMP_LOCK"' EXIT
+TMP_A="$(mktemp)"; TMP_B="$(mktemp)"; TMP_LOCK="$(mktemp)"; READY="$(mktemp)"
+rm -f "$READY"
+trap 'rm -f "$TMP_A" "$TMP_B" "$TMP_LOCK" "$READY"' EXIT
 
 # A privileged test-only locker holds the immutable approval row long enough
 # for two normal authenticated save calls to overlap inside FOR UPDATE.
@@ -42,12 +43,21 @@ trap 'rm -f "$TMP_A" "$TMP_B" "$TMP_LOCK"' EXIT
 "${PSQL[@]}" >"$TMP_LOCK" <<SQL
 begin;
 select id from shoot.shoot_plan_approvals where id='$APPROVAL' for update;
+\! touch '$READY'
 select pg_sleep(1);
 commit;
 SQL
 ) & PID_LOCK=$!
 
-sleep 0.15
+for _ in {1..500}; do
+  [[ -f "$READY" ]] && break
+  sleep 0.01
+done
+if [[ ! -f "$READY" ]]; then
+  echo "IPI-1083 concurrency harness failed: locker never signalled readiness" >&2
+  kill "$PID_LOCK" 2>/dev/null || true
+  exit 1
+fi
 for target in A B; do
   out_var="TMP_${target}"
   out="${!out_var}"

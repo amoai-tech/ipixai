@@ -52,5 +52,6 @@ describe("IPI-1083 · SHOOT-SAVE-001", () => {
     expect(migration).toContain("set search_path = ''");
     expect(migration).toContain("revoke all on function public.save_approved_shoot(uuid) from public, anon, service_role;");
     expect(migration).toContain("grant execute on function public.save_approved_shoot(uuid) to authenticated;");
+    expect(migration).toContain("not_null_violation");
   });
 });

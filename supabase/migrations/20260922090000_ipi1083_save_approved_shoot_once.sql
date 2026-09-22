@@ -214,7 +214,7 @@ begin
 
   return jsonb_build_object('ok', true, 'shootId', v_shoot_id, 'replayed', false);
 exception
-  when invalid_text_representation or data_exception or check_violation or foreign_key_violation then
+  when invalid_text_representation or data_exception or not_null_violation or check_violation or foreign_key_violation then
     return jsonb_build_object('ok', false, 'code', 'INVALID_PLAN');
 end;
 $$;

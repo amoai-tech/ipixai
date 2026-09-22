@@ -18,6 +18,8 @@ declare
   rejected_hash text;
   superseded_id uuid;
   superseded_hash text;
+  malformed_id uuid;
+  malformed_hash text;
   decision jsonb;
   saved jsonb;
   v_shoot_id uuid;
@@ -150,6 +152,25 @@ begin
   saved := public.save_approved_shoot(superseded_id);
   if saved->>'code' is distinct from 'SUPERSEDED_REVISION' then raise exception 'IPI-1083: superseded approval must not save: %', saved; end if;
   if exists (select 1 from shoot.shoots where approval_id=superseded_id) then raise exception 'IPI-1083: superseded approval wrote a shoot'; end if;
+
+  -- Malformed approved child: typed INVALID_PLAN and transaction rolls back.
+  perform set_config('role','service_role',true);
+  staged := public.stage_shoot_plan_revision(
+    brand_a,
+    'ipi1083-malformed',
+    jsonb_set(plan, '{shotListResult,shots,0}', (plan #> '{shotListResult,shots,0}') - 'description'),
+    editor_a,
+    'ipi1083-thread-malformed',
+    null
+  );
+  malformed_id := (staged->>'approvalId')::uuid;
+  malformed_hash := staged->>'planHash';
+  perform set_config('role','authenticated',true);
+  perform set_config('request.jwt.claims',format('{"sub":"%s"}',editor_a),true);
+  decision := public.decide_shoot_plan_revision(malformed_id,1,malformed_hash,'approved','ipi1083-malformed-approve',null);
+  saved := public.save_approved_shoot(malformed_id);
+  if saved->>'code' is distinct from 'INVALID_PLAN' then raise exception 'IPI-1083: malformed approved child must return INVALID_PLAN: %', saved; end if;
+  if exists (select 1 from shoot.shoots where approval_id=malformed_id) then raise exception 'IPI-1083: malformed child left partial parent write'; end if;
 
   perform set_config('request.jwt.claims',format('{"sub":"%s"}',viewer_a),true);
   saved := public.save_approved_shoot(v_approval_id);
