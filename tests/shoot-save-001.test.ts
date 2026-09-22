@@ -26,6 +26,8 @@ describe("IPI-1083 · SHOOT-SAVE-001", () => {
     expect(migration).toContain("approval_plan_hash text");
     expect(migration).toContain("approved_plan jsonb");
     expect(migration).toContain("unique (approval_id)");
+    expect(migration).toMatch(/approval_id is null[\s\S]*planned_shoot_type is null/);
+    expect(migration).toMatch(/approval_id is not null[\s\S]*planned_shoot_type is not null/);
   });
 
   it("revalidates exact approval truth before any shoot write", async () => {
@@ -34,6 +36,7 @@ describe("IPI-1083 · SHOOT-SAVE-001", () => {
     expect(migration).toContain("v_approval.status is distinct from 'approved'");
     expect(migration).toContain("newer.revision > v_approval.revision");
     expect(migration).toContain("public.is_org_editor_or_above(b.org_id)");
+    expect(migration).toContain("v_plan->'channels' is null");
     expect(migration.indexOf("insert into shoot.shoots")).toBeGreaterThan(migration.indexOf("HASH_MISMATCH"));
   });
 

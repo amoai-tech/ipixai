@@ -11,9 +11,9 @@ alter table shoot.shoots
 alter table shoot.shoots
   drop constraint if exists shoots_approval_provenance_complete,
   add constraint shoots_approval_provenance_complete check (
-    (approval_id is null and approval_revision is null and approval_plan_hash is null and approved_plan is null)
+    (approval_id is null and approval_revision is null and approval_plan_hash is null and approved_plan is null and planned_shoot_type is null)
     or
-    (approval_id is not null and approval_revision is not null and approval_plan_hash is not null and approved_plan is not null)
+    (approval_id is not null and approval_revision is not null and approval_plan_hash is not null and approved_plan is not null and planned_shoot_type is not null)
   );
 
 alter table shoot.shoots
@@ -132,7 +132,9 @@ begin
     return jsonb_build_object('ok', false, 'code', 'INVALID_PLAN', 'detail', 'recognized shoot type is required');
   end if;
 
-  if jsonb_typeof(v_plan->'channels') <> 'array' or jsonb_array_length(v_plan->'channels') = 0 then
+  if v_plan->'channels' is null
+     or jsonb_typeof(v_plan->'channels') is distinct from 'array'
+     or jsonb_array_length(v_plan->'channels') = 0 then
     return jsonb_build_object('ok', false, 'code', 'INVALID_PLAN', 'detail', 'channels are required');
   end if;
   select array_agg(value order by ordinality) into v_channels

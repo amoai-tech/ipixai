@@ -20,6 +20,8 @@ declare
   superseded_hash text;
   malformed_id uuid;
   malformed_hash text;
+  missing_channels_id uuid;
+  missing_channels_hash text;
   decision jsonb;
   saved jsonb;
   v_shoot_id uuid;
@@ -152,6 +154,25 @@ begin
   saved := public.save_approved_shoot(superseded_id);
   if saved->>'code' is distinct from 'SUPERSEDED_REVISION' then raise exception 'IPI-1083: superseded approval must not save: %', saved; end if;
   if exists (select 1 from shoot.shoots where approval_id=superseded_id) then raise exception 'IPI-1083: superseded approval wrote a shoot'; end if;
+
+  -- Missing mandatory channels must fail closed (NULL in PL/pgSQL IF is not true).
+  perform set_config('role','service_role',true);
+  staged := public.stage_shoot_plan_revision(
+    brand_a,
+    'ipi1083-missing-channels',
+    plan - 'channels',
+    editor_a,
+    'ipi1083-thread-missing-channels',
+    null
+  );
+  missing_channels_id := (staged->>'approvalId')::uuid;
+  missing_channels_hash := staged->>'planHash';
+  perform set_config('role','authenticated',true);
+  perform set_config('request.jwt.claims',format('{"sub":"%s"}',editor_a),true);
+  decision := public.decide_shoot_plan_revision(missing_channels_id,1,missing_channels_hash,'approved','ipi1083-missing-channels-approve',null);
+  saved := public.save_approved_shoot(missing_channels_id);
+  if saved->>'code' is distinct from 'INVALID_PLAN' then raise exception 'IPI-1083: missing channels must return INVALID_PLAN: %', saved; end if;
+  if exists (select 1 from shoot.shoots where approval_id=missing_channels_id) then raise exception 'IPI-1083: missing channels left a partial Shoot'; end if;
 
   -- Malformed approved child: typed INVALID_PLAN and transaction rolls back.
   perform set_config('role','service_role',true);
