@@ -99,6 +99,10 @@ describe("iPix engineering skill contracts", () => {
     expect(tasks).toContain("Before implementation, use one of two explicit paths:");
     expect(tasks).toContain("**Standard path:**");
     expect(tasks).toContain("**Exception path:**");
+    expect(agents).toContain("If Linear is temporarily unavailable");
+    expect(agents).toContain("reconcile that handoff back into Linear before marking the issue Done");
+    expect(tasks).toContain("If Linear is temporarily unavailable");
+    expect(tasks).toContain("reconcile it back into Linear before marking the issue Done");
 
     for (const source of [agents, tasks, bestPractices]) {
       expect(source).not.toContain("reuse-rule-linear-task");

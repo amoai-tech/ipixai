@@ -73,6 +73,8 @@ Rules:
   - **Standard path:** verify template/type, project/milestone, relations, observable outcome, acceptance criteria, verification plan, and exact next action.
   - **Exception path:** if a genuinely non-standard issue cannot use an approved template, document the concrete reason in the issue and preserve these required fields.
 
+If Linear is temporarily unavailable, use `todo.md` only as a temporary handoff with the same required state/evidence fields, then reconcile it back into Linear before marking the issue Done.
+
 ### Cross-tool handoff and completion
 
 Linear remains the authoritative per-task execution record. Keep a concise handoff in the issue with: current verified state, last completed checkpoint, blocker, exact next action, branch/PR, and exact SHA when available. `todo.md` may point to that task for local session continuity but must not duplicate the full backlog.

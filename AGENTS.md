@@ -243,7 +243,7 @@ Before implementation, use one of two explicit paths:
 - **Standard path:** verify the issue has the correct template/type, project/milestone, dependencies/blockers, observable outcome, acceptance criteria, and verification plan.
 - **Exception path:** if a genuinely non-standard issue cannot use an approved template, document the concrete reason in the issue before implementation and preserve the same required outcome/evidence fields.
 
-In either path, the issue must remain resumable by another agent from Linear alone.
+In either path, keep the issue resumable by another agent from Linear alone. If Linear is temporarily unavailable, use `todo.md` only as a temporary handoff with the same required state/evidence fields, then reconcile that handoff back into Linear before marking the issue Done.
 
 Before coding:
 
