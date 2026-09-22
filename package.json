@@ -49,6 +49,7 @@
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.11.0",
     "clsx": "^2.1.1",
+    "firecrawl": "4.41.0",
     "hono": "^4",
     "lucide-react": "^0.525.0",
     "mastra": "1.27.2",
