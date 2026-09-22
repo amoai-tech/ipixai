@@ -38,6 +38,25 @@ beforeEach(() => {
 });
 
 describe("Brand crawl service auth runtime", () => {
+  it("uses the canonical modern default secret key instead of legacy fallback", async () => {
+    process.env.SUPABASE_SECRET_KEYS = JSON.stringify({ default: "sb_secret_modern_test" });
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "legacy-service-role-test";
+
+    await startCrawlExecute()({
+      inputData: {
+        brandId: "11111111-1111-4111-8111-111111111111",
+        brandUrl: "https://brand.example",
+        brandName: "Example",
+        actorId: "22222222-2222-4222-8222-222222222222",
+      },
+      runId: "run-auth-modern-default",
+    });
+
+    const [, init] = mocks.fetch.mock.calls[0] as [string, RequestInit];
+    expect(init.headers).toMatchObject({ apikey: "sb_secret_modern_test" });
+    expect(init.headers).not.toMatchObject({ apikey: "legacy-service-role-test" });
+  });
+
   it.each([
     ["empty object", JSON.stringify({})],
     ["custom-only object", JSON.stringify({ custom: "sb_secret_custom_test" })],
