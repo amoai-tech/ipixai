@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { composeShootPlanForWizard } from "@/app/app/shoots/new/actions";
+import type { PlanReviewIdentity, PlanReviewSettled } from "@/components/shoot/shoot-plan-review";
 import type { ProductRef } from "@/lib/commerce/product-ref";
 import type { ShootPlan } from "@/mastra/tools/plan-schema";
 
@@ -37,6 +39,7 @@ function productRefsFingerprint(productRefs: ProductRef[]): string {
 
 const STEPS = ["Basics", "Brief", "Deliverables", "Shot List", "Budget", "Confirmation"] as const;
 export function ShootWizardShell({ brands, productRefs = EMPTY_PRODUCT_REFS }: Props) {
+  const router = useRouter();
   const [step, setStep] = useState(0);
   const [brandId, setBrandId] = useState(brands.length === 1 ? brands[0].id : "");
   const [shootName, setShootName] = useState("");
@@ -59,7 +62,11 @@ export function ShootWizardShell({ brands, productRefs = EMPTY_PRODUCT_REFS }: P
   const [planError, setPlanError] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
   const [reviewStarted, setReviewStarted] = useState(false);
+  const [approvedIdentity, setApprovedIdentity] = useState<PlanReviewIdentity | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const inputGenerationRef = useRef(0);
+  const saveInFlightRef = useRef(false);
   const productRefsKey = productRefsFingerprint(productRefs);
 
   const invalidatePlan = () => { inputGenerationRef.current += 1; };
@@ -69,6 +76,8 @@ export function ShootWizardShell({ brands, productRefs = EMPTY_PRODUCT_REFS }: P
     setPlan(null);
     setPlanError(null);
     setReviewStarted(false);
+    setApprovedIdentity(null);
+    setSaveError(null);
   }, [brandId, brief, channels, crew, crewCount, equipment, lighting, location, mediaType, objective, productRefsKey,
     scheduleEndDate, scheduleStartDate, setBackground, shootName, studio, studioType, talent]);
 
@@ -121,6 +130,39 @@ export function ShootWizardShell({ brands, productRefs = EMPTY_PRODUCT_REFS }: P
     }
   }
 
+  async function saveApprovedRevision(identity: PlanReviewIdentity) {
+    if (saveInFlightRef.current) return;
+    saveInFlightRef.current = true;
+    setSaving(true);
+    setSaveError(null);
+    setApprovedIdentity(identity);
+    try {
+      const response = await fetch("/api/shoots/save", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ approvalId: identity.approvalId }),
+      });
+      const body: unknown = await response.json().catch(() => null);
+      const record = typeof body === "object" && body !== null ? body as Record<string, unknown> : null;
+      const shootId = record && typeof record.shootId === "string" ? record.shootId : "";
+      if (!response.ok || record?.ok !== true || !shootId) {
+        setSaveError("The approved shoot could not be saved. Please retry.");
+        return;
+      }
+      router.push(`/app/shoots/${shootId}`);
+    } catch {
+      setSaveError("The approved shoot could not be saved. Please retry.");
+    } finally {
+      saveInFlightRef.current = false;
+      setSaving(false);
+    }
+  }
+
+  function handleReviewSettled(outcome: PlanReviewSettled, identity: PlanReviewIdentity) {
+    if (outcome.decision !== "approved") return;
+    void saveApprovedRevision(identity);
+  }
+
   function handleContinue() {
     if (step === 1) { void composePlan(); return; }
     setStep((value) => Math.min(STEPS.length - 1, value + 1));
@@ -133,7 +175,7 @@ export function ShootWizardShell({ brands, productRefs = EMPTY_PRODUCT_REFS }: P
     if (step === 2) return <WizardStepDeliverables plan={plan} />;
     if (step === 3) return <WizardStepShotList plan={plan} />;
     if (step === 4) return <WizardStepBudget plan={plan} />;
-    return <WizardStepConfirmation plan={plan} brandId={brandId} reviewStarted={reviewStarted} onReviewStart={() => setReviewStarted(true)} onReviewStartFailed={() => setReviewStarted(false)} />;
+    return <WizardStepConfirmation plan={plan} brandId={brandId} reviewStarted={reviewStarted} saving={saving} saveError={saveError} onReviewStart={() => setReviewStarted(true)} onReviewStartFailed={() => setReviewStarted(false)} onReviewSettled={handleReviewSettled} onRetrySave={() => { if (approvedIdentity) void saveApprovedRevision(approvedIdentity); }} />;
   })();
 
   return (
@@ -149,7 +191,7 @@ export function ShootWizardShell({ brands, productRefs = EMPTY_PRODUCT_REFS }: P
         <h1 className={styles.title}>{STEPS[step]}</h1>
         {currentStep}
         <div className={styles.actions}>
-          {step > 0 ? <button type="button" className={styles.secondary} onClick={() => setStep((value) => Math.max(0, value - 1))}>← Back</button> : <span />}
+          {step > 0 ? <button type="button" className={styles.secondary} disabled={saving} onClick={() => setStep((value) => Math.max(0, value - 1))}>← Back</button> : <span />}
           {step < STEPS.length - 1 ? <button type="button" className={styles.primary} disabled={!canContinue} onClick={handleContinue}>{composing ? "Composing…" : "Continue →"}</button> : null}
         </div>
       </div>

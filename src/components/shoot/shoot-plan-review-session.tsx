@@ -41,7 +41,7 @@ function loadCatalogOnce(): Promise<ShotReferenceCatalogEntry[]> {
 export type ShootPlanReviewSessionProps = {
   brandId: string;
   plan: Record<string, unknown>;
-  onSettled?: (outcome: PlanReviewSettled) => void;
+  onSettled?: (outcome: PlanReviewSettled, identity: PlanReviewIdentity) => void;
   onStartFailed?: () => void;
   onRevised?: (identity: PlanReviewIdentity) => void;
 };
@@ -118,14 +118,19 @@ export function ShootPlanReviewSession({
     return <div data-testid="shoot-plan-review-staging" className="rounded-md border border-gray-200 p-3 text-xs text-gray-500">Staging the exact revision for review…</div>;
   }
 
+  const handleRevised = (next: PlanReviewIdentity) => {
+    setIdentity(next);
+    onRevised?.(next);
+  };
+
   return (
     <ShootPlanReview
       identity={identity}
       plan={plan}
       catalog={catalog}
       deliverableChannel={primaryDeliverableChannel(plan)}
-      onSettled={onSettled}
-      onRevised={onRevised}
+      onSettled={(outcome) => onSettled?.(outcome, identity)}
+      onRevised={handleRevised}
     />
   );
 }
