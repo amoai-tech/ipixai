@@ -93,3 +93,68 @@ Deno.test({
     }
   },
 });
+Deno.test({
+  name: "resolveCaller logs malformed modern secret-key configuration without exposing values",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const originalError = console.error;
+    const messages: string[] = [];
+    try {
+      console.error = (...args: unknown[]) => messages.push(args.map(String).join(" "));
+      Deno.env.set("SUPABASE_URL", "http://127.0.0.1:54321");
+      Deno.env.set("SUPABASE_ANON_KEY", "anon-test-key");
+      Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "legacy-service-role-test");
+      Deno.env.set("SUPABASE_SECRET_KEYS", JSON.stringify("not-an-object"));
+
+      await resolveCaller(
+        new Request("http://localhost/functions/v1/start-brand-crawl", {
+          headers: { apikey: "not-configured" },
+        }),
+      );
+
+      if (!messages.some((message) => message.includes("Invalid SUPABASE_SECRET_KEYS"))) {
+        throw new Error("expected invalid secret-key configuration to be logged");
+      }
+      if (messages.some((message) => message.includes("not-an-object"))) {
+        throw new Error("configuration log must not expose secret config values");
+      }
+    } finally {
+      console.error = originalError;
+      restoreEnv();
+    }
+  },
+});
+
+Deno.test({
+  name: "resolveCaller logs invalid SUPABASE_SECRET_KEYS JSON",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const originalError = console.error;
+    const messages: string[] = [];
+    try {
+      console.error = (...args: unknown[]) => messages.push(args.map(String).join(" "));
+      Deno.env.set("SUPABASE_URL", "http://127.0.0.1:54321");
+      Deno.env.set("SUPABASE_ANON_KEY", "anon-test-key");
+      Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "legacy-service-role-test");
+      Deno.env.set("SUPABASE_SECRET_KEYS", "{invalid-json");
+
+      await resolveCaller(
+        new Request("http://localhost/functions/v1/start-brand-crawl", {
+          headers: { apikey: "not-configured" },
+        }),
+      );
+
+      if (!messages.some((message) => message.includes("Invalid SUPABASE_SECRET_KEYS"))) {
+        throw new Error("expected invalid JSON configuration to be logged");
+      }
+      if (messages.some((message) => message.includes("{invalid-json"))) {
+        throw new Error("configuration log must not expose secret config values");
+      }
+    } finally {
+      console.error = originalError;
+      restoreEnv();
+    }
+  },
+});

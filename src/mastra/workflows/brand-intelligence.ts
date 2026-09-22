@@ -26,8 +26,31 @@ function requireServiceRoleCredentials(): { url: string; key: string } {
   return { url: config.url, key };
 }
 
+function readDefaultSecretApiKey(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("SUPABASE_SECRET_KEYS must be valid JSON");
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("SUPABASE_SECRET_KEYS must be a JSON object of named secret keys");
+  }
+
+  const value = (parsed as Record<string, unknown>).default;
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error("SUPABASE_SECRET_KEYS.default is unavailable for crawl start");
+  }
+  return value.trim();
+}
+
 function requireCrawlServiceApiKey(): string {
-  const key = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key =
+    readDefaultSecretApiKey(process.env.SUPABASE_SECRET_KEYS) ??
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!key) {
     throw new Error("Supabase backend API key unavailable for crawl start");
   }

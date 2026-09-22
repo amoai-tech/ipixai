@@ -14,8 +14,10 @@ describe("Brand crawl service authentication contract", () => {
     expect(startCrawlSource).not.toContain('Authorization: `Bearer ${key}`');
   });
 
-  it("prefers the modern server secret env with legacy fallback", () => {
-    expect(workflowSource).toContain("process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY");
+  it("reads the canonical SUPABASE_SECRET_KEYS map with legacy fallback", () => {
+    expect(workflowSource).toContain("process.env.SUPABASE_SECRET_KEYS");
+    expect(workflowSource).not.toContain("process.env.SUPABASE_SECRET_KEY ??");
+    expect(workflowSource).toContain("process.env.SUPABASE_SERVICE_ROLE_KEY");
   });
 
   it("disables platform JWT verification for the service-authenticated function", () => {

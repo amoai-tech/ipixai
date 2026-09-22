@@ -10,6 +10,11 @@ export function isCallerFailure(result: CallerResult): result is { response: Res
   return "response" in result;
 }
 
+function logSecretKeyConfigError(reason: string): void {
+  // Never include the raw environment value: it contains privileged API keys.
+  console.error(`[resolveCaller] Invalid SUPABASE_SECRET_KEYS: ${reason}`);
+}
+
 function configuredServiceApiKeys(): string[] {
   const keys = new Set<string>();
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim();
@@ -20,13 +25,22 @@ function configuredServiceApiKeys(): string[] {
     try {
       const parsed: unknown = JSON.parse(raw);
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        logSecretKeyConfigError("expected a JSON object of named secret keys");
         return [...keys];
       }
+
+      let modernKeyCount = 0;
       for (const value of Object.values(parsed as Record<string, unknown>)) {
-        if (typeof value === "string" && value.trim()) keys.add(value.trim());
+        if (typeof value === "string" && value.trim()) {
+          keys.add(value.trim());
+          modernKeyCount += 1;
+        }
+      }
+      if (modernKeyCount === 0) {
+        logSecretKeyConfigError("object contains no usable secret-key values");
       }
     } catch {
-      // Invalid injected config is not authentication; fall through to user auth.
+      logSecretKeyConfigError("value is not valid JSON");
     }
   }
 
