@@ -107,6 +107,8 @@ describe("iPix engineering skill contracts", () => {
     expect(todo).toContain("Linear is the authoritative task/status source");
     expect(todo).toContain("## Current");
     expect(todo).toContain("## Durable sources");
+    expect(todo).toContain("Live verification evidence: PR #258 + IPI-1294");
+    expect(todo).not.toContain("Exact head:");
     expect(changelog).toContain("# Changelog");
     expect(changelog).toContain("## [Unreleased]");
     expect(changelog).toContain("### Added");
