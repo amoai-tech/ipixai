@@ -4,6 +4,8 @@ import { getProductionPlannerAgent } from "./agents";
 import { createMastraStorage } from "./pg-store";
 import { brandIntelligenceWorkflow } from "./workflows/brand-intelligence";
 import { shootPlanReviewWorkflow } from "./workflows/shoot-plan-review";
+import { plannerMastraAuthMiddleware } from "./server-auth";
+import { plannerRunControlRoutes } from "./run-control-routes";
 
 let cachedMastra: Mastra | undefined;
 
@@ -23,6 +25,10 @@ export function getMastra(): Mastra {
     },
     storage: createMastraStorage(),
     logger: new ConsoleLogger({ level: logLevel }),
+    server: {
+      middleware: plannerMastraAuthMiddleware,
+      apiRoutes: plannerRunControlRoutes,
+    },
   });
   return cachedMastra;
 }

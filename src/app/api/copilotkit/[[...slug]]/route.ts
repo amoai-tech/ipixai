@@ -1,9 +1,10 @@
 import {
   CopilotRuntime,
+  CopilotIntelligenceRuntime,
   CopilotKitIntelligence,
   createCopilotEndpoint,
 } from "@copilotkit/runtime/v2";
-import { createLocalAgents } from "@/agent";
+import { createLocalAgents, createRemoteAgents } from "@/agent";
 import {
   copilotAuthHooksFor,
   identifyOperator,
@@ -15,6 +16,7 @@ import {
 import { handle } from "hono/vercel";
 import { requestToken } from "@/lib/request-token";
 import { createClientFromRequest } from "@/lib/supabase/server";
+import { MastraControlRunner } from "@/lib/copilotkit/mastra-control-runner";
 
 import {
   attachRunnerAbort,
@@ -27,7 +29,15 @@ async function handleCopilot(request: Request) {
 
   const resourceId = session.resourceId;
   const operator = session.operator;
-  const agents = attachRunnerAbort(createLocalAgents(resourceId));
+
+  const authClient = createClientFromRequest(request);
+  const {
+    data: { session: authSession },
+  } = authClient
+    ? await authClient.auth.getSession()
+    : { data: { session: null } };
+  const accessToken = authSession?.access_token;
+
   const licenseToken = process.env.COPILOTKIT_LICENSE_TOKEN?.trim() || undefined;
   // IPI-1191 · COPILOT-INTEL-001 — CPK_INTELLIGENCE_API_KEY is the canonical
   // env var emitted by the current CopilotKit CLI and used by this
@@ -78,8 +88,19 @@ async function handleCopilot(request: Request) {
   // Official CopilotKit: Intelligence mode auto-wires IntelligenceAgentRunner.
   // Do not pass TenantAbortRunner together with intelligence (type/runtime conflict).
   // License-only (Preview today) keeps the SSE persist runner.
+  const mastraBaseUrl = process.env.MASTRA_BASE_URL?.trim();
+  if (intelligenceKey && (!accessToken || !mastraBaseUrl)) {
+    return new Response(JSON.stringify({ error: "remote_mastra_unavailable" }), {
+      status: 503,
+      headers: { "content-type": "application/json" },
+    });
+  }
+  const agents = intelligenceKey
+    ? await createRemoteAgents(resourceId, accessToken!)
+    : attachRunnerAbort(createLocalAgents(resourceId));
+
   const runtime = intelligenceKey
-    ? new CopilotRuntime({
+    ? new CopilotIntelligenceRuntime({
         agents,
         // Intelligence keys threads by identifyUser.id (not TenantAbortRunner).
         // AUTH-002 org+user resourceId so Org B cannot attach to Org A.
@@ -123,21 +144,16 @@ async function handleCopilot(request: Request) {
     hooks: copilotAuthHooksFor(resourceId),
   });
 
-  // AUTH-002: tools that act as the operator (brand-intelligence start/approve)
-  // resolve identity from the verified session JWT, not from browser-supplied
-  // brand/actor IDs. requestToken.run scopes the token to this request's async
-  // context so Mastra tool execution can read it via requestToken.getStore().
-  // getVerifiedOperatorForRequest above uses getClaims() (identity only, no
-  // network round-trip); getSession() here is the separate call needed to
-  // recover the raw JWT itself for the user-scoped Supabase client tools use.
-  const authClient = createClientFromRequest(request);
-  const {
-    data: { session: authSession },
-  } = authClient
-    ? await authClient.auth.getSession()
-    : { data: { session: null } };
-  const accessToken = authSession?.access_token;
+  if (intelligenceKey) {
+    runtime.runner = new MastraControlRunner(
+      runtime.runner,
+      mastraBaseUrl!,
+      accessToken!,
+    );
+  }
 
+  // Local fallback tools still use AsyncLocalStorage. Remote Planner tools read
+  // the verified bearer from Mastra RequestContext (MASTRA_AUTH_TOKEN_KEY).
   return requestToken.run(accessToken ?? "", () => handle(app)(request));
 }
 
