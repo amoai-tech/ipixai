@@ -215,7 +215,11 @@ describe("getOrCreateOnboardingSession", () => {
       asOnboardingIdempotencyKey("key-1"),
     );
     expect(result.status).toBe("draft");
-    expect(supabase.insert).toHaveBeenCalled();
+    expect(supabase.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draft_answers: expect.objectContaining({ flowVersion: 2, resumeStep: "build-type" }),
+      }),
+    );
   });
 
   it("recovers from a concurrent insert (23505) by re-selecting", async () => {
