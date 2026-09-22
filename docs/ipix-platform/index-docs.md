@@ -17,6 +17,7 @@ This is the curated documentation map for the iPix platform. Linear owns live ta
 ## Platform technology
 
 - [Platform standards](./00-platform/DOC-STANDARDS.md)
+- [Platform architecture](./00-platform/IPIX-PLATFORM-ARCHITECTURE.md)
 - [CopilotKit](./01-copilotkit/README.md)
 - [Mastra](./02-mastra/README.md)
 - [Cloudinary](./04-cloudinary/README.md)
