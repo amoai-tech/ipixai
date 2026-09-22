@@ -139,4 +139,22 @@ describe("ShootWizardShell approved-plan save handoff", () => {
     }
     await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/app/shoots/shoot-1"));
   });
+
+  it("surfaces a superseded approval as an actionable reload-and-review error", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 409,
+      json: async () => ({ error: "error", reason: "superseded_revision" }),
+    });
+
+    render(<ShootWizardShell brands={BRANDS} />);
+    fillWizardToConfirmation();
+    await advanceToReview();
+    fireEvent.click(screen.getByRole("button", { name: "Approve staged plan" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("A newer plan revision exists");
+    expect(alert.textContent).toContain("review the latest revision");
+    expect(mocks.push).not.toHaveBeenCalled();
+  });
 });
