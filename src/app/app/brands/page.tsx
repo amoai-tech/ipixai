@@ -34,8 +34,7 @@ export default async function AppBrandsPage() {
   });
 
   if (tenant.status === "needs_onboarding") redirect("/onboarding");
-  if (tenant.status === "membership_conflict") redirect("/login");
-  if (tenant.status === "lookup_failed") redirect("/login");
+  if (tenant.status === "membership_conflict" || tenant.status === "lookup_failed") redirect("/login");
 
   const [listResult, countResult] = await Promise.all([
     listBrandsForOrg(supabase, tenant.orgId),

@@ -33,8 +33,7 @@ export default async function AppPlansDashboardPage() {
   });
 
   if (tenant.status === "needs_onboarding") redirect("/onboarding");
-  if (tenant.status === "membership_conflict") redirect("/login");
-  if (tenant.status === "lookup_failed") redirect("/login");
+  if (tenant.status === "membership_conflict" || tenant.status === "lookup_failed") redirect("/login");
 
   const result = await listPlansForOrg(supabase, tenant.orgId, { limit: 100 });
 

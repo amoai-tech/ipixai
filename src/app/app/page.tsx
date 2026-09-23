@@ -62,11 +62,7 @@ export default async function AppHomePage() {
     redirect("/onboarding");
   }
 
-  if (tenant.status === "membership_conflict") {
-    redirect("/login");
-  }
-
-  if (tenant.status === "lookup_failed") {
+  if (tenant.status === "membership_conflict" || tenant.status === "lookup_failed") {
     redirect("/login");
   }
 
