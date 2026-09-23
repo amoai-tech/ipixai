@@ -145,7 +145,7 @@ For PR creation/troubleshooting, read [github-pr.md](references/github-pr.md), [
 For user-facing or AI-native workflows, read [user-journey-testing.md](references/user-journey-testing.md).
 For UI-heavy work, read [ui-review.md](references/ui-review.md).
 For every substantial task, also read `../mermaid-diagrams/SKILL.md` and use Mermaid as a reasoning/error-discovery gate, not only as presentation.
-After merge, read [post-merge.md](references/post-merge.md). Legacy `ipix-task-lifecycle` and `pr-workflow` skills are compatibility aliases only; do not add them to new task skill lists.
+After merge, read [post-merge.md](references/post-merge.md). Keep task and PR lifecycle behavior centralized in this `tasks` skill; do not create parallel lifecycle skills.
 
 ## Explicit action vocabulary
 

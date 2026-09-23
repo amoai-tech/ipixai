@@ -19,7 +19,7 @@ Required skills:
 /home/sk/ipix/.claude/skills/ipix-supabase/SKILL.md
 /home/sk/ipix/.claude/skills/task-verifier/SKILL.md
 /home/sk/ipix/.claude/skills/gen-test/SKILL.md
-/home/sk/ipix/.claude/skills/pr-workflow/SKILL.md
+/home/sk/ipixai/.claude/skills/tasks/SKILL.md
 ```
 
 Use Supabase MCP for live schema, migrations, RLS, functions, grants, and advisor checks.
@@ -106,7 +106,7 @@ cd /home/sk/ipix
 cat .claude/skills/ipix-supabase/SKILL.md
 cat .claude/skills/task-verifier/SKILL.md
 cat .claude/skills/gen-test/SKILL.md
-cat .claude/skills/pr-workflow/SKILL.md
+cat .claude/skills/tasks/SKILL.md
 
 git status --short
 git branch --show-current

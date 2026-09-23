@@ -32,7 +32,7 @@ Ownership:
 - Linear = live task-specific plan, blocker, evidence, progress, and Done source of truth.
 - CI/tests = repeatable automated proof.
 
-Deprecated `ipix-task-lifecycle` and `pr-workflow` are compatibility aliases only. Do not use them as the primary workflow for new work.
+`tasks` is the only task/PR lifecycle skill. Do not create parallel lifecycle skills.
 
 ## Fastest safe path
 

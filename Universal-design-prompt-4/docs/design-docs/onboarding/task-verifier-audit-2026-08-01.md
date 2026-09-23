@@ -52,7 +52,7 @@ Legend: 🟢 correct/ready · 🟡 correct but incomplete · 🔴 incorrect/bloc
 | `mastra` / `mastra-agent-reviewer` | ✅ 834 | ✅ | fail-closed | — |
 | `nextjs-developer` | ✅ 837/835 | ✅ | — | — |
 | `ponytail` | ✅ | ✅ | smallest change | 835 scope bomb |
-| `pr-workflow` | ✅ | ✅ | one concern/PR | — |
+| `tasks` | ✅ | ✅ | one concern/PR | — |
 
 **Skills compliance score:** ~78/100 (dragged by 829 unsafe steps + 835 packaging)
 

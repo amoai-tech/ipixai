@@ -26,8 +26,6 @@ AI runtime SSOT: `docs/copilotkit-mastra/README.md`. Cursor rules: `.cursor/rule
 | `dispatching-parallel-agents` | Selected `obra/superpowers` methodology skill — parallelize genuinely independent work |
 | `receiving-code-review` | Selected `obra/superpowers` methodology skill — verify review feedback before applying it |
 | `requesting-code-review` | Selected `obra/superpowers` methodology skill — request focused review before the iPix PR/Done gates |
-| `ipix-task-lifecycle` | **Deprecated compatibility alias** → use `tasks` for new work |
-| `pr-workflow` | **Deprecated compatibility alias** → use `tasks` PR/Actions/post-merge references |
 | `lean` | Velocity audit |
 | `worktrees` | Isolated branches |
 | `refactor-plan` | Multi-file refactors |
@@ -61,7 +59,7 @@ Also not copied from the wider old catalog: `mercur`, `amazon-bedrock`, `ipix` r
 - Next: port 3000, `src/app/`
 - Supabase: preview-first, do not `cd /home/sk/ipix` from this repo
 - CopilotKit: `ipix-production.md` is old-app notes
-- Task execution: `tasks` is canonical; `ipix-task-lifecycle` and `pr-workflow` are compatibility aliases only
+- Task execution and PR lifecycle: `tasks` is the single canonical skill
 
 ## External skill provenance
 

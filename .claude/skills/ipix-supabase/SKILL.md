@@ -338,7 +338,7 @@ The pre-ship checklist above covers *before merge*. Once a PR touching `supabase
 - [`tasks`](../tasks/SKILL.md) — canonical Linear task definition/execution standard
 - [`task-verifier`](../task-verifier/SKILL.md) — independent evidence gate; use Adversarial for Supabase security/data-integrity work
 
-Legacy `ipix-task-lifecycle` / `pr-workflow` are compatibility-only; do not route new Supabase work through them.
+Use `tasks` for task/PR lifecycle orchestration; keep Supabase implementation and verification details in this skill.
 
 ## Source of truth
 
