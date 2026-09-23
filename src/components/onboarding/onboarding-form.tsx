@@ -3,15 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { startBrandAnalysisAction } from "@/app/app/brands/[brandId]/actions";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/error-state";
+import { BrandDetailsQuestion } from "./questions/brand-details-question";
+import { BuildTypeQuestion } from "./questions/build-type-question";
+import { ChannelsQuestion } from "./questions/channels-question";
+import { GrowthPreferenceQuestion } from "./questions/growth-preference-question";
 import {
   asOnboardingIdempotencyKey,
   asOnboardingSessionId,
@@ -19,116 +18,83 @@ import {
   getOrCreateOnboardingIdempotencyKey,
   getOrCreateOnboardingSession,
   hasMaterializedOnboardingSession,
+  hasV2DraftMarker,
   materializeOnboarding,
+  migrateLegacyDraftToV2,
   parseDraftAnswers,
+  resolveLeanStep,
   resolveSemanticStep,
   serializeDraftAnswers,
   updateOnboardingSessionDraft,
   validateUrl,
   type LegacyDraftAnswers,
+  type OnboardingDraft,
+  type OnboardingChannelId,
+  type OnboardingResumeStep,
   type OnboardingSessionId,
 } from "@/lib/onboarding";
 import { createClient } from "@/lib/supabase/client";
 
 const SAVE_DEBOUNCE_MS = 400;
-
+const ANALYSIS_HANDOFF_TIMEOUT_MS = 1500;
+const EMPTY_V2_DRAFT = parseDraftAnswers({ flowVersion: 2 }) as LegacyDraftAnswers & OnboardingDraft;
 type SaveState = "idle" | "saving" | "saved" | "error";
 
-const inputClassName =
-  "rounded-[var(--radius)] border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
+const STEP_ORDER: OnboardingResumeStep[] = [
+  "build-type",
+  "brand-details",
+  "channels",
+  "growth-preference",
+];
 
-/**
- * IPI-1089 · ONBOARD-001 — minimal first-brand materialization.
- *
- * Brand name is required and trimmed; website is optional for tenancy and
- * validated only when supplied. The draft autosaves to the user's own
- * onboarding_sessions row (resumable across refresh), and submit calls the
- * existing materialize_onboarding_session RPC — the database atomically
- * creates the organization, owner membership (organizations_auto_add_owner),
- * and brand. On success we hand off to /app and let the existing AUTH-002
- * server routing re-resolve membership. AI/Brand DNA never blocks tenancy.
- */
+function legacyStepToLean(step: ReturnType<typeof resolveSemanticStep>): OnboardingResumeStep {
+  if (step === "brand-details") return "brand-details";
+  if (step === "channels") return "channels";
+  return "growth-preference";
+}
+
+async function handoffBrandAnalysis(brandId: string): Promise<void> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeout = new Promise<null>((resolve) => {
+      timeoutId = setTimeout(() => resolve(null), ANALYSIS_HANDOFF_TIMEOUT_MS);
+    });
+    const analysis = await Promise.race([startBrandAnalysisAction(brandId), timeout]);
+    if (analysis === null) {
+      console.warn("brand analysis handoff timed out", {
+        brandId,
+        timeoutMs: ANALYSIS_HANDOFF_TIMEOUT_MS,
+      });
+    } else if (!analysis.ok) {
+      console.warn("brand analysis handoff failed", analysis.message);
+    }
+  } catch (error) {
+    console.warn("brand analysis handoff threw", error);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 export function OnboardingForm({ userId }: { userId: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [brandName, setBrandName] = useState("");
-  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [draft, setDraft] = useState<LegacyDraftAnswers & OnboardingDraft>(() => ({ ...EMPTY_V2_DRAFT }));
+  const [step, setStep] = useState<OnboardingResumeStep>("build-type");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [submitting, setSubmitting] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const sessionIdRef = useRef<OnboardingSessionId | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingSaveRef = useRef<LegacyDraftAnswers | null>(null);
+  const pendingSaveRef = useRef<(LegacyDraftAnswers & OnboardingDraft) | null>(null);
   const saveInFlightRef = useRef(false);
-  // IPI-1263 · ONBOARD-COMPAT-001 — keys draft_answers holds that this app
-  // version doesn't understand (an older onboarding iteration's fields).
-  // Carried through every autosave so they're never dropped on write.
-  const legacyDraftRef = useRef<Record<string, unknown>>({});
+  const transitionInFlightRef = useRef(false);
+  const headingRegionRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const supabase = createClient();
-        const operatorId = asOnboardingUserId(userId);
-        const key = getOrCreateOnboardingIdempotencyKey(operatorId);
-        const session = await getOrCreateOnboardingSession(supabase, operatorId, key);
-        if (cancelled) return;
-        const draft = parseDraftAnswers(session.draft_answers);
-        // Same mapper IPI-1260's lean wizard will consume — one compatibility
-        // implementation, not a second ad-hoc check. current_screen is only a
-        // hint here; durable status/brand_id/organization_id decide.
-        const step = resolveSemanticStep({
-          status: session.status,
-          currentScreen: session.current_screen,
-          brandId: session.brand_id,
-          organizationId: session.organization_id,
-          draft,
-        });
-        // Already materialized (idempotent resume) — the workspace owns the user now.
-        if (step === "materialized") {
-          router.replace("/app");
-          return;
-        }
-        // Defense-in-depth: a user who completed onboarding under a different
-        // key (e.g. cleared browser storage) must not be shown the form again.
-        const alreadyOnboarded = await hasMaterializedOnboardingSession(supabase, operatorId);
-        if (cancelled) return;
-        if (alreadyOnboarded) {
-          router.replace("/app");
-          return;
-        }
-        sessionIdRef.current = asOnboardingSessionId(session.id);
-        const { brandName: draftBrandName, websiteUrl: draftWebsiteUrl, ...legacy } = draft;
-        legacyDraftRef.current = legacy;
-        setBrandName(draftBrandName);
-        setWebsiteUrl(draftWebsiteUrl);
-        setLoading(false);
-      } catch (err) {
-        if (cancelled) return;
-        console.error("onboarding load failed", err);
-        setLoadError("Couldn't load your onboarding. Please refresh and try again.");
-        setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      if (saveTimerRef.current != null) clearTimeout(saveTimerRef.current);
-    };
-  }, [router, userId]);
-
-  /**
-   * Serialized autosave: writes run one at a time and always end on the latest
-   * snapshot, so an older in-flight request can never overwrite a newer draft.
-   * On failure the snapshot is kept (unless a newer edit superseded it) so
-   * Retry re-saves the newest state. Returns false when a write failed.
-   */
   const flushSave = useCallback(async (): Promise<boolean> => {
     const sessionId = sessionIdRef.current;
     if (!sessionId) return true;
-    // Wait for any in-flight save to settle so submit can drain the queue
-    // before materializing — a stale autosave must never touch a materialized row.
     while (saveInFlightRef.current) {
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
@@ -144,11 +110,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
           });
           setSaveState("saved");
         } catch {
-          // Restore the failed snapshot only when no newer edit arrived while it
-          // was in flight — otherwise Retry would persist stale edits.
-          if (!pendingSaveRef.current) {
-            pendingSaveRef.current = snapshot;
-          }
+          if (!pendingSaveRef.current) pendingSaveRef.current = snapshot;
           setSaveState("error");
           return false;
         }
@@ -159,31 +121,179 @@ export function OnboardingForm({ userId }: { userId: string }) {
     }
   }, []);
 
-  const saveDraft = useCallback(
-    (name: string, url: string) => {
-      // Merge onto any preserved legacy keys so autosave never overwrites
-      // draft_answers with a smaller object than what was loaded.
-      pendingSaveRef.current = { ...legacyDraftRef.current, brandName: name, websiteUrl: url };
+  const queueDraft = useCallback(
+    (nextDraft: LegacyDraftAnswers & OnboardingDraft) => {
+      setDraft(nextDraft);
+      pendingSaveRef.current = nextDraft;
       if (saveTimerRef.current != null) clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = setTimeout(() => {
-        void flushSave();
-      }, SAVE_DEBOUNCE_MS);
+      saveTimerRef.current = setTimeout(() => void flushSave(), SAVE_DEBOUNCE_MS);
     },
     [flushSave],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const operatorId = asOnboardingUserId(userId);
+        const key = getOrCreateOnboardingIdempotencyKey(operatorId);
+        const session = await getOrCreateOnboardingSession(supabase, operatorId, key);
+        if (cancelled) return;
+        const parsed = parseDraftAnswers(session.draft_answers);
+        const legacyStep = resolveSemanticStep({
+          status: session.status,
+          currentScreen: session.current_screen,
+          brandId: session.brand_id,
+          organizationId: session.organization_id,
+          draft: parsed,
+        });
+        if (legacyStep === "materialized") {
+          router.replace("/app");
+          return;
+        }
+        if (await hasMaterializedOnboardingSession(supabase, operatorId)) {
+          router.replace("/app");
+          return;
+        }
+        if (cancelled) return;
+        sessionIdRef.current = asOnboardingSessionId(session.id);
+        const resumedStep = hasV2DraftMarker(session.draft_answers)
+          ? resolveLeanStep(parsed)
+          : legacyStepToLean(legacyStep);
+        const initialStep: OnboardingResumeStep = STEP_ORDER.includes(resumedStep)
+          ? resumedStep
+          : "growth-preference";
+        const migratedDraft = hasV2DraftMarker(session.draft_answers)
+          ? ({ ...parsed, flowVersion: 2 as const, resumeStep: initialStep } as LegacyDraftAnswers & OnboardingDraft)
+          : migrateLegacyDraftToV2(parsed, initialStep);
+        setDraft(migratedDraft);
+        setStep(initialStep);
+        setLoading(false);
+      } catch (error) {
+        if (cancelled) return;
+        console.error("onboarding load failed", error);
+        setLoadError("Couldn't load your onboarding. Please refresh and try again.");
+        setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (saveTimerRef.current != null) clearTimeout(saveTimerRef.current);
+    };
+  }, [router, userId]);
+
+  useEffect(() => {
+    if (loading) return;
+    const heading = headingRegionRef.current?.querySelector<HTMLElement>("h1");
+    if (!heading) return;
+    heading.tabIndex = -1;
+    heading.focus();
+  }, [loading, step]);
+
+  const updateDraft = useCallback(
+    (patch: Partial<LegacyDraftAnswers>) => {
+      const next: LegacyDraftAnswers & OnboardingDraft = { ...draft, ...patch, flowVersion: 2 as const };
+      queueDraft(next);
+    },
+    [draft, queueDraft],
+  );
+
+  const moveTo = useCallback(
+    async (nextStep: OnboardingResumeStep, patch: Partial<LegacyDraftAnswers> = {}) => {
+      const next: LegacyDraftAnswers & OnboardingDraft = { ...draft, ...patch, flowVersion: 2 as const, resumeStep: nextStep };
+      setSubmitError(null);
+      pendingSaveRef.current = next;
+      if (saveTimerRef.current != null) clearTimeout(saveTimerRef.current);
+      const saved = await flushSave();
+      if (!saved) {
+        setSubmitError("Couldn't save your draft. Please retry.");
+        return false;
+      }
+      setDraft(next);
+      setStep(nextStep);
+      return true;
+    },
+    [draft, flushSave],
+  );
+
+  const runTransition = useCallback(async (action: () => Promise<void>) => {
+    if (transitionInFlightRef.current) return;
+    transitionInFlightRef.current = true;
+    setTransitioning(true);
+    try {
+      await action();
+    } finally {
+      transitionInFlightRef.current = false;
+      setTransitioning(false);
+    }
+  }, []);
+
+  const goBack = useCallback(async () => {
+    await runTransition(async () => {
+      const index = STEP_ORDER.indexOf(step);
+      if (index <= 0) return;
+      await moveTo(STEP_ORDER[index - 1]);
+    });
+  }, [moveTo, runTransition, step]);
 
   const retrySave = useCallback(() => {
     void flushSave();
   }, [flushSave]);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const name = brandName.trim();
+  const toggleChannel = useCallback(
+    (id: OnboardingChannelId) => {
+      const channels = draft.channels.includes(id)
+        ? draft.channels.filter((channel) => channel !== id)
+        : [...draft.channels, id];
+      updateDraft({ channels });
+    },
+    [draft.channels, updateDraft],
+  );
+
+  async function handleContinue() {
+    await runTransition(async () => {
+      if (step === "build-type") {
+        await moveTo("brand-details");
+        return;
+      }
+      if (step === "brand-details") {
+        if (!draft.brandName.trim()) {
+          setSubmitError("Brand name is required.");
+          return;
+        }
+        if (validateUrl(draft.websiteUrl)) return;
+        await moveTo("channels");
+        return;
+      }
+      if (step === "channels") {
+        await moveTo("growth-preference");
+        return;
+      }
+      await handleMaterialize();
+    });
+  }
+
+  async function handleSkip() {
+    await runTransition(async () => {
+      if (step === "build-type") {
+        await moveTo("brand-details", { buildType: null });
+        return;
+      }
+      if (step === "growth-preference") {
+        await handleMaterialize({ growthPreference: null });
+      }
+    });
+  }
+
+  async function handleMaterialize(patch: Partial<LegacyDraftAnswers> = {}) {
+    const finalDraft = { ...draft, ...patch, flowVersion: 2 as const, resumeStep: "complete" as const };
+    const name = finalDraft.brandName.trim();
     if (!name) {
       setSubmitError("Brand name is required.");
       return;
     }
-    const urlError = validateUrl(websiteUrl);
+    const urlError = validateUrl(finalDraft.websiteUrl);
     if (urlError) {
       setSubmitError(urlError);
       return;
@@ -191,138 +301,131 @@ export function OnboardingForm({ userId }: { userId: string }) {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      // Persist any pending draft first; a failed save must block materialization
-      // so the user's latest edits are never lost.
+      pendingSaveRef.current = finalDraft;
+      if (saveTimerRef.current != null) clearTimeout(saveTimerRef.current);
       const saved = await flushSave();
       if (!saved) {
         setSubmitError("Couldn't save your draft. Please retry.");
-        setSubmitting(false);
         return;
       }
       const supabase = createClient();
       const key = getOrCreateOnboardingIdempotencyKey(asOnboardingUserId(userId));
-      await materializeOnboarding(supabase, { brandName: name, websiteUrl }, { idempotencyKey: key });
-      router.replace("/app");
-    } catch (err) {
-      // A concurrent materialization from another storage context may have won
-      // the race (the DB partial unique index rejects the second). Recover by
-      // checking whether the user is now onboarded instead of showing an error.
+      const created = await materializeOnboarding(supabase, finalDraft, { idempotencyKey: key });
+      if (finalDraft.websiteUrl.trim()) await handoffBrandAnalysis(created.brandId);
+      router.replace(`/app/brands/${created.brandId}`);
+      return;
+    } catch (error) {
       try {
-        const supabase = createClient();
-        const alreadyOnboarded = await hasMaterializedOnboardingSession(
-          supabase,
-          asOnboardingUserId(userId),
-        );
-        if (alreadyOnboarded) {
+        if (await hasMaterializedOnboardingSession(createClient(), asOnboardingUserId(userId))) {
           router.replace("/app");
           return;
         }
       } catch {
-        // fall through to the error path below
+        // Preserve the original materialization failure below.
       }
-      console.error("onboarding materialization failed", err);
-      setSubmitError("Couldn't create your brand. Please try again.");
+      console.error("onboarding materialization failed", error);
+      setSubmitError("Couldn't create your Brand. Please try again.");
+    } finally {
       setSubmitting(false);
     }
-  };
+  }
 
   if (loading) {
-    return (
-      <div className="p-8 text-sm text-[var(--muted-foreground)]" data-testid="onboarding-loading">
-        Loading…
-      </div>
-    );
+    return <div className="p-8 text-sm text-[var(--muted-foreground)]">Loading…</div>;
+  }
+  if (loadError) {
+    return <div className="p-8"><ErrorState message={loadError} /></div>;
   }
 
-  if (loadError) {
-    return (
-      <div className="p-8">
-        <ErrorState message={loadError} />
-      </div>
-    );
-  }
+  const busy = submitting || transitioning;
+  const currentIndex = STEP_ORDER.indexOf(step);
+  const stepNumber = currentIndex >= 0 ? currentIndex + 1 : 4;
+  const publicIdentity = draft.channelIdentities.public ?? "";
 
   return (
-    <Card className="mx-auto w-full max-w-md" data-testid="onboarding-form">
-      <CardHeader>
-        <CardTitle>Set up your brand</CardTitle>
-        <CardDescription>
-          Create your first brand to open the workspace. You can add your website later.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid gap-1.5">
-            <label htmlFor="brandName" className="text-sm font-medium">
-              Brand name
-            </label>
-            <input
-              id="brandName"
-              name="brandName"
-              value={brandName}
-              onChange={(event) => {
-                setBrandName(event.target.value);
-                saveDraft(event.target.value, websiteUrl);
-              }}
-              disabled={submitting}
-              autoComplete="organization"
-              placeholder="Maison Noir"
-              className={inputClassName}
-            />
-          </div>
-
-          <div className="grid gap-1.5">
-            <label htmlFor="websiteUrl" className="text-sm font-medium">
-              Website{" "}
-              <span className="font-normal text-[var(--muted-foreground)]">(optional)</span>
-            </label>
-            <input
-              id="websiteUrl"
-              name="websiteUrl"
-              value={websiteUrl}
-              onChange={(event) => {
-                setWebsiteUrl(event.target.value);
-                saveDraft(brandName, event.target.value);
-              }}
-              disabled={submitting}
-              inputMode="url"
-              autoComplete="url"
-              placeholder="https://maisonnoir.com"
-              className={inputClassName}
-            />
-          </div>
-
-          {submitError ? (
-            <p
-              role="alert"
-              className="text-sm text-[var(--destructive)]"
-              data-testid="onboarding-submit-error"
-            >
-              {submitError}
-            </p>
-          ) : null}
-
-          <Button type="submit" disabled={submitting}>
-            {submitting ? "Creating…" : "Create brand"}
-          </Button>
+    <Card className="mx-auto w-full max-w-xl" data-testid="onboarding-form" aria-busy={busy}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-4 text-xs text-[var(--muted-foreground)]">
+          <span>iPix onboarding</span>
+          <span>Step {stepNumber} of 4</span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-[var(--muted)]" aria-hidden="true">
           <div
-            className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]"
-            aria-live="polite"
-          >
-            {saveState === "saving" ? (
-              <span>Saving draft…</span>
-            ) : saveState === "error" ? (
-              <>
-                <span>Couldn&rsquo;t save your draft.</span>
-                <button type="button" onClick={retrySave} className="underline">
-                  Retry
-                </button>
-              </>
-            ) : (
-              <span>Your draft is saved automatically.</span>
-            )}
-          </div>
-        </form>
+            className="h-full rounded-full bg-[var(--primary)] transition-[width]"
+            style={{ width: `${stepNumber * 25}%` }}
+          />
+        </div>
+      </CardHeader>
+      <CardContent className="grid gap-6">
+        <div ref={headingRegionRef} key={step}>
+          {step === "build-type" ? (
+            <BuildTypeQuestion
+              value={draft.buildType}
+              onChange={(buildType) => updateDraft({ buildType })}
+              disabled={busy}
+            />
+          ) : null}
+          {step === "brand-details" ? (
+            <BrandDetailsQuestion
+              brandName={draft.brandName}
+              websiteUrl={draft.websiteUrl}
+              onBrandNameChange={(brandName) => updateDraft({ brandName })}
+              onWebsiteUrlChange={(websiteUrl) => updateDraft({ websiteUrl })}
+              disabled={busy}
+            />
+          ) : null}
+          {step === "channels" ? (
+            <ChannelsQuestion
+              channels={draft.channels}
+              identity={publicIdentity}
+              onToggle={toggleChannel}
+              onIdentityChange={(value) =>
+                updateDraft({ channelIdentities: { ...draft.channelIdentities, public: value } })
+              }
+              disabled={busy}
+            />
+          ) : null}
+          {step === "growth-preference" ? (
+            <GrowthPreferenceQuestion
+              value={draft.growthPreference}
+              onChange={(growthPreference) => updateDraft({ growthPreference })}
+              disabled={busy}
+            />
+          ) : null}
+        </div>
+
+        {submitError ? (
+          <p role="alert" data-testid="onboarding-submit-error" className="text-sm text-[var(--destructive)]">
+            {submitError}
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-3">
+          {step !== "build-type" ? (
+            <Button type="button" variant="outline" onClick={() => void goBack()} disabled={busy}>
+              Back
+            </Button>
+          ) : null}
+          {(step === "build-type" || step === "growth-preference") ? (
+            <Button type="button" variant="ghost" onClick={() => void handleSkip()} disabled={busy}>
+              Skip for now
+            </Button>
+          ) : null}
+          <Button type="button" onClick={() => void handleContinue()} disabled={busy} className="ml-auto">
+            {submitting ? "Creating…" : step === "growth-preference" ? "Create Brand" : "Continue"}
+          </Button>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]" aria-live="polite">
+          {saveState === "saving" ? <span>Saving…</span> : null}
+          {saveState === "saved" ? <span>Draft saved.</span> : null}
+          {saveState === "idle" ? <span>Your draft is saved automatically.</span> : null}
+          {saveState === "error" ? (
+            <>
+              <span>Draft save failed.</span>
+              <Button type="button" variant="ghost" size="sm" onClick={retrySave} disabled={busy}>Retry</Button>
+            </>
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   );

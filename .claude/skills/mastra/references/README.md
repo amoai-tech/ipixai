@@ -71,6 +71,7 @@ Use one primary owner and add a second reference only when the task crosses boun
 | [`testing-gates.md`](testing-gates.md) | Pre-merge tests, post-merge proof, failure matrix, STOP conditions, exact success criteria |
 | [`user-journeys.md`](user-journeys.md) | Full iPix frontend → CopilotKit/AG-UI → Mastra → backend → durable-state journeys |
 | [`evals-feedback.md`](evals-feedback.md) | Versioned datasets, gates/scorers, experiments, multi-turn quality regression |
+| [`trace-query.md`](trace-query.md) | Advanced exact trace selection with recursive predicates and cursor pagination |
 | [`trace-intelligence.md`](trace-intelligence.md) | Aggregate production trace themes; advanced/conditional |
 
 ## Troubleshooting / operational references

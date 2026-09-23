@@ -7,7 +7,7 @@ description: >
   review-comment troubleshooting, and post-merge proof. Defines the task standard; it does not
   replace task-verifier Done checks.
 metadata:
-  version: "1.12.0"
+  version: "1.13.0"
 ---
 
 # tasks — iPix Linear task specification standard
@@ -45,6 +45,66 @@ Production-ready when: <one observable success sentence>
 
 If any line is unknown, say `Needs verification` instead of guessing.
 
+## Linear template routing — mandatory
+
+Before creating or materially restructuring a substantial `IPI-*` issue, select the approved workspace template by work type:
+
+```text
+Production/release certification?
+→ Production Readiness / Release Gate
+
+Confirmed failure requiring root-cause repair?
+→ Forensic Error Audit & Fix
+
+Audit/research only with no implementation?
+→ iPix Task Audit & Implementation Plan
+
+Otherwise
+→ Universal Engineering Task
+```
+
+Rules:
+- Search Linear first for an existing issue with the same TASK-ID or materially overlapping scope before creating anything new.
+- Existing-issue decision:
+  - Same work item with the correct or usable template structure → reuse/update it.
+  - Same work item with a wrong or missing template association → preserve the issue/history, migrate its body and fields to the closest applicable template structure, and record the mismatch. If current Linear tooling cannot change the template association after creation, do not create a duplicate solely to change template metadata.
+  - Existing issue is completed/canceled historical work, materially different scope, or requires creation-only form/template behavior → create a new correctly templated issue, link the old issue, and record the reason/relationship.
+  - Assignment alone is not a reason to duplicate work; preserve or intentionally change ownership.
+- For a new issue, apply the actual Linear template through the template field. Do not recreate it from memory.
+- Do not pass a replacement free-form description during template creation; that would discard the template body. Apply the template first, then fill/correct its sections.
+- Preserve the closest applicable template structure when materially rewriting an existing issue.
+- Fill only relevant sections; use `Needs verification` rather than inventing values.
+- Before implementation, use one of two explicit paths:
+  - **Standard path:** verify template/type, project/milestone, dependencies/blockers, relations, observable outcome, acceptance criteria, verification plan, and exact next action.
+  - **Exception path:** if a genuinely non-standard issue cannot use an approved template, document the concrete reason in the issue and preserve these required fields.
+
+If Linear is temporarily unavailable, use `todo.md` only as a temporary handoff with the same required state/evidence fields, then reconcile that handoff back into Linear before marking the issue Done.
+
+### Cross-tool handoff and completion
+
+Linear remains the authoritative per-task execution record. Keep a concise handoff in the issue with: current verified state, last completed checkpoint, blocker, exact next action, branch/PR, and exact SHA when available. `todo.md` may point to that task for local session continuity but must not duplicate the full backlog.
+
+## PR follow-up loop — mandatory after PR opens
+
+Opening a PR starts the review loop; it does not finish the task. After the PR opens or after any new push:
+
+1. Refresh the PR's exact head/base, current `main`, unresolved review threads, submitted reviews, required checks, and mergeability.
+2. Treat reviewer suggestions as hypotheses: classify each review thread as `VALID`, `PARTIAL`, or `NOISE` using current code, installed versions/types, runtime evidence, and current official sources.
+3. For every `VALID`/actionable part, reproduce the problem or add the smallest failing regression/contract first when practical, identify root cause, then implement the smallest safe fix. Do not bundle unrelated cleanup.
+4. Re-run the structural maintainability review on touched/load-bearing files and classify candidates as `KEEP / REFACTOR NOW / FOLLOW-UP`; move worthwhile out-of-scope work to a linked Linear issue instead of expanding the PR.
+5. Run the cheapest decisive targeted proof, then the risk-matched broader suite. Re-check current `main` and required exact-head checks after every push.
+6. Reply in each actionable thread with the exact fix commit and evidence; resolve a thread only after the fix and evidence exist. Leave threads needing human input unresolved.
+7. Update the PR title/body so a reviewer can understand the real-world outcome, user/system journey, scope, touched tech stack, findings/fixes, verification, pre-merge checklist, production-ready success criteria, post-merge actions, and exact load-bearing references.
+8. Repeat this loop after every push because comments, mergeability, base SHA, and checks can change.
+
+STOP before merge if an actionable thread is unresolved, a required check is red/pending, strict-main is stale, the PR/Linear task disagree materially, or auth/security/tenant/data/provider behavior is unverified for a touched boundary.
+
+At the Done gate, explicitly decide whether the change requires durable docs and/or a changelog entry:
+
+- behavior, architecture, contracts, runbooks, or user journeys changed → update the canonical `docs/**` in the same PR; GitBook publishes after merge;
+- notable shipped product, security, reliability, or operational change → update `changelog.md`;
+- neither applies → record the reason briefly in the task/PR.
+
 ## Mandatory task structure
 
 Every substantial executable `IPI-*` task must be organized as an **executable dependency-ordered runbook**, not a detached research pack. Use this order when applicable:
@@ -77,6 +137,7 @@ Every substantial executable `IPI-*` task must be organized as an **executable d
 
 For agent-prompt structure, read [agent-instructions.md](references/agent-instructions.md).
 For detailed layout, read [task-format.md](references/task-format.md).
+For every task that uses external or Lumina references, also read [external-reference-mapping.md](references/external-reference-mapping.md); it supplements `task-format.md` and does not introduce a second action vocabulary.
 For progress rules, read [progress-tracker.md](references/progress-tracker.md).
 For Lumina migrations, also read [migration-lumina.md](references/migration-lumina.md).
 Before commit, read [pre-commit.md](references/pre-commit.md), then choose the risk-matched verification set from [pre-merge-tests.md](references/pre-merge-tests.md).
