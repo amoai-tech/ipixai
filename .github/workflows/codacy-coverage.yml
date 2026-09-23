@@ -17,8 +17,6 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -35,15 +33,17 @@ jobs:
           GEMINI_API_KEY: ""
           GOOGLE_API_KEY: ""
           OPENAI_API_KEY: ""
-      - name: Upload JavaScript coverage
-        if: env.CODACY_PROJECT_TOKEN != ''
-        run: bash <(curl -Ls https://coverage.codacy.com/get.sh) report --partial -l Javascript -r coverage/lcov.info
-      - name: Upload TypeScript coverage
-        if: env.CODACY_PROJECT_TOKEN != ''
-        run: bash <(curl -Ls https://coverage.codacy.com/get.sh) report --partial -l TypeScript -r coverage/lcov.info
-      - name: Finalize Codacy coverage
-        if: env.CODACY_PROJECT_TOKEN != ''
-        run: bash <(curl -Ls https://coverage.codacy.com/get.sh) final
-      - name: Warn when Codacy token is unavailable
-        if: env.CODACY_PROJECT_TOKEN == ''
-        run: echo "::warning::CODACY_PROJECT_TOKEN is unavailable; coverage was generated but not uploaded."
+      # One Vitest LCOV file spans JS + TS. Codacy requires one partial upload
+      # per language, followed by a single final notification.
+      - name: Upload Codacy coverage
+        env:
+          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          CODACY_REPORTER_VERSION: "14.1.3"
+        run: |
+          if [[ -z "$CODACY_PROJECT_TOKEN" ]]; then
+            echo "::warning::CODACY_PROJECT_TOKEN is unavailable; coverage was generated but not uploaded."
+            exit 0
+          fi
+          bash <(curl -Ls https://coverage.codacy.com/get.sh) report --partial -l Javascript -r coverage/lcov.info
+          bash <(curl -Ls https://coverage.codacy.com/get.sh) report --partial -l TypeScript -r coverage/lcov.info
+          bash <(curl -Ls https://coverage.codacy.com/get.sh) final
