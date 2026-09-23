@@ -138,13 +138,24 @@ describe("iPix engineering skill contracts", () => {
   });
 
   test("post-merge workflow synchronizes local main safely before the next task", () => {
-    expect(postMerge).toContain("git fetch origin --prune");
-    expect(postMerge).toContain("git rev-list --left-right --count main...origin/main");
-    expect(postMerge).toContain("0 0");
-    expect(postMerge).toContain("local-only commits");
-    expect(postMerge).toContain("fast-forward");
-    expect(postMerge).toContain("before creating the next task branch/worktree");
-    expect(postMerge).toContain("Do not automatically rebase active feature branches");
+    const sectionStart = postMerge.indexOf("## Local main synchronization gate");
+    const sectionEnd = postMerge.indexOf("## Required checks when applicable");
+
+    expect(sectionStart).toBeGreaterThanOrEqual(0);
+    expect(sectionEnd).toBeGreaterThan(sectionStart);
+
+    const syncSection = postMerge.slice(sectionStart, sectionEnd);
+    expect(syncSection).toMatch(
+      /before creating the next task branch\/worktree[\s\S]*git fetch origin --prune[\s\S]*git rev-list --left-right --count main\.\.\.origin\/main/,
+    );
+    expect(syncSection).toMatch(
+      /`0 N`[\s\S]*worktree that owns `main`[\s\S]*git merge --ff-only origin\/main[\s\S]*re-run the divergence check/,
+    );
+    expect(syncSection).toMatch(
+      /`N 0` or `N M`[\s\S]*\*\*STOP\*\*[\s\S]*Preserve those local-only commits[\s\S]*never silently reset or discard them/,
+    );
+    expect(syncSection).toContain("`0 0` → PASS");
+    expect(syncSection).toContain("Do not automatically rebase active feature branches");
     expect(tasks).toContain("Post-merge local-main synchronization");
     expect(agents).toContain("synchronize local `main` with `origin/main`");
   });
