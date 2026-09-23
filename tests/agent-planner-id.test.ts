@@ -4,6 +4,7 @@ import { MastraAgent } from "@ag-ui/mastra";
 
 import {
   PLANNER_AGENT_ID,
+  createLocalAgents,
   createRemoteAgents,
   withPlannerAgentId,
 } from "@/agent";
@@ -72,6 +73,17 @@ describe("Planner agent id contract", () => {
     } as never);
 
     const agents = await createRemoteAgents("org:a::user:u", "jwt");
+
+    expect(Object.keys(agents)).toEqual(["default"]);
+    expect(agents.default).toBe(fakeAgent);
+  });
+
+  it("re-keys createLocalAgents output onto the frontend id", () => {
+    vi.spyOn(MastraAgent, "getLocalAgents").mockReturnValue({
+      "production-planner": fakeAgent,
+    } as never);
+
+    const agents = createLocalAgents("org:a::user:u");
 
     expect(Object.keys(agents)).toEqual(["default"]);
     expect(agents.default).toBe(fakeAgent);
