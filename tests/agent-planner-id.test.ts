@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 /**
- * IPI-1306 regression: switching Planner execution to remote Mastra changed the
+ * IPI-1312 regression: switching Planner execution to remote Mastra changed the
  * registry key the frontend must resolve.
  *
  * The local path keys by the Mastra registration key ("default"), but the
@@ -44,12 +44,25 @@ describe("Planner agent id contract", () => {
     expect(withPlannerAgentId(alreadyCorrect)).toBe(alreadyCorrect);
   });
 
-  it("does not guess when the agent source exposes more than one agent", () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("fails closed when the agent source exposes more than one agent", () => {
     const ambiguous = { alpha: fakeAgent, beta: fakeAgent };
 
-    expect(withPlannerAgentId(ambiguous)).toBe(ambiguous);
-    expect(warn).toHaveBeenCalledOnce();
+    expect(() => withPlannerAgentId(ambiguous)).toThrow(
+      /expected exactly one Planner/i,
+    );
+  });
+
+  it("fails closed when multiple agents include the frontend default key", () => {
+    const wrongDefault = { agentId: "not-the-planner" } as unknown as AbstractAgent;
+    const ambiguous = { default: wrongDefault, "production-planner": fakeAgent };
+
+    expect(() => withPlannerAgentId(ambiguous)).toThrow(
+      /expected exactly one Planner/i,
+    );
+  });
+
+  it("fails closed when the agent source exposes no agents", () => {
+    expect(() => withPlannerAgentId({})).toThrow(/expected exactly one Planner/i);
   });
 
   it("re-keys createRemoteAgents output when the server advertises the agent id", async () => {

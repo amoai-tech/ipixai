@@ -18,25 +18,21 @@ export const PLANNER_AGENT_ID = "default";
  *
  * This product registers exactly one Planner, so a remote map's single entry
  * is the Planner regardless of the id the server advertised. A map that
- * already exposes the expected id (the local path) or carries an unexpected
- * number of agents is returned unchanged so a real misconfiguration surfaces
- * loudly instead of being silently guessed at.
+ * already exposes the expected id (the local path) is returned unchanged.
+ * Zero or multiple entries are rejected before CopilotKit can bind the wrong
+ * agent or fail later in the browser with an opaque missing-agent error.
  */
 export function withPlannerAgentId(
   agents: Record<string, AbstractAgent>,
 ): Record<string, AbstractAgent> {
-  if (agents[PLANNER_AGENT_ID]) return agents;
   const entries = Object.entries(agents);
   if (entries.length !== 1) {
-    if (entries.length > 1) {
-      console.warn(
-        `[agent] expected exactly one Planner but the agent source exposed ${entries.length}: ` +
-          `${entries.map(([id]) => id).join(", ")}. CopilotKit resolves ` +
-          `agentId "${PLANNER_AGENT_ID}", so the Planner will not be found.`,
-      );
-    }
-    return agents;
+    const exposedIds = entries.map(([id]) => id).join(", ") || "none";
+    throw new Error(
+      `[agent] expected exactly one Planner but the agent source exposed ${entries.length}: ${exposedIds}`,
+    );
   }
+  if (agents[PLANNER_AGENT_ID]) return agents;
   return { [PLANNER_AGENT_ID]: entries[0][1] };
 }
 
