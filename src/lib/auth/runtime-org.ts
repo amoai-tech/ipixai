@@ -5,10 +5,12 @@ import { forbiddenResponse, membershipLookupFailedResponse } from "./unauthorize
 export type RuntimeOrgResolution =
   | { status: "ok"; orgId: string }
   | { status: "needs_onboarding" }
-  | { status: "needs_org_selection" }
+  // IPI-1311 · AUTH-ORG-SINGLE-001 — MVP invariant is one membership per
+  // user; 2+ rows means the invariant was violated somewhere upstream (the
+  // database now rejects this at insert time). This is a fail-closed denial,
+  // never a routing destination — the resolver never picks one membership.
+  | { status: "membership_conflict" }
   | { status: "lookup_failed" };
-
-export type ProductBootstrap = "app" | "onboarding" | "org_selection";
 
 function uniqueOrgIds(orgIds: string[]): string[] {
   const seen = new Set<string>();
@@ -29,18 +31,8 @@ export function resolveTrustedRuntimeOrg(options: {
   void options.userMetadataOrgId;
   const orgIds = uniqueOrgIds(options.membershipOrgIds);
   if (orgIds.length === 0) return { status: "needs_onboarding" };
-  if (orgIds.length > 1) return { status: "needs_org_selection" };
+  if (orgIds.length > 1) return { status: "membership_conflict" };
   return { status: "ok", orgId: orgIds[0] };
-}
-
-export function productBootstrapFor(
-  resolution: Extract<
-    RuntimeOrgResolution,
-    { status: "needs_onboarding" } | { status: "needs_org_selection" }
-  >,
-): ProductBootstrap {
-  if (resolution.status === "needs_org_selection") return "org_selection";
-  return "onboarding";
 }
 
 type OrgMembersClient = {

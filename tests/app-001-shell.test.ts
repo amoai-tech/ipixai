@@ -163,7 +163,7 @@ describe("requireResolvedAppWorkspace", () => {
     await expect(requireResolvedAppWorkspace()).rejects.toThrow("REDIRECT:/onboarding");
   });
 
-  it("redirects a multi-org operator before the app shell mounts @T44e4342f", async () => {
+  it("IPI-1311 · AUTH-ORG-SINGLE-001 — fails closed to /login for a membership-conflict operator before the app shell mounts @T44e4342f", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
     serverCreateClient.mockResolvedValue(
       clientWithOrgIds([
@@ -171,7 +171,7 @@ describe("requireResolvedAppWorkspace", () => {
         "33333333-3333-4333-8333-333333333333",
       ]),
     );
-    await expect(requireResolvedAppWorkspace()).rejects.toThrow("REDIRECT:/org-selection");
+    await expect(requireResolvedAppWorkspace()).rejects.toThrow("REDIRECT:/login");
   });
 
   it("fails closed when the membership lookup fails @Tbd7fb4bc", async () => {

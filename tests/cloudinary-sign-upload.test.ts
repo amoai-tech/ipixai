@@ -323,7 +323,7 @@ describe("IPI-1110 · CLD-SIGN-001 /api/cloudinary/sign", () => {
     const body = await res.json();
     expect(body).toEqual({
       error: "forbidden",
-      reason: "needs_org_selection",
+      reason: "membership_conflict",
     });
     expect(body).not.toHaveProperty("signature");
   });

@@ -43,7 +43,7 @@ export type AuthorizedAssetPreviewError = {
     | "invalid_requested_version"
     | "version_not_approved"
     | "needs_onboarding"
-    | "needs_org_selection"
+    | "membership_conflict"
     | "membership_lookup_failed"
     | "asset_not_found"
     | "foreign_org"

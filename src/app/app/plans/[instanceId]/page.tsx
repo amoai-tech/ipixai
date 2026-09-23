@@ -39,7 +39,7 @@ export default async function AppPlanDetailPage({
   });
 
   if (tenant.status === "needs_onboarding") redirect("/onboarding");
-  if (tenant.status === "needs_org_selection") redirect("/org-selection");
+  if (tenant.status === "membership_conflict") redirect("/login");
   if (tenant.status === "lookup_failed") redirect("/login");
 
   const { instanceId } = await params;

@@ -159,13 +159,13 @@ describe("successful authentication navigates to /app", () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(null);
     const ui = await LoginPage({
       searchParams: Promise.resolve({
-        next: ["/org-selection", "/app"],
+        next: ["/onboarding", "/app"],
       }),
     });
     render(ui);
     expect(await screen.findByLabelText("Email")).toBeDefined();
     // The lazy form receives the normalized first query value.
-    expect(lastNextProp.value).toBe("/org-selection");
+    expect(lastNextProp.value).toBe("/onboarding");
   });
 
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: login form pushes /app after a successful password sign-in", async () => {
