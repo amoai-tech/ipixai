@@ -19,6 +19,8 @@ const lock = JSON.parse(
 ) as PackageLock;
 
 const HONO_FLOOR = "4.13.8";
+const HONO_NODE_SERVER_V1_FLOOR = "1.19.15";
+const HONO_NODE_SERVER_V2_FLOOR = "2.0.5";
 const JS_YAML_V3_FLOOR = "3.15.2";
 const JS_YAML_V4_FLOOR = "4.3.2";
 
@@ -54,6 +56,13 @@ function resolvedVersions(packageName: string): string[] {
     .map(([, entry]) => entry.version as string);
 }
 
+function isPatchedHonoNodeServer(version: string): boolean {
+  const [major] = parseStableVersion(version);
+  if (major === 1) return isAtLeast(version, HONO_NODE_SERVER_V1_FLOOR);
+  if (major === 2) return isAtLeast(version, HONO_NODE_SERVER_V2_FLOOR);
+  return major > 2;
+}
+
 function isPatchedJsYaml(version: string): boolean {
   const [major] = parseStableVersion(version);
   if (major === 3) return isAtLeast(version, JS_YAML_V3_FLOOR);
@@ -72,6 +81,14 @@ describe("IPI-1291 dependency security floors", () => {
     for (const version of versions) {
       expect(parseStableVersion(version)[0]).toBe(4);
       expect(isAtLeast(version, HONO_FLOOR)).toBe(true);
+    }
+  });
+
+  it("keeps every @hono/node-server copy above its patched advisory floor", () => {
+    const versions = resolvedVersions("@hono/node-server");
+    expect(versions.length).toBeGreaterThan(0);
+    for (const version of versions) {
+      expect(isPatchedHonoNodeServer(version)).toBe(true);
     }
   });
 
