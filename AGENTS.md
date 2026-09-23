@@ -227,6 +227,34 @@ Rules: `.cursor/rules/`. Skills: `.claude/skills/` (`.cursor/skills` symlink). I
 
 For substantial executable `IPI-*` work, load `.claude/skills/tasks/SKILL.md` before planning or implementation and only the domain skills relevant to the task.
 
+### Linear template routing — mandatory
+
+For every new substantial `IPI-*` issue, use one approved Linear workspace template. Do not create a free-form issue when an approved template fits.
+
+- Normal feature/fix → `Universal Engineering Task`
+- Audit/research only; no implementation → `iPix Task Audit & Implementation Plan`
+- Confirmed bug/root-cause repair → `Forensic Error Audit & Fix`
+- Production/release certification → `Production Readiness / Release Gate`
+
+Before creating an issue: search Linear for an existing issue with the same TASK-ID or materially overlapping scope before creating anything new.
+
+Existing-issue decision:
+- Same work item with the correct or usable template structure → reuse/update it.
+- Same work item with a wrong or missing template association → preserve the issue/history, migrate its body and fields to the closest applicable template structure, and record the mismatch. If current Linear tooling cannot change the template association after creation, do not create a duplicate solely to change template metadata.
+- Existing issue is completed/canceled historical work, materially different scope, or requires creation-only form/template behavior → create a new correctly templated issue, link the old issue, and record the reason/relationship.
+- Assignment alone is not a reason to duplicate work; preserve or intentionally change ownership.
+
+If a new issue is required, apply the template through Linear's template field; do not replace the template body with a free-form description. Fill only relevant sections and write `Needs verification` for unknown facts. When materially correcting an existing issue, preserve the closest applicable template structure.
+
+Before implementation, use one of two explicit paths:
+
+- **Standard path:** verify template/type, project/milestone, dependencies/blockers, relations, observable outcome, acceptance criteria, verification plan, and exact next action.
+- **Exception path:** if a genuinely non-standard issue cannot use an approved template, document the concrete reason in the issue before implementation and preserve the same required outcome/evidence fields.
+
+In either path, keep the issue resumable by another agent from Linear alone. If Linear is temporarily unavailable, use `todo.md` only as a temporary handoff with the same required state/evidence fields, then reconcile that handoff back into Linear before marking the issue Done.
+
+After opening or updating a PR, follow the mandatory **PR follow-up loop** in `.claude/skills/tasks/SKILL.md`: refresh current review/check/main state, validate every suggestion before changing code, fix proven root causes with evidence, update the PR, and repeat until the exact-head merge gate is clean.
+
 Before coding:
 
 1. Re-read the live Linear issue, dependencies, blockers, and acceptance criteria.

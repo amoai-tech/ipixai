@@ -560,6 +560,31 @@ describe("IPI-1067 · SHOOT-001 — hydrateShootDetail", () => {
     expect(result).toEqual({ ok: true, status: "found", data: validDetailPayload });
   });
 
+  it("preserves approved-plan and trusted-reference provenance on read-after-save", async () => {
+    const provenancePayload = {
+      ...validDetailPayload,
+      shoot: {
+        ...validDetailPayload.shoot,
+        approval_id: "10000000-0000-4000-8000-000000000099",
+        approval_revision: 2,
+        approval_plan_hash: "abc123",
+        approved_plan: { productRefs: [{ provider: "shopify", providerProductId: "gid://shopify/Product/123", title: "Black Dress" }] },
+        planned_shoot_type: "ecommerce_pdp",
+      },
+      shots: [{
+        ...validDetailPayload.shots[0],
+        angle: "front",
+        lighting: "softbox",
+        reference_id: "10000000-0000-4000-8000-000000000088",
+      }],
+    };
+    const supabase = fakeDetailSupabase({ viewRowsByBrandId: {}, rpcPayload: provenancePayload });
+
+    const result = await hydrateShootDetail(supabase, SHOOT_A1);
+
+    expect(result).toEqual({ ok: true, status: "found", data: provenancePayload });
+  });
+
   it("fails closed on a malformed payload — never reaches the UI", async () => {
     const malformed = { ...validDetailPayload, shoot: { ...validDetailPayload.shoot, name: 42 } };
     const supabase = fakeDetailSupabase({ viewRowsByBrandId: {}, rpcPayload: malformed });
