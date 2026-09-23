@@ -54,11 +54,20 @@ function resolveServiceRoleKey(): string {
   return raw.trim();
 }
 
-/** Validate Supabase-injected env vars once per cold start. */
-export function getEdgeEnv(): EdgeEnv {
+export type PublicEdgeEnv = Pick<EdgeEnv, "supabaseUrl" | "anonKey">;
+
+/** User-scoped clients must not depend on privileged backend-key configuration. */
+export function getPublicEdgeEnv(): PublicEdgeEnv {
   return {
     supabaseUrl: requireEnv("SUPABASE_URL"),
     anonKey: resolveAnonKey(),
+  };
+}
+
+/** Validate Supabase-injected env vars required by privileged service clients. */
+export function getEdgeEnv(): EdgeEnv {
+  return {
+    ...getPublicEdgeEnv(),
     serviceRoleKey: resolveServiceRoleKey(),
   };
 }

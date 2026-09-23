@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 import { isAuthFailure, resolveAuth } from "./auth.ts";
-import { getEdgeEnv } from "./env.ts";
 import { createServiceClient, createUserClient } from "./supabase-client.ts";
 
 export type CallerResult = { client: SupabaseClient; userId: string | null } | { response: Response };
@@ -57,7 +56,8 @@ export async function resolveCaller(req: Request): Promise<CallerResult> {
 
   const header = req.headers.get("Authorization");
   const token = header?.startsWith("Bearer ") ? header.slice(7).trim() : "";
-  if (token && token === getEdgeEnv().serviceRoleKey) {
+  const legacyServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim() ?? "";
+  if (token && legacyServiceRoleKey && token === legacyServiceRoleKey) {
     return { client: createServiceClient(), userId: null };
   }
 
