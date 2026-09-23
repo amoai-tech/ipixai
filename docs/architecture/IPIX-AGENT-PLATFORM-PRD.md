@@ -2,7 +2,7 @@
 
 **Status:** Draft for review. No production code changed by this document.
 **Date:** 2026-09-20
-**Companion docs:** [IPIX-AGENT-PLATFORM-ROADMAP.md](IPIX-AGENT-PLATFORM-ROADMAP.md) · [IPIX-REFERENCE-REUSE-MATRIX.md](IPIX-REFERENCE-REUSE-MATRIX.md) · [IPIX-MIGRATION-PLAN.md](IPIX-MIGRATION-PLAN.md) · [docs/copilotkit-mastra/reuse-audit/](../copilotkit-mastra/reuse-audit/INDEX.md) (earlier, narrower runner-only audit this PRD supersedes in scope, not in evidence)
+**Companion docs:** [IPIX-AGENT-PLATFORM-ROADMAP.md](IPIX-AGENT-PLATFORM-ROADMAP.md) · [IPIX-REFERENCE-REUSE-MATRIX.md](IPIX-REFERENCE-REUSE-MATRIX.md) · [IPIX-MIGRATION-PLAN.md](IPIX-MIGRATION-PLAN.md)
 
 ## 1. Problem
 
