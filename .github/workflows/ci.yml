@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -51,8 +51,8 @@ jobs:
   # dependency, so this job (a required merge check) never goes red because
   # OpenAI is slow/down/out of quota. The one spec that makes a real hosted
   # GPT-4o call (planner-journey.spec.ts) plus copilot-intelligence-isolation
-  # live in the separate chromium-ai-smoke project — see playwright-ai-smoke
-  # below — and are deliberately excluded here.
+  # live in the separate chromium-ai-smoke project and run from
+  # .github/workflows/ai-smoke.yml, outside deterministic release CI.
   playwright-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -70,7 +70,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -103,7 +103,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -121,45 +121,6 @@ jobs:
       - run: npm run e2e:approval
       # These tests hold real authenticated local sessions; keep reports
       # runner-local rather than publishing them as public artifacts.
-
-  # Live hosted-AI smoke — deliberately NOT a required merge check (see
-  # playwright-e2e above). planner-journey.spec.ts and
-  # copilot-intelligence-isolation.spec.ts each make one real, paid GPT-4o
-  # call; a provider outage/quota/latency issue here must never block
-  # unrelated UI work from merging. Needs its own real OPENAI_API_KEY secret
-  # with usable quota — every other job keeps the "placeholder" literal
-  # since nothing else calls OpenAI for real. The key is scoped to only the
-  # `npm run e2e:ai-smoke` step (least privilege) — checkout/setup-node/
-  # npm ci/browser install never see it.
-  playwright-ai-smoke:
-    continue-on-error: true
-    runs-on: ubuntu-latest
-    # Must remain above Playwright's 12-minute globalTimeout so Playwright
-    # can shut down cleanly and flush reporters before GitHub kills the job.
-    timeout-minutes: 15
-    env:
-      COPILOTKIT_TELEMETRY_DISABLED: "true"
-      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
-      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
-      E2E_TEST_EMAIL_ORG_B: ${{ secrets.E2E_TEST_EMAIL_ORG_B }}
-      E2E_TEST_PASSWORD_ORG_B: ${{ secrets.E2E_TEST_PASSWORD_ORG_B }}
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium
-      - run: npm run e2e:ai-smoke
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      # No Playwright artifact upload in this public repository: the run is
-      # authenticated and may contain sensitive session/network trace data.
 
   # Standing guard for IPI-897 planner default ACLs. Files are required on this
   # branch — missing migration/test fails the job instead of skipping.
@@ -342,7 +303,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -588,6 +549,14 @@ jobs:
           # pass vacuously.
           bash supabase/tests/security/ipi1084-shoot-plan-approval-lock.sh 54322
 
+          # IPI-1083 · SHOOT-SAVE-001 — exact approved artifact → one durable
+          # Shoot, with normalized child/provenance mapping, tenant/role denials,
+          # rejected/superseded zero-write behavior, replay, and true two-session
+          # concurrent double-submit proof.
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/ipi1083-save-approved-shoot.sql
+          bash supabase/tests/security/ipi1083-save-approved-shoot-concurrency.sh 54322
+
           # End-to-end proof, not just schema-level: a real signup on this
           # fresh database must actually produce a profiles row (the exact
           # bug this task's own review caught and fixed).
@@ -653,6 +622,25 @@ jobs:
           # Shell script, not SQL: seeds a real queued/unclaimed crawl row
           # and asserts exactly one of two simultaneous claim attempts wins.
           bash supabase/tests/security/ipi1093-brand-crawl-claim-concurrency.sh
+
+          # IPI-1269 · ONBOARD-DB-GUARD-001 — regression proof that a normal
+          # authenticated client cannot forge materialize_onboarding_session's
+          # outcome (status/organization_id/brand_id), cannot read/mutate
+          # another user's onboarding session, cannot spoof user_id, and that
+          # the trusted RPC's happy path, replay, and two-users-same-key-text
+          # isolation all still behave correctly. Needs the real
+          # auth.users/organizations/org_members/brands schema from the full
+          # replay above, not a bare-Postgres mock.
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/ipi1269-onboard-db-guard-acl.sql
+
+          # IPI-1269 · ONBOARD-DB-GUARD-001 — concurrent double-submit proof:
+          # two overlapping materialize_onboarding_session calls for the same
+          # (user_id, idempotency_key) must still leave exactly one
+          # organization/brand/owner-member, both calls returning the same
+          # durable IDs. Same reason as the IPI-1093 claim-concurrency script
+          # above: genuinely needs two overlapping sessions.
+          bash supabase/tests/security/ipi1269-onboard-db-guard-concurrency.sh
       - run: supabase stop
 
   # IPI-1205 · SB-EDGE-CI-001 — native Deno regression tests + frozen
@@ -710,7 +698,6 @@ jobs:
       - build
       - playwright-e2e
       - playwright-approval-tenant
-      - playwright-ai-smoke
       - planner-default-acl
       - media-harden-acl
       - plans-001-read-contract-acl
@@ -763,7 +750,7 @@ jobs:
 
       - name: Use repository Node version
         if: steps.release.outputs.enabled == 'true'
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .nvmrc
           cache: npm

@@ -9,9 +9,24 @@ import {
   type OnboardingUserId,
 } from "./schema";
 
+import { EMPTY_DRAFT, serializeDraftAnswers } from "./session-draft";
+
 export { validateUrl } from "./validate-url";
 export { getOrCreateOnboardingIdempotencyKey } from "./idempotency-key";
-export { serializeDraftAnswers, parseDraftAnswers, EMPTY_DRAFT } from "./session-draft";
+export {
+  serializeDraftAnswers,
+  parseDraftAnswers,
+  EMPTY_DRAFT,
+  hasV2DraftMarker,
+  migrateLegacyDraftToV2,
+  type LegacyDraftAnswers,
+} from "./session-draft";
+export {
+  resolveSemanticStep,
+  resolveLeanStep,
+  type SemanticOnboardingStep,
+  type StepMappingInput,
+} from "./step-mapping";
 export {
   onboardingSessionSchema,
   onboardingSessionStatusSchema,
@@ -23,6 +38,10 @@ export {
   type OnboardingSession,
   type OnboardingSessionStatus,
   type OnboardingDraft,
+  type OnboardingResumeStep,
+  type OnboardingBuildType,
+  type OnboardingChannelId,
+  type OnboardingGrowthPreference,
   type MaterializeResult,
   type OnboardingUserId,
   type OnboardingSessionId,
@@ -62,7 +81,7 @@ export const getOrCreateOnboardingSession = async (
       idempotency_key: idempotencyKey,
       status: "draft",
       current_screen: 1,
-      draft_answers: {},
+      draft_answers: serializeDraftAnswers(EMPTY_DRAFT),
     })
     .select(SESSION_COLUMNS)
     .single();
@@ -145,7 +164,7 @@ export const hasMaterializedOnboardingSession = async (
  */
 export const materializeOnboarding = async (
   supabase: SupabaseClient,
-  draft: OnboardingDraft,
+  draft: Pick<OnboardingDraft, "brandName" | "websiteUrl">,
   options: { idempotencyKey: OnboardingIdempotencyKey },
 ): Promise<{ orgId: string; brandId: string }> => {
   const { data, error } = await supabase.rpc("materialize_onboarding_session", {

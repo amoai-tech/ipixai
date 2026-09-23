@@ -1,10 +1,11 @@
-import { readFileSync, readlinkSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const workflow = readFileSync(
   new URL("../.github/workflows/pr-agent.yml", import.meta.url),
   "utf8",
 );
+const routing = readFileSync(new URL("../scripts/select-pr-agent-skills.mjs", import.meta.url), "utf8");
 const copilotReviewSkill = readFileSync(
   new URL("../.claude/skills/copilotkit-review/SKILL.md", import.meta.url),
   "utf8",
@@ -13,30 +14,32 @@ const mastraSkill = readFileSync(
   new URL("../.claude/skills/mastra/SKILL.md", import.meta.url),
   "utf8",
 );
+const traceQueryReference = readFileSync(
+  new URL("../.claude/skills/mastra/references/trace-query.md", import.meta.url),
+  "utf8",
+);
 
 describe("IPI-1213 PR-Agent review skills contract", () => {
-  it("selects trusted rollout-safe skills without autonomous fixes", () => {
-    expect(workflow).toContain("ref: ${{ github.event.pull_request.base.sha }}");
-    expect(workflow).toContain("persist-credentials: false");
-    expect(workflow).toContain("Select trusted PR-Agent skills");
-    expect(workflow).toContain(
-      "if [[ -e .claude/skills/mastra-review/SKILL.md && -e .claude/skills/copilotkit-review/SKILL.md ]]; then",
-    );
-    expect(workflow).toContain('"/github/workspace/.claude/skills/mastra-review"');
-    expect(workflow).toContain('"/github/workspace/.claude/skills/copilotkit-review"');
-    expect(workflow).toContain('"/github/workspace/.claude/skills/mastra"');
-    expect(workflow).toContain("max_tokens=8000");
-    expect(workflow).toContain("max_tokens=3500");
-    expect(workflow).toContain("skills.enabled: \"true\"");
-    expect(workflow).toContain("github_action_config.auto_improve: \"false\"");
+  it("keeps deterministic review-skill ownership local while the shared core orchestrates it", () => {
+    expect(workflow).toContain("amoai-tech/pr-review-infra/.github/workflows/pr-agent.yml@a3c9600de7a31184266fade8387359ccbb8e6d68");
+    expect(routing).toContain("pr-agent-code-review");
+    expect(routing).toContain("mastra");
+    expect(routing).toContain("copilotkit-review");
+    expect(routing).toContain("supabase-review");
+    expect(routing).toContain("nextjs-review");
+    expect(routing).toContain("ci-review");
+    expect(routing).toContain("cloudinary-review");
+    expect(routing).toContain("max_tokens=${result.maxTokens}");
   });
 
-  it("reuses the existing Mastra skill body without recursively inlining references", () => {
-    const target = readlinkSync(
-      new URL("../.claude/skills/mastra-review/SKILL.md", import.meta.url),
-    );
-    expect(target).toBe("../mastra/SKILL.md");
-    expect(mastraSkill).toContain("references/README.md");
+  it("uses one canonical Mastra skill for implementation and PR review", () => {
+    expect(routing).toContain('"mastra"');
+    expect(routing).not.toContain("mastra-review");
+    expect(existsSync(new URL("../.claude/skills/mastra-review/SKILL.md", import.meta.url))).toBe(false);
+    expect(traceQueryReference).not.toMatch(/\bnpx mastra\b/);
+    expect(mastraSkill).toContain("one canonical Mastra skill for iPix");
+    expect(mastraSkill).toContain("PR review");
+    expect(mastraSkill).toContain("references/trace-query.md");
   });
 
   it("keeps the CopilotKit adapter review-only and anchored to v2 invariants", () => {

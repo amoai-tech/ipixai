@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type CSSProperties, type Ref } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type Ref } from "react";
 import { CopilotChat, CopilotKit, useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+import type { AbstractAgent } from "@ag-ui/client";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +32,7 @@ const MOBILE_NAV = "(max-width: 767px)";
 // mobile (a real ~900px tablet width crushes it to a couple hundred px) —
 // only the Copilot panel reacts to this breakpoint, not the nav.
 const COPILOT_COMPACT = "(max-width: 1023px)";
+const RUN_FAILURE_MESSAGE = "The AI run stopped before it completed";
 
 /** Single source of truth for "N brand(s) · N shoot(s)" — the pinned bar and
  *  the chat welcome each rendered their own brandNoun/shootNoun before this,
@@ -471,6 +474,89 @@ function IntelligenceDrawer({ contextLine, insights, onBack, onAsk, askDisabled 
   );
 }
 
+/** A run that dies mid-flight — no assistant reply, no persisted turn.
+ *  `code` matches the AG-UI RunErrorEvent's own field (e.g.
+ *  "RUNNER_CONNECTION_DROPPED"); absent for a runner-level `onRunFailed`
+ *  (a thrown Error, not a protocol error event). */
+type RunFailure = {
+  code?: string;
+  runId?: string;
+};
+
+/**
+ * IPI-1259 · BRAND-CRAWL-RUNNER-001 — a run that fails after RUN_STARTED
+ * (e.g. a dropped realtime relay connection, `RUNNER_CONNECTION_DROPPED`)
+ * previously left the composer showing nothing: no assistant reply, no
+ * error, an indefinite spinner. Subscribing directly to the AG-UI run
+ * lifecycle (the same `AgentSubscriber` contract CopilotChat itself uses
+ * internally) turns that into a real, visible, dismissible error — Task 4's
+ * Required Outcome is "a completed draft or an honest, visible error",
+ * never a silent hang. Scoped to the shared `default` agent instance, not a
+ * specific thread: a fresh run (any thread) clears the last failure, which
+ * is the right lifetime for a panel-level status banner.
+ */
+function useAgentRunError(agent: AbstractAgent): {
+  runFailure: RunFailure | null;
+  dismiss: () => void;
+} {
+  const [runFailure, setRunFailure] = useState<RunFailure | null>(null);
+
+  useEffect(() => {
+    setRunFailure(null);
+    const { unsubscribe } = agent.subscribe({
+      onRunStartedEvent: () => {
+        setRunFailure(null);
+      },
+      onRunErrorEvent: ({ event, input }) => {
+        const failure: RunFailure = {
+          code: event.code,
+          runId: input.runId,
+        };
+        console.error("ProductionCopilotPanel: agent run error", {
+          code: failure.code,
+          runId: failure.runId,
+          threadId: input.threadId,
+        });
+        setRunFailure(failure);
+      },
+      onRunFailed: ({ error, input }) => {
+        const failure: RunFailure = { runId: input.runId };
+        console.error("ProductionCopilotPanel: agent run failed", {
+          errorName: error.name,
+          runId: failure.runId,
+          threadId: input.threadId,
+        });
+        setRunFailure(failure);
+      },
+    });
+    return unsubscribe;
+  }, [agent]);
+
+  const dismiss = useCallback(() => setRunFailure(null), []);
+  return { runFailure, dismiss };
+}
+
+/** Compact inline banner (not ErrorState — that component's EmptyState-
+ *  mirroring layout is sized for a full list/page placement, not a ~400px
+ *  chat panel). Reuses the same shadcn Alert primitive ErrorState itself
+ *  wraps. Never shows a raw provider payload or raw Error message. The UI
+ *  exposes only a stable error code (when available), a generic recovery-safe
+ *  message, and a short run reference for support correlation. */
+function RunFailureBanner({ failure, onDismiss }: { failure: RunFailure; onDismiss: () => void }) {
+  return (
+    <Alert variant="destructive" data-testid="copilot-run-failure" className={styles.runFailureBanner}>
+      <AlertTitle>{failure.code ? `Run failed (${failure.code})` : "Run failed"}</AlertTitle>
+      <AlertDescription>
+        {RUN_FAILURE_MESSAGE}
+        {failure.runId ? ` · run ${failure.runId.slice(0, 8)}` : ""}
+      </AlertDescription>
+      <button type="button" className={styles.runFailureDismiss} onClick={onDismiss}>
+        Dismiss
+      </button>
+    </Alert>
+  );
+}
+
 /**
  * Production Copilot right panel (IPI-1224 Final Design) — one panel, not an
  * Intelligence/Planner tab pair: Context → Insights → Conversation, with
@@ -527,6 +613,7 @@ function ProductionCopilotPanel({
   const [chatReady, setChatReady] = useState(false);
   const { agent } = useAgent({ agentId: "default" });
   const { copilotkit } = useCopilotKit();
+  const { runFailure, dismiss: dismissRunFailure } = useAgentRunError(agent);
   // Synchronous, local guard — agent.isRunning is only as fresh as the last
   // render, so two clicks inside the same event-loop turn (before a real
   // run-status update lands) could both pass an isRunning-only check and
@@ -661,6 +748,7 @@ function ProductionCopilotPanel({
             unmounted for the drawer — the drawer overlays it instead — so
             the conversation subtree and its thread subscription stay alive
             the whole time the drawer is open. */}
+        {runFailure && <RunFailureBanner failure={runFailure} onDismiss={dismissRunFailure} />}
         <PlannerChatDock
           pathname={pathname}
           composerContainerRef={setComposerElement}

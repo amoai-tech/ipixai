@@ -88,18 +88,27 @@ describe("Playwright E2E harness hardening", () => {
     expect(chromiumProject).toContain('/production-smoke\\.spec\\.ts/');
   });
 
-  it("gives AI smoke a CI hard timeout above Playwright globalTimeout", () => {
-    const source = readFileSync(path.resolve(process.cwd(), ".github/workflows/ci.yml"), "utf8");
-    const start = source.indexOf("  playwright-ai-smoke:");
-    const end = source.indexOf("\n  planner-default-acl:", start);
-    const aiJob = source.slice(start, end);
-    expect(aiJob).toContain("timeout-minutes: 15");
+  it("keeps live AI monitoring in its own non-release workflow", () => {
+    const ci = readFileSync(path.resolve(process.cwd(), ".github/workflows/ci.yml"), "utf8");
+    const aiSmoke = readFileSync(path.resolve(process.cwd(), ".github/workflows/ai-smoke.yml"), "utf8");
+    expect(ci).not.toContain("  playwright-ai-smoke:");
+    expect(aiSmoke).toContain("workflow_dispatch:");
+    expect(aiSmoke).toContain("schedule:");
+    expect(aiSmoke).toContain("timeout-minutes: 15");
+    expect(aiSmoke).toContain("npm run e2e:ai-smoke");
   });
 
   it("does not upload authenticated Playwright reports from public CI", () => {
-    const source = readFileSync(path.resolve(process.cwd(), ".github/workflows/ci.yml"), "utf8");
-    expect(source).not.toContain("name: playwright-report");
-    expect(source).not.toContain("name: playwright-ai-smoke-report");
+    const ci = readFileSync(path.resolve(process.cwd(), ".github/workflows/ci.yml"), "utf8");
+    const aiSmoke = readFileSync(path.resolve(process.cwd(), ".github/workflows/ai-smoke.yml"), "utf8");
+    expect(ci).not.toContain("name: playwright-report");
+    expect(aiSmoke).not.toContain("name: playwright-ai-smoke-report");
+  });
+
+  it("keeps live-AI planner smoke health-only instead of requiring composeShootPlan tool selection", () => {
+    const source = readFileSync(path.resolve(process.cwd(), "e2e/planner-journey.spec.ts"), "utf8");
+    expect(source).not.toContain('test("real agent reaches composeShootPlan');
+    expect(source).not.toContain('getByTestId("compose-shoot-plan-card")');
   });
 
 });

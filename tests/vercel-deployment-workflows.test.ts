@@ -19,7 +19,7 @@ const read = (file: string) => readFileSync(path.resolve(root, file), "utf8");
  * Every other job in `ci.yml` is a release gate: it must be able to fail, and
  * it must be a dependency of Production.
  */
-const ADVISORY_JOBS = new Set(["playwright-ai-smoke"]);
+const ADVISORY_JOBS = new Set<string>();
 
 /** Split a workflow's `jobs:` mapping into one raw block per top-level job id. */
 function workflowJobs(source: string) {
@@ -132,7 +132,7 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(condition).not.toMatch(/\bcancelled\s*\(/);
   });
 
-  it("keeps only the documented advisory job unable to block Production", () => {
+  it("keeps every Production dependency able to block release", () => {
     const jobs = workflowJobs(read(".github/workflows/ci.yml"));
     const production = blockOf(jobs, "vercel-production");
 
