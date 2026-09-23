@@ -2,24 +2,24 @@
 import { existsSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-const UNIVERSAL = "pr-agent-code-review";
+const UNIVERSAL = "code-review";
 const SPECIALISTS = [
-  "copilotkit-review",
+  "copilotkit",
   "mastra",
   "supabase-review",
   "cloudinary-review",
-  "nextjs-review",
+  "nextjs-developer",
   "ci-review",
 ];
 
 const matches = {
   "supabase-review": (p) => /(^supabase\/|(^|\/)supabase([\/_.-]|$)|^src\/app\/auth\/|^src\/lib\/auth\/|^src\/(proxy|middleware)\.)/i.test(p),
   "mastra": (p) => /(^|\/)mastra(\/|[-_.])|requestcontext/i.test(p),
-  "copilotkit-review": (p) =>
+  "copilotkit": (p) =>
     /copilotkit|ag-ui/i.test(p) ||
     /^src\/(agent\.ts|app\/layout\.tsx|lib\/auth\/copilot-hooks\.ts|components\/(operator-panel\/(operator-panel|planner-context)\.tsx|restore-mastra-history\.tsx|shoot\/(compose-shoot-plan-renderer|shoot-plan-review-hitl)\.tsx))$/i.test(p),
   "cloudinary-review": (p) => /cloudinary/i.test(p) || /(^|\/)(media|asset|assets)(\/|[-_.])/i.test(p) && /upload|transform|webhook|signature|delivery/i.test(p),
-  "nextjs-review": (p) => /(^src\/app\/|next\.config\.|^src\/(proxy|middleware)\.)/i.test(p),
+  "nextjs-developer": (p) => /(^src\/app\/|next\.config\.|^src\/(proxy|middleware)\.)/i.test(p),
   "ci-review": (p) => /^\.github\/workflows\//.test(p) || /^scripts\/(check|verify|smoke)-/i.test(p),
 };
 

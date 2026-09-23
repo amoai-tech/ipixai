@@ -6,8 +6,8 @@ const workflow = readFileSync(
   "utf8",
 );
 const routing = readFileSync(new URL("../scripts/select-pr-agent-skills.mjs", import.meta.url), "utf8");
-const copilotReviewSkill = readFileSync(
-  new URL("../.claude/skills/copilotkit-review/SKILL.md", import.meta.url),
+const copilotSkill = readFileSync(
+  new URL("../.claude/skills/copilotkit/SKILL.md", import.meta.url),
   "utf8",
 );
 const mastraSkill = readFileSync(
@@ -22,11 +22,11 @@ const traceQueryReference = readFileSync(
 describe("IPI-1213 PR-Agent review skills contract", () => {
   it("keeps deterministic review-skill ownership local while the shared core orchestrates it", () => {
     expect(workflow).toContain("amoai-tech/pr-review-infra/.github/workflows/pr-agent.yml@a3c9600de7a31184266fade8387359ccbb8e6d68");
-    expect(routing).toContain("pr-agent-code-review");
+    expect(routing).toContain("code-review");
     expect(routing).toContain("mastra");
-    expect(routing).toContain("copilotkit-review");
+    expect(routing).toContain("copilotkit");
     expect(routing).toContain("supabase-review");
-    expect(routing).toContain("nextjs-review");
+    expect(routing).toContain("nextjs-developer");
     expect(routing).toContain("ci-review");
     expect(routing).toContain("cloudinary-review");
     expect(routing).toContain("max_tokens=${result.maxTokens}");
@@ -42,15 +42,14 @@ describe("IPI-1213 PR-Agent review skills contract", () => {
     expect(mastraSkill).toContain("references/trace-query.md");
   });
 
-  it("keeps the CopilotKit adapter review-only and anchored to v2 invariants", () => {
-    expect(copilotReviewSkill).toContain("name: copilotkit-review");
-    expect(copilotReviewSkill).toContain("@copilotkit/runtime/v2");
-    expect(copilotReviewSkill).toContain("@copilotkit/react-core/v2");
-    expect(copilotReviewSkill).toContain("Browser-supplied IDs are not authorization");
-    expect(copilotReviewSkill).toContain("installed package source/types");
-    expect(copilotReviewSkill).not.toContain("references/");
-    expect(copilotReviewSkill).toContain("Fix: Restore the changed CopilotKit import to its `/v2` subpath.");
-    expect(copilotReviewSkill).toContain("Verification: Run the existing targeted CopilotKit route tests, then `npm run typecheck`.");
-    expect(copilotReviewSkill).toContain("Expected result: The route uses the `/v2` import and the targeted tests/typecheck pass.");
+  it("keeps canonical CopilotKit review guidance anchored to v2 invariants", () => {
+    expect(copilotSkill).toContain("name: copilotkit");
+    expect(copilotSkill).toContain("@copilotkit/runtime/v2");
+    expect(copilotSkill).toContain("@copilotkit/react-core/v2");
+    expect(copilotSkill).toContain("Browser-supplied IDs are not authorization");
+    expect(copilotSkill).toContain("installed package source/types");
+        expect(copilotSkill).toContain("Fix: Restore the changed CopilotKit import to its `/v2` subpath.");
+    expect(copilotSkill).toContain("Verification: Run the existing targeted CopilotKit route tests, then `npm run typecheck`.");
+    expect(copilotSkill).toContain("Expected result: The route uses the `/v2` import and the targeted tests/typecheck pass.");
   });
 });
