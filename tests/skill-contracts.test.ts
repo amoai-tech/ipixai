@@ -18,6 +18,7 @@ let taskFormat: string;
 let researchEvidence: string;
 let externalReferenceMapping: string;
 let mergeConflicts: string;
+let postMerge: string;
 
 describe("iPix engineering skill contracts", () => {
   beforeAll(() => {
@@ -33,6 +34,7 @@ describe("iPix engineering skill contracts", () => {
     researchEvidence = readRepoFile(".claude/skills/tasks/references/research-evidence.md");
     externalReferenceMapping = readRepoFile(".claude/skills/tasks/references/external-reference-mapping.md");
     mergeConflicts = readRepoFile(".claude/skills/resolving-merge-conflicts/SKILL.md");
+    postMerge = readRepoFile(".claude/skills/tasks/references/post-merge.md");
   });
 
   test("refactor-plan continues when implementation was already requested", () => {
@@ -133,6 +135,18 @@ describe("iPix engineering skill contracts", () => {
     expect(bestPractices).toContain("### PR follow-up after opening or pushing");
     expect(bestPractices).toContain("VALID / PARTIAL / NOISE");
     expect(bestPractices).toContain("exact-head merge gate");
+  });
+
+  test("post-merge workflow synchronizes local main safely before the next task", () => {
+    expect(postMerge).toContain("git fetch origin --prune");
+    expect(postMerge).toContain("git rev-list --left-right --count main...origin/main");
+    expect(postMerge).toContain("0 0");
+    expect(postMerge).toContain("local-only commits");
+    expect(postMerge).toContain("fast-forward");
+    expect(postMerge).toContain("before creating the next task branch/worktree");
+    expect(postMerge).toContain("Do not automatically rebase active feature branches");
+    expect(tasks).toContain("Post-merge local-main synchronization");
+    expect(agents).toContain("synchronize local `main` with `origin/main`");
   });
 
   test("todo stays a short Linear handoff while changelog stays curated shipped history", () => {
