@@ -12,6 +12,8 @@
     "dev:debug": "LOG_LEVEL=debug npm run dev:ui",
     "build": "node scripts/dev-guard.mjs --port 3000 --port 4111 -- next build",
     "start": "next start",
+    "build:agent": "mastra build",
+    "start:agent": "mastra start",
     "typecheck": "tsc --noEmit",
     "supabase:types": "supabase db reset --local --no-seed && node scripts/generate-supabase-types.mjs",
     "supabase:types:check": "node scripts/generate-supabase-types.mjs --check",

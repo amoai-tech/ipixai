@@ -16,6 +16,10 @@ Mastra owns **agents, tools, workflows, memory orchestration, and durable AI exe
 
 Use Mastra for AI orchestration, not as a second application database. Consequential writes require the authenticated operator boundary and human approval where appropriate.
 
+## Running it
+
+- [Standalone service deployment](deployment.md) — build, run, required server env, health/readiness, drain, and the single-instance constraint that exact-run Stop depends on.
+
 ## References
 
 - [Mastra documentation](https://mastra.ai/docs)
