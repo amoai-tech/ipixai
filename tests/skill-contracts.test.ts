@@ -154,9 +154,6 @@ describe("iPix engineering skill contracts", () => {
     expect(changelog).toContain("notable verified");
     expect(changelog).toContain("IPI-1294");
     expect(changelog).toContain("four-template routing");
-    expect(todo).toContain("full canonical external-reference contract");
-    expect(todo).toContain("Live template inventory is exactly four");
-    expect(todo).toContain("Linear Reviews/Diffs does not currently discover `amoai-tech/ipixai`");
     expect(todo).not.toContain("synchronize/retire live Linear template definitions");
   });
 

@@ -9,12 +9,12 @@ Linear is the authoritative task/status source: https://linear.app/amo100/projec
 ## Current
 
 - IPI-1294 · LINEAR-WORKFLOW-001 — Standardize Linear, GitHub, Docs, TODO, and Changelog Workflow
-- Branch: `ipi-1294-postmerge-handoff`
-- PR: https://github.com/amoai-tech/ipixai/pull/259
-- State: PR #258 is merged and exact-main certified. The four approved Linear execution templates now use the full canonical external-reference contract, and the stale rule-only `reuse-rule-linear-task` template is retired. Live template inventory is exactly four.
-- Last proof: exact-main CI #1285 passed on the PR #258 merge SHA; `test:skills` is 13/13 and docs validation is 72 active files with 0 broken local links. Durable SHA/CI/template evidence is recorded in IPI-1294 and PR #258.
-- Remaining blocker: Linear team Git automations are configured correctly (`start → In Progress`, `review → In Review`, `merge → Done`), but Linear Reviews/Diffs does not currently discover `amoai-tech/ipixai`; a documented PR-state resync did not change IPI-1294 from In Progress.
-- Next action: use this focused follow-up PR as a fresh `IPI-1294` integration probe. If Linear still does not discover it or move the issue to In Review, grant `amoai-tech/ipixai` repository/code access to the existing Linear GitHub integration, then repeat the probe before marking IPI-1294 Done.
+- Branch: `ai/ipi-1294-linear-github-integration-probe`
+- PR: pending — this branch is the real post-configuration GitHub ↔ Linear automation probe.
+- State: Repository governance work is merged and exact-main certified. Linear GitHub code access is now enabled for `amoai-tech/ipixai`; the remaining work is to prove native PR discovery and automatic issue status transitions with one real PR.
+- Last proof: PR #259 merged at `a057512a312c21cad066d9bf765b9de7eb1f75f8`; exact-main CI #1291 passed. The Linear GitHub settings now show `amoai-tech/ipixai` linked to iPix1 with code access enabled.
+- Remaining blocker: verification only — prove that a new `IPI-1294` PR appears in Linear Reviews/Diffs and automatically moves the issue `In Progress → In Review`; after an approved merge, prove `In Review → Done`.
+- Next action: open this focused docs-only PR with `IPI-1294` in the branch/title and verify Linear discovers it and moves IPI-1294 to In Review automatically. Do not mark IPI-1294 Done until the merge transition is also proven.
 
 ## Durable sources
 
