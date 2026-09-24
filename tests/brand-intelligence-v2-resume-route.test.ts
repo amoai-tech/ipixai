@@ -14,7 +14,7 @@ vi.mock("@/mastra/runtime", () => ({
 
 import { POST } from "@/app/api/workflows/brand-intelligence/resume/route";
 
-const TEST_INTERNAL_WEBHOOK_SECRET = "unit-test-value";
+const TEST_INTERNAL_WEBHOOK_SECRET = crypto.randomUUID();
 const RUN_ID = "run-v2-1";
 const CRAWL_ID = "33333333-3333-4333-8333-333333333333";
 
