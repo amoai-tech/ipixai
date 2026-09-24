@@ -79,7 +79,10 @@ test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
       data: stop.postData() ?? "",
       headers: { "content-type": "application/json" },
     });
-    expect(replay.status(), "the late Stop(R1) is answered, not an error").toBeLessThan(500);
+    // 200 + stopped:false is CopilotKit's "nothing to stop" answer, so an auth
+    // or not-found rejection cannot pass for a stale Stop that was ignored.
+    expect(replay.status(), "the late Stop(R1) is accepted as a no-op").toBe(200);
+    expect(((await replay.json()) as { stopped?: unknown }).stopped, "the late Stop(R1) stops nothing").toBe(false);
 
     await expect(assistant.last(), "R2 must finish despite the late Stop(R1)").toContainText(marker, {
       timeout: RESPONSE_TIMEOUT_MS,
@@ -91,6 +94,9 @@ test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
       timeout: NAV_TIMEOUT_MS,
     });
     await expect(dock.getByTestId("copilot-user-message").filter({ hasText: marker })).toHaveCount(1, {
+      timeout: NAV_TIMEOUT_MS,
+    });
+    await expect(assistant.filter({ hasText: marker })).toHaveCount(1, {
       timeout: NAV_TIMEOUT_MS,
     });
 
