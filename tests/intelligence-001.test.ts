@@ -351,9 +351,12 @@ describe("IPI-1009 intelligence tenant safety", () => {
     { runId: true },
     { runId: "R1", extra: "field" },
   ])(
-    "rejects a malformed Stop body %j with 400",
+    "rejects a malformed Stop body %j with 400 without calling abort",
     async (body) => {
       enableIntelligence();
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockImplementation(async () => new Response(JSON.stringify({ aborted: true }), { status: 200 }));
       memberships.rows = [{ org_id: ORG_A }];
       mockOrgAThreadOwnership();
 
@@ -364,6 +367,10 @@ describe("IPI-1009 intelligence tenant safety", () => {
         ),
       );
       expect(stop.status).toBe(400);
+      const controlCalls = fetchSpy.mock.calls.filter(([input]) =>
+        String(input).includes("/ipix/run-control/"),
+      );
+      expect(controlCalls).toHaveLength(0);
     },
   );
 
