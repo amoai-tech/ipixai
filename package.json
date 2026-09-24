@@ -43,6 +43,7 @@
     "@mastra/client-js": "1.42.4",
     "@mastra/core": "1.63.2",
     "@mastra/memory": "1.28.1",
+    "@mastra/observability": "1.18.0",
     "@mastra/pg": "1.22.2",
     "@sentry/nextjs": "11.0.0",
     "@supabase/ssr": "0.12.5",
