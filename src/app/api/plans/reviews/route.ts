@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import { getVerifiedOperatorForRequest } from "@/lib/auth/operator-auth";
@@ -22,10 +23,22 @@ import { brandOrgLookupFromClient, rpcCallFromClient } from "@/lib/supabase/rpc-
 
 export const dynamic = "force-dynamic";
 
+const WIZARD_REVIEW_TTL_MS = 24 * 60 * 60 * 1000;
+
 const bodySchema = z.object({
   brandId: z.string().uuid(),
   plan: z.record(z.string(), z.unknown()),
+  // Transport-only retry nonce. It never becomes authority or a raw workflow
+  // identifier; the server binds it to the verified operator + authorized brand.
+  reviewStartId: z.string().uuid().optional(),
 });
+
+function wizardReviewRunId(operatorId: string, brandId: string, reviewStartId: string): string {
+  const digest = createHash("sha256")
+    .update(`${operatorId}:${brandId}:${reviewStartId}`)
+    .digest("hex");
+  return `wizard-review-${digest}`;
+}
 
 /**
  * The installed Mastra contract. `createRun()` is asynchronous, and `start()`
@@ -40,7 +53,7 @@ const bodySchema = z.object({
  * `start` is what actually reaches the suspended state.
  */
 type ReviewStarter = {
-  createRun: () => Promise<{
+  createRun: (options?: { runId?: string }) => Promise<{
     runId: string;
     start: (args: { inputData: Record<string, unknown> }) => Promise<unknown>;
   }>;
@@ -82,12 +95,18 @@ export async function POST(request: Request): Promise<Response> {
     const workflow = getMastra().getWorkflow(
       SHOOT_PLAN_REVIEW_WORKFLOW_ID,
     ) as unknown as ReviewStarter;
-    const run = await workflow.createRun();
+    const runId = parsed.data.reviewStartId
+      ? wizardReviewRunId(operator.id, parsed.data.brandId, parsed.data.reviewStartId)
+      : undefined;
+    const run = await workflow.createRun(runId ? { runId } : undefined);
     const result = await run.start({
       inputData: {
         brandId: parsed.data.brandId,
         plan: parsed.data.plan,
         stagedBy: operator.id,
+        ...(parsed.data.reviewStartId
+          ? { expiresAt: new Date(Date.now() + WIZARD_REVIEW_TTL_MS).toISOString() }
+          : {}),
       },
     });
     const suspended = readSuspendedPlanReview(result);

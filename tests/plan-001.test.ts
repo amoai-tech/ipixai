@@ -146,6 +146,25 @@ describe("composeShootPlan", () => {
     expect(plan.missingInputs).toContain("objective");
   });
 
+  it("preserves the operator shoot name and brief inside the canonical approved artifact", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY];
+    const plan = await composeShootPlan(baseInput({ shootName: "SS26 Launch", brief: "Clean premium campaign" }));
+
+    expect(plan.shootName).toEqual({ status: "confirmed", value: "SS26 Launch", source: "operator" });
+    expect(plan.brief).toEqual({ status: "confirmed", value: "Clean premium campaign", source: "operator" });
+  });
+
+  it("treats whitespace-only shoot name and brief as missing required inputs", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY];
+    const plan = await composeShootPlan(baseInput({ shootName: "   ", brief: "   " }));
+
+    expect(plan.shootName).toEqual({ status: "needs_input" });
+    expect(plan.brief).toEqual({ status: "needs_input" });
+    expect(plan.missingInputs).toContain("shootName");
+    expect(plan.missingInputs).toContain("brief");
+    expect(plan.status).toBe("needs_input");
+  });
+
   it("an operator-supplied shootType is authoritative — it overrides a disagreeing recommendation instead of the plan carrying two conflicting shoot types", async () => {
     supabaseMock.rows = [REF_PDP_FLAT_LAY];
     // channels + default "ecommerce product listing" brief clearly recommend
@@ -178,6 +197,15 @@ describe("composeShootPlan", () => {
     // still never supplied -> still needs_input, not silently defaulted, and
     // the strict discriminated union carries no stray value/source at all.
     expect(plan.talent).toEqual({ status: "needs_input" });
+  });
+
+  it("rejects a backwards schedule instead of confirming an end date before the start date", async () => {
+    supabaseMock.rows = [REF_PDP_FLAT_LAY];
+    const plan = await composeShootPlan(baseInput({ scheduleStartDate: "2027-03-03", scheduleEndDate: "2027-03-01" }));
+
+    expect(plan.schedule).toEqual({ status: "needs_input" });
+    expect(plan.missingInputs).toContain("schedule");
+    expect(plan.status).toBe("needs_input");
   });
 
   it("a notes-only schedule (no dates) stays needs_input, not confirmed", async () => {

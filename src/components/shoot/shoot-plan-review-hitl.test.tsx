@@ -177,6 +177,29 @@ describe("ShootPlanReviewHitl — reference catalog", () => {
     });
   });
 
+  it("uses the latest CopilotKit respond callback when an async review settles after rerender", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      const href = String(url);
+      if (href.includes("/api/plans/references")) return jsonResponse({ references: CATALOG });
+      if (href.includes("/api/plans/reviews")) return jsonResponse(START_BODY, 201);
+      if (href.includes("/decision")) return jsonResponse(DECISION_BODY, 200);
+      return jsonResponse({ url: PREVIEW_URL });
+    });
+
+    render(<ShootPlanReviewHitl />);
+    const config = copilot.config;
+    if (!config) throw new Error("useHumanInTheLoop was not registered");
+    const firstRespond = vi.fn();
+    const latestRespond = vi.fn();
+    const view = render(config.render({ status: "executing", args: { brandId: BRAND_ID, plan: PLAN }, respond: firstRespond, toolCallId: "tool-call-latest" }) as ReactElement);
+    await waitFor(() => expect(screen.getByTestId("shoot-plan-review")).toBeTruthy());
+    view.rerender(config.render({ status: "executing", args: { brandId: BRAND_ID, plan: PLAN }, respond: latestRespond, toolCallId: "tool-call-latest" }) as ReactElement);
+    fireEvent.click(screen.getByTestId("review-approved"));
+
+    await waitFor(() => expect(latestRespond).toHaveBeenCalledTimes(1));
+    expect(firstRespond).not.toHaveBeenCalled();
+  });
+
   it("responds with a typed failure so the agent can retry the start", async () => {
     fetchMock.mockImplementation(async (url: string) => {
       const href = String(url);
