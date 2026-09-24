@@ -20,7 +20,7 @@ import { resolveMastraIdentity, resolveSupabaseUserAuthConfig } from "./server-a
  */
 export const MASTRA_USER_KEY = "mastra__user";
 
-type ContextReader = { get: (key: string) => unknown } | null | undefined;
+type ContextReader = { get: (_key: string) => unknown } | null | undefined;
 
 export type AuthenticatedWorkflowUser = {
   userId: string;
