@@ -96,7 +96,7 @@ fi
 # ---------- Skills health (sample) ----------
 if in_filter skills; then
   echo "## Skills (required hubs)"
-  for slug in ipix ipix-task-lifecycle ipix-supabase design-to-production pr-workflow task-verifier; do
+  for slug in ipix ipix-supabase design-to-production tasks task-verifier; do
     [ -f "$REPO/.claude/skills/$slug/SKILL.md" ] && ok "skill: $slug" || fail "skill missing: $slug"
   done
   echo

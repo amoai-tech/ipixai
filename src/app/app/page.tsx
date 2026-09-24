@@ -38,8 +38,9 @@ import type { ChannelSpec } from "@/lib/shoot/channel-specs";
  *
  * /app is the default post-login destination (IPI-1058 · MARKETING-LOGIN-001),
  * so it enforces the same tenant boundaries as the dedicated routes: a
- * zero-org user goes to /onboarding, a multi-org user to /org-selection, and
- * a membership lookup failure fails closed to /login.
+ * zero-org user goes to /onboarding, and a membership conflict (IPI-1311 ·
+ * AUTH-ORG-SINGLE-001 invariant violation) or a lookup failure both fail
+ * closed to /login.
  */
 export default async function AppHomePage() {
   const operator = await requireResolvedAppWorkspace(appWorkspaceDependencies);
@@ -61,11 +62,7 @@ export default async function AppHomePage() {
     redirect("/onboarding");
   }
 
-  if (tenant.status === "needs_org_selection") {
-    redirect("/org-selection");
-  }
-
-  if (tenant.status === "lookup_failed") {
+  if (tenant.status === "membership_conflict" || tenant.status === "lookup_failed") {
     redirect("/login");
   }
 

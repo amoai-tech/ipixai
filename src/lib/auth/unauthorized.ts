@@ -8,7 +8,7 @@ export function unauthorizedResponse(): Response {
 export function forbiddenResponse(
   reason:
     | "needs_onboarding"
-    | "needs_org_selection"
+    | "membership_conflict"
     | "thread_forbidden"
     | "ownership",
 ): Response {

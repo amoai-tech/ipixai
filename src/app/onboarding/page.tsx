@@ -11,7 +11,8 @@ import { createClient } from "@/lib/supabase/server";
 // Brand, and Reach the Operator Workspace owns the full onboarding flow. This
 // is the authenticated boundary page so zero-org routing never 404s. AUTH-002
 // membership routing stays server-owned: zero-org renders onboarding, one-org
-// redirects to /app, multi-org to /org-selection, lookup failure to /login.
+// redirects to /app; a membership conflict (IPI-1311 invariant violation) or
+// lookup failure both fail closed to /login.
 //
 // IPI-1157 · AUTH-UX-001 adds only the Sign out escape below — a zero-org
 // user was previously authenticated with no way out of this boundary. The

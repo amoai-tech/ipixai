@@ -17,10 +17,7 @@ import {
   getVerifiedOperatorFromClaims,
   memoryResourceId,
 } from "../src/lib/auth/verified-operator";
-import {
-  productBootstrapFor,
-  resolveTrustedRuntimeOrg,
-} from "../src/lib/auth/runtime-org";
+import { resolveTrustedRuntimeOrg } from "../src/lib/auth/runtime-org";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const USER_B = "22222222-2222-4222-8222-222222222222";
@@ -127,10 +124,9 @@ describe("IPI-1046 · AUTH-002 tenant identity", () => {
       membershipOrgIds: [ORG_A, ORG_B],
       clientOrgId: ORG_A,
     });
-    expect(resolution.status).toBe("needs_org_selection");
-    if (resolution.status === "needs_org_selection") {
-      expect(productBootstrapFor(resolution)).toBe("org_selection");
-    }
+    // IPI-1311 · AUTH-ORG-SINGLE-001 — 2+ memberships is an invariant
+    // violation (the database rejects a second row), never a routing choice.
+    expect(resolution.status).toBe("membership_conflict");
   });
 
   it("accepts the fashionos Acme seed org id (not RFC version-4)", () => {
@@ -146,9 +142,6 @@ describe("IPI-1046 · AUTH-002 tenant identity", () => {
       userMetadataOrgId: ORG_A,
     });
     expect(resolution.status).toBe("needs_onboarding");
-    if (resolution.status === "needs_onboarding") {
-      expect(productBootstrapFor(resolution)).toBe("onboarding");
-    }
   });
 
   it("returns 403 on CopilotKit runtime before creating agents when membership is missing", async () => {
@@ -174,7 +167,7 @@ describe("IPI-1046 · AUTH-002 tenant identity", () => {
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({
       error: "forbidden",
-      reason: "needs_org_selection",
+      reason: "membership_conflict",
     });
     expect(spy).not.toHaveBeenCalled();
   });

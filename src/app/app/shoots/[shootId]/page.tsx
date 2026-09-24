@@ -43,8 +43,7 @@ export default async function AppShootDetailPage({
   });
 
   if (tenant.status === "needs_onboarding") redirect("/onboarding");
-  if (tenant.status === "needs_org_selection") redirect("/org-selection");
-  if (tenant.status === "lookup_failed") redirect("/login");
+  if (tenant.status === "membership_conflict" || tenant.status === "lookup_failed") redirect("/login");
 
   const { shootId } = await params;
   if (!isDatabaseUuid(shootId)) notFound();

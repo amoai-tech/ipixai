@@ -8,7 +8,7 @@ type: ui-screen | wizard | api | database | refactor | docs  # see artifact matr
 
 skills:
   - design-md
-  - ipix-task-lifecycle
+  - tasks
   # + domain: mastra | copilotkit | ipix-supabase | fashion-production
 
 dependencies:

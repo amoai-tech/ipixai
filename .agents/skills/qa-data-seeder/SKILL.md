@@ -52,7 +52,6 @@ Before any write or verification query, require explicit approval for the target
 Only after those checks pass, pick the seeding channel in this order: existing seed mechanism → app console/code → new small script → REST API → MCP.
 For local environments, seed through the normal authenticated backend path.
 
-
 ### Step 3: Propose categories and ask for the count
 
 - Derive categories from Step 1: one per business variation, plus edge-case groups (min/max lengths and amounts, unicode, date boundaries, every enum value and reachable state, empty vs full optional fields, collection and relationship extremes).
@@ -82,4 +81,4 @@ For local environments, seed through the normal authenticated backend path.
 - Report a table: category, requested, created, and how to locate the records (the marker).
 - Include the environment URL and, for web, a page where QA can see the seeded data.
 - Give cleanup instructions: how to find records by the marker and delete them through the same channel.
-- Offer follow-ups: `qa-write-test-cases` to write cases against the seeded data, or `qa-thinking` to probe the feature for scenarios the dataset should grow to cover.
+- Offer follow-ups: `qa-write-test-cases` to write cases against the seeded data, or `qa-review` to probe the feature for scenarios the dataset should grow to cover.

@@ -1,9 +1,9 @@
 # IPI-476 + IPI-488 — Post-merge forensic audit
 
-**Date:** 2026-07-10 (post-merge verify [#303](https://github.com/amo-tech-ai/lumina-studio/pull/303) + prior [#301](https://github.com/amo-tech-ai/lumina-studio/pull/301))  
-**Auditor:** Senior Supabase engineer / QA lead / forensic verifier  
-**Skills:** `ipix-supabase` · `task-verifier` · `gen-test` · `pr-workflow`  
-**Project:** `nvdlhrodvevgwdsneplk` — remote-only  
+**Date:** 2026-07-10 (post-merge verify [#303](https://github.com/amo-tech-ai/lumina-studio/pull/303) + prior [#301](https://github.com/amo-tech-ai/lumina-studio/pull/301))
+**Auditor:** Senior Supabase engineer / QA lead / forensic verifier
+**Skills:** `ipix-supabase` · `task-verifier` · `gen-test` · `tasks`
+**Project:** `nvdlhrodvevgwdsneplk` — remote-only
 **Evidence:** `origin/main` @ `e3064f25` (merge of #303) · live grants · rpc-errors vitest · Playwright on `:3002`
 
 ---
@@ -128,23 +128,23 @@ npx playwright test e2e/06-booking-wizard.spec.ts --project=chromium-desktop   #
 
 Remote `schema_migrations` includes:
 
-- `20260709000000` planner_schema_rls  
-- `20260710080000` planner_grants_and_seed_backfill  
-- `20260710081000` planner_realtime_auth_helper  
-- `20260710082000` planner_broadcast_contributor_only  
-- `20260710083000` planner_realtime_uuid_guard  
+- `20260709000000` planner_schema_rls
+- `20260710080000` planner_grants_and_seed_backfill
+- `20260710081000` planner_realtime_auth_helper
+- `20260710082000` planner_broadcast_contributor_only
+- `20260710083000` planner_realtime_uuid_guard
 
 ### Schema / grants / PostgREST (✅)
 
-- 10 tables in `planner.*`, RLS on  
-- `authenticated` USAGE + table DML; `anon` USAGE **false**  
-- `user.schema('planner').from('workflows')` → **HTTP 200** (authenticated)  
+- 10 tables in `planner.*`, RLS on
+- `authenticated` USAGE + table DML; `anon` USAGE **false**
+- `user.schema('planner').from('workflows')` → **HTTP 200** (authenticated)
 - Anon `Accept-Profile: planner` → `42501` (expected; not PGRST106)
 
 ### Realtime (✅)
 
-- `planner_channel_subscribe` → `can_subscribe_instance` (viewer+)  
-- `planner_channel_broadcast` → `can_broadcast_instance` (contributor+)  
+- `planner_channel_subscribe` → `can_subscribe_instance` (viewer+)
+- `planner_channel_broadcast` → `can_broadcast_instance` (contributor+)
 - `npm run supabase:verify-planner` (via tsx + `ws` polyfill on Node 20): **passed**
 
 ### RLS role matrix (✅)
@@ -241,12 +241,12 @@ or a separate QA project (Option A).
 
 ## 7. Follow-ups (separate issues / PRs)
 
-1. ~~Merge [#301](https://github.com/amo-tech-ai/lumina-studio/pull/301)~~ — ✅ done.  
-2. ~~Merge [#303](https://github.com/amo-tech-ai/lumina-studio/pull/303)~~ — ✅ done; BOOK-E2E-003 verified.  
-3. **BOOK-QA-SEED-002** — Option C; later QA project or E2E fixture lifecycle.  
-4. **IPI-477 · PLAN-SEED-002** — org-create hook; see [#305](https://github.com/amo-tech-ai/lumina-studio/pull/305).  
-5. **PLAN-CI-001** — CI gate for `supabase:verify-planner`.  
-6. **PLAN-VERIFY-002** — standardize Node 22 (no polyfill).  
+1. ~~Merge [#301](https://github.com/amo-tech-ai/lumina-studio/pull/301)~~ — ✅ done.
+2. ~~Merge [#303](https://github.com/amo-tech-ai/lumina-studio/pull/303)~~ — ✅ done; BOOK-E2E-003 verified.
+3. **BOOK-QA-SEED-002** — Option C; later QA project or E2E fixture lifecycle.
+4. **IPI-477 · PLAN-SEED-002** — org-create hook; see [#305](https://github.com/amo-tech-ai/lumina-studio/pull/305).
+5. **PLAN-CI-001** — CI gate for `supabase:verify-planner`.
+6. **PLAN-VERIFY-002** — standardize Node 22 (no polyfill).
 7. **DEV-CI-001** — typecheck heap / CI consistency (P3) — only if reproducible.
 
 ---
