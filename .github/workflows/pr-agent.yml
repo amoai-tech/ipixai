@@ -22,7 +22,7 @@ jobs:
       contents: read
       issues: write
       pull-requests: write
-    uses: amoai-tech/pr-review-infra/.github/workflows/pr-agent.yml@b50dee03932eea0576e498454e8d18666311556b
+    uses: amoai-tech/pr-review-infra/.github/workflows/pr-agent.yml@926e84e06a8304be5a486348e43660b816fe6b41
     with:
       evidence_title: iPix PR-Agent Evidence
     secrets:

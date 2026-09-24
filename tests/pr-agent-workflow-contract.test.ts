@@ -5,7 +5,7 @@ const workflow = readFileSync(new URL("../.github/workflows/pr-agent.yml", impor
 const config = readFileSync(new URL("../.pr_agent.toml", import.meta.url), "utf8");
 const reviewPolicy = readFileSync(new URL("../scripts/pr-agent/review-policy.mjs", import.meta.url), "utf8");
 const evidenceBuilder = readFileSync(new URL("../scripts/pr-agent/build-evidence.mjs", import.meta.url), "utf8");
-const sharedSha = "b50dee03932eea0576e498454e8d18666311556b";
+const sharedSha = "926e84e06a8304be5a486348e43660b816fe6b41";
 
 describe("IPI-1246 shared PR-Agent caller contract", () => {
   it("pins iPix to the immutable shared workflow", () => {
