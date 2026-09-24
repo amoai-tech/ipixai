@@ -51,9 +51,11 @@ import { Agent } from "@mastra/core/agent";
 import { Mastra } from "@mastra/core/mastra";
 import { MastraClient } from "@mastra/client-js";
 import { createNodeServer } from "@mastra/deployer/server";
+import { registerApiRoute } from "@mastra/core/server";
 
 import { plannerRunControlRoutes } from "@/mastra/run-control-routes";
 import { plannerMastraAuth } from "@/mastra/server-auth";
+import { MASTRA_USER_KEY, readAuthenticatedWorkflowUser } from "@/mastra/workflow-identity";
 import { brandIntelligenceWorkflow } from "@/mastra/workflows/brand-intelligence";
 import { shootPlanReviewWorkflow } from "@/mastra/workflows/shoot-plan-review";
 
@@ -107,7 +109,16 @@ beforeAll(async () => {
       port: 0,
       handleShutdownSignals: false,
       auth: plannerMastraAuth,
-      apiRoutes: plannerRunControlRoutes,
+      apiRoutes: [
+        ...plannerRunControlRoutes,
+        // Test-only probe: what a privileged workflow step would read from the
+        // RequestContext that real Mastra server auth populated.
+        registerApiRoute("/ipix/test/workflow-identity", {
+          method: "GET",
+          requiresAuth: true,
+          handler: async (c) => c.json(readAuthenticatedWorkflowUser(c.get("requestContext"))),
+        }),
+      ],
     },
   });
   server = await createNodeServer(mastra, { tools: {}, studio: false, isDev: false });
@@ -201,6 +212,25 @@ describe("standalone Mastra auth over real HTTP (IPI-1308)", () => {
     await expect(abortA.json()).resolves.toEqual({ aborted: true });
     await done;
   }, 15000);
+});
+
+describe("workflow identity key matches the installed Mastra server (IPI-1326)", () => {
+  it("pins MASTRA_USER_KEY to the constant exported by @mastra/server/auth", async () => {
+    const serverAuth = (await import("@mastra/server/auth")) as { MASTRA_USER_KEY?: string };
+    expect(serverAuth.MASTRA_USER_KEY).toBe(MASTRA_USER_KEY);
+  });
+
+  it("real server auth stores the verified user where privileged workflows read it", async () => {
+    const res = await fetch(`${baseUrl}/ipix/test/workflow-identity`, {
+      headers: { Authorization: "Bearer org-a-token" },
+    });
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      userId: USER_A,
+      orgId: ORG_A,
+      accessToken: "org-a-token",
+    });
+  });
 });
 
 describe("privileged workflows are not reachable over raw Mastra HTTP (IPI-1326)", () => {

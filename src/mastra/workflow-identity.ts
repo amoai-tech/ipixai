@@ -12,8 +12,11 @@ import { resolveMastraIdentity, resolveSupabaseUserAuthConfig } from "./server-a
  * Mastra's server auth middleware stores the verified user under this reserved
  * RequestContext key, and `@mastra/server` drops reserved keys from any
  * client-supplied `requestContext`, so only server auth can set it. The value
- * mirrors `MASTRA_USER_KEY` in `@mastra/server`; `@mastra/core@1.63.2` does not
- * export that constant from its public entry.
+ * mirrors `MASTRA_USER_KEY` exported by `@mastra/server/auth`. It is not
+ * imported at runtime because `@mastra/server` is only a transitive dependency
+ * of the pinned Mastra family; tests/mastra-server-auth-http.test.ts pins both
+ * the constant and the real server behavior, so an upgrade that renames the key
+ * fails CI instead of silently denying every privileged workflow.
  */
 export const MASTRA_USER_KEY = "mastra__user";
 

@@ -22,6 +22,11 @@ import { requireAuthenticatedWorkflowUser } from "@/mastra/workflow-identity";
  * (approval id, brand id, revision, plan hash — never the plan body, org ids or
  * user ids), and on resume re-reads the durable approval row before continuing
  * so a stale, superseded or not-yet-recorded decision fails closed.
+ *
+ * The suspend payload stays id-free, but the run snapshot also persists the
+ * start RequestContext (IPI-1326): the verified `{ id, orgId, resourceId }`
+ * under `mastra__user` and `mastra__resourceId`. Mastra's snapshot
+ * serialization drops the auth token, so no credential is stored.
  */
 
 const MAX_PLAN_BYTES = 262_144;
