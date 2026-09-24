@@ -127,33 +127,31 @@ type PostRoute =
   | "startShootPlanReview"
   | "resumeBrandIntelligence";
 
-function allowedPostUrl(route: PostRoute): string {
-  // Keep the HTTP test helper on an explicit allowlist. Besides making the
-  // test intent obvious, this prevents a future caller from turning the helper
-  // into an arbitrary server-side request primitive.
-  switch (route) {
-    case "activeRun":
-      return `${baseUrl}/ipix/run-control/active`;
-    case "abortRun":
-      return `${baseUrl}/ipix/run-control/abort`;
-    case "startBrandIntelligence":
-      return `${baseUrl}/api/workflows/brand-intelligence/start-async`;
-    case "startShootPlanReview":
-      return `${baseUrl}/api/workflows/shoot-plan-review/start-async`;
-    case "resumeBrandIntelligence":
-      return `${baseUrl}/api/workflows/brand-intelligence/resume-async?runId=r-org-a`;
-  }
-}
-
 function post(route: PostRoute, token: string | null, body: unknown) {
-  return fetch(allowedPostUrl(route), {
+  const init: RequestInit = {
     method: "POST",
     headers: {
       "content-type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(body),
-  });
+  };
+
+  // Keep every request destination literal at the fetch call site. This test
+  // helper never accepts a URL/path from callers, so it cannot become an SSRF
+  // primitive if a future test accidentally passes untrusted route text.
+  switch (route) {
+    case "activeRun":
+      return fetch(`${baseUrl}/ipix/run-control/active`, init);
+    case "abortRun":
+      return fetch(`${baseUrl}/ipix/run-control/abort`, init);
+    case "startBrandIntelligence":
+      return fetch(`${baseUrl}/api/workflows/brand-intelligence/start-async`, init);
+    case "startShootPlanReview":
+      return fetch(`${baseUrl}/api/workflows/shoot-plan-review/start-async`, init);
+    case "resumeBrandIntelligence":
+      return fetch(`${baseUrl}/api/workflows/brand-intelligence/resume-async?runId=r-org-a`, init);
+  }
 }
 
 describe("standalone Mastra auth over real HTTP (IPI-1308)", () => {
