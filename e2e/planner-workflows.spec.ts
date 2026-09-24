@@ -50,8 +50,11 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
 
     await send(
       page,
-      "Compose a complete shoot plan now. Channels: Shopify product pages. Linen dress collection, " +
-        "photos only, about 12 final images, launching next month. Leave anything else as needs input.",
+      // Give the choices the Planner will not guess (shoot type, currency),
+      // so a missing card means the tool was not called, not a fair question.
+      "Compose a complete shoot plan now. Shoot type: ecommerce PDP. Currency: USD. " +
+        "Channels: Shopify product pages. Linen dress collection, photos only, about 12 final images, " +
+        "launching next month. Leave anything else as needs input.",
     );
     const card = dock.getByTestId("compose-shoot-plan-card");
     // The Planner may reasonably ask a question first; answer it the way an
@@ -68,7 +71,7 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
         () => false,
       );
     if (!rendered) {
-      await send(page, "Compose the full shoot plan now with what you have; mark the rest as needs input.");
+      await send(page, "Shoot type is ecommerce PDP and currency is USD. Compose the full shoot plan now; mark the rest as needs input.");
     }
     // Wait for any composeShootPlan render (pending, unreadable, or the card),
     // then fail with exactly what the operator saw rather than just "not found".
