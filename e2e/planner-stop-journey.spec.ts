@@ -34,14 +34,17 @@ test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
     const sendOrStop = dock.getByTestId("copilot-send-button");
     const assistant = dock.getByTestId("copilot-assistant-message");
 
-    // R1: a long answer, stopped once it is visibly streaming.
+    // R1: stopped while it is still running. The composer is empty after
+    // send, so an enabled button can only be Stop; waiting for text first let
+    // a short answer finish before the click (the button went back to a
+    // disabled Send and Stop could never be pressed).
     await textarea.fill(
       "Write a detailed 800-word creative brief for a linen dress lookbook shoot, section by section.",
     );
     const r1Run = page.waitForRequest(isRun);
     await sendOrStop.click();
     await r1Run;
-    await expect(assistant.last()).toHaveText(/\S/, { timeout: RESPONSE_TIMEOUT_MS });
+    await expect(sendOrStop, "R1 is running, so the button is Stop").toBeEnabled({ timeout: NAV_TIMEOUT_MS });
 
     const stopRequest = page.waitForRequest(isStop);
     await sendOrStop.click(); // the send button is the Stop button while a run streams
