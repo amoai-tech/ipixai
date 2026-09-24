@@ -1,4 +1,4 @@
-# iPixai skills
+# iPix skills
 
 Canonical repository skill source tree: `.agents/skills/`. `.claude/skills/` is the Claude discovery/compatibility layer: shared skills should be symlinks to `.agents/skills/<skill>`, not duplicate directories. Cursor may load `.cursor/skills` through the Claude discovery layer.
 
