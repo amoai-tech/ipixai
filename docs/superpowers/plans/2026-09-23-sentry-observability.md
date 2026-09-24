@@ -64,16 +64,17 @@
 ### Task 3: Add first-party Mastra tracing safely
 
 **Files:**
-- Modify: `package.json`, `package-lock.json`, server-side Sentry initialization file from Task 1
+- Modify: `package.json`, `package-lock.json`, server-side Sentry initialization file from Task 1, `src/mastra/index.ts`
+- Create: `src/mastra/sentry.ts`
 - Test: `tests/sentry-mastra.test.ts`
 
 **Interfaces:**
-- Consumes: existing `@mastra/core@1.63.2` runtime and Sentry server initialization
+- Consumes: existing `@mastra/core@1.63.2` runtime plus Next.js and standalone Node Sentry initialization
 - Produces: Sentry `mastraIntegration()` with observability bootstrap using `@mastra/observability@1.18.0`
 
 - [ ] **Step 1:** Write a contract test asserting installed package compatibility and server config includes `Sentry.mastraIntegration()` without constructing a second Mastra runtime.
 - [ ] **Step 2:** Run `npx vitest run tests/sentry-mastra.test.ts` and confirm failure because the integration/dependency is absent.
-- [ ] **Step 3:** Install `@mastra/observability@1.18.0` and configure the first-party Sentry Mastra integration in the server runtime only.
+- [ ] **Step 3:** Install `@mastra/observability@1.18.0` plus direct `@sentry/node@11.0.0`; configure the first-party integration in both Next.js server fallback and the standalone Mastra process, with Sentry initialized before Mastra construction.
 - [ ] **Step 4:** Run targeted test, typecheck, and a local Mastra startup smoke.
 - [ ] **Step 5:** Commit `feat(observability): trace Mastra operations in Sentry`.
 

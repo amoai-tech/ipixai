@@ -1,7 +1,8 @@
 "use client";
 
-import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
+
+import { captureExceptionOnce } from "@/lib/sentry/capture-exception-once";
 
 import { ErrorState } from "@/components/ui/error-state";
 
@@ -14,7 +15,7 @@ export default function AppPlansError({
   reset: () => void;
 }) {
   useEffect(() => {
-    Sentry.captureException(error);
+    captureExceptionOnce(error);
   }, [error]);
 
   return (

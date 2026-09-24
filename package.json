@@ -46,6 +46,7 @@
     "@mastra/observability": "1.18.0",
     "@mastra/pg": "1.22.2",
     "@sentry/nextjs": "11.0.0",
+    "@sentry/node": "11.0.0",
     "@supabase/ssr": "0.12.5",
     "@supabase/supabase-js": "2.112.4",
     "@vercel/analytics": "^2.0.1",

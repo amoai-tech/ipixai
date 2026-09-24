@@ -3,7 +3,7 @@
 **Date:** 2026-09-23
 **Branch:** `feat/sentry-observability`
 **Base:** clean `origin/main` at `527caf41c030a63c575ec99aed3119b1b4236046`
-**Linear:** IPI-71 · PLT-009 — Monitoring & Alerting (existing umbrella; Sentry is explicitly the managed application-observability service)
+**Linear:** IPI-1327 · OBS-SENTRY-001 — Capture iPix production failures safely in Sentry (child of IPI-71 · PLT-009 umbrella)
 
 ## Summary
 
@@ -62,7 +62,7 @@ Sentry may observe failures, performance spans, and selected operational metadat
 - Do not send Supabase JWTs, cookies, Authorization headers, passwords, provider keys, or raw AI prompts/responses.
 - Prefer safe tags: environment, release, route, agent name, tool name, run ID, and non-sensitive stable resource IDs.
 - Enable Sentry project IP-address scrubbing unless a concrete debugging requirement justifies retaining IP data.
-- Sampling must be conservative in production; replay should prioritize errors rather than broad session capture.
+- Sampling must be conservative in production; replay should prioritize errors rather than broad session capture. Error replay is sampled at 10%, with all text/inputs masked and media blocked.
 
 ## Environment ownership
 
@@ -157,7 +157,7 @@ The implementation must preserve existing iPix behavior and keep Sentry additive
 - Error boundaries: accept the standard `error` argument, call Sentry once when the boundary renders, preserve existing copy and retry behavior.
 - Runtime initialization: use environment-driven DSN/config; no hard-coded secret credentials.
 - Source maps/releases: build-time only; failure should fail the observability check clearly rather than silently claim success.
-- Mastra: do not create a second agent/runtime instance solely for telemetry. Attach observability to the existing runtime construction path.
+- Mastra: do not create a second agent/runtime instance solely for telemetry. Initialize the Node Sentry SDK before the standalone Mastra CLI entry constructs the existing runtime, and attach observability to that runtime construction path.
 - No database migrations, RLS changes, new tables, webhooks, or application writes are needed.
 
 ## Verification path

@@ -32,7 +32,10 @@ describe("Sentry production configuration", () => {
     expect(client).toContain("outputs: false");
     expect(client).toContain("stackFrameVariables: false");
     expect(client).toContain("replaysSessionSampleRate: 0");
-    expect(client).toContain("replaysOnErrorSampleRate: 1");
+    expect(client).toContain("replaysOnErrorSampleRate: 0.1");
+    expect(client).toContain("maskAllText: true");
+    expect(client).toContain("maskAllInputs: true");
+    expect(client).toContain("blockAllMedia: true");
     expect(client).not.toContain("SENTRY_AUTH_TOKEN");
   });
 

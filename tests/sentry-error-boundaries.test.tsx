@@ -2,6 +2,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const { captureException } = vi.hoisted(() => ({
@@ -31,7 +32,11 @@ describe("Sentry App Router error boundaries", () => {
   it("reports the plans error once and preserves retry UX", () => {
     const error = new Error("plans failed");
     const reset = vi.fn();
-    render(<AppPlansError error={error} reset={reset} />);
+    render(
+      <StrictMode>
+        <AppPlansError error={error} reset={reset} />
+      </StrictMode>,
+    );
 
     expect(captureException).toHaveBeenCalledTimes(1);
     expect(captureException).toHaveBeenCalledWith(error);
@@ -43,7 +48,11 @@ describe("Sentry App Router error boundaries", () => {
   it("reports the plan-detail error once and preserves retry UX", () => {
     const error = new Error("detail failed");
     const reset = vi.fn();
-    render(<AppPlanDetailError error={error} reset={reset} />);
+    render(
+      <StrictMode>
+        <AppPlanDetailError error={error} reset={reset} />
+      </StrictMode>,
+    );
 
     expect(captureException).toHaveBeenCalledTimes(1);
     expect(captureException).toHaveBeenCalledWith(error);
@@ -58,7 +67,7 @@ describe("Sentry App Router error boundaries", () => {
     if (!existsSync(path)) return;
 
     const source = readFileSync(path, "utf8");
-    expect(source).toContain("Sentry.captureException(error)");
+    expect(source).toContain("captureExceptionOnce(error)");
     expect(source).toContain("Something went wrong");
   });
 });

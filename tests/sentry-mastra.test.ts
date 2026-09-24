@@ -10,6 +10,18 @@ describe("Sentry Mastra observability contract", () => {
     const pkg = JSON.parse(read("package.json")) as { dependencies?: Record<string, string> };
     expect(pkg.dependencies?.["@mastra/core"]).toBe("1.63.2");
     expect(pkg.dependencies?.["@mastra/observability"]).toBe("1.18.0");
+    expect(pkg.dependencies?.["@sentry/node"]).toBe("11.0.0");
+  });
+
+  it("initializes Sentry before the standalone Mastra CLI constructs its runtime", () => {
+    const entry = read("src/mastra/index.ts");
+    const sentry = read("src/mastra/sentry.ts");
+
+    expect(entry.indexOf('import "./sentry"')).toBeGreaterThanOrEqual(0);
+    expect(entry.indexOf('import "./sentry"')).toBeLessThan(entry.indexOf('import { getMastra } from "./runtime"'));
+    expect(sentry).toContain('from "@sentry/node"');
+    expect(sentry).toContain("Sentry.mastraIntegration()");
+    expect(sentry).toContain("genAI: { inputs: false, outputs: false }");
   });
 
   it("enables first-party Mastra instrumentation only on the server", () => {

@@ -1,3 +1,4 @@
+import "./sentry";
 import { getMastra } from "./runtime";
 
 // Mastra CLI contract: src/mastra/index.ts must export a named Mastra instance.
