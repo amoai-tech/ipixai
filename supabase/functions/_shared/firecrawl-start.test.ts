@@ -45,6 +45,25 @@ Deno.test("firecrawlStartCrawl delegates crawl initiation to the SDK client", as
   }
 });
 
+Deno.test("firecrawlStartCrawl defaults to the bounded iPix crawl limit", async () => {
+  let receivedOptions: Record<string, unknown> | undefined;
+  const sdk = {
+    async startCrawl(_url: string, options: Record<string, unknown>) {
+      receivedOptions = options;
+      return { id: "fc-sdk-job" };
+    },
+  };
+
+  await firecrawlStartCrawl({
+    url: "https://brand.example",
+    webhook: { url: "https://example.supabase.co/functions/v1/firecrawl-webhook" },
+  }, sdk);
+
+  if (receivedOptions?.limit !== 10) {
+    throw new Error(`expected bounded default limit 10, got: ${String(receivedOptions?.limit)}`);
+  }
+});
+
 Deno.test("firecrawlStartCrawl fails closed when the SDK returns no job id", async () => {
   const sdk = {
     async startCrawl() {

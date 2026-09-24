@@ -41,8 +41,10 @@ function createFirecrawlStartClient(): FirecrawlStartClient {
     apiUrl: firecrawlSdkApiUrl(),
     timeoutMs: FIRECRAWL_START_TIMEOUT_MS,
     // startCrawl() is a billable POST with no v2 idempotency-key option.
+    // firecrawl@4.41.0 counts maxRetries as total request attempts
+    // (`attempt < maxRetries`), so 1 means exactly one POST; 0 means none.
     // Preserve the previous single-attempt transport semantics so an ambiguous
-    // 502 cannot make the SDK create a second provider job behind one iPix claim.
+    // 502 cannot create a second provider job behind one iPix claim.
     maxRetries: 1,
   });
 }
@@ -53,7 +55,7 @@ export async function firecrawlStartCrawl(
   client: FirecrawlStartClient = createFirecrawlStartClient(),
 ): Promise<{ id: string }> {
   const started = await client.startCrawl(body.url, {
-    limit: body.limit ?? 50,
+    limit: body.limit ?? 10,
     maxDiscoveryDepth: body.maxDiscoveryDepth,
     scrapeOptions: { formats: body.formats ?? ["markdown"] },
     webhook: {
