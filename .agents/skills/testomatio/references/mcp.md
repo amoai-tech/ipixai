@@ -1,7 +1,5 @@
 # Testomat.io MCP
 
-# Testomatio MCP
-
 Set up access to Testomat.io via MCP and run QA analysis workflows: run analysis, failure clustering, root-cause investigation, plan analysis, defect triage.
 
 ## When to Use

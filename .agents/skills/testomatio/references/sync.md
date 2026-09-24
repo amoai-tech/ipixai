@@ -1,7 +1,5 @@
 # Testomat.io Test-Case Sync
 
-# Sync Test Cases with TMS
-
 Sync Markdown test cases (`*.test.md`) between the local project and Testomat.io.
 
 Use when the user wants to:

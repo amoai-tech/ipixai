@@ -1,7 +1,5 @@
 # Testomat.io Change-Aware PR Testing
 
-# Setup Change-Aware PR Testing
-
 I set up a project's CI for change-aware PR testing. The knowledge here is the flow model and the decisions to confirm with the user; what gets wired depends on the project's tests:
 
 - manual — testers get a run to work through against the deployed change; nothing to execute.

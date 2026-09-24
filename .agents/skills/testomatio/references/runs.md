@@ -1,7 +1,5 @@
 # Testomat.io Runs
 
-# Run Tests with Testomat.io Reporter
-
 `npx @testomatio/reporter` creates test runs in Testomat.io and launches groups of tests — locally or remotely through a Testomat.io CI profile. Every command requires the `TESTOMATIO` env var (the project API key, `tstmt_*`) and exits 1 without it. Every value in angle brackets is a placeholder.
 
 ## Pick the command by intent
