@@ -49,7 +49,17 @@ export function validateRegistry(registry = loadRegistry()) {
   const requiredArrays = ["modes", "delegates_to", "do_not_use_for"];
   const claudeOnly = new Set(claudeOnlySkillNames());
   const knownOwners = new Set([...Object.keys(registry.skills), ...claudeOnly]);
+  const aliasClaims = new Map();
+  const claimAlias = (alias, owner) => {
+    const prior = aliasClaims.get(alias);
+    if (prior && prior !== owner) errors.push(`alias ${alias} claimed by both ${prior} and ${owner}`);
+    else aliasClaims.set(alias, owner);
+  };
+  for (const [name, entry] of Object.entries(registry.skills)) {
+    for (const alias of Array.isArray(entry.replaces) ? entry.replaces : []) claimAlias(alias, name);
+  }
   for (const [alias, target] of Object.entries(registry.deprecated_aliases ?? {})) {
+    claimAlias(alias, target);
     const aliasExists = [resolve(agentsRoot, alias), resolve(claudeRoot, alias)].some(pathEntryExists);
     if (knownOwners.has(alias) || aliasExists) errors.push(`deprecated alias still exists as a live skill: ${alias}`);
     if (!knownOwners.has(target)) errors.push(`deprecated alias ${alias} points to unknown owner ${target}`);
@@ -57,6 +67,9 @@ export function validateRegistry(registry = loadRegistry()) {
   for (const [name, entry] of Object.entries(registry.skills)) {
     for (const field of ["owner", "type", "summary", "canonical"]) if (!entry[field]) errors.push(`${name}: missing ${field}`);
     for (const field of requiredArrays) if (!Array.isArray(entry[field])) errors.push(`${name}: ${field} must be an array`);
+    for (const field of ["routing_phrases", "replaces"]) {
+      if (entry[field] !== undefined && !Array.isArray(entry[field])) errors.push(`${name}: ${field} must be an array`);
+    }
     if (typeof entry.claude_exposed !== "boolean") errors.push(`${name}: claude_exposed must be boolean`);
     if (entry.canonical !== `.agents/skills/${name}`) errors.push(`${name}: canonical must be .agents/skills/${name}`);
 
@@ -78,11 +91,14 @@ export function validateRegistry(registry = loadRegistry()) {
     for (const delegate of entry.delegates_to ?? []) {
       if (!(delegate in registry.skills) && !claudeOnly.has(delegate)) errors.push(`${name}: unknown delegate ${delegate}`);
     }
-    for (const replaced of entry.replaces ?? []) {
+    for (const replaced of Array.isArray(entry.replaces) ? entry.replaces : []) {
       if (pathEntryExists(resolve(agentsRoot, replaced)) || pathEntryExists(resolve(claudeRoot, replaced))) errors.push(`${name}: replaced skill still exists: ${replaced}`);
     }
-    for (const phrase of entry.routing_phrases ?? []) {
-      if (typeof phrase !== "string" || !phrase.trim()) errors.push(`${name}: routing phrase must be a non-empty string`);
+    for (const phrase of Array.isArray(entry.routing_phrases) ? entry.routing_phrases : []) {
+      if (typeof phrase !== "string" || !phrase.trim()) {
+        errors.push(`${name}: routing phrase must be a non-empty string`);
+        continue;
+      }
       if (phrase.length > 200) errors.push(`${name}: routing phrase is too long`);
     }
   }

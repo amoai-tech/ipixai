@@ -87,6 +87,31 @@ describe("skill registry contract", () => {
     expect(selectSkillForPrompt("write acceptance criteria", ambiguous)).toBeUndefined();
   });
 
+  it("rejects aliases claimed by different owners", () => {
+    const conflicting = structuredClone(registry) as Registry & { deprecated_aliases?: Record<string, string> };
+    conflicting.skills.requirements.replaces = ["shared-alias"];
+    conflicting.skills.explain.replaces = ["shared-alias"];
+    conflicting.deprecated_aliases = { "deprecated-shared": "requirements" };
+    conflicting.skills.explain.replaces.push("deprecated-shared");
+
+    const errors = validateRegistry(conflicting);
+    expect(errors).toContain("alias shared-alias claimed by both explain and requirements");
+    expect(errors).toContain("alias deprecated-shared claimed by both explain and requirements");
+  });
+
+  it("rejects non-array replaces and routing_phrases without throwing on invalid phrases", () => {
+    const malformed = structuredClone(registry) as any;
+    malformed.skills.requirements.replaces = "legacy-skill";
+    malformed.skills.requirements.routing_phrases = "write acceptance criteria";
+    malformed.skills.explain.routing_phrases = [null, "", "x".repeat(201)];
+
+    const errors = validateRegistry(malformed);
+    expect(errors).toContain("requirements: replaces must be an array");
+    expect(errors).toContain("requirements: routing_phrases must be an array");
+    expect(errors.filter((error) => error === "explain: routing phrase must be a non-empty string")).toHaveLength(2);
+    expect(errors).toContain("explain: routing phrase is too long");
+  });
+
   it("detects dangling symlink filesystem entries without following them", () => {
     const root = mkdtempSync(resolve(tmpdir(), "ipix-skill-registry-"));
     const link = resolve(root, "deprecated-alias");
