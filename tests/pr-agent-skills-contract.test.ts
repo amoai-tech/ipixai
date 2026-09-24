@@ -25,11 +25,18 @@ describe("IPI-1213 PR-Agent review skills contract", () => {
     expect(routing).toContain("code-review");
     expect(routing).toContain("mastra");
     expect(routing).toContain("copilotkit");
-    expect(routing).toContain("supabase-review");
+    expect(routing).toContain("ipix-supabase");
     expect(routing).toContain("nextjs-developer");
     expect(routing).toContain("ci-review");
-    expect(routing).toContain("cloudinary-review");
+    expect(routing).toContain("cloudinary");
     expect(routing).toContain("max_tokens=${result.maxTokens}");
+  });
+
+  it("uses canonical Supabase and Cloudinary skills for PR review", () => {
+    expect(existsSync(new URL("../.claude/skills/supabase-review/SKILL.md", import.meta.url))).toBe(false);
+    expect(existsSync(new URL("../.claude/skills/cloudinary-review/SKILL.md", import.meta.url))).toBe(false);
+    expect(routing).toContain('"ipix-supabase"');
+    expect(routing).toContain('"cloudinary"');
   });
 
   it("uses one canonical Mastra skill for implementation and PR review", () => {

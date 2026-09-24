@@ -363,3 +363,18 @@ Use `tasks` for task/PR lifecycle orchestration; keep Supabase implementation an
 - iPix project ref respected; verified via local fresh-replay; for any `supabase/migrations/**` change, explicit human approval was obtained *before* merge (merge itself applies to production — IPI-1171) and that approval is recorded; no manual destructive command (`db push --linked`, `migration repair`, `db reset --linked`) run outside that approved path
 - RLS verify run after policy changes
 - Inventory updated after edge function add/remove
+
+
+## PR review invariants
+
+When reviewing Supabase/Auth/Postgres changes, use this same canonical skill rather than a separate reviewer.
+
+- Browser `orgId`, `user_metadata`, and service-role possession are never authorization.
+- RLS and SQL grants are separate gates; verify both.
+- UPDATE ownership needs correct `USING`, `WITH CHECK`, and SELECT visibility.
+- `SECURITY DEFINER` requires explicit need, safe `search_path`, qualified references, narrow ACLs, and tenant proof.
+- Public/API views require intentional exposure, normally `security_invoker=true` or revoked access.
+- Migration history is forward-only; do not rewrite applied history.
+- DB errors must not be silently converted to “not found”.
+- Tenant-sensitive changes require deterministic Org A allowed + Org B denied proof.
+- Do not invent production state; live DB observations count only when independently retrieved and identified by project/schema.

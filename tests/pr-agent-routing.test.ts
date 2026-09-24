@@ -27,9 +27,9 @@ describe("IPI-1246 PR-Agent changed-file routing", () => {
   });
 
   it("routes Supabase, auth, and migration changes", () => {
-    expect(names(["supabase/migrations/202609200001_test.sql"])).toEqual(["code-review", "supabase-review"]);
-    expect(names(["src/lib/supabase/server.ts"])).toEqual(["code-review", "supabase-review"]);
-    expect(names(["src/app/auth/callback/route.ts"])).toEqual(["code-review", "supabase-review", "nextjs-developer"]);
+    expect(names(["supabase/migrations/202609200001_test.sql"])).toEqual(["code-review", "ipix-supabase"]);
+    expect(names(["src/lib/supabase/server.ts"])).toEqual(["code-review", "ipix-supabase"]);
+    expect(names(["src/app/auth/callback/route.ts"])).toEqual(["code-review", "ipix-supabase", "nextjs-developer"]);
   });
 
   it("routes Mastra and CopilotKit independently", () => {
@@ -46,8 +46,8 @@ describe("IPI-1246 PR-Agent changed-file routing", () => {
   });
 
   it("routes Cloudinary media boundaries", () => {
-    expect(names(["src/lib/cloudinary/sign-upload.ts"])).toEqual(["code-review", "cloudinary-review"]);
-    expect(names(["supabase/functions/cloudinary-sign/index.ts"])).toEqual(["code-review", "supabase-review", "cloudinary-review"]);
+    expect(names(["src/lib/cloudinary/sign-upload.ts"])).toEqual(["code-review", "cloudinary"]);
+    expect(names(["supabase/functions/cloudinary-sign/index.ts"])).toEqual(["code-review", "ipix-supabase", "cloudinary"]);
   });
 
   it("routes Next.js and CI changes", () => {
@@ -63,7 +63,7 @@ describe("IPI-1246 PR-Agent changed-file routing", () => {
 
   it("loads all version-sensitive specialists for package changes", () => {
     const result = names(["package.json"]);
-    for (const skill of ["copilotkit", "mastra", "supabase-review", "cloudinary-review", "nextjs-developer"]) {
+    for (const skill of ["copilotkit", "mastra", "ipix-supabase", "cloudinary", "nextjs-developer"]) {
       expect(result).toContain(skill);
     }
     expect(result).not.toContain("ci-review");

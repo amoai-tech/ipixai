@@ -1,6 +1,6 @@
 #!/bin/bash
 # lean audit.sh — safe, read-only repo + environment scan
-# Run from repo root: bash .claude/skills/lean/scripts/audit.sh
+# Run from repo root: bash .agents/skills/lean/scripts/audit.sh
 
 set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
