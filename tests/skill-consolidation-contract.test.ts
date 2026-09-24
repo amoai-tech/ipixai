@@ -100,6 +100,13 @@ describe("skill consolidation contract", () => {
     }
   });
 
+  it("uses diagnosing-bugs as the single automated-test debugging owner", () => {
+    expect(existsSync(skill("diagnosing-bugs"))).toBe(true);
+    expect(existsSync(resolve(repoRoot, ".agents/skills/diagnosing-bugs/references/automated-test-debugging.md"))).toBe(true);
+    expect(existsSync(resolve(repoRoot, ".agents/skills/debug-fix-failed-flaky-autotests"))).toBe(false);
+    expect(read(".agents/skills/testing-workflow/SKILL.md")).toContain("`diagnosing-bugs` in **automated-test mode**");
+  });
+
   it("uses one requirements skill for epic, user-story, and QA requirements work", () => {
     expect(existsSync(skill("requirements"))).toBe(true);
     expect(existsSync(claudeSkill("requirements"))).toBe(true);

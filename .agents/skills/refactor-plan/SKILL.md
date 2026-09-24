@@ -5,6 +5,10 @@ description: 'Use when a multi-file refactor needs investigation, sequencing, de
 
 # Refactor Plan
 
+## Boundary
+
+Use `writing-plans` for normal accepted-spec → implementation planning. Use this skill only when an existing system must be structurally migrated and dependency order, compatibility/coexistence, caller migration, or rollback materially affects safety.
+
 Create a detailed plan before making any code changes.
 
 ## Instructions

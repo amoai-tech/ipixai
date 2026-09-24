@@ -16,14 +16,13 @@ Orchestrates the test case lifecycle by routing requests to specialized skills a
 | `qa-explain-behavior`                | Explain what the product does — features, flows, permissions, edge cases, gaps    |
 | `qa-review`                          | Review a feature or PR as QA — edge cases, negative flows, compatibility, risk    |
 | `qa-split-testing-levels-pyramid`    | Apply the test pyramid — assign scenarios to testing levels, coverage split       |
-| `write-user-story`                   | Write user stories and acceptance criteria (the requirements)                     |
-| `qa-requirement-reviewer`            | Review requirements for ambiguity, gaps, and testability                          |
+| `requirements`                       | Epic/user-story definition, acceptance criteria, and QA requirements review       |
 | `qa-write-test-cases`                | Generate new test cases and checklists from requirements                          |
 | `improve-test-cases`                 | Improve existing test cases quality                                               |
 | `qa-automation-test-consolidation`   | Find duplicate, near-duplicate, and overlapping test cases                        |
 | `testomatio`                         | Testomat.io reporting, sync, MCP analytics, runs, and change-aware PR testing     |
 | `automate-manual-test-cases`         | Convert manual test cases into automated test scripts (write new autotests)       |
-| `debug-fix-failed-flaky-autotests`   | Diagnose and fix failing or flaky autotests (heal autotests)                      |
+| `diagnosing-bugs`                    | Diagnose bugs; use automated-test mode for failing/flaky autotests                 |
 | `qa-test-code-coverage`              | Map manual & automated tests to source files (`coverage.tests.yml`)               |
 | `setup-ci-automation`                | Investigate a project's CI and deploy automated QA workflows into it              |
 
@@ -32,7 +31,7 @@ Orchestrates the test case lifecycle by routing requests to specialized skills a
 - Match the request to a flow below. Delegate to that flow's skill, then suggest its next actions.
 - Flows are examples, not exhaustive. Combine or extend them when a request spans several tasks.
 - When suggesting next steps, take into account the flows, context, user request, and results of previous steps.
-- **Write / draft user stories** (requirements, spec, acceptance criteria) → route to the `write-user-story` skill. Review of existing requirements → `qa-requirement-reviewer`.
+- **Write / draft user stories** (requirements, spec, acceptance criteria) → route to `requirements` in **User story mode**. Review of existing requirements → `requirements` in **QA review mode**.
 - **Behavior questions** ("what happens when…", "can a user…", "is X supported") ask what the product does rather than for an artifact → route to the `qa-explain-behavior` skill first, then continue with the flow the answer points to.
 - **Strategic intent** ("where do I start", "improve our QA process", "QA maturity review") → route to the `qa-lead-strategy-advisor` skill instead. It owns the high-level roadmap and delegates execution back here.
 
@@ -125,7 +124,7 @@ Use `automate-manual-test-cases` skill to convert manual cases into automated te
 After automation fully completed, suggest next actions:
 1. 🔧 Add Testomat.io reporter to your automation project (with `testomatio` skill and the matching reference)
 2. 🗺️ Map the new autotests to source files (with `qa-test-code-coverage` skill)
-3. 🩺 Fix/heal any failing or flaky tests (with `debug-fix-failed-flaky-autotests` skill)
+3. 🩺 Fix/heal any failing or flaky tests (with `diagnosing-bugs` in **automated-test mode** skill)
 ```
 
 ### Fix / Heal Autotests Flow
@@ -133,7 +132,7 @@ After automation fully completed, suggest next actions:
 ```
 User: asks to fix failing tests, heal flaky autotests, or tests pass locally but fail in CI
 =>
-Use `debug-fix-failed-flaky-autotests` skill to diagnose root causes and apply targeted fixes
+Use `diagnosing-bugs` in **automated-test mode** skill to diagnose root causes and apply targeted fixes
 =>
 After fixes fully completed, suggest next actions:
 1. 📊 Investigate run failures and patterns across the suite (with `testomatio` skill and the matching reference)
@@ -197,7 +196,7 @@ User: asks to analyze runs, cluster failures, investigate root causes or triage 
 Use `testomatio` → `references/mcp.md` to connect via MCP and analyze runs/failures
 =>
 After analysis fully completed, suggest next actions:
-1. 🩺 Fix/heal the failing or flaky autotests (with `debug-fix-failed-flaky-autotests` skill)
+1. 🩺 Fix/heal the failing or flaky autotests (with `diagnosing-bugs` in **automated-test mode** skill)
 ```
 
 ### Sync Test Cases to Testomat.io Flow

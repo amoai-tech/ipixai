@@ -1,6 +1,10 @@
 ---
 name: requirements
 description: Use when defining or reviewing product requirements as an Epic, user story, acceptance criteria, or testable requirements package before implementation or Linear task breakdown.
+license: MIT
+metadata:
+  source: consolidated from testomatio/skills epic-requirements-specification + write-user-story + qa-requirement-reviewer
+  version: 1.0.0-ipix
 ---
 
 # Requirements

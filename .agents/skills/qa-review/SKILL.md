@@ -56,7 +56,7 @@ Up to 5 highest-value risk scenarios. Prefer actor/action/outcome language over 
 Then offer only relevant next actions:
 - split scenarios across testing levels → `qa-split-testing-levels-pyramid`
 - turn scenarios into test cases/checklists → `qa-write-test-cases`
-- review requirement defects → `qa-requirement-reviewer`
+- review requirement defects → `requirements` in **QA review mode**
 
 ## Output — PR mode
 

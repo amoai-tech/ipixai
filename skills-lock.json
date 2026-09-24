@@ -13,12 +13,6 @@
       "skillPath": "skills/engineering/code-review/SKILL.md",
       "computedHash": "caa9a086baaf9e0f7cd71f64edfa83da6821c05e826b083221f3d02e3d6a1905"
     },
-    "debug-fix-failed-flaky-autotests": {
-      "source": "testomatio/skills",
-      "sourceType": "github",
-      "skillPath": "skills/debug-fix-failed-flaky-autotests/SKILL.md",
-      "computedHash": "341a0e1f977574440073d265a25c1ea1ec7d5c6fd4ed62cbb0c12b4744d447b5"
-    },
     "diagnosing-bugs": {
       "source": "mattpocock/skills",
       "sourceType": "github",

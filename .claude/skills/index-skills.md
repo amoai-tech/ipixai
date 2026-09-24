@@ -5,6 +5,7 @@ Canonical repository skill source tree: `.agents/skills/`. `.claude/skills/` is 
 **One-real-copy rule:** every skill has exactly one real directory. Prefer `.agents/skills/<skill>/` for reusable/cross-agent skills; expose it to Claude with `.claude/skills/<skill> -> ../../.agents/skills/<skill>`. Existing iPix/Claude-only skills may remain under `.claude/skills/` until migrated, but never keep a second copied directory in `.agents/skills/`.
 
 AI runtime SSOT: `docs/copilotkit-mastra/README.md`. Cursor rules: `.cursor/rules/`.
+Machine-readable ownership/consolidation registry: `.agents/skills/registry.json`. CI validates canonical paths and removed aliases.
 
 ---
 
@@ -50,6 +51,7 @@ These are local canonical skills under `.agents/skills/` built by combining over
 | `explorbot` | `explorbot-fundamentals` + `explorbot-setup` + `explorbot-plan` |
 | `testomatio` | reporter setup + sprint reporting + test-case sync + MCP + run CLI + change-aware PR testing |
 | `requirements` | `epic-requirements-specification` + `write-user-story` + `qa-requirement-reviewer` as Epic, user-story, and QA-review modes |
+| `diagnosing-bugs` | General bug diagnosis + former `debug-fix-failed-flaky-autotests` as automated-test mode/reference |
 
 Official Cloudinary upstream packs are embedded under `.claude/skills/cloudinary/references/official/` and are not separate triggerable skills. Refresh snapshots into a temporary directory, then sync only the needed embedded references so the iPix security overlay remains authoritative.
 

@@ -38,5 +38,5 @@ Read only the reference needed for the request. For PR testing, also read `runs.
 - `testing-workflow` — QA router.
 - `qa-test-code-coverage` — source-to-test coverage map used by change-aware filters.
 - `qa-write-test-cases` / `improve-test-cases` — create or improve cases before syncing.
-- `debug-fix-failed-flaky-autotests` — repair failing/flaky automated tests after Testomat.io identifies failures.
+- `diagnosing-bugs` automated-test mode — repair failing/flaky automated tests after Testomat.io identifies failures.
 - `setup-ci-automation` — generic CI investigation, authoring, secrets, and PR delivery.
