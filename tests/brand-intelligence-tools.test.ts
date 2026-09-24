@@ -37,7 +37,10 @@ vi.mock("@/mastra/runtime", () => ({
   }),
 }));
 
+import { RequestContext } from "@mastra/core/request-context";
+
 import { approveDraft, startBrandAnalysis } from "@/mastra/tools/brand-intelligence";
+import { MASTRA_USER_KEY } from "@/mastra/workflow-identity";
 
 // The installed Mastra Tool.execute signature is (inputData, context) — see
 // node_modules/@mastra/core/dist/tools/types.d.ts. `observe` is the only
@@ -131,12 +134,20 @@ describe("startBrandAnalysis", () => {
   it("starts the workflow with the operator id resolved from the session JWT", async () => {
     mocks.startAsync.mockResolvedValue({ runId: RUN_ID });
 
-    const result = await startBrandAnalysis.execute!({ brandId: BRAND_ID }, ctx);
+    const requestContext = new RequestContext();
+    const verifiedUser = { id: "op-1", orgId: "org-1", resourceId: "org:org-1::user:op-1" };
+    requestContext.set(MASTRA_USER_KEY, verifiedUser);
+
+    const result = await startBrandAnalysis.execute!({ brandId: BRAND_ID }, { ...ctx, requestContext });
 
     expect(mocks.getUser).toHaveBeenCalledWith("tok");
-    expect(mocks.startAsync).toHaveBeenCalledWith({
-      inputData: { brandId: BRAND_ID, actorId: "op-1" },
-    });
+    expect(mocks.startAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ inputData: { brandId: BRAND_ID, actorId: "op-1" } }),
+    );
+    // IPI-1326: the authenticated RequestContext reaches the workflow so it can
+    // bind the actor to the verified Mastra user.
+    const started = mocks.startAsync.mock.calls[0][0] as { requestContext: RequestContext };
+    expect(started.requestContext.get(MASTRA_USER_KEY)).toEqual(verifiedUser);
     expect(result).toMatchObject({ runId: RUN_ID });
   });
 

@@ -107,8 +107,11 @@ export const startBrandAnalysis = createTool({
     const { getMastra } = await import("@/mastra/runtime");
     const workflow = getMastra().getWorkflow("brand-intelligence");
     const run = await workflow.createRun();
+    // IPI-1326: forward the authenticated RequestContext so the workflow binds
+    // the actor to the verified Mastra user, not only to this input field.
     const { runId } = await run.startAsync({
       inputData: { brandId: inputData.brandId, actorId: operatorId },
+      requestContext,
     });
 
     return {

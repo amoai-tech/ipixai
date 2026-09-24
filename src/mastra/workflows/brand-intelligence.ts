@@ -7,6 +7,10 @@ import {
   assertBrandProfile,
   extractDraftScores,
 } from "@/lib/brand/brand-profile-contract";
+import {
+  readAuthenticatedWorkflowUser,
+  resolveWorkflowActorId,
+} from "@/mastra/workflow-identity";
 
 const FAILURE_DETAIL_LIMIT = 500;
 
@@ -203,8 +207,12 @@ const validateBrand = createStep({
   id: "validateBrand",
   inputSchema: validateBrandInputSchema,
   outputSchema: validateBrandOutputSchema,
-  execute: async ({ inputData }) => {
-    const { brandId, actorId } = inputData;
+  execute: async ({ inputData, requestContext }) => {
+    const { brandId } = inputData;
+    // IPI-1326: the service-role client below bypasses RLS, so the actor must be
+    // the authenticated Mastra user when there is one — never caller input.
+    const actorId = resolveWorkflowActorId(requestContext, inputData.actorId);
+    const authenticated = readAuthenticatedWorkflowUser(requestContext);
     const sb = await requireServiceRoleClient();
 
     const { data: brand, error: brandError } = await sb
@@ -218,6 +226,10 @@ const validateBrand = createStep({
     }
     if (!brand.brand_url) {
       throw new Error("Brand has no website URL to analyze");
+    }
+
+    if (authenticated && brand.org_id && brand.org_id !== authenticated.orgId) {
+      throw new Error("Brand is outside the authenticated organization");
     }
 
     if (brand.org_id) {

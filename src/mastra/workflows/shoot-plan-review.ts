@@ -5,9 +5,14 @@ import {
   PLAN_APPROVAL_DECISIONS,
   parseShootPlanApprovalSnapshot,
 } from "@/lib/shoot/plan-approval";
+import { createClient } from "@supabase/supabase-js";
+
+import { authorizePlanReviewEditor } from "@/lib/shoot/plan-review-authorization";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { rpcCallFromClient } from "@/lib/supabase/rpc-adapter";
+import { brandOrgLookupFromClient, rpcCallFromClient } from "@/lib/supabase/rpc-adapter";
 import { stageShootPlanRevision } from "@/lib/shoot/stage-shoot-plan-revision";
+import { resolveMastraSupabaseAuthConfig } from "@/mastra/server-auth";
+import { readAuthenticatedWorkflowUser } from "@/mastra/workflow-identity";
 
 /**
  * IPI-1084 · APPROVAL-001 — exact-revision review lifecycle.
@@ -68,23 +73,61 @@ async function requireServiceRoleClient() {
   return sb;
 }
 
+/**
+ * IPI-1326 — when the run carries an authenticated Mastra user, re-run the same
+ * editor/owner check as `POST /api/plans/reviews` under that user's own session
+ * (RLS + `is_org_editor_or_above`) before any service-role staging, and bind
+ * `stagedBy` to that user. Trusted in-process starts authorize before starting.
+ */
+async function resolveStager(
+  requestContext: { get: (key: string) => unknown } | undefined,
+  brandId: string,
+  claimedStagedBy: string | null | undefined,
+): Promise<string | null> {
+  const user = readAuthenticatedWorkflowUser(requestContext);
+  if (!user) return claimedStagedBy ?? null;
+  if (claimedStagedBy && claimedStagedBy !== user.userId) {
+    throw new Error("Workflow actor does not match the authenticated user");
+  }
+  if (!user.accessToken) throw new Error("Authenticated workflow session unavailable");
+
+  const config = resolveMastraSupabaseAuthConfig();
+  const userClient = createClient(config.url, config.publishableKey, {
+    auth: { persistSession: false },
+    global: { headers: { Authorization: `Bearer ${user.accessToken}` } },
+  });
+  const authorization = await authorizePlanReviewEditor(
+    { brandId, operatorId: user.userId },
+    {
+      brands: { selectOrgId: brandOrgLookupFromClient(userClient) },
+      rpc: rpcCallFromClient(userClient),
+    },
+  );
+  if (!authorization.ok) throw new Error(`Plan review not authorized: ${authorization.code}`);
+  if (authorization.orgId !== user.orgId) {
+    throw new Error("Brand is outside the authenticated organization");
+  }
+  return user.userId;
+}
+
 const stageRevision = createStep({
   id: "stageRevision",
   inputSchema: shootPlanReviewInputSchema,
   outputSchema: stagedRevisionSchema,
-  execute: async ({ inputData, runId }) => {
+  execute: async ({ inputData, runId, requestContext }) => {
     const serialized = JSON.stringify(inputData.plan);
     if (serialized.length > MAX_PLAN_BYTES) {
       throw new Error("Plan exceeds the maximum reviewable size");
     }
 
+    const stagedBy = await resolveStager(requestContext, inputData.brandId, inputData.stagedBy);
     const sb = await requireServiceRoleClient();
     const outcome = await stageShootPlanRevision(
       {
         brandId: inputData.brandId,
         workflowRunId: runId,
         plan: inputData.plan,
-        stagedBy: inputData.stagedBy ?? null,
+        stagedBy,
         agentThreadId: inputData.agentThreadId ?? null,
         expiresAt: inputData.expiresAt ?? null,
       },
