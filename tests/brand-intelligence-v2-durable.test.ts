@@ -276,6 +276,35 @@ describe("brand-intelligence-v2 durable crawl parity", () => {
     ).rejects.toThrow("Firecrawl job mismatch");
   });
 
+  it("fails analysis instead of suspending when the durable crawl is already failed", async () => {
+    const suspend = vi.fn();
+    mocks.single.mockResolvedValueOnce({
+      data: {
+        brand_id: BRAND_ID,
+        firecrawl_job_id: "fc-job-1",
+        job_status: "failed",
+        workflow_id: RUN_ID,
+      },
+      error: null,
+    });
+
+    await expect(
+      stepExecute("waitForCrawl")({
+        inputData: {
+          brandId: BRAND_ID,
+          crawlId: CRAWL_ID,
+          firecrawlJobId: "fc-job-1",
+        },
+        resumeData: undefined,
+        suspend,
+        runId: RUN_ID,
+      }),
+    ).rejects.toThrow("Crawl failed");
+
+    expect(mocks.updateEq).toHaveBeenCalledWith("id", BRAND_ID);
+    expect(suspend).not.toHaveBeenCalled();
+  });
+
   it("fails fast instead of suspending on a reused active crawl owned by another workflow", async () => {
     const suspend = vi.fn();
     mocks.single.mockResolvedValueOnce({

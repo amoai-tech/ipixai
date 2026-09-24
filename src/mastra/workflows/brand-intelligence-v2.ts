@@ -167,6 +167,14 @@ const waitForCrawl = createStep({
       );
     }
 
+    if (crawl.job_status === "failed") {
+      throw await failAnalysis(
+        inputData.brandId,
+        "Crawl failed",
+        "Durable crawl row is already failed",
+      );
+    }
+
     if (resumeData) {
       throw await failAnalysis(
         inputData.brandId,
