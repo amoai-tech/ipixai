@@ -1,3 +1,4 @@
+import "./sentry";
 import { getMastra } from "./runtime";
 import { resolveMastraSupabaseAuthConfig } from "./server-auth";
 

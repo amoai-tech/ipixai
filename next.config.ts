@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 // IPI-1063 · MARKETING-SEO-001 — merged-page redirects from IPI-1060's
 // service-page consolidation. Static + permanent so Next emits one 308 hop
@@ -41,4 +42,13 @@ const nextConfig: NextConfig = {
   // is the gate, so the Vercel build must not silently swallow type errors.
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  telemetry: false,
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: true,
+  },
+});
