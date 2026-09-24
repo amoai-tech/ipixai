@@ -748,6 +748,18 @@ jobs:
           # durable IDs. Same reason as the IPI-1093 claim-concurrency script
           # above: genuinely needs two overlapping sessions.
           bash supabase/tests/security/ipi1269-onboard-db-guard-concurrency.sh
+
+          # IPI-1311 · AUTH-ORG-SINGLE-001 — org_members(user_id) unique
+          # invariant: a direct duplicate insert is rejected, an existing
+          # single membership is untouched by the rejected attempt, and
+          # organizations_auto_add_owner fails the whole organizations
+          # INSERT atomically for an already-member owner (no orphaned/
+          # partial organization) rather than silently swallowing the
+          # conflict. Needs the real auth.users/organizations/org_members
+          # schema plus this task's own migrations from the full replay
+          # above, not a bare-Postgres mock.
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/ipi1311-org-members-single-membership.sql
       - run: supabase stop
 
   # IPI-1205 · SB-EDGE-CI-001 — native Deno regression tests + frozen

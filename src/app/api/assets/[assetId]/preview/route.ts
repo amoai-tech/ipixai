@@ -63,7 +63,7 @@ export async function GET(
       case "lookup_failed":
         return membershipLookupFailedResponse();
       case "needs_onboarding":
-      case "needs_org_selection":
+      case "membership_conflict":
         return forbiddenResponse(result.reason);
       case "foreign_org":
       case "version_not_approved":
