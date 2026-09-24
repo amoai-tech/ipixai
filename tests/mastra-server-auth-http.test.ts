@@ -120,8 +120,33 @@ afterAll(async () => {
   vi.unstubAllEnvs();
 });
 
-function post(path: string, token: string | null, body: unknown) {
-  return fetch(`${baseUrl}${path}`, {
+type PostRoute =
+  | "activeRun"
+  | "abortRun"
+  | "startBrandIntelligence"
+  | "startShootPlanReview"
+  | "resumeBrandIntelligence";
+
+function allowedPostUrl(route: PostRoute): string {
+  // Keep the HTTP test helper on an explicit allowlist. Besides making the
+  // test intent obvious, this prevents a future caller from turning the helper
+  // into an arbitrary server-side request primitive.
+  switch (route) {
+    case "activeRun":
+      return `${baseUrl}/ipix/run-control/active`;
+    case "abortRun":
+      return `${baseUrl}/ipix/run-control/abort`;
+    case "startBrandIntelligence":
+      return `${baseUrl}/api/workflows/brand-intelligence/start-async`;
+    case "startShootPlanReview":
+      return `${baseUrl}/api/workflows/shoot-plan-review/start-async`;
+    case "resumeBrandIntelligence":
+      return `${baseUrl}/api/workflows/brand-intelligence/resume-async?runId=r-org-a`;
+  }
+}
+
+function post(route: PostRoute, token: string | null, body: unknown) {
+  return fetch(allowedPostUrl(route), {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -134,7 +159,7 @@ function post(path: string, token: string | null, body: unknown) {
 describe("standalone Mastra auth over real HTTP (IPI-1308)", () => {
   it("rejects a missing bearer token with 401", async () => {
     expect((await fetch(`${baseUrl}/api/agents`)).status).toBe(401);
-    expect((await post("/ipix/run-control/active", null, { threadId: "t-1" })).status).toBe(401);
+    expect((await post("activeRun", null, { threadId: "t-1" })).status).toBe(401);
   });
 
   it("rejects an invalid or expired Supabase JWT with 401", async () => {
@@ -163,18 +188,18 @@ describe("standalone Mastra auth over real HTTP (IPI-1308)", () => {
     let activeA: { runId: string | null } = { runId: null };
     for (let i = 0; i < 30 && !activeA.runId; i++) {
       await sleep(50);
-      activeA = await (await post("/ipix/run-control/active", "org-a-token", { threadId: "thread-a" })).json();
+      activeA = await (await post("activeRun", "org-a-token", { threadId: "thread-a" })).json();
     }
     expect(activeA.runId).toBe("R1");
 
-    const activeB = await post("/ipix/run-control/active", "org-b-token", { threadId: "thread-a" });
+    const activeB = await post("activeRun", "org-b-token", { threadId: "thread-a" });
     expect(activeB.status).toBe(200);
     await expect(activeB.json()).resolves.toEqual({ runId: null });
 
-    const abortB = await post("/ipix/run-control/abort", "org-b-token", { threadId: "thread-a", runId: "R1" });
+    const abortB = await post("abortRun", "org-b-token", { threadId: "thread-a", runId: "R1" });
     await expect(abortB.json()).resolves.toEqual({ aborted: false });
 
-    const abortA = await post("/ipix/run-control/abort", "org-a-token", { threadId: "thread-a", runId: "R1" });
+    const abortA = await post("abortRun", "org-a-token", { threadId: "thread-a", runId: "R1" });
     await expect(abortA.json()).resolves.toEqual({ aborted: true });
     await done;
   }, 15000);
@@ -199,7 +224,7 @@ describe("privileged workflows are not reachable over raw Mastra HTTP (IPI-1326)
   it("denies Org B starting Brand Intelligence for an Org A brand with an Org A actorId", async () => {
     mocks.createServiceRoleClient.mockClear();
     const res = await post(
-      "/api/workflows/brand-intelligence/start-async",
+      "startBrandIntelligence",
       "org-b-token",
       { inputData: { brandId: BRAND_A, actorId: USER_A } },
     );
@@ -210,7 +235,7 @@ describe("privileged workflows are not reachable over raw Mastra HTTP (IPI-1326)
   it("denies Org B staging a shoot plan for an Org A brand with a forged stagedBy", async () => {
     mocks.createServiceRoleClient.mockClear();
     const res = await post(
-      "/api/workflows/shoot-plan-review/start-async",
+      "startShootPlanReview",
       "org-b-token",
       { inputData: { brandId: BRAND_A, plan: { objective: "x" }, stagedBy: USER_A } },
     );
@@ -220,7 +245,7 @@ describe("privileged workflows are not reachable over raw Mastra HTTP (IPI-1326)
 
   it("denies resuming another org's suspended run", async () => {
     const res = await post(
-      "/api/workflows/brand-intelligence/resume-async?runId=r-org-a",
+      "resumeBrandIntelligence",
       "org-b-token",
       { step: "waitForCrawl", resumeData: { failed: true, error: "forged" } },
     );
