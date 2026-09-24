@@ -155,8 +155,12 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
   // spinner), dismisses it, and the next prompt succeeds.
   test("a failed run shows a clear error, never spins forever, and the retry succeeds", async ({ page }) => {
     test.setTimeout(RESPONSE_TIMEOUT_MS + NAV_TIMEOUT_MS * 6);
+    // CopilotKit itself logs one forced failure several times; every such line
+    // quotes the forced body, so only lines carrying this marker are excused.
+    const forced = '{"error":"e2e-forced-run-failure"}';
     const problems = collectBrowserProblems(page, [
       /ProductionCopilotPanel: agent run (failed|error)/,
+      /e2e-forced-run-failure/,
       /Failed to load resource: the server responded with a status of 500/,
       /^HTTP 500 POST .*\/agent\/[^/]+\/run/,
     ]);
@@ -167,7 +171,7 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
     await page.route(/\/agent\/[^/]+\/run/, (route) => {
       if (route.request().method() === "POST" && failNext) {
         failNext = false;
-        return route.fulfill({ status: 500, contentType: "application/json", body: '{"error":"forced"}' });
+        return route.fulfill({ status: 500, contentType: "application/json", body: forced });
       }
       return route.fallback();
     });
