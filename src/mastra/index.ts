@@ -1,4 +1,11 @@
 import { getMastra } from "./runtime";
+import { resolveMastraSupabaseAuthConfig } from "./server-auth";
+
+// IPI-1308: this entry is loaded only by the Mastra CLI server (`mastra dev` /
+// the `mastra build` output), never by Next.js. Validate the standalone Supabase
+// Auth config here so a misconfigured server exits before it listens instead of
+// reporting /health while every authenticated request is rejected.
+resolveMastraSupabaseAuthConfig();
 
 // Mastra CLI contract: src/mastra/index.ts must export a named Mastra instance.
 // The Next.js app must import getMastra from ./runtime instead of this CLI entry.
