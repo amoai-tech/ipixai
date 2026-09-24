@@ -202,6 +202,27 @@ describe("IPI-1290 TenantAbortRunner exact-run Stop", () => {
     expect(r1.events.map((e) => e.type)).toContain(EventType.RUN_FINISHED);
   });
 
+  it("a Stop without a runId stops every run still starting on the thread", async () => {
+    memoryGate = new Promise((resolve) => (releaseMemory = resolve));
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const slow1 = new SlowAgent();
+    const slow2 = new SlowAgent();
+
+    const r1 = collect(
+      runner.run({ threadId, agent: wrapAbortRun(slow1), input: input(threadId, "R1") }),
+    );
+    const r2 = collect(
+      runner.run({ threadId, agent: wrapAbortRun(slow2), input: input(threadId, "R2") }),
+    );
+    expect(await runner.stop({ threadId })).toBe(true);
+    releaseMemory();
+
+    await Promise.all([r1.done, r2.done]);
+    expect(slow1.runs).toBe(0);
+    expect(slow2.runs).toBe(0);
+  });
+
   it("another tenant cannot stop the run", async () => {
     memoryGate = Promise.resolve();
     const threadId = nextThread();

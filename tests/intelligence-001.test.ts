@@ -342,7 +342,15 @@ describe("IPI-1009 intelligence tenant safety", () => {
     expect(controlCalls).toHaveLength(0);
   });
 
-  it.each([{ runId: "" }, { runId: 123 }])(
+  it.each([
+    { runId: "" },
+    { runId: 123 },
+    { runId: null },
+    { runId: [] },
+    { runId: {} },
+    { runId: true },
+    { runId: "R1", extra: "field" },
+  ])(
     "rejects a malformed Stop body %j with 400",
     async (body) => {
       enableIntelligence();

@@ -101,6 +101,8 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
       // thread keeps its own record (and any Stop already marked on it).
       const releasePending = () => {
         threadPending.delete(pending);
+        // Cleanup can run twice (finish, then teardown). The identity check
+        // stops a second pass from deleting a newer run's replacement set.
         if (threadPending.size === 0 && pendingRuns.get(runnerThreadId) === threadPending) {
           pendingRuns.delete(runnerThreadId);
         }
@@ -151,8 +153,9 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
     const runnerThreadId = this.scope(request.threadId);
     // IPI-1290: a Stop scoped to another run (e.g. a late Stop(R1) while R2
     // is still starting) must not cancel the pending run.
-    // A Stop without a runId keeps its pre-1.73 meaning ("stop this thread's
-    // current run") and only ever reaches this tenant's scoped thread.
+    // A Stop without a runId means "stop this thread": it marks every run
+    // still starting on this tenant's scoped thread (fail closed). CopilotKit
+    // 1.73.3 sends a runId whenever it knows the active run.
     let stopsPending = false;
     for (const pending of pendingRuns.get(runnerThreadId) ?? []) {
       if (request.runId === undefined || request.runId === pending.runId) {
