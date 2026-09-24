@@ -44,7 +44,7 @@ import {
 import { brandIntelligenceWorkflow } from "@/mastra/workflows/brand-intelligence";
 import { shootPlanReviewWorkflow } from "@/mastra/workflows/shoot-plan-review";
 
-type StepExecute = (args: Record<string, unknown>) => Promise<unknown>;
+type StepExecute = (_args: Record<string, unknown>) => Promise<unknown>;
 
 function authenticated(userId: string, orgId: string): RequestContext {
   const ctx = new RequestContext();

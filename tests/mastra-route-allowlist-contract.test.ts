@@ -156,7 +156,7 @@ function input(threadId: string, runId: string, messages: RunAgentInput["message
 }
 
 const run = (agent: AbstractAgent, runInput: RunAgentInput) =>
-  lastValueFrom((agent as unknown as { run: (i: RunAgentInput) => import("rxjs").Observable<BaseEvent> }).run(runInput).pipe(toArray()));
+  lastValueFrom((agent as unknown as { run: (_input: RunAgentInput) => import("rxjs").Observable<BaseEvent> }).run(runInput).pipe(toArray()));
 
 const delegate = {
   run: vi.fn(() => EMPTY),

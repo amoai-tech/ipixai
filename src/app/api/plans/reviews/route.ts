@@ -47,7 +47,7 @@ const bodySchema = z.object({
 type ReviewStarter = {
   createRun: () => Promise<{
     runId: string;
-    start: (args: {
+    start: (_args: {
       inputData: Record<string, unknown>;
       requestContext: RequestContext;
     }) => Promise<unknown>;
