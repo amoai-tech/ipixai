@@ -88,9 +88,9 @@ environment; the app does not need the Planner's model key for remote mode.
 | `MASTRA_DATABASE_URL` | yes (hosted) | Durable thread/memory storage in Supabase Postgres. |
 | `IPIX_MASTRA_HOSTED=1` | yes (hosted) | Baked into `Dockerfile.agent`; on non-container hosts set it explicitly. It makes missing/unsafe Postgres configuration fail closed instead of using in-memory storage. |
 | `OPENAI_API_KEY` | yes | The Planner uses `openai("gpt-5.6-luna")` and the agent executes **on this host**. Missing key = every turn fails. Not listed in `.mastra/output/preflight-metadata.json`. |
-| `NEXT_PUBLIC_SUPABASE_URL` | yes | Bearer-token verification in `src/mastra/server-auth.ts`. |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | yes | Same. **IPI-1308 will rename these** to `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` and add startup fail-fast. |
-| `SUPABASE_SERVICE_ROLE_KEY` | yes | Used by the `brand-intelligence` workflow. Privileged and RLS-bypassing — see "Known gaps". |
+| `SUPABASE_URL` | yes (hosted) | Server-owned Supabase Auth URL used to verify bearer tokens. Hosted mode requires HTTPS and fails before serving if missing/invalid. |
+| `SUPABASE_PUBLISHABLE_KEY` | yes (hosted) | Publishable key used with the caller JWT so membership resolution stays under the authenticated/RLS role. Secret/service-role keys are rejected for this purpose. |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes | Used only by privileged server workflows after authenticated user/org authorization. RLS-bypassing; keep server-only. |
 | `SUPABASE_SECRET_KEYS` | optional | JSON `{"default": "<key>"}` fallback for the crawl-start key. |
 | `PORT` | optional | Defaults to `4111`. |
 | `MASTRA_HOST` | optional | Defaults to `localhost`; must be `0.0.0.0` in a container. |
@@ -107,9 +107,9 @@ image. Provide them at runtime.
 | `GET /api/agents` | Supabase JWT | Should be `401` without a token. |
 | `POST /ipix/run-control/active` | Supabase JWT | Should be `401` without a token. |
 
-Do not route/certify production traffic from `/health` alone. IPI-1308 owns the
-stronger startup/readiness contract for required Supabase auth configuration;
-authenticated endpoint checks below remain part of deployment certification.
+Do not route/certify production traffic from `/health` alone. Hosted startup now
+fails closed when `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` are missing or unsafe,
+but authenticated endpoint checks below remain part of deployment certification.
 
 ## Restart and drain
 
@@ -141,7 +141,13 @@ curl -s -o /dev/null -w '%{http_code}\n' "$BASE/api/workflows"             # 401
 curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'content-type: application/json' --data '{"threadId":"deployment-check"}' "$BASE/ipix/run-control/active"   # 401
 ```
 
-Then, with a real operator JWT, `GET /api/agents` must return `200`.
+Then set `TOKEN` to a real operator JWT and verify the production allowlist:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" "$BASE/api/agents"                              # 200
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" "$BASE/api/workflows"                           # 403
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' --data '{}' "$BASE/api/datasets"   # 403
+```
 
 ## Host checklist
 
@@ -150,23 +156,22 @@ Then, with a real operator JWT, `GET /api/agents` must return `200`.
 - [ ] Liveness check `GET /health`; do not treat this alone as readiness.
 - [ ] Docker stop timeout and platform termination grace are both >= 300s (240s HTTP drain + bounded shutdown cleanup).
 - [ ] `MASTRA_HOST=0.0.0.0`.
-- [ ] All required env vars above set on the host.
+- [ ] All required env vars above set on the host, including `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`.
 - [ ] Public `GET /api/agents` returns `401`.
+- [ ] Authenticated `GET /api/workflows` and `POST /api/datasets` return `403`.
 
-## Known gaps
+## Closed security dependencies
 
-1. **Privileged workflow authorization (IPI-1326).** The production
-   `brand-intelligence` and `shoot-plan-review` workflows perform service-role
-   operations. Supabase service-role bypasses RLS, so caller-supplied identity
-   fields such as `actorId` / `stagedBy` cannot be authorization truth. IPI-1326
-   owns deriving actor/org identity from authenticated Mastra `RequestContext`
-   and proving Org B cannot execute as Org A. PR #252 is a separate Brand
-   Intelligence golden-path change and must not be used to widen this deployment
-   PR.
-2. **Auth config fail-fast (IPI-1308).** `server-auth.ts` still reads the
-   Next/browser-named Supabase variables and `/health` can be `200` while
-   authenticated traffic is unusable. IPI-1308 owns server-only
-   `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` and the stronger readiness gate.
+PR #267 merged IPI-1308 + IPI-1326 into `main`. This branch now includes:
+
+- hosted auth fail-fast using server-owned `SUPABASE_URL` + `SUPABASE_PUBLISHABLE_KEY`;
+- exact METHOD + path authorization for the four Planner HTTP routes;
+- authenticated RequestContext user/org identity for privileged workflows;
+- Org A / Org B authorization regression coverage.
+
+The remaining release gate is operational: deploy one stable single-owner Mastra
+service, wire Vercel Preview to it, and certify the real authenticated journey,
+including exact-run Stop, stale-Stop safety, restart/drain, and rollback.
 
 PR #260 / IPI-1312 is merged on current `main`; the earlier `default` versus
 `production-planner` agent-ID mismatch is no longer a blocker for this PR.

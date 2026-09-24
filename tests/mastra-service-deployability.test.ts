@@ -135,6 +135,17 @@ describe("IPI-1310 · standalone Mastra service is deployable", () => {
     expect(activeProbe).toContain("--data '{\"threadId\":\"deployment-check\"}'");
   });
 
+  it("documents the merged hosted auth boundary and authenticated deny-by-default probes", () => {
+    const deployment = read("docs/ipix-platform/02-mastra/deployment.md");
+
+    expect(deployment).toContain("`SUPABASE_URL`");
+    expect(deployment).toContain("`SUPABASE_PUBLISHABLE_KEY`");
+    expect(deployment).toContain('"$BASE/api/workflows"                           # 403');
+    expect(deployment).toContain('"$BASE/api/datasets"   # 403');
+    expect(deployment).not.toContain("IPI-1308 will rename these");
+    expect(deployment).not.toContain("## Known gaps");
+  });
+
   it("drains in-flight Planner turns for materially longer than Mastra's 5s default", () => {
     const runtime = read("src/mastra/runtime.ts");
     const match = /drainTimeout:\s*([0-9_]+)/.exec(runtime);

@@ -53,8 +53,9 @@ USER node
 
 EXPOSE 4111
 
-# Liveness only: this proves the Mastra process answers /health. Auth/config
-# readiness is a separate production gate (IPI-1308).
+# Liveness only: this proves the Mastra process answers /health. Hosted startup
+# now fails closed for missing/unsafe auth config, but authenticated probes are
+# still required before routing production traffic.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4111)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
