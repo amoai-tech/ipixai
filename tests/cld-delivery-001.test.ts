@@ -222,14 +222,14 @@ describe("getAuthorizedAssetPreview", () => {
     expect(urlMock).not.toHaveBeenCalled();
   });
 
-  it("fail-closes multi-org without selection", async () => {
+  it("fail-closes on a membership-conflict invariant violation, never picks a membership", async () => {
     const result = await getAuthorizedAssetPreview({
       assetId: ASSET_A,
       preview: "masonry",
       operator: { id: USER_A, name: "a" },
       supabase: mockSupabase({ orgIds: [ORG_A, ORG_B] }) as never,
     });
-    expect(result).toEqual({ ok: false, reason: "needs_org_selection" });
+    expect(result).toEqual({ ok: false, reason: "membership_conflict" });
     expect(urlMock).not.toHaveBeenCalled();
   });
 

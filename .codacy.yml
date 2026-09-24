@@ -1,0 +1,11 @@
+---
+# TSQLLint analyzes Microsoft T-SQL. iPix database SQL is PostgreSQL, so keep
+# these paths visible to Codacy generally while excluding them from TSQLLint
+# only. Other Codacy tools and rules continue to analyze these files.
+engines:
+  tsqllint:
+    exclude_paths:
+      - "supabase/migrations/**/*.sql"
+      - "supabase/tests/**/*.sql"
+      - "supabase/*.sql"
+      - "docker/postgres-init/**/*.sql"

@@ -10,7 +10,10 @@ describe("safeRedirect", () => {
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: accepts allowlisted internal destinations", () => {
     expect(safeRedirect("/app")).toBe("/app");
     expect(safeRedirect("/onboarding")).toBe("/onboarding");
-    expect(safeRedirect("/org-selection")).toBe("/org-selection");
+  });
+
+  it("IPI-1311 · AUTH-ORG-SINGLE-001 — rejects /org-selection: it is no longer a normal route or post-auth destination", () => {
+    expect(safeRedirect("/org-selection")).toBeNull();
   });
 
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: preserves a query string on an allowlisted internal target", () => {
@@ -69,7 +72,7 @@ describe("postAuthDestinationFor", () => {
     expect(destination).toBe("/app");
   });
 
-  it("routes multiple memberships to /org-selection", async () => {
+  it("IPI-1311 · AUTH-ORG-SINGLE-001 — fails closed to /login on a membership-conflict invariant violation, never picks a membership", async () => {
     const destination = await postAuthDestinationFor({
       operator,
       listOrgIds: async () => ({
@@ -80,7 +83,7 @@ describe("postAuthDestinationFor", () => {
         ],
       }),
     });
-    expect(destination).toBe("/org-selection");
+    expect(destination).toBe("/login");
   });
 
   it("fails closed to /login on lookup failure", async () => {
