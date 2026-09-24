@@ -47,25 +47,45 @@ function isPrivilegedSupabaseKey(key: string): boolean {
 export function resolveMastraSupabaseAuthConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): MastraSupabaseAuthConfig {
+  return resolveSupabaseAuthConfig(env, !isMastraHostedRuntime(env));
+}
+
+/**
+ * Same validation, but always accepts the `NEXT_PUBLIC_*` pair as a fallback.
+ * For in-process callers (Next routes/server actions, workflow steps) that
+ * already hold a verified user session: Next.js owns that pair, and the
+ * standalone server's stricter contract is enforced at its own startup.
+ */
+export function resolveSupabaseUserAuthConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): MastraSupabaseAuthConfig {
+  return resolveSupabaseAuthConfig(env, true);
+}
+
+function resolveSupabaseAuthConfig(
+  env: NodeJS.ProcessEnv,
+  allowPublicFallback: boolean,
+): MastraSupabaseAuthConfig {
   const hosted = isMastraHostedRuntime(env);
   const url =
-    env.SUPABASE_URL?.trim() || (hosted ? "" : env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "");
+    env.SUPABASE_URL?.trim() ||
+    (allowPublicFallback ? env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "" : "");
   const publishableKey =
     env.SUPABASE_PUBLISHABLE_KEY?.trim() ||
-    (hosted ? "" : env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "");
+    (allowPublicFallback ? env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "" : "");
 
   if (!url) {
     throw new Error(
-      hosted
-        ? "SUPABASE_URL is required when IPIX_MASTRA_HOSTED=1"
-        : "SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL for local dev) is required",
+      allowPublicFallback
+        ? "SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL for local dev) is required"
+        : "SUPABASE_URL is required when IPIX_MASTRA_HOSTED=1",
     );
   }
   if (!publishableKey) {
     throw new Error(
-      hosted
-        ? "SUPABASE_PUBLISHABLE_KEY is required when IPIX_MASTRA_HOSTED=1"
-        : "SUPABASE_PUBLISHABLE_KEY (or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY for local dev) is required",
+      allowPublicFallback
+        ? "SUPABASE_PUBLISHABLE_KEY (or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY for local dev) is required"
+        : "SUPABASE_PUBLISHABLE_KEY is required when IPIX_MASTRA_HOSTED=1",
     );
   }
 
@@ -91,10 +111,11 @@ export function resolveMastraSupabaseAuthConfig(
 
 export async function resolveMastraIdentity(
   accessToken: string,
+  resolveConfig: () => MastraSupabaseAuthConfig = resolveMastraSupabaseAuthConfig,
 ): Promise<PlannerMastraUser | null> {
   let config: MastraSupabaseAuthConfig;
   try {
-    config = resolveMastraSupabaseAuthConfig();
+    config = resolveConfig();
   } catch {
     return null;
   }

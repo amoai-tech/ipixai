@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   createRun: vi.fn(),
   getWorkflow: vi.fn(),
   getWorkflowRunById: vi.fn(),
+  orgMembers: vi.fn(),
 }));
 
 vi.mock("@/lib/request-token", () => ({
@@ -37,7 +38,7 @@ vi.mock("@/mastra/runtime", () => ({
   }),
 }));
 
-import { RequestContext } from "@mastra/core/request-context";
+import { MASTRA_AUTH_TOKEN_KEY, RequestContext } from "@mastra/core/request-context";
 
 import { approveDraft, startBrandAnalysis } from "@/mastra/tools/brand-intelligence";
 import { MASTRA_USER_KEY } from "@/mastra/workflow-identity";
@@ -53,6 +54,10 @@ function mockUserScopedClient() {
   mocks.createClient.mockReturnValue({
     auth: { getUser: mocks.getUser },
     from: (table: string) => {
+      if (table === "org_members") {
+        // User-scoped membership lookup behind the trusted workflow context.
+        return { select: () => ({ eq: mocks.orgMembers }) };
+      }
       if (table === "brand_crawls") {
         return {
           select: () => ({
@@ -121,6 +126,8 @@ const DRAFT = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test");
   mocks.getStore.mockReturnValue("tok");
   mocks.getUser.mockResolvedValue({ data: { user: { id: "op-1" } }, error: null });
   mocks.crawlLinkMaybeSingle.mockResolvedValue({ data: { id: "crawl-1" }, error: null });
@@ -131,24 +138,65 @@ beforeEach(() => {
 });
 
 describe("startBrandAnalysis", () => {
-  it("starts the workflow with the operator id resolved from the session JWT", async () => {
-    mocks.startAsync.mockResolvedValue({ runId: RUN_ID });
+  const ORG_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
+  it("HTTP path: reuses Mastra server auth's authenticated RequestContext", async () => {
+    mocks.startAsync.mockResolvedValue({ runId: RUN_ID });
     const requestContext = new RequestContext();
-    const verifiedUser = { id: "op-1", orgId: "org-1", resourceId: "org:org-1::user:op-1" };
+    const verifiedUser = { id: "op-1", orgId: ORG_ID, resourceId: `org:${ORG_ID}::user:op-1` };
     requestContext.set(MASTRA_USER_KEY, verifiedUser);
 
     const result = await startBrandAnalysis.execute!({ brandId: BRAND_ID }, { ...ctx, requestContext });
 
-    expect(mocks.getUser).toHaveBeenCalledWith("tok");
     expect(mocks.startAsync).toHaveBeenCalledWith(
       expect.objectContaining({ inputData: { brandId: BRAND_ID, actorId: "op-1" } }),
     );
-    // IPI-1326: the authenticated RequestContext reaches the workflow so it can
-    // bind the actor to the verified Mastra user.
     const started = mocks.startAsync.mock.calls[0][0] as { requestContext: RequestContext };
     expect(started.requestContext.get(MASTRA_USER_KEY)).toEqual(verifiedUser);
     expect(result).toMatchObject({ runId: RUN_ID });
+  });
+
+  it("server action path: builds a trusted RequestContext from the verified session token", async () => {
+    mocks.startAsync.mockResolvedValue({ runId: RUN_ID });
+    mocks.orgMembers.mockResolvedValue({ data: [{ org_id: ORG_ID }], error: null });
+
+    const result = await startBrandAnalysis.execute!({ brandId: BRAND_ID }, ctx);
+
+    expect(mocks.getUser).toHaveBeenCalledWith("tok");
+    expect(mocks.orgMembers).toHaveBeenCalledWith("user_id", "op-1");
+    const started = mocks.startAsync.mock.calls[0][0] as {
+      inputData: Record<string, unknown>;
+      requestContext: RequestContext;
+    };
+    expect(started.inputData).toEqual({ brandId: BRAND_ID, actorId: "op-1" });
+    expect(started.requestContext.get(MASTRA_USER_KEY)).toEqual({
+      id: "op-1",
+      orgId: ORG_ID,
+      resourceId: `org:${ORG_ID}::user:op-1`,
+    });
+    expect(started.requestContext.get(MASTRA_AUTH_TOKEN_KEY)).toBe("tok");
+    expect(result).toMatchObject({ runId: RUN_ID });
+  });
+
+  it("does not start the workflow when the token fails Supabase verification", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: null }, error: { message: "invalid JWT" } });
+
+    await expect(startBrandAnalysis.execute!({ brandId: BRAND_ID }, ctx)).rejects.toThrow(
+      "Could not verify the operator's session and organization",
+    );
+    expect(mocks.startAsync).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["no membership", []],
+    ["more than one membership", [{ org_id: ORG_ID }, { org_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" }]],
+  ])("does not start the workflow without exactly one trusted org (%s)", async (_label, rows) => {
+    mocks.orgMembers.mockResolvedValue({ data: rows, error: null });
+
+    await expect(startBrandAnalysis.execute!({ brandId: BRAND_ID }, ctx)).rejects.toThrow(
+      "Could not verify the operator's session and organization",
+    );
+    expect(mocks.startAsync).not.toHaveBeenCalled();
   });
 
   it("throws when no access token is available in the request context (unauthenticated denied)", async () => {

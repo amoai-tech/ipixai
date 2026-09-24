@@ -1,3 +1,4 @@
+import type { RequestContext } from "@mastra/core/request-context";
 import { z } from "zod";
 
 import { getVerifiedOperatorForRequest } from "@/lib/auth/operator-auth";
@@ -8,6 +9,10 @@ import { readSuspendedPlanReview } from "@/lib/shoot/plan-approval";
 import { authorizePlanReviewEditor } from "@/lib/shoot/plan-review-authorization";
 import { createClientFromRequest } from "@/lib/supabase/server";
 import { brandOrgLookupFromClient, rpcCallFromClient } from "@/lib/supabase/rpc-adapter";
+import {
+  createTrustedWorkflowRequestContext,
+  readAuthenticatedWorkflowUser,
+} from "@/mastra/workflow-identity";
 
 /**
  * IPI-1084 · APPROVAL-001 — start a ShootPlan review.
@@ -42,7 +47,10 @@ const bodySchema = z.object({
 type ReviewStarter = {
   createRun: () => Promise<{
     runId: string;
-    start: (args: { inputData: Record<string, unknown> }) => Promise<unknown>;
+    start: (args: {
+      inputData: Record<string, unknown>;
+      requestContext: RequestContext;
+    }) => Promise<unknown>;
   }>;
 };
 
@@ -77,6 +85,21 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
+  // IPI-1326: the workflow re-authorizes from an authenticated RequestContext,
+  // never from `stagedBy`. Build it from this request's verified session and
+  // require it to name the same operator and org that were just authorized.
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const requestContext = session?.access_token
+    ? await createTrustedWorkflowRequestContext(session.access_token)
+    : null;
+  const trusted = readAuthenticatedWorkflowUser(requestContext);
+  if (!requestContext || !trusted) return unauthorizedResponse();
+  if (trusted.userId !== operator.id || trusted.orgId !== authorization.orgId) {
+    return jsonError(403, "error", "forbidden");
+  }
+
   try {
     const { getMastra } = await import("@/mastra/runtime");
     const workflow = getMastra().getWorkflow(
@@ -89,6 +112,7 @@ export async function POST(request: Request): Promise<Response> {
         plan: parsed.data.plan,
         stagedBy: operator.id,
       },
+      requestContext,
     });
     const suspended = readSuspendedPlanReview(result);
     if (!suspended) {

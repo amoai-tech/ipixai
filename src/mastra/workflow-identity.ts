@@ -1,4 +1,10 @@
-import { MASTRA_AUTH_TOKEN_KEY } from "@mastra/core/request-context";
+import {
+  MASTRA_AUTH_TOKEN_KEY,
+  MASTRA_RESOURCE_ID_KEY,
+  RequestContext,
+} from "@mastra/core/request-context";
+
+import { resolveMastraIdentity, resolveSupabaseUserAuthConfig } from "./server-auth";
 
 /**
  * IPI-1326 · MASTRA-WORKFLOW-AUTHZ-001 — who is a privileged workflow acting for?
@@ -11,7 +17,7 @@ import { MASTRA_AUTH_TOKEN_KEY } from "@mastra/core/request-context";
  */
 export const MASTRA_USER_KEY = "mastra__user";
 
-type ContextReader = { get: (key: string) => unknown } | undefined;
+type ContextReader = { get: (key: string) => unknown } | null | undefined;
 
 export type AuthenticatedWorkflowUser = {
   userId: string;
@@ -20,10 +26,9 @@ export type AuthenticatedWorkflowUser = {
 };
 
 /**
- * The verified caller when the run was started through authenticated Mastra
- * (HTTP agent/tool path), or `null` for a trusted in-process start by a Next
- * route or tool that already authorized the operator. A present-but-malformed
- * identity throws instead of being treated as in-process.
+ * The verified caller carried by the run's RequestContext: set by Mastra server
+ * auth on the HTTP path, or by `createTrustedWorkflowRequestContext` for
+ * in-process starts. `null` when absent; a present-but-malformed identity throws.
  */
 export function readAuthenticatedWorkflowUser(
   requestContext: ContextReader,
@@ -44,21 +49,44 @@ export function readAuthenticatedWorkflowUser(
 }
 
 /**
- * Actor for a privileged step. The authenticated user always wins; a caller
- * `claimedUserId` (e.g. `actorId`, `stagedBy`) that disagrees fails closed. The
- * claim is used only for trusted in-process starts that carry no Mastra user.
+ * Actor for a privileged step: always the authenticated user. A missing
+ * identity fails closed, and a caller `claimedUserId` (e.g. `actorId`,
+ * `stagedBy`) that disagrees fails closed. The claim is never authority.
  */
 export function resolveWorkflowActorId(
   requestContext: ContextReader,
   claimedUserId: string | null | undefined,
 ): string {
+  return requireAuthenticatedWorkflowUser(requestContext, claimedUserId).userId;
+}
+
+/** Authenticated workflow user, or throw; a mismatching claim also throws. */
+export function requireAuthenticatedWorkflowUser(
+  requestContext: ContextReader,
+  claimedUserId?: string | null,
+): AuthenticatedWorkflowUser {
   const user = readAuthenticatedWorkflowUser(requestContext);
-  if (user) {
-    if (claimedUserId && claimedUserId !== user.userId) {
-      throw new Error("Workflow actor does not match the authenticated user");
-    }
-    return user.userId;
+  if (!user) throw new Error("Authenticated workflow identity required");
+  if (claimedUserId && claimedUserId !== user.userId) {
+    throw new Error("Workflow actor does not match the authenticated user");
   }
-  if (!claimedUserId) throw new Error("Workflow actor unavailable");
-  return claimedUserId;
+  return user;
+}
+
+/**
+ * Trusted RequestContext for an in-process workflow start. Re-verifies the
+ * access token with Supabase Auth, resolves the single trusted org from the
+ * user's own membership (RLS), and sets the same reserved keys Mastra server
+ * auth sets on the HTTP path. Returns `null` when the session is not usable.
+ */
+export async function createTrustedWorkflowRequestContext(
+  accessToken: string,
+): Promise<RequestContext | null> {
+  const user = await resolveMastraIdentity(accessToken, resolveSupabaseUserAuthConfig);
+  if (!user) return null;
+  const requestContext = new RequestContext();
+  requestContext.set(MASTRA_USER_KEY, user);
+  requestContext.set(MASTRA_AUTH_TOKEN_KEY, accessToken);
+  requestContext.set(MASTRA_RESOURCE_ID_KEY, user.resourceId);
+  return requestContext;
 }

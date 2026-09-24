@@ -11,6 +11,29 @@ vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: mocks.createServiceRoleClient,
 }));
 
+// IPI-1326: stageRevision re-checks editor authority under the operator's own
+// session before service-role staging. This is that user-scoped client.
+const userClient = vi.hoisted(() => ({
+  orgId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  editor: true,
+}));
+
+vi.mock("@supabase/supabase-js", () => ({
+  createClient: () => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({ single: async () => ({ data: { org_id: userClient.orgId }, error: null }) }),
+      }),
+    }),
+    rpc: async (name: string) =>
+      name === "is_org_editor_or_above"
+        ? { data: userClient.editor, error: null }
+        : { data: null, error: { message: "unexpected rpc" } },
+  }),
+}));
+
+import { MASTRA_AUTH_TOKEN_KEY, RequestContext } from "@mastra/core/request-context";
+import { MASTRA_USER_KEY } from "@/mastra/workflow-identity";
 import { shootPlanReviewWorkflow } from "@/mastra/workflows/shoot-plan-review";
 
 const WORKFLOW_PATH = new URL(
@@ -23,6 +46,18 @@ const APPROVAL_ID = "11111111-1111-4111-8111-111111111111";
 const PLAN_HASH = "hash-abc";
 const REVISION = 3;
 const RUN_ID = "run-abc";
+const EDITOR_ID = "44444444-4444-4444-8444-444444444444";
+
+function editorContext(userId: string): RequestContext {
+  const ctx = new RequestContext();
+  ctx.set(MASTRA_USER_KEY, {
+    id: userId,
+    orgId: userClient.orgId,
+    resourceId: `org:${userClient.orgId}::user:${userId}`,
+  });
+  ctx.set(MASTRA_AUTH_TOKEN_KEY, "jwt-editor");
+  return ctx;
+}
 
 const PLAN = {
   objective: { value: "Launch the spring capsule", status: "confirmed" },
@@ -73,6 +108,8 @@ function stepExecute(id: "stageRevision" | "awaitDecision"): StepExecute {
 }
 
 beforeEach(() => {
+  vi.stubEnv("SUPABASE_URL", "https://project.supabase.co");
+  vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test");
   mocks.createServiceRoleClient.mockReset();
   mocks.rpc.mockReset();
   mocks.createServiceRoleClient.mockReturnValue({ rpc: mocks.rpc });
@@ -85,6 +122,7 @@ describe("shoot-plan-review workflow — stageRevision", () => {
     const result = await stepExecute("stageRevision")({
       inputData: { brandId: BRAND_ID, plan: PLAN, stagedBy: null },
       runId: RUN_ID,
+      requestContext: editorContext(EDITOR_ID),
     });
 
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
@@ -93,6 +131,8 @@ describe("shoot-plan-review workflow — stageRevision", () => {
     expect(args.p_brand_id).toBe(BRAND_ID);
     expect(args.p_workflow_run_id).toBe(RUN_ID);
     expect(args.p_plan).toEqual(PLAN);
+    // stagedBy is bound to the authenticated editor, not the null input.
+    expect(args.p_staged_by).toBe(EDITOR_ID);
     expect(result).toEqual({
       approvalId: APPROVAL_ID,
       brandId: BRAND_ID,
@@ -111,6 +151,7 @@ describe("shoot-plan-review workflow — stageRevision", () => {
       stepExecute("stageRevision")({
         inputData: { brandId: BRAND_ID, plan: PLAN },
         runId: RUN_ID,
+        requestContext: editorContext(EDITOR_ID),
       }),
     ).rejects.toThrow(/Plan revision staging failed: REVISION_CONFLICT/);
   });

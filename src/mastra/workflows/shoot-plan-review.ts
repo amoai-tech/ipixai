@@ -11,8 +11,8 @@ import { authorizePlanReviewEditor } from "@/lib/shoot/plan-review-authorization
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { brandOrgLookupFromClient, rpcCallFromClient } from "@/lib/supabase/rpc-adapter";
 import { stageShootPlanRevision } from "@/lib/shoot/stage-shoot-plan-revision";
-import { resolveMastraSupabaseAuthConfig } from "@/mastra/server-auth";
-import { readAuthenticatedWorkflowUser } from "@/mastra/workflow-identity";
+import { resolveSupabaseUserAuthConfig } from "@/mastra/server-auth";
+import { requireAuthenticatedWorkflowUser } from "@/mastra/workflow-identity";
 
 /**
  * IPI-1084 · APPROVAL-001 — exact-revision review lifecycle.
@@ -74,24 +74,21 @@ async function requireServiceRoleClient() {
 }
 
 /**
- * IPI-1326 — when the run carries an authenticated Mastra user, re-run the same
- * editor/owner check as `POST /api/plans/reviews` under that user's own session
- * (RLS + `is_org_editor_or_above`) before any service-role staging, and bind
- * `stagedBy` to that user. Trusted in-process starts authorize before starting.
+ * IPI-1326 — the run must carry an authenticated Mastra user (HTTP auth or a
+ * trusted in-process RequestContext). Re-run the same editor/owner check as
+ * `POST /api/plans/reviews` under that user's own session (RLS +
+ * `is_org_editor_or_above`) before any service-role staging, and bind
+ * `stagedBy` to that user. A missing identity or mismatching claim fails closed.
  */
 async function resolveStager(
   requestContext: { get: (key: string) => unknown } | undefined,
   brandId: string,
   claimedStagedBy: string | null | undefined,
-): Promise<string | null> {
-  const user = readAuthenticatedWorkflowUser(requestContext);
-  if (!user) return claimedStagedBy ?? null;
-  if (claimedStagedBy && claimedStagedBy !== user.userId) {
-    throw new Error("Workflow actor does not match the authenticated user");
-  }
+): Promise<string> {
+  const user = requireAuthenticatedWorkflowUser(requestContext, claimedStagedBy);
   if (!user.accessToken) throw new Error("Authenticated workflow session unavailable");
 
-  const config = resolveMastraSupabaseAuthConfig();
+  const config = resolveSupabaseUserAuthConfig();
   const userClient = createClient(config.url, config.publishableKey, {
     auth: { persistSession: false },
     global: { headers: { Authorization: `Bearer ${user.accessToken}` } },

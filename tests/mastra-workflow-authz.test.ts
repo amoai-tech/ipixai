@@ -109,9 +109,13 @@ describe("resolveWorkflowActorId", () => {
     expect(() => resolveWorkflowActorId(ctx, USER_B)).toThrow("identity is incomplete");
   });
 
-  it("uses the claim only for trusted in-process starts without a Mastra user", () => {
-    expect(resolveWorkflowActorId(new RequestContext(), USER_A)).toBe(USER_A);
-    expect(() => resolveWorkflowActorId(new RequestContext(), undefined)).toThrow("actor unavailable");
+  it("never falls back to a caller claim when there is no authenticated identity", () => {
+    expect(() => resolveWorkflowActorId(new RequestContext(), USER_A)).toThrow(
+      "Authenticated workflow identity required",
+    );
+    expect(() => resolveWorkflowActorId(undefined, USER_A)).toThrow(
+      "Authenticated workflow identity required",
+    );
   });
 });
 
@@ -141,6 +145,17 @@ describe("brand-intelligence validateBrand", () => {
     expect(mocks.serviceUpdate).not.toHaveBeenCalled();
   });
 
+  it("missing RequestContext + a valid-looking Org A owner actorId is still denied", async () => {
+    await expect(
+      validate({ inputData: { brandId: BRAND_A, actorId: USER_A }, requestContext: new RequestContext() }),
+    ).rejects.toThrow("Authenticated workflow identity required");
+    await expect(validate({ inputData: { brandId: BRAND_A, actorId: USER_A } })).rejects.toThrow(
+      "Authenticated workflow identity required",
+    );
+    expect(mocks.createServiceRoleClient).not.toHaveBeenCalled();
+    expect(mocks.serviceUpdate).not.toHaveBeenCalled();
+  });
+
   it("the authenticated Org A owner can claim the Org A brand", async () => {
     await expect(
       validate({ inputData: { brandId: BRAND_A, actorId: USER_A }, requestContext: authenticated(USER_A, ORG_A) }),
@@ -157,6 +172,17 @@ describe("shoot-plan-review stageRevision", () => {
     await expect(
       stage({ inputData: { brandId: BRAND_A, plan, stagedBy: USER_A }, runId: "r", requestContext: authenticated(USER_B, ORG_B) }),
     ).rejects.toThrow("does not match the authenticated user");
+    expect(mocks.serviceRpc).not.toHaveBeenCalled();
+  });
+
+  it("missing RequestContext + a valid-looking stagedBy is still denied", async () => {
+    await expect(
+      stage({ inputData: { brandId: BRAND_A, plan, stagedBy: USER_A }, runId: "r", requestContext: new RequestContext() }),
+    ).rejects.toThrow("Authenticated workflow identity required");
+    await expect(
+      stage({ inputData: { brandId: BRAND_A, plan, stagedBy: USER_A }, runId: "r" }),
+    ).rejects.toThrow("Authenticated workflow identity required");
+    expect(mocks.createServiceRoleClient).not.toHaveBeenCalled();
     expect(mocks.serviceRpc).not.toHaveBeenCalled();
   });
 

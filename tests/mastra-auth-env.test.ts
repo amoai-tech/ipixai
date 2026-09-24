@@ -3,7 +3,10 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { resolveMastraSupabaseAuthConfig } from "@/mastra/server-auth";
+import {
+  resolveMastraSupabaseAuthConfig,
+  resolveSupabaseUserAuthConfig,
+} from "@/mastra/server-auth";
 
 /**
  * IPI-1308 · MASTRA-AUTH-ENV-001 — standalone Mastra owns its Supabase Auth
@@ -97,6 +100,33 @@ describe("resolveMastraSupabaseAuthConfig", () => {
 
   it("local dev: still fails when nothing is configured", () => {
     expect(() => resolveMastraSupabaseAuthConfig(env({}))).toThrow("SUPABASE_URL");
+  });
+});
+
+describe("resolveSupabaseUserAuthConfig (in-process callers with a verified session)", () => {
+  it("accepts the Next-owned NEXT_PUBLIC_* pair even when IPIX_MASTRA_HOSTED=1", () => {
+    expect(
+      resolveSupabaseUserAuthConfig(
+        env({
+          ...HOSTED,
+          NEXT_PUBLIC_SUPABASE_URL: VALID.SUPABASE_URL,
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: VALID.SUPABASE_PUBLISHABLE_KEY,
+        }),
+      ),
+    ).toEqual({ url: VALID.SUPABASE_URL, publishableKey: VALID.SUPABASE_PUBLISHABLE_KEY });
+  });
+
+  it("still refuses a secret key and non-https hosted URL", () => {
+    expect(() =>
+      resolveSupabaseUserAuthConfig(
+        env({ ...HOSTED, SUPABASE_URL: VALID.SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY: "sb_secret_abc" }),
+      ),
+    ).toThrow("not a secret or service-role key");
+    expect(() =>
+      resolveSupabaseUserAuthConfig(
+        env({ ...HOSTED, NEXT_PUBLIC_SUPABASE_URL: "http://x.supabase.co", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_x" }),
+      ),
+    ).toThrow("must use https");
   });
 });
 
