@@ -13,7 +13,7 @@
 # autoscaling or replicas without a distributed run-ownership design.
 #
 # Build:  docker build -f Dockerfile.agent -t ipix-mastra .
-# Run:    docker run -p 4111:4111 --env-file .env ipix-mastra
+# Run:    docker run --stop-timeout 240 -p 4111:4111 --env-file .env ipix-mastra
 # Health: GET /health -> 200 (public); /api/* and /ipix/* require a Supabase JWT.
 
 FROM node:24-slim AS builder
@@ -35,6 +35,10 @@ FROM node:24-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+# The production image must never silently fall back to ephemeral Mastra storage.
+# With hosted mode enabled, src/mastra/pg-store.ts rejects a missing/unsafe
+# MASTRA_DATABASE_URL before the service can operate. Local dev remains unchanged.
+ENV IPIX_MASTRA_HOSTED=1
 # The generated server binds `serverOptions?.host ?? MASTRA_HOST ?? "localhost"`.
 # Without this the container listens on loopback only and is unreachable from
 # outside the container.
@@ -49,7 +53,8 @@ USER node
 
 EXPOSE 4111
 
-# Gives the host a real readiness signal instead of "port is open".
+# Liveness only: this proves the Mastra process answers /health. Auth/config
+# readiness is a separate production gate (IPI-1308).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4111)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 

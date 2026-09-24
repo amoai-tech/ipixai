@@ -63,30 +63,63 @@ describe("IPI-1310 · standalone Mastra service is deployable", () => {
     ).not.toMatch(/mastra build[^\n]*--studio/);
   });
 
-  it("gives the host a real readiness signal on the documented health endpoint", () => {
+  it("gives the host a liveness probe on the documented health endpoint", () => {
     const dockerfile = read("Dockerfile.agent");
 
     expect(
       dockerfile,
-      "Dockerfile.agent needs a HEALTHCHECK so a host can gate traffic on real readiness",
+      "Dockerfile.agent needs a HEALTHCHECK so the host can detect a dead Mastra process",
     ).toMatch(/^HEALTHCHECK /m);
     expect(
       dockerfile,
-      "the healthcheck must probe /health, the endpoint the built Mastra server actually serves",
+      "the liveness probe must hit /health, the endpoint the built Mastra server actually serves",
     ).toContain("/health");
   });
 
-  it("does not bake environment files into the agent build context", () => {
-    const dockerignore = read(".dockerignore");
+  it("forces the production agent image into hosted durable-storage mode", () => {
+    const dockerfile = read("Dockerfile.agent");
 
     expect(
-      dockerignore,
-      ".dockerignore must keep .env files out of the image build context",
-    ).toMatch(/^\.env\*?$/m);
+      dockerfile,
+      "the production image must set IPIX_MASTRA_HOSTED=1 so missing/unsafe Postgres config fails closed instead of falling back to in-memory storage",
+    ).toMatch(/^ENV IPIX_MASTRA_HOSTED=1$/m);
+  });
+
+  it("does not bake any environment-file variant into the agent build context", () => {
+    const dockerignoreLines = read(".dockerignore")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
     expect(
-      dockerignore,
+      dockerignoreLines,
+      ".dockerignore must exclude the base .env file",
+    ).toContain(".env");
+    expect(
+      dockerignoreLines,
+      ".dockerignore must exclude .env.local/.env.production and other .env.* variants",
+    ).toContain(".env.*");
+    expect(
+      dockerignoreLines,
       ".dockerignore must exclude a stale local .mastra build output from the context",
-    ).toMatch(/^\.mastra$/m);
+    ).toContain(".mastra");
+  });
+
+  it("documents enough stop time for the configured Mastra drain window", () => {
+    const deployment = read("docs/ipix-platform/02-mastra/deployment.md");
+
+    expect(deployment).toContain("docker run --stop-timeout 240");
+    expect(deployment).toMatch(/termination grace[^\n]*240/i);
+  });
+
+  it("documents /health as liveness and verifies every protected production surface", () => {
+    const deployment = read("docs/ipix-platform/02-mastra/deployment.md");
+    const verifySection = deployment.split("## Verify a deployment")[1]?.split("## Host checklist")[0] ?? "";
+
+    expect(deployment).toMatch(/`GET \/health`[^\n]*Liveness only/i);
+    expect(verifySection).toContain("$BASE/api/agents");
+    expect(verifySection).toContain("$BASE/api/workflows");
+    expect(verifySection).toContain("$BASE/ipix/run-control/active");
   });
 
   it("drains in-flight Planner turns for materially longer than Mastra's 5s default", () => {

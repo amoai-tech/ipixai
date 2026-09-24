@@ -54,7 +54,7 @@ Vercel app.
 
 ```bash
 npm run start:agent                                    # local, reads .env / .env.production
-docker run -p 4111:4111 --env-file .env ipix-mastra    # container
+docker run --stop-timeout 240 -p 4111:4111 --env-file .env ipix-mastra    # container
 ```
 
 Direct entrypoint (what the image uses):
@@ -67,6 +67,12 @@ node .mastra/output/index.mjs
 loopback-only, so the port is open but unreachable from outside and every
 healthcheck fails. `Dockerfile.agent` sets `MASTRA_HOST=0.0.0.0`.
 
+The image also sets `IPIX_MASTRA_HOSTED=1`. That activates the existing
+`src/mastra/pg-store.ts` fail-closed guard: a missing or unsafe
+`MASTRA_DATABASE_URL` throws instead of silently using in-memory storage. Override
+this only for deliberate local/container experiments; hosted Preview/Production
+must keep it enabled.
+
 ## Required environment (server-only)
 
 Set these on the Mastra host. They are **separate** from the Vercel app's
@@ -75,7 +81,7 @@ environment; the app does not need the Planner's model key for remote mode.
 | Variable | Required | Why |
 | --- | --- | --- |
 | `MASTRA_DATABASE_URL` | yes (hosted) | Durable thread/memory storage in Supabase Postgres. |
-| `IPIX_MASTRA_HOSTED=1` | yes (hosted) | Without it the service silently falls back to **in-memory** storage and threads do not survive restart. |
+| `IPIX_MASTRA_HOSTED=1` | yes (hosted) | Baked into `Dockerfile.agent`; on non-container hosts set it explicitly. It makes missing/unsafe Postgres configuration fail closed instead of using in-memory storage. |
 | `OPENAI_API_KEY` | yes | The Planner uses `openai("gpt-5.6-luna")` and the agent executes **on this host**. Missing key = every turn fails. Not listed in `.mastra/output/preflight-metadata.json`. |
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Bearer-token verification in `src/mastra/server-auth.ts`. |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | yes | Same. **IPI-1308 will rename these** to `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` and add startup fail-fast. |
@@ -92,9 +98,13 @@ image. Provide them at runtime.
 
 | Endpoint | Auth | Purpose |
 | --- | --- | --- |
-| `GET /health` | public | Returns `200`. Use as the platform healthcheck. |
+| `GET /health` | public | **Liveness only.** `200` proves the process is answering; it does not prove Supabase auth/storage readiness. |
 | `GET /api/agents` | Supabase JWT | Should be `401` without a token. |
 | `POST /ipix/run-control/active` | Supabase JWT | Should be `401` without a token. |
+
+Do not route/certify production traffic from `/health` alone. IPI-1308 owns the
+stronger startup/readiness contract for required Supabase auth configuration;
+authenticated endpoint checks below remain part of deployment certification.
 
 ## Restart and drain
 
@@ -103,9 +113,11 @@ On `SIGTERM` the generated server stops accepting connections, waits
 `drainTimeout: 240_000`.
 
 A plain `agent.stream()` **cannot resume after the process exits**, so a short
-drain permanently truncates a live operator turn. Keep the hosting platform's
-termination grace period **at or above** `drainTimeout`, otherwise the platform
-kills the process mid-drain and the setting has no effect.
+drain permanently truncates a live operator turn. Docker's default stop timeout
+is shorter than this drain window, so the documented container command uses
+`--stop-timeout 240`. Separately configure the hosting platform's termination
+grace period to **at least 240 seconds**; otherwise the platform can still kill
+the process mid-drain and the Mastra setting has no effect.
 
 Active-run ownership is in-memory. A restart during an active run loses that
 ownership even though thread data is durable in Postgres — the turn does not
@@ -116,9 +128,10 @@ resume and the operator must retry.
 ```bash
 BASE=https://<your-mastra-origin>
 
-curl -s -o /dev/null -w '%{http_code}\n' "$BASE/health"            # 200
-curl -s -o /dev/null -w '%{http_code}\n' "$BASE/api/agents"        # 401
-curl -s -o /dev/null -w '%{http_code}\n' "$BASE/api/workflows"     # 401
+curl -s -o /dev/null -w '%{http_code}\n' "$BASE/health"                    # 200 liveness
+curl -s -o /dev/null -w '%{http_code}\n' "$BASE/api/agents"                # 401
+curl -s -o /dev/null -w '%{http_code}\n' "$BASE/api/workflows"             # 401
+curl -s -o /dev/null -w '%{http_code}\n' "$BASE/ipix/run-control/active"   # 401
 ```
 
 Then, with a real operator JWT, `GET /api/agents` must return `200`.
@@ -127,21 +140,26 @@ Then, with a real operator JWT, `GET /api/agents` must return `200`.
 
 - [ ] One instance only; autoscaling and replicas disabled.
 - [ ] Stable HTTPS origin.
-- [ ] Healthcheck `GET /health`.
-- [ ] Restart policy enabled; termination grace >= `drainTimeout`.
+- [ ] Liveness check `GET /health`; do not treat this alone as readiness.
+- [ ] Docker stop timeout and platform termination grace are both >= 240s (`drainTimeout`).
 - [ ] `MASTRA_HOST=0.0.0.0`.
 - [ ] All required env vars above set on the host.
 - [ ] Public `GET /api/agents` returns `401`.
 
 ## Known gaps
 
-1. **Agent id mismatch.** `GET /api/agents` returns the agent keyed
-   `production-planner` while the frontend resolves `default`. Planner chat fails
-   to mount until [PR #260](https://github.com/amoai-tech/ipixai/pull/260) merges.
-2. **`SUPABASE_SERVICE_ROLE_KEY` on a public-facing process.** The
-   `brand-intelligence` workflow builds a service-role client, and
-   `/api/workflows/*` is reachable by any authenticated operator. This bypasses
-   RLS on a tenant-reachable route and needs its own task.
-3. **Auth config fail-fast (IPI-1308).** `getPublicSupabaseConfig()` returns
-   `null` silently, so a misconfigured host answers `401` to every request with no
-   diagnostic and `/health` still reports `200`.
+1. **Privileged workflow authorization (IPI-1326).** The production
+   `brand-intelligence` and `shoot-plan-review` workflows perform service-role
+   operations. Supabase service-role bypasses RLS, so caller-supplied identity
+   fields such as `actorId` / `stagedBy` cannot be authorization truth. IPI-1326
+   owns deriving actor/org identity from authenticated Mastra `RequestContext`
+   and proving Org B cannot execute as Org A. PR #252 is a separate Brand
+   Intelligence golden-path change and must not be used to widen this deployment
+   PR.
+2. **Auth config fail-fast (IPI-1308).** `server-auth.ts` still reads the
+   Next/browser-named Supabase variables and `/health` can be `200` while
+   authenticated traffic is unusable. IPI-1308 owns server-only
+   `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` and the stronger readiness gate.
+
+PR #260 / IPI-1312 is merged on current `main`; the earlier `default` versus
+`production-planner` agent-ID mismatch is no longer a blocker for this PR.
