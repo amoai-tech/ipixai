@@ -223,6 +223,34 @@ describe("IPI-1290 TenantAbortRunner exact-run Stop", () => {
     expect(slow2.runs).toBe(0);
   });
 
+  // Full journey on the local (Production) path: R1 -> Stop(R1) -> R2 -> late Stop(R1).
+  it("R1 stops on Stop(R1); a late Stop(R1) then leaves R2 running to completion", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const slow1 = new SlowAgent();
+    const slow2 = new SlowAgent();
+
+    const r1 = collect(
+      runner.run({ threadId, agent: wrapAbortRun(slow1), input: input(threadId, "R1") }),
+    );
+    await vi.waitFor(async () => expect(await runner.isRunning({ threadId })).toBe(true));
+    expect(await runner.stop({ threadId, runId: "R1" })).toBe(true);
+    await r1.done;
+
+    const r2 = collect(
+      runner.run({ threadId, agent: wrapAbortRun(slow2), input: input(threadId, "R2") }),
+    );
+    await vi.waitFor(async () => expect(await runner.isRunning({ threadId })).toBe(true));
+    expect(await runner.stop({ threadId, runId: "R1" })).toBe(false);
+    await r2.done;
+
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(slow1.finished).toBe(false);
+    expect(slow2.finished).toBe(true);
+    expect(r2.events.map((e) => e.type)).toContain(EventType.RUN_FINISHED);
+  });
+
   it("another tenant cannot stop the run", async () => {
     memoryGate = Promise.resolve();
     const threadId = nextThread();
