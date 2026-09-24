@@ -1,3 +1,4 @@
+import type { RequestContext } from "@mastra/core/request-context";
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 
@@ -5,9 +6,14 @@ import {
   PLAN_APPROVAL_DECISIONS,
   parseShootPlanApprovalSnapshot,
 } from "@/lib/shoot/plan-approval";
+import { createClient } from "@supabase/supabase-js";
+
+import { authorizePlanReviewEditor } from "@/lib/shoot/plan-review-authorization";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { rpcCallFromClient } from "@/lib/supabase/rpc-adapter";
+import { brandOrgLookupFromClient, rpcCallFromClient } from "@/lib/supabase/rpc-adapter";
 import { stageShootPlanRevision } from "@/lib/shoot/stage-shoot-plan-revision";
+import { resolveSupabaseUserAuthConfig } from "@/mastra/server-auth";
+import { requireAuthenticatedWorkflowUser } from "@/mastra/workflow-identity";
 
 /**
  * IPI-1084 · APPROVAL-001 — exact-revision review lifecycle.
@@ -17,6 +23,11 @@ import { stageShootPlanRevision } from "@/lib/shoot/stage-shoot-plan-revision";
  * (approval id, brand id, revision, plan hash — never the plan body, org ids or
  * user ids), and on resume re-reads the durable approval row before continuing
  * so a stale, superseded or not-yet-recorded decision fails closed.
+ *
+ * The suspend payload stays id-free, but the run snapshot also persists the
+ * start RequestContext (IPI-1326): the verified `{ id, orgId, resourceId }`
+ * under `mastra__user` and `mastra__resourceId`. Mastra's snapshot
+ * serialization drops the auth token, so no credential is stored.
  */
 
 const MAX_PLAN_BYTES = 262_144;
@@ -68,23 +79,58 @@ async function requireServiceRoleClient() {
   return sb;
 }
 
+/**
+ * IPI-1326 — the run must carry an authenticated Mastra user (HTTP auth or a
+ * trusted in-process RequestContext). Re-run the same editor/owner check as
+ * `POST /api/plans/reviews` under that user's own session (RLS +
+ * `is_org_editor_or_above`) before any service-role staging, and bind
+ * `stagedBy` to that user. A missing identity or mismatching claim fails closed.
+ */
+async function resolveStager(
+  requestContext: Pick<RequestContext, "get"> | undefined,
+  brandId: string,
+  claimedStagedBy: string | null | undefined,
+): Promise<string> {
+  const user = requireAuthenticatedWorkflowUser(requestContext, claimedStagedBy);
+  if (!user.accessToken) throw new Error("Authenticated workflow session unavailable");
+
+  const config = resolveSupabaseUserAuthConfig();
+  const userClient = createClient(config.url, config.publishableKey, {
+    auth: { persistSession: false },
+    global: { headers: { Authorization: `Bearer ${user.accessToken}` } },
+  });
+  const authorization = await authorizePlanReviewEditor(
+    { brandId, operatorId: user.userId },
+    {
+      brands: { selectOrgId: brandOrgLookupFromClient(userClient) },
+      rpc: rpcCallFromClient(userClient),
+    },
+  );
+  if (!authorization.ok) throw new Error(`Plan review not authorized: ${authorization.code}`);
+  if (authorization.orgId !== user.orgId) {
+    throw new Error("Brand is outside the authenticated organization");
+  }
+  return user.userId;
+}
+
 const stageRevision = createStep({
   id: "stageRevision",
   inputSchema: shootPlanReviewInputSchema,
   outputSchema: stagedRevisionSchema,
-  execute: async ({ inputData, runId }) => {
+  execute: async ({ inputData, runId, requestContext }) => {
     const serialized = JSON.stringify(inputData.plan);
     if (serialized.length > MAX_PLAN_BYTES) {
       throw new Error("Plan exceeds the maximum reviewable size");
     }
 
+    const stagedBy = await resolveStager(requestContext, inputData.brandId, inputData.stagedBy);
     const sb = await requireServiceRoleClient();
     const outcome = await stageShootPlanRevision(
       {
         brandId: inputData.brandId,
         workflowRunId: runId,
         plan: inputData.plan,
-        stagedBy: inputData.stagedBy ?? null,
+        stagedBy,
         agentThreadId: inputData.agentThreadId ?? null,
         expiresAt: inputData.expiresAt ?? null,
       },

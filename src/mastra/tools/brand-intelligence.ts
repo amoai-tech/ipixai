@@ -4,6 +4,10 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requestToken } from "@/lib/request-token";
 import { getPublicSupabaseConfig } from "@/lib/supabase/env";
+import {
+  createTrustedWorkflowRequestContext,
+  readAuthenticatedWorkflowUser,
+} from "@/mastra/workflow-identity";
 
 /**
  * IPI-1093 · BRAND-INTEL-001 — operator tools for the brand-intelligence
@@ -11,10 +15,11 @@ import { getPublicSupabaseConfig } from "@/lib/supabase/env";
  * on the current iPix stack:
  *
  * - startBrandAnalysis: starts the brand-intelligence workflow (crawl →
- *   extraction → draft → operator review). The workflow's validateBrand step
- *   performs the real authorization (org editor/owner or brand owner) using
- *   the actorId resolved from the verified session JWT — never a
- *   browser-supplied actor.
+ *   extraction → draft → operator review) with an authenticated
+ *   RequestContext built from the verified session JWT (IPI-1326). The
+ *   workflow's validateBrand step performs the real authorization (org
+ *   editor/owner or brand owner) from that context — never a browser- or
+ *   model-supplied actor.
  * - approveDraft: the operator's approve/reject decision. Uses a
  *   user-scoped Supabase client (the session JWT) so the
  *   approve/reject_brand_intelligence_draft SECURITY DEFINER RPCs see the
@@ -66,18 +71,6 @@ function requireSupabaseConfig() {
   return config;
 }
 
-async function resolveOperatorId(accessToken: string): Promise<string> {
-  const config = requireSupabaseConfig();
-  const sb = createClient(config.url, config.publishableKey, {
-    auth: { persistSession: false },
-  });
-  const { data, error } = await sb.auth.getUser(accessToken);
-  if (error || !data?.user?.id) {
-    throw new Error("Access token not available in request context");
-  }
-  return data.user.id;
-}
-
 export const StartBrandAnalysisInputSchema = z.object({
   brandId: z.string().uuid(),
 });
@@ -102,13 +95,23 @@ export const startBrandAnalysis = createTool({
     { requestContext },
   ): Promise<{ runId: string; message: string }> => {
     const accessToken = requireAccessToken(requestContext);
-    const operatorId = await resolveOperatorId(accessToken);
+    // IPI-1326: the workflow accepts only an authenticated RequestContext.
+    // Reuse Mastra server auth's on the HTTP path; otherwise (server action,
+    // in-process Planner) build one from the verified session token.
+    const workflowContext = readAuthenticatedWorkflowUser(requestContext)
+      ? requestContext
+      : await createTrustedWorkflowRequestContext(accessToken);
+    const operator = readAuthenticatedWorkflowUser(workflowContext);
+    if (!workflowContext || !operator) {
+      throw new Error("Could not verify the operator's session and organization");
+    }
 
     const { getMastra } = await import("@/mastra/runtime");
     const workflow = getMastra().getWorkflow("brand-intelligence");
     const run = await workflow.createRun();
     const { runId } = await run.startAsync({
-      inputData: { brandId: inputData.brandId, actorId: operatorId },
+      inputData: { brandId: inputData.brandId, actorId: operator.userId },
+      requestContext: workflowContext,
     });
 
     return {
