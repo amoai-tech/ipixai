@@ -41,13 +41,14 @@ export function attachRunnerAbort(agents: Record<string, AbstractAgent>) {
  * Bind abort on run() after the store registers the thread (not a one-shot body peek).
  */
 /**
- * runnerThreadId → the run still starting (before super.run registers it).
- * One record per run: a Stop marks only the record whose runId it names, and
- * each run removes only its own record, so an overlapping or cancelled start
- * can never erase or inherit another run's Stop.
+ * runnerThreadId → every run on that thread still starting (before super.run
+ * registers it). One record per run: a Stop marks only the records whose runId
+ * it names, and each run removes only its own record, so overlapping or
+ * cancelled starts can never erase or inherit another run's Stop.
  */
 type PendingRun = { runId: string | undefined; stopRequested: boolean };
-const pendingRuns = new Map<string, PendingRun>();
+const pendingRuns = new Map<string, Set<PendingRun>>();
+
 
 export class TenantAbortRunner extends InMemoryAgentRunner {
   constructor(
@@ -90,12 +91,17 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
       return runAgent(runInput, subscribers);
     };
     const pending: PendingRun = { runId: request.input?.runId, stopRequested: false };
-    pendingRuns.set(runnerThreadId, pending);
+    const threadPending = pendingRuns.get(runnerThreadId) ?? new Set<PendingRun>();
+    threadPending.add(pending);
+    pendingRuns.set(runnerThreadId, threadPending);
     return new Observable<BaseEvent>((subscriber) => {
       let inner: { unsubscribe: () => void } | undefined;
       let cancelled = false;
+      // Remove only this run's record; another run starting on the same
+      // thread keeps its own record (and any Stop already marked on it).
       const releasePending = () => {
-        if (pendingRuns.get(runnerThreadId) === pending) {
+        threadPending.delete(pending);
+        if (threadPending.size === 0 && pendingRuns.get(runnerThreadId) === threadPending) {
           pendingRuns.delete(runnerThreadId);
         }
       };
@@ -145,11 +151,15 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
     const runnerThreadId = this.scope(request.threadId);
     // IPI-1290: a Stop scoped to another run (e.g. a late Stop(R1) while R2
     // is still starting) must not cancel the pending run.
-    const pending = pendingRuns.get(runnerThreadId);
-    const stopsPending =
-      pending !== undefined &&
-      (request.runId === undefined || request.runId === pending.runId);
-    if (stopsPending) pending.stopRequested = true;
+    // A Stop without a runId keeps its pre-1.73 meaning ("stop this thread's
+    // current run") and only ever reaches this tenant's scoped thread.
+    let stopsPending = false;
+    for (const pending of pendingRuns.get(runnerThreadId) ?? []) {
+      if (request.runId === undefined || request.runId === pending.runId) {
+        pending.stopRequested = true;
+        stopsPending = true;
+      }
+    }
     const stopped = await super.stop({
       ...request,
       threadId: runnerThreadId,

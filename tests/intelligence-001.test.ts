@@ -315,19 +315,22 @@ describe("IPI-1009 intelligence tenant safety", () => {
     expect(body.runId).toBe("R1");
   });
 
-  it("rejects a malformed Stop body with 400", async () => {
-    enableIntelligence();
-    memberships.rows = [{ org_id: ORG_A }];
-    mockOrgAThreadOwnership();
+  it.each([{ runId: "" }, { runId: 123 }])(
+    "rejects a malformed Stop body %j with 400",
+    async (body) => {
+      enableIntelligence();
+      memberships.rows = [{ org_id: ORG_A }];
+      mockOrgAThreadOwnership();
 
-    const stop = await POST(
-      copilotRequest(
-        `/api/copilotkit/agent/default/stop/${encodeURIComponent(ORG_A_THREAD)}`,
-        { method: "POST", body: { runId: "" } },
-      ),
-    );
-    expect(stop.status).toBe(400);
-  });
+      const stop = await POST(
+        copilotRequest(
+          `/api/copilotkit/agent/default/stop/${encodeURIComponent(ORG_A_THREAD)}`,
+          { method: "POST", body },
+        ),
+      );
+      expect(stop.status).toBe(400);
+    },
+  );
 
   it("lists threads under the org+user Intelligence identity", async () => {
     enableIntelligence();

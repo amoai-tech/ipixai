@@ -135,9 +135,7 @@ describe("IPI-1290 TenantAbortRunner exact-run Stop", () => {
     expect(slow.finished).toBe(false);
   });
 
-  // Codacy review on PR 270: pending-run cleanup must be run-specific. A run
-  // cancelled while starting must not erase the next run's pending record,
-  // or a Stop for that next run is lost and it runs anyway.
+  // Regression: a cancelled run's late cleanup must not delete the next run's pending record.
   it("a cancelled starting run cannot erase the next run's pending Stop", async () => {
     memoryGate = new Promise((resolve) => (releaseMemory = resolve));
     const threadId = nextThread();
@@ -157,6 +155,51 @@ describe("IPI-1290 TenantAbortRunner exact-run Stop", () => {
     releaseMemory();
     await rb.done;
     expect(slowB.runs).toBe(0);
+  });
+
+  // Regression: two runs starting on one thread each keep their own pending record.
+  it("Stop(R1) while R1 and R2 are both starting stops only R1", async () => {
+    memoryGate = new Promise((resolve) => (releaseMemory = resolve));
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const slow1 = new SlowAgent();
+    const slow2 = new SlowAgent();
+
+    const r1 = collect(
+      runner.run({ threadId, agent: wrapAbortRun(slow1), input: input(threadId, "R1") }),
+    );
+    const r2 = collect(
+      runner.run({ threadId, agent: wrapAbortRun(slow2), input: input(threadId, "R2") }),
+    );
+    expect(await runner.stop({ threadId, runId: "R1" })).toBe(true);
+    releaseMemory();
+
+    await Promise.all([r1.done, r2.done]);
+    expect(slow1.runs).toBe(0);
+    expect(slow2.runs).toBe(1);
+    expect(r2.events.map((e) => e.type)).toContain(EventType.RUN_FINISHED);
+  });
+
+  it("Stop(R2) while R1 and R2 are both starting stops only R2", async () => {
+    memoryGate = new Promise((resolve) => (releaseMemory = resolve));
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const slow1 = new SlowAgent();
+    const slow2 = new SlowAgent();
+
+    const r1 = collect(
+      runner.run({ threadId, agent: wrapAbortRun(slow1), input: input(threadId, "R1") }),
+    );
+    const r2 = collect(
+      runner.run({ threadId, agent: wrapAbortRun(slow2), input: input(threadId, "R2") }),
+    );
+    expect(await runner.stop({ threadId, runId: "R2" })).toBe(true);
+    releaseMemory();
+
+    await Promise.all([r1.done, r2.done]);
+    expect(slow2.runs).toBe(0);
+    expect(slow1.runs).toBe(1);
+    expect(r1.events.map((e) => e.type)).toContain(EventType.RUN_FINISHED);
   });
 
   it("another tenant cannot stop the run", async () => {

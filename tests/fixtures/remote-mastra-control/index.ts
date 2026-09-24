@@ -18,6 +18,9 @@ const fixtureAuth = defineAuth<{ id: string; resourceId: string }>({
   mapUserToResourceId: (user) => user.resourceId,
 });
 
+/** Hang guard only (~30 s at 150 ms/tick): runs end by Stop or release, never by time. */
+const MAX_TICKS = 200;
+
 /** Set by POST /fixture/release: lets the currently streaming run finish normally. */
 let released = false;
 
@@ -43,9 +46,9 @@ const model = {
         controller.enqueue({ type: "text-start", id: "fixture-text" });
         // Stream until the run is stopped or the test releases it, so the
         // test never races cold `tsx` controller start-up against a fixed
-        // stream length. Hard cap keeps a broken test from hanging forever.
+        // stream length.
         released = false;
-        for (let i = 1; i <= 200; i++) {
+        for (let i = 1; i <= MAX_TICKS; i++) {
           await sleep(150);
           if (options?.abortSignal?.aborted) break;
           controller.enqueue({ type: "text-delta", id: "fixture-text", delta: `tick-${i} ` });
