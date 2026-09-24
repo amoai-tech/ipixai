@@ -30,7 +30,8 @@
     "e2e:approval": "PLAYWRIGHT_BROWSERS_PATH=0 node scripts/run-approval-001-e2e.mjs",
     "dev:e2e": "node scripts/dev-guard.mjs --port 3015 -- next dev --turbopack -p 3015",
     "e2e:install": "PLAYWRIGHT_BROWSERS_PATH=0 playwright install chromium",
-    "docs:check": "node scripts/check-doc-links.mjs"
+    "docs:check": "node scripts/check-doc-links.mjs",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.58",
@@ -70,6 +71,7 @@
     "@types/pg": "8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.11",
     "concurrently": "^9.1.2",
     "dotenv": "^16.4.7",
     "jsdom": "^30.0.1",
