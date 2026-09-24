@@ -59,7 +59,15 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
     // Idle = the answer finished: with an empty composer the send button is
     // disabled (while a run streams it is the enabled Stop button).
     await expect(dock.getByTestId("copilot-send-button")).toBeDisabled({ timeout: PLAN_TIMEOUT_MS });
-    if ((await card.count()) === 0) {
+    // Give a card from the first answer a moment to paint before following up.
+    const rendered = await card
+      .last()
+      .waitFor({ state: "visible", timeout: 10_000 })
+      .then(
+        () => true,
+        () => false,
+      );
+    if (!rendered) {
       await send(page, "Compose the full shoot plan now with what you have; mark the rest as needs input.");
     }
     await expect(card.last(), "the composed plan renders as a plan card").toBeVisible({
