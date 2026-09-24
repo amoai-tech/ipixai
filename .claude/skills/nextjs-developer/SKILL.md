@@ -100,3 +100,16 @@ Single entry point for App Router work in `src/app/`. Load **`references/` on de
 | `archive/nextjs-app-router-patterns` | `references/app-router.md` |
 
 [Upstream docs](https://jeffallan.github.io/claude-skills/skills/frontend/nextjs-developer/)
+
+---
+
+## PR review mode
+
+When reviewing changed Next.js code, verify against the installed Next.js version and focus on material regressions:
+
+- secrets/service-role credentials remain server-only; client state is never authorization;
+- route handlers and Server Actions authenticate and authorize tenant-scoped reads/writes;
+- user/tenant data does not become accidentally static/cached;
+- `proxy.ts` preserves Supabase session refresh and protected-route behavior; do not introduce `middleware.ts`;
+- runtime/deployment changes remain compatible with the repository's current deployment ownership;
+- prefer targeted route/component tests plus `npm run typecheck`; require a production build only when runtime/build behavior is in scope.

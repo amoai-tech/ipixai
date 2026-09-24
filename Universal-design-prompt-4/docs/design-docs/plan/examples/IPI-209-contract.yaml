@@ -6,7 +6,7 @@ title: Shoot Detail page — fix /app/shoots/[id] 404
 type: ui-screen
 
 skills:
-  - ipix-task-lifecycle
+  - tasks
   - design-md
   - fashion-production
   - feature-dev

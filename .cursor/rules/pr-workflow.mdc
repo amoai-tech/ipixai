@@ -5,7 +5,7 @@ alwaysApply: true
 
 # PR workflow (Cursor)
 
-Canonical details: `.claude/skills/tasks/SKILL.md` plus `references/github-pr.md`, `review-comments.md`, `github-actions.md`, and `post-merge.md`. `pr-workflow` is a deprecated compatibility alias. PR body: `pr-description.mdc`.
+Canonical details: `.claude/skills/tasks/SKILL.md` plus `.claude/skills/tasks/references/github-pr.md`, `.claude/skills/tasks/references/review-comments.md`, `.claude/skills/tasks/references/github-actions.md`, and `.claude/skills/tasks/references/post-merge.md`. PR body: `.cursor/rules/pr-description.mdc`.
 
 ## Before / during the PR
 
