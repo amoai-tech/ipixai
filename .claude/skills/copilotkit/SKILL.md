@@ -142,3 +142,21 @@ Use MCP alongside references when API signatures may have changed since the bund
 2. Load **only** that topic's entry guide (`references/<topic>/...`).
 3. Load deeper sub-references **on demand** when the guide points to them — keep context lean.
 4. For framework wiring, also load [`references/runtime/runtime.md`](references/runtime/runtime.md) when server-side detail is needed.
+
+---
+
+## iPix PR review invariants
+
+When this skill is loaded for PR review, review only changed behavior and verify version-sensitive claims against installed source/types before blocking.
+
+- Stay on `@copilotkit/runtime/v2` and `@copilotkit/react-core/v2` unless the change proves an intentional supported migration.
+- Preserve the authenticated `/api/copilotkit` runtime/transport contract and registered `agentId="default"`.
+- Thread, connect, stop, runner, and HITL behavior must remain tenant-scoped; **Browser-supplied IDs are not authorization**.
+- For cloning, abort/stop, streaming, interrupts, or HITL changes, verify both installed CopilotKit and `@ag-ui/mastra` source/types.
+- Require a concrete failure scenario; deterministic tests/CI outrank speculative AI review.
+- Prefer targeted CopilotKit route/component tests, then `npm run typecheck`; use broader proof only when the changed boundary requires it.
+
+For a changed v2 import finding, include exactly:
+- `Fix: Restore the changed CopilotKit import to its `/v2` subpath.`
+- `Verification: Run the existing targeted CopilotKit route tests, then `npm run typecheck`.`
+- `Expected result: The route uses the `/v2` import and the targeted tests/typecheck pass.`

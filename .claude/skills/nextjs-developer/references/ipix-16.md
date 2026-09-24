@@ -79,4 +79,4 @@ After codemod: `cd app && npm run typecheck && npm run build && npm test`.
 | Mastra agents | `mastra` |
 | Supabase auth in Next | `ipix-supabase` → `references/auth/nextjs.md` |
 | UI / tokens | `design-md`, `frontend-design` |
-| PR review | `pr-workflow` |
+| PR review | `tasks` → PR/review references |

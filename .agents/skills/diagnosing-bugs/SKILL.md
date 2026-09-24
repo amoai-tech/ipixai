@@ -5,6 +5,11 @@ description: Diagnosis loop for hard bugs and performance regressions. Use when 
 
 # Diagnosing Bugs
 
+## Route by failure type
+
+- **Application/runtime/performance bug:** use the general diagnosis loop below.
+- **Failing or flaky automated test:** use the same loop, plus `references/automated-test-debugging.md` for framework-specific locator, timing, assertion, flow, DOM, trace, and stabilization guidance. This is the canonical automated-test debugging mode; do not create a separate test-debugging skill.
+
 A discipline for hard bugs. Skip phases only when explicitly justified.
 
 When exploring the codebase, read `CONTEXT.md` (if it exists) to get a clear mental model of the relevant modules, and check ADRs in the area you're touching.

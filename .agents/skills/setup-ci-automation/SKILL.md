@@ -64,13 +64,13 @@ When the environment renders Mermaid, present a workflow — existing or propose
 
 Tasks worth wiring to CI events — the named skill owns each task's content:
 
-| Event         | Automation                                                  | Task owner                                           |
-| ------------- | ----------------------------------------------------------- | ---------------------------------------------------- |
-| PR opened     | Generate test cases from the PR diff                        | `pull-request-diff-analyzer` + `qa-write-test-cases` |
-| Issue opened  | QA-analyze the feature — edge cases, acceptance criteria    | `qa-thinking`                                        |
-| Deploy done   | Create a scoped test run, launch affected tests             | `setup-change-aware-pr-testing`                      |
-| Schedule      | Detect duplicate or overlapping test cases                  | `qa-automation-test-consolidation`                        |
+| Event         | Automation                                                  | Task owner                                  |
+| ------------- | ----------------------------------------------------------- | ------------------------------------------- |
+| PR opened     | Analyze PR intent/diff and generate targeted test cases     | `qa-pr-analysis` + `qa-write-test-cases`    |
+| Issue opened  | QA-analyze feature risks and edge cases                     | `qa-review`                                 |
+| Deploy done   | Create a scoped Testomat.io run and launch affected tests | `testomatio` → PR-testing reference |
+| Schedule      | Detect duplicate or overlapping test cases                  | `qa-automation-test-consolidation`          |
 
 ## Related skills
 
-`setup-change-aware-pr-testing` (the coverage-driven PR testing workflow built on this skill), `run-tests-with-testomatio-reporter` (reporter commands for run-related jobs), `testing-workflow` (routes QA tasks to the skills that own them).
+`testomatio` → `references/pr-testing.md` (change-aware Testomat.io CI) and `references/runs.md` (reporter run commands); `testing-workflow` routes QA tasks to their owners.

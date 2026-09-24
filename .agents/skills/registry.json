@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "skills": {
+    "requirements": {
+      "owner": "product-planning",
+      "type": "workflow",
+      "canonical": ".agents/skills/requirements",
+      "claude": true,
+      "modes": ["epic", "user-story", "qa-review"],
+      "replaces": ["epic-requirements-specification", "write-user-story", "qa-requirement-reviewer"]
+    },
+    "testing-workflow": {
+      "owner": "qa",
+      "type": "router",
+      "canonical": ".agents/skills/testing-workflow"
+    },
+    "diagnosing-bugs": {
+      "owner": "engineering",
+      "type": "workflow",
+      "canonical": ".agents/skills/diagnosing-bugs",
+      "claude": true,
+      "modes": ["general", "automated-test"],
+      "replaces": ["debug-fix-failed-flaky-autotests"]
+    },
+    "testomatio": {
+      "owner": "qa-integration",
+      "type": "integration",
+      "canonical": ".agents/skills/testomatio",
+      "claude": true
+    },
+    "prima": {
+      "owner": "browser-testing",
+      "type": "workflow",
+      "canonical": ".agents/skills/prima"
+    },
+    "playwright-cli": {
+      "owner": "browser-testing",
+      "type": "utility",
+      "canonical": ".agents/skills/playwright-cli",
+      "claude": true
+    },
+    "explorbot": {
+      "owner": "browser-testing",
+      "type": "workflow",
+      "canonical": ".agents/skills/explorbot",
+      "claude": true
+    },
+    "writing-plans": {
+      "owner": "planning",
+      "type": "workflow",
+      "canonical": ".agents/skills/writing-plans",
+      "claude": true
+    },
+    "refactor-plan": {
+      "owner": "planning",
+      "type": "workflow",
+      "canonical": ".agents/skills/refactor-plan",
+      "claude": true
+    }
+  }
+}

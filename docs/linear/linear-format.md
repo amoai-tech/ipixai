@@ -168,7 +168,7 @@ Premium or optional capabilities must **not** block Core MVP unless essential to
 
 **Always use the canonical `tasks` rules, then name only the additional skills/tools actually required by this task.** Typical choices include `task-verifier`, `graphify`, `ipix-supabase`, `mastra`, `copilotkit`, `cloudinary`, `nextjs-developer`, Playwright, GitHub, Linear, Supabase, or other connected MCPs/CLIs.
 
-For every named skill/MCP/CLI/dashboard, state **why it is needed** and verify it is available before relying on it. If the mandatory verification flow above makes a tool required for this task (for example Graphify on substantial cross-file code work, Supabase MCP on schema/RLS work, or task-verifier Standard on substantial implementation), that tool **must also appear in this list**. If a tool is not relevant, record the applicable `N/A — <reason>` in the verification step rather than naming or invoking it. Do not add deprecated `ipix-task-lifecycle` or `pr-workflow` to new task skill lists.
+For every named skill/MCP/CLI/dashboard, state **why it is needed** and verify it is available before relying on it. If the mandatory verification flow above makes a tool required for this task (for example Graphify on substantial cross-file code work, Supabase MCP on schema/RLS work, or task-verifier Standard on substantial implementation), that tool **must also appear in this list**. If a tool is not relevant, record the applicable `N/A — <reason>` in the verification step rather than naming or invoking it. Use `tasks` as the single task/PR lifecycle skill.
 
 ---
 

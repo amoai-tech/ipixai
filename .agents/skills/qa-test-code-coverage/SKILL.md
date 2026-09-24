@@ -36,7 +36,7 @@ Analyze the project's tests — manual markdown cases and automated e2e tests �
   - Project Overview — languages, frameworks, complexity (drives the subagent split in Step 4).
 - Map whatever exists: both kinds go into one coverage file; a single kind is fine too.
 - ❓ If the scan finds no tests at all (it checks the `.testeiya/` cache too), ask the user:
-  1. Pull manual cases from Testomat.io — have `sync-test-cases-with-tms` pull into the cache: `npx check-tests@0.21.0 pull -d .testeiya/manual-tests`, add `.testeiya/` to `.gitignore` if missing, re-run the scan.
+  1. Pull manual cases from Testomat.io — use `testomatio` → `references/sync.md` to pull into the cache: `npx check-tests@0.21.0 pull -d .testeiya/manual-tests`, add `.testeiya/` to `.gitignore` if missing, re-run the scan.
   2. Clone the automated tests repo: `git clone <url> .testeiya/e2e-tests`, add `.testeiya/` to `.gitignore` if missing, re-run the scan.
   3. Point to a directory the scan missed, then re-run the scan there.
   4. Stop.
@@ -66,7 +66,7 @@ grep -rhoE '@[A-Za-z0-9_-]+' <dir> | sort -u    # every @token, tags included
 
 Missing IDs mean the tests were never synced with Testomat.io — the reporter cannot select them:
 
-- ❓ Manual files without IDs: ask whether to push them first via `sync-test-cases-with-tms`, or skip those files.
+- ❓ Manual files without IDs: ask whether to push them first via `testomatio` → `references/sync.md`, or skip those files.
 - Automated tests without IDs in most files: stop and instruct the user to run `npx check-tests@0.21.0 <Framework> "<glob>" --update-ids` first (per-framework commands: [E2E Frameworks](./references/E2E_FRAMEWORKS.md)).
 
 ### Step 3: Plan the coverage map by domain
@@ -161,12 +161,12 @@ npx @testomatio/reporter@2.16.0 run --kind manual \
 
 ### Step 8: Suggest follow-ups
 
-- Wire the map into CI — runs created per PR and launched on preview/merge: delegate to `setup-change-aware-pr-testing`.
-- Run the affected tests right now from the terminal: delegate to `run-tests-with-testomatio-reporter`.
+- Wire the map into CI — runs created per PR and launched on preview/merge: delegate to `testomatio` → `references/pr-testing.md`.
+- Run the affected tests right now from the terminal: delegate to `testomatio` → `references/runs.md`.
 - Coverage gaps — source features no test maps to. On approval, propose new cases (delegate to `qa-write-test-cases`).
 - Dead tests — tests whose features no longer exist in source.
 - Answer questions like "do we have tests for X?" from the inventory.
-- Editing pulled manual cases: edit them in `.testeiya/manual-tests/` and push back with `sync-test-cases-with-tms`.
+- Editing pulled manual cases: edit them in `.testeiya/manual-tests/` and push back with `testomatio` → `references/sync.md`.
 
 ## References
 

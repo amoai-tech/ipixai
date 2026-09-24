@@ -185,7 +185,7 @@ Keep the last working version to roll back to if stuck.
 
 **Max 3 healing attempts. If still failing, stop and report the issues.**
 
-When the root cause is unclear, use the debug-fix-failed-flaky-autotests skill for structured step-by-step diagnosis.
+When the root cause is unclear, use `diagnosing-bugs` in automated-test mode for structured step-by-step diagnosis.
 
 If MCP/debug tools are available:
 - Inspect DOM (`document.querySelector(...).outerHTML`).
