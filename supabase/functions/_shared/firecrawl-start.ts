@@ -40,6 +40,10 @@ function createFirecrawlStartClient(): FirecrawlStartClient {
     apiKey: requireFirecrawlApiKey(),
     apiUrl: firecrawlSdkApiUrl(),
     timeoutMs: FIRECRAWL_START_TIMEOUT_MS,
+    // startCrawl() is a billable POST with no v2 idempotency-key option.
+    // Preserve the previous single-attempt transport semantics so an ambiguous
+    // 502 cannot make the SDK create a second provider job behind one iPix claim.
+    maxRetries: 1,
   });
 }
 
