@@ -1,6 +1,8 @@
 # iPixai skills
 
-Canonical repository skill tree: `.claude/skills/`. Cursor also loads `.cursor/skills` → symlink to the same tree.
+Canonical repository skill source tree: `.agents/skills/`. `.claude/skills/` is the Claude discovery/compatibility layer: shared skills should be symlinks to `.agents/skills/<skill>`, not duplicate directories. Cursor may load `.cursor/skills` through the Claude discovery layer.
+
+**One-real-copy rule:** every skill has exactly one real directory. Prefer `.agents/skills/<skill>/` for reusable/cross-agent skills; expose it to Claude with `.claude/skills/<skill> -> ../../.agents/skills/<skill>`. Existing iPix/Claude-only skills may remain under `.claude/skills/` until migrated, but never keep a second copied directory in `.agents/skills/`.
 
 AI runtime SSOT: `docs/copilotkit-mastra/README.md`. Cursor rules: `.cursor/rules/`.
 
