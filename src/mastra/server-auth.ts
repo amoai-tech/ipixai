@@ -141,13 +141,25 @@ export async function resolveMastraIdentity(
 }
 
 /**
- * IPI-1326 — Mastra's built-in `/api/workflows/*` routes start, resume and list
- * runs from caller-controlled input. The privileged iPix workflows are only
- * driven in-process (Planner tools, Next routes) after server-side
- * authorization, so the raw HTTP workflow surface is denied to every caller.
+ * IPI-1326 — deny-by-default HTTP surface. An authenticated tenant may call
+ * only the exact METHOD + path the Planner's remote client uses:
+ * `@ag-ui/mastra` `getRemoteAgents()` (list agents), the Planner stream, and
+ * iPix run control (Stop). Every other built-in Mastra route (workflows,
+ * datasets, stored agents/workflows, schedules, tools, MCP, memory, …) is 403.
+ * Matching is exact: Hono supplies `c.req.path` (no query) and the uppercase
+ * method, so encoded, trailing-slash or lowercase variants fail closed.
+ * tests/mastra-route-allowlist-contract.test.ts fails if an upgraded client
+ * starts calling a route that is not listed here.
  */
-export function isDeniedMastraRoute(path: string): boolean {
-  return path === "/api/workflows" || path.startsWith("/api/workflows/");
+const ALLOWED_MASTRA_ROUTES: ReadonlySet<string> = new Set([
+  "GET /api/agents",
+  "POST /api/agents/production-planner/stream",
+  "POST /ipix/run-control/active",
+  "POST /ipix/run-control/abort",
+]);
+
+export function isAllowedMastraRoute(method: string, path: string): boolean {
+  return ALLOWED_MASTRA_ROUTES.has(`${method} ${path}`);
 }
 
 export const plannerMastraAuth = defineAuth<PlannerMastraUser>({
@@ -157,6 +169,6 @@ export const plannerMastraAuth = defineAuth<PlannerMastraUser>({
     if (!user) throw new Error("Invalid or unauthorized Supabase token");
     return user;
   },
-  authorize: async (path) => !isDeniedMastraRoute(path),
+  authorize: async (path, method) => isAllowedMastraRoute(method, path),
   mapUserToResourceId: (user) => user.resourceId,
 });

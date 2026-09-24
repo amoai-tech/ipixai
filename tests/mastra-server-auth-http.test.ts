@@ -54,7 +54,7 @@ import { createNodeServer } from "@mastra/deployer/server";
 import { registerApiRoute } from "@mastra/core/server";
 
 import { plannerRunControlRoutes } from "@/mastra/run-control-routes";
-import { plannerMastraAuth } from "@/mastra/server-auth";
+import { isAllowedMastraRoute, plannerMastraAuth } from "@/mastra/server-auth";
 import { MASTRA_USER_KEY, readAuthenticatedWorkflowUser } from "@/mastra/workflow-identity";
 import { brandIntelligenceWorkflow } from "@/mastra/workflows/brand-intelligence";
 import { shootPlanReviewWorkflow } from "@/mastra/workflows/shoot-plan-review";
@@ -98,7 +98,8 @@ beforeAll(async () => {
 
   const mastra = new Mastra({
     agents: {
-      default: new Agent({ id: "default", name: "default", instructions: "fixture", model: model as never }),
+      // Registered like production: key `default`, id `production-planner`.
+      default: new Agent({ id: "production-planner", name: "Production Planner", instructions: "fixture", model: model as never }),
     },
     workflows: {
       "brand-intelligence": brandIntelligenceWorkflow,
@@ -108,7 +109,14 @@ beforeAll(async () => {
       host: "127.0.0.1",
       port: 0,
       handleShutdownSignals: false,
-      auth: plannerMastraAuth,
+      // Production auth, plus the test-only probe route below. Everything else
+      // goes through the real deny-by-default allowlist.
+      auth: {
+        ...plannerMastraAuth,
+        authorize: async (path, method, user, ctx) =>
+          (method === "GET" && path === "/ipix/test/workflow-identity") ||
+          plannerMastraAuth.authorize!(path, method, user, ctx),
+      },
       apiRoutes: [
         ...plannerRunControlRoutes,
         // Test-only probe: what a privileged workflow step would read from the
@@ -187,7 +195,7 @@ describe("standalone Mastra auth over real HTTP (IPI-1308)", () => {
 
   it("scopes run control to the server-derived org+user: Org B cannot inspect or stop Org A's run", async () => {
     const client = new MastraClient({ baseUrl, headers: { Authorization: "Bearer org-a-token" } });
-    const response = await client.getAgent("default").stream(
+    const response = await client.getAgent("production-planner").stream(
       [{ role: "user", content: "start R1" }],
       // The browser-style resource claim is ignored: the server derives it.
       { runId: "R1", memory: { thread: "thread-a", resource: `org:${ORG_B}::user:${USER_B}` } },
@@ -278,5 +286,142 @@ describe("privileged workflows are not reachable over raw Mastra HTTP (IPI-1326)
       { step: "waitForCrawl", resumeData: { failed: true, error: "forged" } },
     );
     expect(res.status).toBe(403);
+  });
+});
+
+type DeniedRoute =
+  | "POST /api/datasets"
+  | "POST /api/stored/workflows"
+  | "GET /api/schedules"
+  | "POST /api/schedules"
+  | "GET /api/agent-builder/x/runs"
+  | "POST /api/agent-builder/x/start-async"
+  | "GET /api/workflows"
+  | "POST /api/workflows/brand-intelligence/start-async"
+  | "GET /api/stored/agents"
+  | "POST /api/stored/agents"
+  | "GET /api/tools"
+  | "POST /api/tools/x/execute"
+  | "GET /api/mcp/v0/servers"
+  | "POST /api/mcp/x/mcp"
+  | "POST /api/agents"
+  | "DELETE /api/agents"
+  | "GET /ipix/run-control/abort"
+  | "GET /api/agents/production-planner"
+  | "POST /api/agents/production-planner/resume-stream"
+  | "POST /api/agents/production-planner/generate"
+  | "GET /api/memory/threads"
+  | "POST /api/memory/threads"
+  | "GET /api/agents/"
+  | "GET /api/agents/production-planner/tools";
+
+/** Static URL per route (no caller-supplied paths reach fetch). */
+function requestDenied(route: DeniedRoute, token: string) {
+  const headers = { Authorization: `Bearer ${token}`, "content-type": "application/json" };
+  const get: RequestInit = { method: "GET", headers };
+  const post: RequestInit = { method: "POST", headers, body: "{}" };
+  switch (route) {
+    case "POST /api/datasets": return fetch(`${baseUrl}/api/datasets`, post);
+    case "POST /api/stored/workflows": return fetch(`${baseUrl}/api/stored/workflows`, post);
+    case "GET /api/schedules": return fetch(`${baseUrl}/api/schedules`, get);
+    case "POST /api/schedules": return fetch(`${baseUrl}/api/schedules`, post);
+    case "GET /api/agent-builder/x/runs": return fetch(`${baseUrl}/api/agent-builder/x/runs`, get);
+    case "POST /api/agent-builder/x/start-async": return fetch(`${baseUrl}/api/agent-builder/x/start-async`, post);
+    case "GET /api/workflows": return fetch(`${baseUrl}/api/workflows`, get);
+    case "POST /api/workflows/brand-intelligence/start-async": return fetch(`${baseUrl}/api/workflows/brand-intelligence/start-async`, post);
+    case "GET /api/stored/agents": return fetch(`${baseUrl}/api/stored/agents`, get);
+    case "POST /api/stored/agents": return fetch(`${baseUrl}/api/stored/agents`, post);
+    case "GET /api/tools": return fetch(`${baseUrl}/api/tools`, get);
+    case "POST /api/tools/x/execute": return fetch(`${baseUrl}/api/tools/x/execute`, post);
+    case "GET /api/mcp/v0/servers": return fetch(`${baseUrl}/api/mcp/v0/servers`, get);
+    case "POST /api/mcp/x/mcp": return fetch(`${baseUrl}/api/mcp/x/mcp`, post);
+    case "POST /api/agents": return fetch(`${baseUrl}/api/agents`, post);
+    case "DELETE /api/agents": return fetch(`${baseUrl}/api/agents`, { method: "DELETE", headers });
+    case "GET /ipix/run-control/abort": return fetch(`${baseUrl}/ipix/run-control/abort`, get);
+    case "GET /api/agents/production-planner": return fetch(`${baseUrl}/api/agents/production-planner`, get);
+    case "POST /api/agents/production-planner/resume-stream": return fetch(`${baseUrl}/api/agents/production-planner/resume-stream`, post);
+    case "POST /api/agents/production-planner/generate": return fetch(`${baseUrl}/api/agents/production-planner/generate`, post);
+    case "GET /api/memory/threads": return fetch(`${baseUrl}/api/memory/threads`, get);
+    case "POST /api/memory/threads": return fetch(`${baseUrl}/api/memory/threads`, post);
+    case "GET /api/agents/": return fetch(`${baseUrl}/api/agents/`, get);
+    case "GET /api/agents/production-planner/tools": return fetch(`${baseUrl}/api/agents/production-planner/tools`, get);
+  }
+}
+
+const DENIED_ROUTES: DeniedRoute[] = [
+  "POST /api/datasets",
+  "POST /api/stored/workflows",
+  "GET /api/schedules",
+  "POST /api/schedules",
+  "GET /api/agent-builder/x/runs",
+  "POST /api/agent-builder/x/start-async",
+  "GET /api/workflows",
+  "POST /api/workflows/brand-intelligence/start-async",
+  "GET /api/stored/agents",
+  "POST /api/stored/agents",
+  "GET /api/tools",
+  "POST /api/tools/x/execute",
+  "GET /api/mcp/v0/servers",
+  "POST /api/mcp/x/mcp",
+  "GET /api/agents/production-planner",
+  "POST /api/agents/production-planner/resume-stream",
+  "POST /api/agents/production-planner/generate",
+  "GET /api/memory/threads",
+  "POST /api/memory/threads",
+];
+
+describe("deny-by-default Mastra HTTP allowlist (IPI-1326)", () => {
+  it.each(DENIED_ROUTES)("authenticated tenant gets 403 for %s", async (route) => {
+    const res = await requestDenied(route, "org-b-token");
+    expect(res.status).toBe(403);
+  });
+
+  // Wrong method / unknown path: Mastra has no handler, so the request never
+  // reaches auth or any route logic. Unmatched GETs fall through to Mastra's
+  // static welcome HTML; everything else is a plain 404. Neither runs code.
+  it.each([
+    "POST /api/agents",
+    "DELETE /api/agents",
+    "GET /ipix/run-control/abort",
+    "GET /api/agents/",
+    "GET /api/agents/production-planner/tools",
+  ] as DeniedRoute[])("%s reaches no handler", async (route) => {
+    const res = await requestDenied(route, "org-b-token");
+    const body = await res.text();
+    if (route.startsWith("GET ")) {
+      expect([200, 404]).toContain(res.status);
+      if (res.status === 200) {
+        expect(res.headers.get("content-type")).toContain("text/html");
+        expect(body).not.toMatch(/"(aborted|runId|agents|name)"/);
+      }
+    } else {
+      expect(res.status).toBe(404);
+    }
+  });
+
+  it("unauthenticated requests still get 401 before authorization", async () => {
+    expect((await fetch(`${baseUrl}/api/datasets`, { method: "POST", body: "{}" })).status).toBe(401);
+  });
+
+  it("public health stays reachable", async () => {
+    expect((await fetch(`${baseUrl}/health`)).status).toBe(200);
+  });
+
+  it.each([
+    ["GET", "/api/agents", true],
+    ["POST", "/api/agents/production-planner/stream", true],
+    ["POST", "/ipix/run-control/active", true],
+    ["POST", "/ipix/run-control/abort", true],
+    ["get", "/api/agents", false],
+    ["HEAD", "/api/agents", false],
+    ["GET", "/api/agents/", false],
+    ["POST", "/api/agents/production-planner/stream/", false],
+    ["POST", "/api/agents/production-planner%2Fstream", false],
+    ["POST", "/api/agents/default/stream", false],
+    ["POST", "/api/agents/production-planner/resume-stream", false],
+    ["GET", "/api/workflows", false],
+    ["POST", "/api/datasets", false],
+  ] as const)("isAllowedMastraRoute(%s, %s) === %s", (method, path, allowed) => {
+    expect(isAllowedMastraRoute(method, path)).toBe(allowed);
   });
 });
