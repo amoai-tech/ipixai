@@ -1,12 +1,12 @@
 ---
-description: "Compatibility shim for the canonical iPix /fastest skill."
+description: "Compatibility command for the canonical iPix tasks fastest-path mode."
 argument-hint: "<IPI-XXX|task name|description>"
 ---
 
-# Legacy /fastest command shim
+# /fastest — verified fastest path
 
-The authoritative workflow is `.claude/skills/fastest/SKILL.md`.
+The authoritative owner is `.claude/skills/tasks/SKILL.md`.
 
-Invoke `/fastest` normally; Claude Code prefers the project skill when a command and skill share the same name. Keep this file only for compatibility with older sessions.
+For `/fastest`, load `.claude/skills/tasks/references/fastest-path.md` and apply it inside the normal `tasks` source-of-truth, security, and verification contract.
 
-**If this file is the only thing that loaded** (your Claude Code version does not auto-prefer the project skill over this command), do not stop here: read `.claude/skills/fastest/SKILL.md` directly right now and follow it for `<IPI-XXX|task name|description>`. Re-invoking `/fastest` will not help in that case.
+This mode is research/planning only: do not edit code, commit, open a PR, mutate production Supabase, or perform consequential writes.
