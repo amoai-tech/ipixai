@@ -33,10 +33,10 @@ async function waitForDraft(page: Page) {
       if (Date.now() > deadline) throw new Error("the draft did not appear in time");
       await page.waitForTimeout(POLL_MS);
     }
-  } catch (error) {
+  } catch (err) {
     // A navigation or locator failure mid-poll surfaces with the brand it was waiting on.
-    throw new Error(`Waiting for the Brand DNA draft of brand ${brandId} failed: ${String(error)}`, {
-      cause: error,
+    throw new Error(`Waiting for the Brand DNA draft of brand ${brandId} failed: ${String(err)}`, {
+      cause: err,
     });
   }
 }
