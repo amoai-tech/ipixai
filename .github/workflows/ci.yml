@@ -97,6 +97,11 @@ jobs:
   playwright-approval-tenant:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      # See supabase-fresh-replay's identical permissions comment: this job
+      # also runs `supabase start` and uses the same retry mitigation.
+      packages: read
     env:
       COPILOTKIT_TELEMETRY_DISABLED: "true"
     steps:
@@ -110,8 +115,48 @@ jobs:
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:
           version: 2.116.0
+      - name: Route image pulls to ECR (ghcr.io is throttled; setup-cli forces ghcr.io)
+        # supabase/setup-cli unconditionally re-exports
+        # SUPABASE_INTERNAL_IMAGE_REGISTRY=ghcr.io via $GITHUB_ENV for CLI
+        # versions >= 1.28.0 (its own src/main.ts, shouldUseGhcrRegistry()) —
+        # a job-level `env:` set before that step runs cannot survive it, but
+        # a later step's $GITHUB_ENV write applies to every step after it, so
+        # this one (placed after setup-cli) wins instead. Verified locally
+        # with a clean image cache: this sequencing actually pulls every
+        # image from public.ecr.aws/supabase/* (the CLI's own upstream
+        # default), not just proves the var is set (2026-09-23).
+        run: echo "SUPABASE_INTERNAL_IMAGE_REGISTRY=public.ecr.aws" >> "$GITHUB_ENV"
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - run: npm ci
-      - run: supabase start
+      - name: Start local Supabase stack with bounded retry
+        # Excludes containers this job never touches. run-approval-001-e2e.mjs
+        # only calls GoTrue's admin API (auth) and lets the app read/write
+        # through PostgREST via Kong (status.API_URL) plus one direct `pg`
+        # connection for fixture seeding and Mastra's PostgresStore — no
+        # Supabase Storage, Realtime, or Edge Functions call anywhere in this
+        # flow (grepped src/ for storage.from(/.channel(/functions.invoke,
+        # zero hits). Verified locally: `supabase start` with this same
+        # --exclude list, then `npm run e2e:approval -- --reset`, passed all
+        # 8 specs (2026-09-23). Excluding unused services reduces startup
+        # work, but Supabase bootstrap may still fetch internal images; the
+        # post-setup ECR override is the primary fix and this retry is only
+        # a transient-failure backstop.
+        run: |
+          for attempt in 1 2 3; do
+            if supabase start --exclude realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor; then
+              exit 0
+            fi
+            echo "supabase start failed (attempt $attempt/3)"
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            supabase stop --no-backup || true
+            sleep $((attempt * 20))
+          done
       - run: supabase db reset --local
       - run: PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium
       # scripts/run-approval-001-e2e.mjs refuses any non-loopback Supabase
@@ -452,6 +497,34 @@ jobs:
   supabase-fresh-replay:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      # `supabase start` pulls the local-dev stack from ghcr.io/supabase/*
+      # and hit a sustained `toomanyrequests: allowed 44000/minute` period on
+      # 2026-09-23 (three unrelated branches failed identically at the same
+      # time; run 35901903158 exhausted all 3 retries pulling even the bare
+      # `postgres` image alone once every other container was excluded).
+      # Confirmed NOT a tracked GitHub platform incident: githubstatus.com's
+      # Packages component reads "operational" throughout, and the one open
+      # incident that day (`8zc63m64hy36`) is Projects/issue-label lag, an
+      # unrelated component — this is ordinary global ghcr.io/supabase pull
+      # contention shared across every GitHub Actions run hitting that image
+      # worldwide (matches supabase/cli#419 and other public repos hitting
+      # the same "toomanyrequests" pulling ghcr.io/supabase/* in Actions).
+      # Authenticating alone was NOT sufficient — still failed after a
+      # successful `docker login ghcr.io` — kept anyway below as harmless
+      # defense-in-depth. The actual fix is forcing
+      # SUPABASE_INTERNAL_IMAGE_REGISTRY=public.ecr.aws (the CLI's own
+      # upstream default before setup-cli overrides it) — an earlier attempt
+      # at this failed because it was a job-level `env:`, which is evaluated
+      # before any step runs and so is clobbered by supabase/setup-cli's own
+      # later $GITHUB_ENV export; setting it as a step placed AFTER
+      # setup-cli instead wins for every subsequent step, and was verified
+      # locally (clean image cache, `supabase start` genuinely pulled every
+      # image from public.ecr.aws/supabase/*, not just accepted the var).
+      # The container exclusion below is a second, independent improvement —
+      # less to pull either way — not a substitute for the registry fix.
+      packages: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -459,7 +532,41 @@ jobs:
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:
           version: 2.116.0
-      - run: supabase start
+      - name: Route image pulls to ECR (ghcr.io is throttled; setup-cli forces ghcr.io)
+        # See playwright-approval-tenant's identical step for the full
+        # explanation: a job-level `env:` cannot survive supabase/setup-cli's
+        # own later $GITHUB_ENV export, but a step placed after it can.
+        run: echo "SUPABASE_INTERNAL_IMAGE_REGISTRY=public.ecr.aws" >> "$GITHUB_ENV"
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Start local Supabase stack with bounded retry
+        # This job is DB-only: generate-supabase-types.mjs connects via
+        # `supabase gen types --db-url` (direct Postgres, not postgres-meta)
+        # and every assertion below is raw `psql`/`pg` against port 54322 —
+        # nothing here goes through Kong/GoTrue/PostgREST/Storage/Realtime/
+        # Edge Functions, so every non-Postgres container is excludable, not
+        # just the admin/observability ones. Verified locally: `supabase
+        # start` with this same --exclude list, then `supabase db reset
+        # --local` plus the full assertion sequence below (all 20+
+        # files/scripts), passed end to end (2026-09-23). The final running
+        # stack is DB-only, but Supabase bootstrap may still fetch internal
+        # images while initializing; the ECR override covers those pulls too.
+        # The retry loop is only a transient-failure backstop.
+        run: |
+          for attempt in 1 2 3; do
+            if supabase start --exclude gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor; then
+              exit 0
+            fi
+            echo "supabase start failed (attempt $attempt/3)"
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            supabase stop --no-backup || true
+            sleep $((attempt * 20))
+          done
       - run: supabase db reset --local
       - name: Verify generated Supabase types are deterministic and current
         run: |

@@ -50,7 +50,7 @@
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.11.0",
     "clsx": "^2.1.1",
-    "hono": "^4",
+    "hono": "^4.13.8",
     "lucide-react": "^0.525.0",
     "mastra": "1.27.2",
     "next": "16.3.5",
@@ -86,6 +86,7 @@
     "@ag-ui/encoder": "0.0.58",
     "@ag-ui/proto": "0.0.58",
     "qs": "6.16.0",
-    "shell-quote": "1.9.0"
+    "shell-quote": "1.9.0",
+    "js-yaml": "3.15.2"
   }
 }
