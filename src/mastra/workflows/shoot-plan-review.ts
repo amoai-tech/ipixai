@@ -1,3 +1,4 @@
+import type { RequestContext } from "@mastra/core/request-context";
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 
@@ -86,7 +87,7 @@ async function requireServiceRoleClient() {
  * `stagedBy` to that user. A missing identity or mismatching claim fails closed.
  */
 async function resolveStager(
-  requestContext: { get: (_key: string) => unknown } | undefined,
+  requestContext: Pick<RequestContext, "get"> | undefined,
   brandId: string,
   claimedStagedBy: string | null | undefined,
 ): Promise<string> {
