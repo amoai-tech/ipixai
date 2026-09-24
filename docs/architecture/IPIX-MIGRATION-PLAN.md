@@ -66,6 +66,9 @@ open company/deal → agent understands record context → recommends action →
 P0-1  Runtime B sees Runtime A's running run
 P0-2  Runtime B receives a NEW live event from A's run
 P0-3  Runtime B stops A's run, A actually terminates
+P0-4  Client disconnect/background recovery: the run reaches one terminal result and can be read/reconnected without duplicate effects
+P0-5  Ownership/fencing: only one owner controls a run generation; owner loss advances recovery to a new generation and stale commands/events cannot affect it
+P0-6  Immediate same-thread rerun: after R1 is terminal, R2 can start immediately on the same thread with no stale idle/abort/event from R1 affecting R2
 ```
 
 **After a candidate passes P0, before production migration:**
