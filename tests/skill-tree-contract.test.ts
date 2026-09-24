@@ -6,7 +6,9 @@ const repoRoot = resolve(import.meta.dirname, "..");
 const agentsRoot = resolve(repoRoot, ".agents/skills");
 const claudeRoot = resolve(repoRoot, ".claude/skills");
 
-const sharedSkills = [
+// Only skills intentionally exposed through Claude belong here. Other canonical .agents skills
+// may remain .agents-only until a Claude workflow needs a compatibility symlink.
+const claudeExposedSharedSkills = [
   "brainstorming",
   "code-review",
   "codebase-design",
@@ -16,10 +18,13 @@ const sharedSkills = [
   "explain",
   "lean",
   "playwright-cli",
+  "qa-pr-analysis",
+  "qa-review",
   "receiving-code-review",
   "refactor-plan",
   "requesting-code-review",
   "research",
+  "explorbot",
   "resolving-merge-conflicts",
   "subagent-driven-development",
   "tdd",
@@ -37,8 +42,8 @@ function realSkillNames(root: string): Set<string> {
 }
 
 describe("canonical skill tree contract", () => {
-  it("keeps reusable shared skills canonical in .agents and symlinked from .claude", () => {
-    for (const skill of sharedSkills) {
+  it("keeps intentionally Claude-exposed shared skills canonical in .agents and symlinked from .claude", () => {
+    for (const skill of claudeExposedSharedSkills) {
       const canonical = resolve(agentsRoot, skill);
       const claude = resolve(claudeRoot, skill);
       expect(existsSync(resolve(canonical, "SKILL.md")), `${skill} canonical SKILL.md`).toBe(true);

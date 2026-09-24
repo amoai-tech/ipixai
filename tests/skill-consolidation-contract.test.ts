@@ -18,7 +18,7 @@ describe("skill consolidation contract", () => {
       "pull-request-diff-analyzer",
       "qa-pr-requirements-analyzer",
     ]) {
-      expect(existsSync(skill(removed)), `${removed} should be removed`).toBe(false);
+      expect(existsSync(resolve(repoRoot, ".agents/skills", removed)), `${removed} directory should be removed`).toBe(false);
     }
 
     const workflow = read(".agents/skills/testing-workflow/SKILL.md");
@@ -30,7 +30,7 @@ describe("skill consolidation contract", () => {
   it("uses one Explorbot skill", () => {
     expect(existsSync(skill("explorbot"))).toBe(true);
     for (const removed of ["explorbot-setup", "explorbot-plan", "explorbot-fundamentals"]) {
-      expect(existsSync(skill(removed)), `${removed} should be removed`).toBe(false);
+      expect(existsSync(resolve(repoRoot, ".agents/skills", removed)), `${removed} directory should be removed`).toBe(false);
     }
   });
 
@@ -53,7 +53,7 @@ describe("skill consolidation contract", () => {
       "sync-test-cases-with-tms",
       "testomatio-mcp",
     ]) {
-      expect(existsSync(skill(removed)), `${removed} should be removed`).toBe(false);
+      expect(existsSync(resolve(repoRoot, ".agents/skills", removed)), `${removed} directory should be removed`).toBe(false);
     }
 
     const workflow = read(".agents/skills/testing-workflow/SKILL.md");

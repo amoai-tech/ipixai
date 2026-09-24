@@ -48,6 +48,8 @@ npx explorbot@0.4.6 explore https://app.example.com/login --max-tests 3
 
 Global provider configuration lives under the user's Explorbot home, not the repository. For CI or one-off environments, use the CLI-documented `EXPLORBOT_*` variables rather than inventing configuration.
 
+For global configuration, ephemeral mode, environment precedence, and the no-project-config trade-offs, read [references/no-install.md](references/no-install.md).
+
 ## Where results land
 
 With a project `explorbot.config.js`, output is project-local. Global/no-install runs use `~/.explorbot/sites/<host>/`.

@@ -18,7 +18,7 @@ alwaysApply: true
 | `mastra-mcp.mdc` | Mastra docs MCP (`alwaysApply: false`) |
 | `linear-governance.mdc` | Live Linear |
 | `linear-task-format.mdc` | IPI issue body → `docs/linear/linear-format.md` |
-| PR lifecycle rule | PR + post-merge pointer → canonical `tasks` references |
+| `pr-workflow.mdc` | PR + post-merge pointer → canonical `tasks` references |
 
 **Hard gates (never override):** never force-push to `main`/`master`; one concern per PR **and** per commit; never combined `npm run dev`; never mutate production **by default** (named task + authorization + rollback + dry-run — `verified-fast-path.mdc`); no client AI keys; do not implement from local `/home/sk/ipix` or copy old Mastra wholesale.
 
