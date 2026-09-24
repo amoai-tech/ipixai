@@ -40,7 +40,8 @@ export function attachRunnerAbort(agents: Record<string, AbstractAgent>) {
  * AUTH-002 resourceId so /stop cannot cancel another org/user's run.
  * Bind abort on run() after the store registers the thread (not a one-shot body peek).
  */
-const pendingRuns = new Set<string>();
+/** runnerThreadId → runId of the run still starting (before super.run registers it). */
+const pendingRuns = new Map<string, string | undefined>();
 const pendingStops = new Set<string>();
 
 export class TenantAbortRunner extends InMemoryAgentRunner {
@@ -87,7 +88,7 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
       );
       return runAgent(runInput, subscribers);
     };
-    pendingRuns.add(runnerThreadId);
+    pendingRuns.set(runnerThreadId, request.input?.runId);
     return new Observable<BaseEvent>((subscriber) => {
       let inner: { unsubscribe: () => void } | undefined;
       let cancelled = false;
@@ -139,7 +140,13 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
 
   override async stop(request: Parameters<InMemoryAgentRunner["stop"]>[0]) {
     const runnerThreadId = this.scope(request.threadId);
-    if (pendingRuns.has(runnerThreadId)) {
+    // IPI-1290: a Stop scoped to another run (e.g. a late Stop(R1) while R2
+    // is still starting) must not cancel the pending run.
+    const pendingRunId = pendingRuns.get(runnerThreadId);
+    if (
+      pendingRuns.has(runnerThreadId) &&
+      (request.runId === undefined || request.runId === pendingRunId)
+    ) {
       pendingStops.add(runnerThreadId);
     }
     const stopped = await super.stop({

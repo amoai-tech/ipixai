@@ -131,6 +131,20 @@ function mockOrgAThreadAccess() {
   return { listSpy, connectSpy };
 }
 
+/** CopilotKit 1.73.3 checks thread ownership via getThread() before Stop. */
+function mockOrgAThreadOwnership() {
+  return vi
+    .spyOn(CopilotKitIntelligence.prototype, "getThread")
+    .mockImplementation(async ({ userId, threadId }) => {
+      if (userId === RESOURCE_A && threadId === ORG_A_THREAD) {
+        return { id: ORG_A_THREAD, agentId: "default" } as Awaited<
+          ReturnType<CopilotKitIntelligence["getThread"]>
+        >;
+      }
+      throw Object.assign(new Error("not found"), { status: 404 });
+    });
+}
+
 describe("IPI-1009 intelligence tenant safety", () => {
   const previousLicense = process.env.COPILOTKIT_LICENSE_TOKEN;
   // IPI-1191 · COPILOT-INTEL-001 — route.ts reads CPK_INTELLIGENCE_API_KEY
@@ -246,6 +260,7 @@ describe("IPI-1009 intelligence tenant safety", () => {
       return new Response(null, { status: 204 });
     });
     memberships.rows = [{ org_id: ORG_A }];
+    mockOrgAThreadOwnership();
 
     const info = await GET(copilotRequest("/api/copilotkit/info", { method: "GET" }));
     expect(info.status).toBe(200);
@@ -264,6 +279,54 @@ describe("IPI-1009 intelligence tenant safety", () => {
       String(input).includes("/ipix/run-control/"),
     );
     expect(controlCalls).toHaveLength(0);
+  });
+
+  // IPI-1290: CopilotKit 1.73.3 sends `{ runId }` on Stop. The exact run
+  // must reach the remote abort boundary without an /active lookup.
+  it("forwards an exact Stop { runId } to the remote abort as that run", async () => {
+    enableIntelligence();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith("/ipix/run-control/abort")) {
+        return new Response(JSON.stringify({ aborted: true }), { status: 200 });
+      }
+      return new Response(null, { status: 204 });
+    });
+    memberships.rows = [{ org_id: ORG_A }];
+    mockOrgAThreadOwnership();
+
+    const stop = await POST(
+      copilotRequest(
+        `/api/copilotkit/agent/default/stop/${encodeURIComponent(ORG_A_THREAD)}`,
+        { method: "POST", body: { runId: "R1" } },
+      ),
+    );
+    expect(stop.status).toBe(200);
+
+    const controlCalls = fetchSpy.mock.calls.filter(([input]) =>
+      String(input).includes("/ipix/run-control/"),
+    );
+    expect(controlCalls.map(([input]) => String(input))).toEqual([
+      expect.stringMatching(/\/ipix\/run-control\/abort$/),
+    ]);
+    const body = JSON.parse(String((controlCalls[0][1] as RequestInit).body)) as {
+      runId?: string;
+    };
+    expect(body.runId).toBe("R1");
+  });
+
+  it("rejects a malformed Stop body with 400", async () => {
+    enableIntelligence();
+    memberships.rows = [{ org_id: ORG_A }];
+    mockOrgAThreadOwnership();
+
+    const stop = await POST(
+      copilotRequest(
+        `/api/copilotkit/agent/default/stop/${encodeURIComponent(ORG_A_THREAD)}`,
+        { method: "POST", body: { runId: "" } },
+      ),
+    );
+    expect(stop.status).toBe(400);
   });
 
   it("lists threads under the org+user Intelligence identity", async () => {
