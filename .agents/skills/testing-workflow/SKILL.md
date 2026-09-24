@@ -11,16 +11,16 @@ Orchestrates the test case lifecycle by routing requests to specialized skills a
 
 | Skill                                | Purpose                                                                           |
 | ------------------------------------ | --------------------------------------------------------------------------------- |
-| direct project inspection (Graphify + manifests/configs/test files)            | Scan source code to inventory languages, frameworks, and existing tests           |
-| `pull-request-diff-analyzer`         | Analyze a PR/branch diff to detect features/fixes and extract acceptance criteria |
+| direct project inspection (Graphify + manifests/configs/test files) | Scan source code to inventory languages, frameworks, and existing tests |
+| `qa-pr-analysis`                     | Analyze PR intent, actual diff, scope alignment, and acceptance criteria          |
 | `qa-explain-behavior`                | Explain what the product does — features, flows, permissions, edge cases, gaps    |
-| `qa-thinking`                        | Analyze a feature as QA — edge cases, negative flows, abuses, risk scenarios      |
+| `qa-review`                          | Review a feature or PR as QA — edge cases, negative flows, compatibility, risk    |
 | `qa-split-testing-levels-pyramid`    | Apply the test pyramid — assign scenarios to testing levels, coverage split       |
-| `write-user-story`                    | Write user stories and acceptance criteria (the requirements)                     |
+| `write-user-story`                   | Write user stories and acceptance criteria (the requirements)                     |
 | `qa-requirement-reviewer`            | Review requirements for ambiguity, gaps, and testability                          |
 | `qa-write-test-cases`                | Generate new test cases and checklists from requirements                          |
 | `improve-test-cases`                 | Improve existing test cases quality                                               |
-| `qa-automation-test-consolidation`        | Find duplicate, near-duplicate, and overlapping test cases                        |
+| `qa-automation-test-consolidation`   | Find duplicate, near-duplicate, and overlapping test cases                        |
 | `sync-test-cases-with-tms`           | Upload/pull test cases to/from Testomat.io TMS                                    |
 | `qa-e2e-tests-reporting`             | Add Testomat.io reporter to your automation project                               |
 | `automate-manual-test-cases`         | Convert manual test cases into automated test scripts (write new autotests)       |
@@ -62,7 +62,7 @@ After generation fully completed, suggest next actions:
 ```
 User: asks "what could go wrong?", "what am I missing?", or "review this as QA"
 =>
-Use `qa-thinking` skill to surface edge cases, negative flows, abuses and risk scenarios
+Use `qa-review` skill to surface edge cases, negative flows, abuses, compatibility concerns, and risk scenarios
 =>
 After analysis fully completed, suggest next actions:
 1. 🧪 Split the scenarios across testing levels (with `qa-split-testing-levels-pyramid` skill)
@@ -85,12 +85,12 @@ After the plan fully completed, suggest next actions:
 ### PR / Diff-Driven Testing Flow
 
 ```
-User: asks to analyze a PR/branch, "what changed", or wants tests for recent changes
+User: asks to analyze a PR/branch, "what changed", whether scope matches the ticket, or wants tests for recent changes
 =>
-Use `pull-request-diff-analyzer` skill to detect features/fixes and extract acceptance criteria
+Use `qa-pr-analysis` in diff mode for "what changed" or combined mode for intent-versus-implementation scope analysis
 =>
 After analysis fully completed, suggest next actions:
-1. 🧠 Deepen QA analysis on the change (with `qa-thinking` skill)
+1. 🧠 Deepen QA risk analysis on the change (with `qa-review` skill)
 2. 📝 Generate test cases for the change (with `qa-write-test-cases` skill)
 3. 🎯 Run only the affected tests via coverage mapping (with `qa-test-code-coverage` skill)
 ```
