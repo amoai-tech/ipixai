@@ -66,3 +66,25 @@ Deno.test("firecrawlStartCrawl fails closed when the SDK returns no job id", asy
     throw new Error(`expected missing-job-id failure, got: ${message}`);
   }
 });
+
+Deno.test("firecrawlStartCrawl propagates SDK failures to the handler cleanup boundary", async () => {
+  const sdk = {
+    async startCrawl() {
+      throw new Error("provider unavailable");
+    },
+  };
+
+  let message = "";
+  try {
+    await firecrawlStartCrawl({
+      url: "https://brand.example",
+      webhook: { url: "https://example.supabase.co/functions/v1/firecrawl-webhook" },
+    }, sdk);
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+
+  if (message !== "provider unavailable") {
+    throw new Error(`expected provider failure to propagate, got: ${message}`);
+  }
+});

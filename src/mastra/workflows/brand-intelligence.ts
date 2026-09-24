@@ -55,7 +55,7 @@ function readDefaultSecretApiKey(raw: string | undefined): string | undefined {
   return value.trim();
 }
 
-export function requireCrawlServiceApiKey(): string {
+function requireCrawlServiceApiKey(): string {
   const key =
     readDefaultSecretApiKey(process.env.SUPABASE_SECRET_KEYS) ??
     process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
@@ -81,7 +81,7 @@ async function requireServiceRoleClient() {
   return sb;
 }
 
-export async function failAnalysis(
+async function failAnalysis(
   brandId: string,
   summary: string,
   detail: unknown,
@@ -199,7 +199,7 @@ const commitOrRejectOutputSchema = z.object({
   status: z.string(),
 });
 
-export const validateBrand = createStep({
+const validateBrand = createStep({
   id: "validateBrand",
   inputSchema: validateBrandInputSchema,
   outputSchema: validateBrandOutputSchema,
@@ -332,7 +332,7 @@ const waitForCrawl = createStep({
   },
 });
 
-export const extractProfile = createStep({
+const extractProfile = createStep({
   id: "extractProfile",
   inputSchema: extractProfileInputSchema,
   outputSchema: extractProfileOutputSchema,
@@ -405,7 +405,7 @@ export const extractProfile = createStep({
   },
 });
 
-export const saveDraftAndWait = createStep({
+const saveDraftAndWait = createStep({
   id: "saveDraftAndWait",
   inputSchema: saveDraftAndWaitInputSchema,
   outputSchema: saveDraftAndWaitOutputSchema,
@@ -490,7 +490,7 @@ export const saveDraftAndWait = createStep({
   },
 });
 
-export const commitOrReject = createStep({
+const commitOrReject = createStep({
   id: "commitOrReject",
   inputSchema: commitOrRejectInputSchema,
   outputSchema: commitOrRejectOutputSchema,

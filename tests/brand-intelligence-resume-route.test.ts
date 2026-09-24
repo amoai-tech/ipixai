@@ -6,7 +6,6 @@ const mocks = vi.hoisted(() => ({
   resume: vi.fn(),
   createRun: vi.fn(),
   getWorkflow: vi.fn(),
-  getWorkflowRunById: vi.fn(),
 }));
 const { resume, createRun, getWorkflow } = mocks;
 
@@ -67,16 +66,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   resume.mockResolvedValue({ status: "success" });
   createRun.mockResolvedValue({ resume });
-  mocks.getWorkflowRunById.mockResolvedValue({ status: "suspended" });
-  getWorkflow.mockImplementation((key: string) => {
-    if (key === "brand-intelligence") {
-      return { createRun, getWorkflowRunById: mocks.getWorkflowRunById };
-    }
-    if (key === "brand-intelligence-v2-golden") {
-      return { createRun: vi.fn(), getWorkflowRunById: vi.fn().mockResolvedValue(null) };
-    }
-    throw new Error(`unexpected workflow ${key}`);
-  });
+  getWorkflow.mockReturnValue({ createRun });
 });
 
 afterEach(() => {
