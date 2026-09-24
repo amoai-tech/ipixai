@@ -1,61 +1,723 @@
 {
-  "version": 1,
+  "version": 2,
   "skills": {
-    "requirements": {
-      "owner": "product-planning",
-      "type": "workflow",
-      "canonical": ".agents/skills/requirements",
-      "claude": true,
-      "modes": ["epic", "user-story", "qa-review"],
-      "replaces": ["epic-requirements-specification", "write-user-story", "qa-requirement-reviewer"]
-    },
-    "testing-workflow": {
+    "automate-manual-test-cases": {
       "owner": "qa",
-      "type": "router",
-      "canonical": ".agents/skills/testing-workflow"
+      "type": "workflow",
+      "summary": "Convert approved manual test cases into maintainable automated tests.",
+      "modes": [
+        "manual-to-automation"
+      ],
+      "delegates_to": [
+        "diagnosing-bugs",
+        "qa-test-code-coverage",
+        "testomatio"
+      ],
+      "do_not_use_for": [
+        "writing product requirements",
+        "debugging unrelated application behavior"
+      ],
+      "claude_exposed": false,
+      "canonical": ".agents/skills/automate-manual-test-cases"
+    },
+    "brainstorming": {
+      "owner": "planning",
+      "type": "methodology",
+      "summary": "Explore intent, constraints, and design before creative implementation work.",
+      "modes": [
+        "design-discovery"
+      ],
+      "delegates_to": [
+        "requirements",
+        "writing-plans"
+      ],
+      "do_not_use_for": [
+        "executing an already-approved implementation plan"
+      ],
+      "claude_exposed": true,
+      "canonical": ".agents/skills/brainstorming"
+    },
+    "code-review": {
+      "owner": "engineering-quality",
+      "type": "review",
+      "summary": "Review changed code against repository standards and the requested specification.",
+      "modes": [
+        "standards",
+        "spec",
+        "pr-agent"
+      ],
+      "delegates_to": [
+        "receiving-code-review",
+        "diagnosing-bugs"
+      ],
+      "do_not_use_for": [
+        "writing implementation plans",
+        "automatic merge or approval"
+      ],
+      "claude_exposed": true,
+      "replaces": [
+        "pr-agent-code-review"
+      ],
+      "canonical": ".agents/skills/code-review"
+    },
+    "codebase-design": {
+      "owner": "architecture",
+      "type": "workflow",
+      "summary": "Design or simplify module seams, interfaces, dependencies, and test surfaces.",
+      "modes": [
+        "module-design",
+        "seam-design"
+      ],
+      "delegates_to": [
+        "domain-modeling",
+        "writing-plans",
+        "refactor-plan"
+      ],
+      "do_not_use_for": [
+        "routine small edits with no architectural decision"
+      ],
+      "claude_exposed": true,
+      "canonical": ".agents/skills/codebase-design"
     },
     "diagnosing-bugs": {
       "owner": "engineering",
       "type": "workflow",
-      "canonical": ".agents/skills/diagnosing-bugs",
-      "claude": true,
-      "modes": ["general", "automated-test"],
-      "replaces": ["debug-fix-failed-flaky-autotests"]
+      "summary": "Diagnose hard runtime, performance, and automated-test failures with a tight feedback loop.",
+      "modes": [
+        "general",
+        "automated-test"
+      ],
+      "delegates_to": [
+        "tdd",
+        "playwright-cli"
+      ],
+      "do_not_use_for": [
+        "feature planning",
+        "requirements discovery"
+      ],
+      "claude_exposed": true,
+      "replaces": [
+        "debug-fix-failed-flaky-autotests"
+      ],
+      "routing_patterns": [
+        "tests?\\s+(?:are\\s+)?flaky\\s+in\\s+ci",
+        "debug\\s+(?:a\\s+)?flaky\\s+test"
+      ],
+      "canonical": ".agents/skills/diagnosing-bugs"
     },
-    "testomatio": {
-      "owner": "qa-integration",
-      "type": "integration",
-      "canonical": ".agents/skills/testomatio",
-      "claude": true
+    "dispatching-parallel-agents": {
+      "owner": "execution",
+      "type": "methodology",
+      "summary": "Parallelize independent tasks that do not share mutable state or sequencing dependencies.",
+      "modes": [
+        "parallel-dispatch"
+      ],
+      "delegates_to": [
+        "subagent-driven-development"
+      ],
+      "do_not_use_for": [
+        "shared mutable state",
+        "sequential dependencies"
+      ],
+      "claude_exposed": true,
+      "canonical": ".agents/skills/dispatching-parallel-agents"
     },
-    "prima": {
-      "owner": "browser-testing",
+    "domain-modeling": {
+      "owner": "architecture",
       "type": "workflow",
-      "canonical": ".agents/skills/prima"
+      "summary": "Clarify iPix terminology, domain ownership, CONTEXT files, and architecture decisions.",
+      "modes": [
+        "glossary",
+        "ownership",
+        "adr"
+      ],
+      "delegates_to": [
+        "codebase-design",
+        "requirements"
+      ],
+      "do_not_use_for": [
+        "routine implementation with no domain ambiguity"
+      ],
+      "claude_exposed": true,
+      "canonical": ".agents/skills/domain-modeling"
     },
-    "playwright-cli": {
-      "owner": "browser-testing",
+    "explain": {
+      "owner": "developer-experience",
       "type": "utility",
-      "canonical": ".agents/skills/playwright-cli",
-      "claude": true
+      "summary": "Explain iPix code, errors, PRs, configs, and technical concepts in plain English.",
+      "modes": [
+        "plain-language"
+      ],
+      "delegates_to": [],
+      "do_not_use_for": [
+        "making code changes",
+        "deciding product requirements"
+      ],
+      "claude_exposed": true,
+      "canonical": ".agents/skills/explain"
     },
     "explorbot": {
-      "owner": "browser-testing",
+      "owner": "qa-browser",
       "type": "workflow",
-      "canonical": ".agents/skills/explorbot",
-      "claude": true
+      "summary": "Run, configure, debug, and plan autonomous Explorbot web testing.",
+      "modes": [
+        "fundamentals",
+        "setup",
+        "plan",
+        "explore"
+      ],
+      "delegates_to": [
+        "playwright-cli",
+        "qa-write-test-cases"
+      ],
+      "do_not_use_for": [
+        "deterministic browser merge gates",
+        "static-content-only testing"
+      ],
+      "claude_exposed": true,
+      "replaces": [
+        "explorbot-fundamentals",
+        "explorbot-setup",
+        "explorbot-plan"
+      ],
+      "routing_patterns": [
+        "explore\\s+this\\s+app\\s+for\\s+bugs",
+        "autonomous\\s+exploratory\\s+(?:browser\\s+)?test"
+      ],
+      "canonical": ".agents/skills/explorbot"
     },
-    "writing-plans": {
-      "owner": "planning",
+    "improve-test-cases": {
+      "owner": "qa",
       "type": "workflow",
-      "canonical": ".agents/skills/writing-plans",
-      "claude": true
+      "summary": "Improve existing manual test cases for clarity, structure, and TMS readiness.",
+      "modes": [
+        "manual-test-improvement"
+      ],
+      "delegates_to": [
+        "automate-manual-test-cases",
+        "testomatio"
+      ],
+      "do_not_use_for": [
+        "writing product requirements",
+        "creating automation from scratch"
+      ],
+      "claude_exposed": false,
+      "canonical": ".agents/skills/improve-test-cases"
+    },
+    "lean": {
+      "owner": "developer-experience",
+      "type": "audit",
+      "summary": "Audit repository and development-loop speed, context waste, worktrees, and CI feedback time.",
+      "modes": [
+        "repo-performance-audit"
+      ],
+      "delegates_to": [
+        "refactor-plan"
+      ],
+      "do_not_use_for": [
+        "single-task implementation planning"
+      ],
+      "claude_exposed": true,
+      "canonical": ".agents/skills/lean"
+    },
+    "playwright-cli": {
+      "owner": "qa-browser",
+      "type": "utility",
+      "summary": "Drive deterministic browser steps and inspect web behavior with Playwright CLI.",
+      "modes": [
+        "browser-automation",
+        "deterministic-steps"
+      ],
+      "delegates_to": [
+        "diagnosing-bugs"
+      ],
+      "do_not_use_for": [
+        "autonomous exploratory testing"
+      ],
+      "claude_exposed": true,
+      "routing_patterns": [
+        "run\\s+deterministic\\s+browser\\s+steps",
+        "deterministic\\s+browser\\s+automation"
+      ],
+      "canonical": ".agents/skills/playwright-cli"
+    },
+    "prima": {
+      "owner": "qa-browser",
+      "type": "workflow",
+      "summary": "Use Prima for higher-level behavioral browser work above Playwright CLI.",
+      "modes": [
+        "behavioral-browser"
+      ],
+      "delegates_to": [
+        "playwright-cli"
+      ],
+      "do_not_use_for": [
+        "autonomous exploratory testing",
+        "browser-free unit tests"
+      ],
+      "claude_exposed": false,
+      "canonical": ".agents/skills/prima"
+    },
+    "qa-automation-test-consolidation": {
+      "owner": "qa",
+      "type": "review",
+      "summary": "Find redundant automated tests and consolidation or parameterization opportunities.",
+      "modes": [
+        "dedupe",
+        "parameterize"
+      ],
+      "delegates_to": [
+        "qa-test-code-coverage",
+        "automate-manual-test-cases"
+      ],
+      "do_not_use_for": [
+        "writing requirements",
+        "fixing a specific failing test"
+      ],
+      "claude_exposed": false,
+      "canonical": ".agents/skills/qa-automation-test-consolidation"
+    },
+    "qa-data-seeder": {
+      "owner": "qa",
+      "type": "workflow",
+      "summary": "Prepare scoped test data for regular, edge, and negative feature scenarios.",
+      "modes": [
+        "seed-test-data"
+      ],
+      "delegates_to": [
+        "qa-write-test-cases"
+      ],
+      "do_not_use_for": [
+        "production data changes"
+      ],
+      "claude_exposed": false,
+      "canonical": ".agents/skills/qa-data-seeder"
+    },
+    "qa-explain-behavior": {
+      "owner": "qa",
+      "type": "utility",
+      "summary": "Explain implemented product behavior, rules, flows, and edge cases from QA evidence.",
+      "modes": [
+        "behavior-analysis"
+      ],
+      "delegates_to": [
+        "qa-write-test-cases",
+        "qa-review"
+      ],
+      "do_not_use_for": [
+        "authoring product requirements",
+        "implementing product code"
+      ],
+      "claude_exposed": false,
+      "canonical": ".agents/skills/qa-explain-behavior"
+    },
+    "qa-lead-strategy-advisor": {
+      "owner": "qa",
+      "type": "advisor",
+      "summary": "Assess QA maturity and propose a high-level quality and automation strategy.",
+      "modes": [
+        "strategy",
+        "maturity"
+      ],
+      "delegates_to": [
+        "testing-workflow",
+        "qa-review"
+      ],
+      "do_not_use_for": [
+        "a single tactical testing task"
+      ],
+      "claude_exposed": false,
+      "canonical": ".agents/skills/qa-lead-strategy-advisor"
+    },
+    "qa-pr-analysis": {
+      "owner": "qa",
+      "type": "review",
+      "summary": "Compare PR intent with its actual code diff and identify scope mismatches.",
+      "modes": [
+        "intent",
+        "diff",
+        "combined"
+      ],
+      "delegates_to": [
+        "qa-review",
+        "code-review"
+      ],
+      "do_not_use_for": [
+        "requirements authoring",
+        "implementation"
+      ],
+      "claude_exposed": true,
+      "replaces": [
+        "qa-pr-requirements-analyzer",
+        "pull-request-diff-analyzer"
+      ],
+      "canonical": ".agents/skills/qa-pr-analysis"
+    },
+    "qa-review": {
+      "owner": "qa",
+      "type": "review",
+      "summary": "Review features, implementations, or PRs for QA risk, edge cases, and negative flows.",
+      "modes": [
+        "feature",
+        "implementation",
+        "pull-request"
+      ],
+      "delegates_to": [
+        "requirements",
+        "qa-explain-behavior",
+        "qa-write-test-cases"
+      ],
+      "do_not_use_for": [
+        "editing production code",
+        "rewriting requirements unless defects are found"
+      ],
+      "claude_exposed": true,
+      "replaces": [
+        "qa-thinking",
+        "qa-review-pr"
+      ],
+      "canonical": ".agents/skills/qa-review"
+    },
+    "qa-split-testing-levels-pyramid": {
+      "owner": "qa",
+      "type": "workflow",
+      "summary": "Place test scenarios at the cheapest sufficient unit, integration, or end-to-end level.",
+      "modes": [
+        "test-pyramid"
+      ],
+      "delegates_to": [
+        "qa-write-test-cases",
+        "automate-manual-test-cases",
+        "qa-test-code-coverage"
+      ],
+      "do_not_use_for": [
+        "writing product requirements"
+      ],
+      "claude_exposed": false,
+      "canonical": ".agents/skills/qa-split-testing-levels-pyramid"
+    },
+    "qa-test-code-coverage": {
+      "owner": "qa",
+      "type": "workflow",
+      "summary": "Map manual and automated tests to source files for test-to-code coverage visibility.",
+      "modes": [
+        "coverage-map"
+      ],
+      "delegates_to": [
+        "qa-write-test-cases",
+        "setup-ci-automation"
+      ],
+      "do_not_use_for": [
+        "product requirements",
+        "runtime performance profiling"
+      ],
+      "claude_exposed": false,
+      "canonical": ".agents/skills/qa-test-code-coverage"
+    },
+    "qa-write-test-cases": {
+      "owner": "qa",
+      "type": "workflow",
+      "summary": "Create test cases, scenarios, checklists, and test plans from approved behavior.",
+      "modes": [
+        "test-cases",
+        "checklists",
+        "test-plan"
+      ],
+      "delegates_to": [
+        "improve-test-cases",
+        "qa-split-testing-levels-pyramid",
+        "automate-manual-test-cases"
+      ],
+      "do_not_use_for": [
+        "product requirements authoring"
+      ],
+      "claude_exposed": false,
+      "canonical": ".agents/skills/qa-write-test-cases"
+    },
+    "receiving-code-review": {
+      "owner": "engineering-quality",
+      "type": "methodology",
+      "summary": "Validate code-review feedback before applying it.",
+      "modes": [
+        "review-feedback"
+      ],
+      "delegates_to": [
+        "diagnosing-bugs",
+        "code-review"
+      ],
+      "do_not_use_for": [
+        "blindly applying reviewer suggestions"
+      ],
+      "claude_exposed": true,
+      "canonical": ".agents/skills/receiving-code-review"
     },
     "refactor-plan": {
       "owner": "planning",
       "type": "workflow",
-      "canonical": ".agents/skills/refactor-plan",
-      "claude": true
+      "summary": "Plan structural migrations where compatibility, sequencing, caller migration, or rollback matters.",
+      "modes": [
+        "migration",
+        "refactor"
+      ],
+      "delegates_to": [
+        "writing-plans",
+        "resolving-merge-conflicts"
+      ],
+      "do_not_use_for": [
+        "ordinary feature plans with no migration risk"
+      ],
+      "claude_exposed": true,
+      "routing_patterns": [
+        "plan\\s+a\\s+risky\\s+multi-file\\s+migration",
+        "plan\\s+(?:a\\s+)?multi-file\\s+refactor"
+      ],
+      "canonical": ".agents/skills/refactor-plan"
+    },
+    "requesting-code-review": {
+      "owner": "engineering-quality",
+      "type": "methodology",
+      "summary": "Request focused review when implementation is complete or before merge.",
+      "modes": [
+        "review-request"
+      ],
+      "delegates_to": [
+        "code-review"
+      ],
+      "do_not_use_for": [
+        "self-approving or automatically merging code"
+      ],
+      "claude_exposed": true,
+      "canonical": ".agents/skills/requesting-code-review"
+    },
+    "requirements": {
+      "owner": "product-planning",
+      "type": "workflow",
+      "summary": "Define or review Epics, user stories, acceptance criteria, and testable requirements.",
+      "modes": [
+        "epic",
+        "user-story",
+        "qa-review"
+      ],
+      "delegates_to": [
+        "to-spec",
+        "tasks",
+        "writing-plans"
+      ],
+      "do_not_use_for": [
+        "no-interview conversation synthesis",
+        "implementation planning after requirements are accepted"
+      ],
+      "claude_exposed": true,
+      "replaces": [
+        "epic-requirements-specification",
+        "write-user-story",
+        "qa-requirement-reviewer"
+      ],
+      "routing_patterns": [
+        "write\\s+acceptance\\s+criteria",
+        "write\\s+(?:a\\s+)?user\\s+stor(?:y|ies)"
+      ],
+      "canonical": ".agents/skills/requirements"
+    },
+    "research": {
+      "owner": "research",
+      "type": "workflow",
+      "summary": "Investigate questions against high-trust primary sources and capture evidence in the repo.",
+      "modes": [
+        "primary-source-research"
+      ],
+      "delegates_to": [
+        "requirements",
+        "writing-plans"
+      ],
+      "do_not_use_for": [
+        "implementation that does not require external evidence"
+      ],
+      "claude_exposed": true,
+      "canonical": ".agents/skills/research"
+    },
+    "resolving-merge-conflicts": {
+      "owner": "engineering",
+      "type": "workflow",
+      "summary": "Resolve merge or rebase conflicts by intent with high-risk verification.",
+      "modes": [
+        "merge",
+        "rebase"
+      ],
+      "delegates_to": [
+        "code-review",
+        "diagnosing-bugs"
+      ],
+      "do_not_use_for": [
+        "unrelated refactoring while resolving conflicts"
+      ],
+      "claude_exposed": true,
+      "canonical": ".agents/skills/resolving-merge-conflicts"
+    },
+    "setup-ci-automation": {
+      "owner": "qa",
+      "type": "integration",
+      "summary": "Inspect existing CI and add or modify automated QA workflows.",
+      "modes": [
+        "ci-discovery",
+        "qa-workflow-setup"
+      ],
+      "delegates_to": [
+        "testomatio",
+        "qa-test-code-coverage"
+      ],
+      "do_not_use_for": [
+        "debugging a single existing CI failure"
+      ],
+      "claude_exposed": false,
+      "canonical": ".agents/skills/setup-ci-automation"
+    },
+    "subagent-driven-development": {
+      "owner": "execution",
+      "type": "methodology",
+      "summary": "Execute an implementation plan with independent tasks and staged review.",
+      "modes": [
+        "plan-execution"
+      ],
+      "delegates_to": [
+        "dispatching-parallel-agents",
+        "requesting-code-review"
+      ],
+      "do_not_use_for": [
+        "unclear requirements",
+        "tightly coupled work that cannot be isolated"
+      ],
+      "claude_exposed": true,
+      "canonical": ".agents/skills/subagent-driven-development"
+    },
+    "tdd": {
+      "owner": "engineering",
+      "type": "methodology",
+      "summary": "Implement features and bug fixes with red-green-refactor discipline.",
+      "modes": [
+        "red-green-refactor"
+      ],
+      "delegates_to": [
+        "diagnosing-bugs",
+        "requesting-code-review"
+      ],
+      "do_not_use_for": [
+        "documentation-only edits",
+        "generated artifacts"
+      ],
+      "claude_exposed": true,
+      "canonical": ".agents/skills/tdd"
+    },
+    "testing-workflow": {
+      "owner": "qa",
+      "type": "router",
+      "summary": "Route the end-to-end QA lifecycle to the correct specialized testing skill.",
+      "modes": [
+        "test-lifecycle"
+      ],
+      "delegates_to": [
+        "requirements",
+        "qa-explain-behavior",
+        "qa-lead-strategy-advisor",
+        "qa-write-test-cases",
+        "improve-test-cases",
+        "qa-split-testing-levels-pyramid",
+        "automate-manual-test-cases",
+        "qa-test-code-coverage",
+        "qa-automation-test-consolidation",
+        "diagnosing-bugs",
+        "testomatio",
+        "setup-ci-automation"
+      ],
+      "do_not_use_for": [
+        "high-level QA strategy",
+        "non-QA feature implementation"
+      ],
+      "claude_exposed": false,
+      "canonical": ".agents/skills/testing-workflow"
+    },
+    "testomatio": {
+      "owner": "qa-integration",
+      "type": "integration",
+      "summary": "Own Testomat.io reporting, sync, MCP, run, sprint-report, and PR-testing workflows.",
+      "modes": [
+        "reporting",
+        "sync",
+        "mcp",
+        "runs",
+        "pr-testing"
+      ],
+      "delegates_to": [
+        "qa-test-code-coverage",
+        "setup-ci-automation",
+        "diagnosing-bugs"
+      ],
+      "do_not_use_for": [
+        "generic test design",
+        "non-Testomat.io CI"
+      ],
+      "claude_exposed": true,
+      "replaces": [
+        "qa-e2e-tests-reporting",
+        "qa-sprint-report-by-testomatio",
+        "sync-test-cases-with-tms",
+        "testomatio-mcp",
+        "run-tests-with-testomatio-reporter",
+        "setup-change-aware-pr-testing"
+      ],
+      "canonical": ".agents/skills/testomatio"
+    },
+    "to-spec": {
+      "owner": "product-planning",
+      "type": "workflow",
+      "summary": "Turn the current conversation into a specification without another discovery interview.",
+      "modes": [
+        "conversation-to-spec"
+      ],
+      "delegates_to": [
+        "tasks",
+        "writing-plans"
+      ],
+      "do_not_use_for": [
+        "interactive requirements discovery",
+        "implementation execution"
+      ],
+      "claude_exposed": true,
+      "routing_patterns": [
+        "turn\\s+this\\s+conversation\\s+into\\s+a\\s+spec",
+        "conversation\\s+to\\s+spec"
+      ],
+      "canonical": ".agents/skills/to-spec"
+    },
+    "writing-plans": {
+      "owner": "planning",
+      "type": "workflow",
+      "summary": "Convert accepted requirements or a specification into an executable implementation plan.",
+      "modes": [
+        "implementation-plan"
+      ],
+      "delegates_to": [
+        "refactor-plan",
+        "subagent-driven-development"
+      ],
+      "do_not_use_for": [
+        "requirements discovery",
+        "structural migration plans where compatibility or rollback is load-bearing"
+      ],
+      "claude_exposed": true,
+      "routing_patterns": [
+        "make\\s+an\\s+implementation\\s+plan",
+        "write\\s+(?:an\\s+)?implementation\\s+plan"
+      ],
+      "canonical": ".agents/skills/writing-plans"
     }
+  },
+  "deprecated_aliases": {
+    "ipix-task-lifecycle": "tasks",
+    "pr-workflow": "tasks",
+    "copilotkit-review": "copilotkit",
+    "nextjs-review": "nextjs-developer",
+    "supabase-review": "ipix-supabase",
+    "cloudinary-review": "cloudinary"
   }
 }

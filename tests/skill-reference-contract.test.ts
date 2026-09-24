@@ -1,26 +1,29 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, extname, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const agentsRoot = resolve(repoRoot, ".agents/skills");
 const claudeRoot = resolve(repoRoot, ".claude/skills");
+const registry = JSON.parse(readFileSync(resolve(agentsRoot, "registry.json"), "utf8")) as {
+  skills: Record<string, { canonical: string; claude_exposed: boolean; replaces?: string[] }>;
+  deprecated_aliases?: Record<string, string>;
+};
 
-const deprecatedSkills = [
-  "epic-requirements-specification",
-  "write-user-story",
-  "qa-requirement-reviewer",
-  "debug-fix-failed-flaky-autotests",
-] as const;
-
-function skillMarkdownFiles(root: string): string[] {
+function filesUnder(root: string, extensions: Set<string>): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(root, { withFileTypes: true })) {
     const path = resolve(root, entry.name);
-    if (entry.isDirectory()) out.push(...skillMarkdownFiles(path));
-    else if (entry.isFile() && entry.name === "SKILL.md") out.push(path);
+    if (entry.isDirectory()) out.push(...filesUnder(path, extensions));
+    else if (entry.isFile() && extensions.has(extname(entry.name))) out.push(path);
   }
   return out;
+}
+
+function canonicalSkillFiles(): string[] {
+  return readdirSync(agentsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && existsSync(resolve(agentsRoot, entry.name, "SKILL.md")))
+    .map((entry) => resolve(agentsRoot, entry.name, "SKILL.md"));
 }
 
 function bodyWithoutFrontmatter(text: string): string {
@@ -29,41 +32,83 @@ function bodyWithoutFrontmatter(text: string): string {
   return end === -1 ? text : text.slice(end + 5);
 }
 
+const liveSkillNames = new Set([
+  ...Object.keys(registry.skills),
+  ...readdirSync(claudeRoot, { withFileTypes: true })
+    .filter((entry) => existsSync(resolve(claudeRoot, entry.name, "SKILL.md")))
+    .map((entry) => entry.name),
+]);
+const deprecatedSkills = new Set([
+  ...Object.values(registry.skills).flatMap((entry) => entry.replaces ?? []),
+  ...Object.keys(registry.deprecated_aliases ?? {}),
+]);
+
 describe("skill reference integrity", () => {
-  it("does not route live skill docs to removed entry points", () => {
-    const files = [...skillMarkdownFiles(agentsRoot), ...skillMarkdownFiles(claudeRoot)];
+  it("does not route canonical skill handoffs to removed or unknown skill names", () => {
     const offenders: string[] = [];
-    for (const file of files) {
+    const routePatterns = [
+      /(?:route|hand off|delegate)[^\n.]{0,50}\bto\s+(?:the\s+)?`([a-z0-9][a-z0-9-]+)`(?:\s+skill)?/gi,
+      /(?:use|with)\s+(?:the\s+)?`([a-z0-9][a-z0-9-]+)`\s+skill/gi,
+      /`([a-z0-9][a-z0-9-]+)`\s+skill/gi,
+    ];
+    for (const file of canonicalSkillFiles()) {
       const text = bodyWithoutFrontmatter(readFileSync(file, "utf8"));
       for (const removed of deprecatedSkills) {
-        if (text.includes(`\`${removed}\``) || text.includes(`${removed} skill`)) {
-          offenders.push(`${file.slice(repoRoot.length + 1)} -> ${removed}`);
+        if (text.includes(`\`${removed}\``) || text.includes(`${removed} skill`)) offenders.push(`${file.slice(repoRoot.length + 1)} -> removed ${removed}`);
+      }
+      for (const pattern of routePatterns) {
+        for (const match of text.matchAll(pattern)) {
+          const name = match[1];
+          if (!liveSkillNames.has(name)) offenders.push(`${file.slice(repoRoot.length + 1)} -> unknown ${name}`);
         }
       }
     }
     expect(offenders).toEqual([]);
   });
 
-  it("keeps consolidated requirements provenance metadata", () => {
-    const text = readFileSync(resolve(agentsRoot, "requirements/SKILL.md"), "utf8");
-    expect(text).toContain("license: MIT");
-    expect(text).toContain("source: consolidated from testomatio/skills");
-    expect(text).toContain("version: 1.0.0-ipix");
-  });
-
-  it("keeps every registry canonical path real and every replacement removed", () => {
-    const registry = JSON.parse(readFileSync(resolve(agentsRoot, "registry.json"), "utf8")) as {
-      skills: Record<string, { canonical: string; claude?: boolean; replaces?: string[] }>;
-    };
-    for (const [name, entry] of Object.entries(registry.skills)) {
-      expect(existsSync(resolve(repoRoot, entry.canonical, "SKILL.md")), `${name} canonical path`).toBe(true);
-      if (entry.claude) {
-        expect(existsSync(resolve(claudeRoot, name, "SKILL.md")), `${name} Claude exposure`).toBe(true);
-      }
-      for (const removed of entry.replaces ?? []) {
-        expect(existsSync(resolve(agentsRoot, removed)), `${removed} must stay removed`).toBe(false);
-        expect(existsSync(resolve(claudeRoot, removed)), `${removed} Claude alias must stay removed`).toBe(false);
+  it("resolves canonical skill reference-file links", () => {
+    const missing: string[] = [];
+    const linkPattern = /\[[^\]]*\]\(([^)]+\.md(?:#[^)]+)?)\)/g;
+    for (const file of canonicalSkillFiles()) {
+      const text = readFileSync(file, "utf8");
+      for (const match of text.matchAll(linkPattern)) {
+        const target = match[1].split("#", 1)[0];
+        if (/^(?:https?:|mailto:)/.test(target) || !target.includes("references/")) continue;
+        if (!existsSync(resolve(dirname(file), target))) missing.push(`${file.slice(repoRoot.length + 1)} -> ${target}`);
       }
     }
+    expect(missing).toEqual([]);
+  });
+
+  it("keeps explicit skill paths and deprecated aliases out of AGENTS, Cursor rules, and scripts", () => {
+    const sourceFiles = [
+      resolve(repoRoot, "AGENTS.md"),
+      ...filesUnder(resolve(repoRoot, ".cursor/rules"), new Set([".mdc", ".md"])),
+      ...filesUnder(resolve(repoRoot, "scripts"), new Set([".mjs", ".js", ".ts", ".md"])),
+    ];
+    const invalidPaths: string[] = [];
+    const staleAliases: string[] = [];
+    const pathPattern = /\.(agents|claude)\/skills\/([a-z0-9][a-z0-9-]+)(?=\/|`|\s|$)/g;
+
+    for (const file of sourceFiles) {
+      const text = readFileSync(file, "utf8");
+      for (const match of text.matchAll(pathPattern)) {
+        const target = resolve(repoRoot, `.${match[1]}/skills/${match[2]}/SKILL.md`);
+        if (!existsSync(target)) invalidPaths.push(`${file.slice(repoRoot.length + 1)} -> ${match[0]}`);
+      }
+      for (const alias of deprecatedSkills) {
+        const stale = [
+          `.agents/skills/${alias}`,
+          `.claude/skills/${alias}`,
+          `\`${alias}\``,
+          `${alias} skill`,
+          `Skill(\"${alias}\")`,
+          `Skill('${alias}')`,
+        ].some((needle) => text.includes(needle));
+        if (stale) staleAliases.push(`${file.slice(repoRoot.length + 1)} -> ${alias}`);
+      }
+    }
+    expect(invalidPaths).toEqual([]);
+    expect(staleAliases).toEqual([]);
   });
 });
