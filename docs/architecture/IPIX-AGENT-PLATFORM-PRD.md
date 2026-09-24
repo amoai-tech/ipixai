@@ -25,7 +25,7 @@ flowchart LR
 - `src/app/api/copilotkit/[[...slug]]/route.ts` builds `CopilotRuntime` fresh inside `handleCopilot()`, per request (not module scope — see §3 for why).
 - Runner: `TenantAbortRunner` (SSE mode) or `IntelligenceAgentRunner` via `CopilotKitIntelligence` (Intelligence mode, gated on `CPK_INTELLIGENCE_API_KEY`).
 - Mastra runs fully in-process via `getMastra()` (`src/agent.ts`). No separate Mastra deployment exists today. `@mastra/client-js` is an installed but **unused** dependency (confirmed via repo-wide grep).
-- Durable history: Supabase Postgres via `@mastra/pg`, already correct and already ahead of every reference implementation reviewed for replay quality (see reuse audit §7).
+- Durable history: Supabase Postgres via `@mastra/pg`, already correct and already ahead of every reference implementation reviewed for replay quality (see [reference matrix](IPIX-REFERENCE-REUSE-MATRIX.md)).
 
 ## 3. Why repair-only is becoming expensive — with evidence, not assumption
 
@@ -54,7 +54,7 @@ The genuine cost driver is different: `route.ts` moved from module-scope to per-
 ## 5. Non-goals
 
 - Not a rewrite of Brand/Shoot/CRM domain logic, Supabase schema, or Cloudinary pipelines.
-- Not an immediate multi-surface (Slack/mobile) rollout — `agents-everywhere-starter-kit` is a hackathon scaffold (confirmed, see reuse audit), reference only, not a near-term target.
+- Not an immediate multi-surface (Slack/mobile) rollout — `agents-everywhere-starter-kit` is a hackathon scaffold (confirmed, see [reference matrix](IPIX-REFERENCE-REUSE-MATRIX.md)), reference only, not a near-term target.
 - Not a commitment to any specific hosting choice for a separate Mastra service until Phase 1's spike (roadmap) proves the architecture works at all.
 - Not a mandate to delete `TenantAbortRunner` before a replacement has passed the same proof bar it originally had to pass.
 

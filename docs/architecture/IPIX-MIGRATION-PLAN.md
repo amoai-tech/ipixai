@@ -91,6 +91,21 @@ Playwright (e2e/*.spec.ts)
 Preview — real-agent journey, real LLM calls, not mocked
 ```
 
+## Production success criteria
+
+The Agent Platform migration is production-ready only when all applicable gates below are proven on the exact release candidate:
+
+- **Cross-instance lifecycle:** P0-1 through P0-6 pass, including run visibility, live event delivery, remote Stop, disconnect/background completion, ownership/fencing, and immediate same-thread rerun.
+- **Tenant isolation:** Org B cannot read, reconnect to, stop, resume, or mutate Org A runs or durable business state.
+- **Replay and recovery parity:** browser refresh/history replay, owner restart/recovery, and stale-command fencing do not regress the current durable-replay contract.
+- **Abort and idempotency:** Stop propagates through active tools/external work; no late durable writes occur after terminal abort; retries do not duplicate Brand DNA, booking, CRM, approval, or other business effects.
+- **HITL correctness:** exact-artifact approval/resume works without duplicate terminal answers or approval bypass.
+- **User journeys:** Planner, Brand Intelligence, Shoot planning, CRM, and any migrated specialist/delegation journey pass with the real authenticated runtime.
+- **Verification:** targeted tests, full relevant Vitest, typecheck, production build, cross-process lifecycle tests, Playwright where applicable, and Preview real-LLM certification are green on the exact head.
+- **Operational readiness:** database pooling/credentials, retry classification, deployment drain/restart behavior, observability, rollback compatibility, and required SLOs are explicitly verified.
+
+Any failed required gate is a **STOP** for production migration. Passing documentation or mocked tests alone is insufficient.
+
 ## Final decision table
 
 | Strategy | Proven-code reuse | Custom code | P0 likelihood | Migration risk | Long-term fit | Score /100 |
@@ -112,7 +127,7 @@ DO NOT CONTINUE: Repairing TenantAbortRunner further, or reverting to the 2026-0
                 baseline — both scored and evidenced above as dead ends
 ```
 
-This ranking is **not** based on elegance or repo star counts. It's based on: (1) working source actually read this session, not assumed from a README; (2) the only P0 evidence that exists today (Intelligence mode partially live-tested, everything else confirmed absent); (3) how much of the remaining gap is iPix-authored vs. reused; (4) migration safety, concretely — git archaeology proved the "simple restore" option would reopen fixed bugs; (5) existing iPix compatibility — AUTH-002, durable Mastra history, and the P0 test harness are all already better than or equal to anything found in the wider ecosystem and are preserved in every scored strategy above; (6) production reliability, matching AGENTS.md's Done rule: no strategy above is marked Done or produciton-ready without the post-merge proof in the Roadmap.
+This ranking is **not** based on elegance or repo star counts. It's based on: (1) working source actually read this session, not assumed from a README; (2) the only P0 evidence that exists today (Intelligence mode partially live-tested, everything else confirmed absent); (3) how much of the remaining gap is iPix-authored vs. reused; (4) migration safety, concretely — git archaeology proved the "simple restore" option would reopen fixed bugs; (5) existing iPix compatibility — AUTH-002, durable Mastra history, and the P0 test harness are all already better than or equal to anything found in the wider ecosystem and are preserved in every scored strategy above; (6) production reliability, matching AGENTS.md's Done rule: no strategy above is marked Done or production-ready without the post-merge proof in the Roadmap.
 
 ## Executive summary
 
