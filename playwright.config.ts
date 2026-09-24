@@ -90,6 +90,7 @@ export default defineConfig({
         /planner-journey\.spec\.ts/,
         /copilot-intelligence-isolation\.spec\.ts/,
         /planner-thread-isolation\.spec\.ts/,
+        /planner-stop-journey\.spec\.ts/,
         // Local-stack only (see the global testIgnore note above).
         /approval-001-tenant-review\.spec\.ts/,
       ],
@@ -100,6 +101,7 @@ export default defineConfig({
         /planner-journey\.spec\.ts/,
         /copilot-intelligence-isolation\.spec\.ts/,
         /planner-thread-isolation\.spec\.ts/,
+        /planner-stop-journey\.spec\.ts/,
       ],
       use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/user.json" },
       dependencies: ["setup"],
@@ -129,6 +131,7 @@ export default defineConfig({
         /session-reuse\.spec\.ts/,
         /copilot-intelligence-isolation\.spec\.ts/,
         /planner-thread-isolation\.spec\.ts/,
+        /planner-stop-journey\.spec\.ts/,
         // Local-stack only (see the global testIgnore note above).
         /approval-001-tenant-review\.spec\.ts/,
       ],
