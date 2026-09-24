@@ -86,7 +86,7 @@ async function requireServiceRoleClient() {
  * `stagedBy` to that user. A missing identity or mismatching claim fails closed.
  */
 async function resolveStager(
-  requestContext: { get: (key: string) => unknown } | undefined,
+  requestContext: { get: (_key: string) => unknown } | undefined,
   brandId: string,
   claimedStagedBy: string | null | undefined,
 ): Promise<string> {
