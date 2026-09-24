@@ -92,8 +92,34 @@ describe("skill consolidation contract", () => {
       "setup-change-aware-pr-testing",
       "sync-test-cases-with-tms",
       "testomatio-mcp",
+      "epic-requirements-specification",
+      "write-user-story",
+      "qa-requirement-reviewer",
     ]) {
       expect(lock).not.toContain(`\"${removed}\"`);
     }
   });
+
+  it("uses one requirements skill for epic, user-story, and QA requirements work", () => {
+    expect(existsSync(skill("requirements"))).toBe(true);
+    expect(existsSync(claudeSkill("requirements"))).toBe(true);
+
+    for (const removed of [
+      "epic-requirements-specification",
+      "write-user-story",
+      "qa-requirement-reviewer",
+    ]) {
+      expect(existsSync(resolve(repoRoot, ".agents/skills", removed)), `${removed} directory should be removed`).toBe(false);
+      expect(existsSync(resolve(repoRoot, ".claude/skills", removed)), `${removed} Claude alias should be removed`).toBe(false);
+    }
+
+    const requirements = read(".agents/skills/requirements/SKILL.md");
+    expect(requirements).toContain("Epic mode");
+    expect(requirements).toContain("User story mode");
+    expect(requirements).toContain("QA review mode");
+    expect(requirements).toContain("`to-spec`");
+    expect(requirements).toContain("`tasks`");
+    expect(requirements).toContain("`writing-plans`");
+  });
+
 });

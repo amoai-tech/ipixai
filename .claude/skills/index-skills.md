@@ -49,6 +49,7 @@ These are local canonical skills under `.agents/skills/` built by combining over
 | `qa-pr-analysis` | `qa-pr-requirements-analyzer` + `pull-request-diff-analyzer` |
 | `explorbot` | `explorbot-fundamentals` + `explorbot-setup` + `explorbot-plan` |
 | `testomatio` | reporter setup + sprint reporting + test-case sync + MCP + run CLI + change-aware PR testing |
+| `requirements` | `epic-requirements-specification` + `write-user-story` + `qa-requirement-reviewer` as Epic, user-story, and QA-review modes |
 
 Official Cloudinary upstream packs are embedded under `.claude/skills/cloudinary/references/official/` and are not separate triggerable skills. Refresh snapshots into a temporary directory, then sync only the needed embedded references so the iPix security overlay remains authoritative.
 
@@ -73,6 +74,7 @@ Also not copied from the wider old catalog: `mercur`, `amazon-bedrock`, `ipix` r
 - Supabase: preview-first, do not `cd /home/sk/ipix` from this repo
 - CopilotKit: `ipix-production.md` is old-app notes
 - Task execution, fastest-path analysis, and PR lifecycle: `tasks` is the single canonical owner
+- Requirements planning: `requirements` owns Epic/story/acceptance-criteria definition and QA requirements review; `to-spec` owns conversation → spec; `tasks` owns executable Linear tasks; `writing-plans` owns implementation plans
 
 ## External skill provenance
 
