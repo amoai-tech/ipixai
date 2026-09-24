@@ -40,9 +40,14 @@ export function attachRunnerAbort(agents: Record<string, AbstractAgent>) {
  * AUTH-002 resourceId so /stop cannot cancel another org/user's run.
  * Bind abort on run() after the store registers the thread (not a one-shot body peek).
  */
-/** runnerThreadId → runId of the run still starting (before super.run registers it). */
-const pendingRuns = new Map<string, string | undefined>();
-const pendingStops = new Set<string>();
+/**
+ * runnerThreadId → the run still starting (before super.run registers it).
+ * One record per run: a Stop marks only the record whose runId it names, and
+ * each run removes only its own record, so an overlapping or cancelled start
+ * can never erase or inherit another run's Stop.
+ */
+type PendingRun = { runId: string | undefined; stopRequested: boolean };
+const pendingRuns = new Map<string, PendingRun>();
 
 export class TenantAbortRunner extends InMemoryAgentRunner {
   constructor(
@@ -56,12 +61,8 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
     return splitRunThreadIds(this.resourceId, threadId).runnerThreadId;
   }
 
-  private shouldSkipRun(runnerThreadId: string, cancelled: boolean) {
-    return (
-      cancelled ||
-      this.signal.aborted ||
-      pendingStops.has(runnerThreadId)
-    );
+  private shouldSkipRun(pending: PendingRun, cancelled: boolean) {
+    return cancelled || this.signal.aborted || pending.stopRequested;
   }
 
   override run(request: Parameters<InMemoryAgentRunner["run"]>[0]) {
@@ -88,22 +89,24 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
       );
       return runAgent(runInput, subscribers);
     };
-    pendingRuns.set(runnerThreadId, request.input?.runId);
+    const pending: PendingRun = { runId: request.input?.runId, stopRequested: false };
+    pendingRuns.set(runnerThreadId, pending);
     return new Observable<BaseEvent>((subscriber) => {
       let inner: { unsubscribe: () => void } | undefined;
       let cancelled = false;
       const releasePending = () => {
-        pendingStops.delete(runnerThreadId);
-        pendingRuns.delete(runnerThreadId);
+        if (pendingRuns.get(runnerThreadId) === pending) {
+          pendingRuns.delete(runnerThreadId);
+        }
       };
       void (async () => {
-        if (this.shouldSkipRun(runnerThreadId, cancelled)) {
+        if (this.shouldSkipRun(pending, cancelled)) {
           releasePending();
           subscriber.complete();
           return;
         }
         const memory = await getPlannerMemory();
-        if (this.shouldSkipRun(runnerThreadId, cancelled)) {
+        if (this.shouldSkipRun(pending, cancelled)) {
           releasePending();
           subscriber.complete();
           return;
@@ -117,7 +120,7 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
           threadId: mastraThreadId,
           resourceId: this.resourceId,
         });
-        if (this.shouldSkipRun(runnerThreadId, cancelled)) {
+        if (this.shouldSkipRun(pending, cancelled)) {
           releasePending();
           subscriber.complete();
           return;
@@ -125,14 +128,14 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
         inner = super
           .run({ ...request, threadId: runnerThreadId, input })
           .subscribe(subscriber);
-        pendingRuns.delete(runnerThreadId);
+        releasePending();
       })().catch((error) => {
         releasePending();
         if (!cancelled) subscriber.error(error);
       });
       return () => {
         cancelled = true;
-        pendingRuns.delete(runnerThreadId);
+        releasePending();
         inner?.unsubscribe();
       };
     });
@@ -142,18 +145,16 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
     const runnerThreadId = this.scope(request.threadId);
     // IPI-1290: a Stop scoped to another run (e.g. a late Stop(R1) while R2
     // is still starting) must not cancel the pending run.
-    const pendingRunId = pendingRuns.get(runnerThreadId);
-    if (
-      pendingRuns.has(runnerThreadId) &&
-      (request.runId === undefined || request.runId === pendingRunId)
-    ) {
-      pendingStops.add(runnerThreadId);
-    }
+    const pending = pendingRuns.get(runnerThreadId);
+    const stopsPending =
+      pending !== undefined &&
+      (request.runId === undefined || request.runId === pending.runId);
+    if (stopsPending) pending.stopRequested = true;
     const stopped = await super.stop({
       ...request,
       threadId: runnerThreadId,
     });
-    return Boolean(stopped) || pendingStops.has(runnerThreadId);
+    return Boolean(stopped) || stopsPending;
   }
 
   /**

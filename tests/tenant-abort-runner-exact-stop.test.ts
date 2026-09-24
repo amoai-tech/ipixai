@@ -135,6 +135,30 @@ describe("IPI-1290 TenantAbortRunner exact-run Stop", () => {
     expect(slow.finished).toBe(false);
   });
 
+  // Codacy review on PR 270: pending-run cleanup must be run-specific. A run
+  // cancelled while starting must not erase the next run's pending record,
+  // or a Stop for that next run is lost and it runs anyway.
+  it("a cancelled starting run cannot erase the next run's pending Stop", async () => {
+    memoryGate = new Promise((resolve) => (releaseMemory = resolve));
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+
+    const first = runner
+      .run({ threadId, agent: wrapAbortRun(new SlowAgent()), input: input(threadId, "RA") })
+      .subscribe();
+    first.unsubscribe();
+
+    const slowB = new SlowAgent();
+    const rb = collect(
+      runner.run({ threadId, agent: wrapAbortRun(slowB), input: input(threadId, "RB") }),
+    );
+    // Stop RB while it is still starting, then let RA's late cleanup run.
+    expect(await runner.stop({ threadId, runId: "RB" })).toBe(true);
+    releaseMemory();
+    await rb.done;
+    expect(slowB.runs).toBe(0);
+  });
+
   it("another tenant cannot stop the run", async () => {
     memoryGate = Promise.resolve();
     const threadId = nextThread();
