@@ -104,6 +104,10 @@ describe("remote Mastra cross-process run control", () => {
     const b2 = start("controller.ts", "stale-r1", baseUrl);
     const staleOut = await waitFor(b2, "B_STALE_R1 aborted=false");
     expect(staleOut).toContain("B_TICK mode=stale-r1");
+    // R2 is still streaming after the stale Stop(R1); release it so it can
+    // finish on its own and prove it was not cancelled.
+    const release = await fetch(`${baseUrl}/fixture/release`, { method: "POST" });
+    expect(release.status).toBe(200);
     const r2Out = await waitFor(a2, "STARTER_DONE run=R2");
     expect(r2Out).toContain("START_TICK run=R2");
   }, 20000);
