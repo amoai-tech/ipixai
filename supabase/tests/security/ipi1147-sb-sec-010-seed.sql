@@ -3,6 +3,15 @@
 -- Creates insecure pre-state matching production gaps, then the migration
 -- hardens it. Includes production-shaped auth.uid / is_org_member / brands /
 -- campaigns / campaign_deliverables / talent trigger so migration RLS applies.
+--
+-- IPI-1311 · AUTH-ORG-SINGLE-001 — this seed's public.org_members is a
+-- minimal fixture-only table (org_id, user_id), never the real migrated
+-- schema: the sb-sec-010-acl CI job runs against a bare Postgres service
+-- container with no `supabase db reset --local` / migration replay, so the
+-- one-membership-per-user unique(user_id) constraint added by IPI-1311 is
+-- never present here. The user_dual fixture below (both org A and org B)
+-- proves the schema-level cross-org reparent trigger, not tenancy
+-- cardinality, and is unaffected by that invariant.
 
 create extension if not exists pgcrypto;
 

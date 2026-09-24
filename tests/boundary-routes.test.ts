@@ -22,18 +22,12 @@ vi.mock("../src/lib/supabase/server", () => ({
   createClient: serverCreateClient,
 }));
 
-vi.mock("../src/components/ui/empty-state", () => ({
-  EmptyState: ({ heading }: { heading: string }) =>
-    createElement("div", { "data-testid": "empty-state" }, heading),
-}));
-
 vi.mock("../src/components/onboarding/onboarding-form", () => ({
   OnboardingForm: ({ userId }: { userId: string }) =>
     createElement("div", { "data-testid": "onboarding-form" }, userId),
 }));
 
 import OnboardingPage from "../src/app/onboarding/page";
-import OrgSelectionPage from "../src/app/org-selection/page";
 
 const operator = { id: "11111111-1111-4111-8111-111111111111", name: "qa@example.com" };
 
@@ -90,15 +84,15 @@ describe("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experi
     expect(redirect).toHaveBeenCalledWith("/app");
   });
 
-  it("onboarding redirects a multi-org operator to /org-selection", async () => {
+  it("IPI-1311 · AUTH-ORG-SINGLE-001 — onboarding fails closed to /login on a membership-conflict invariant violation", async () => {
     serverCreateClient.mockReturnValue(
       clientWithOrgIds([
         "22222222-2222-4222-8222-222222222222",
         "33333333-3333-4333-8333-333333333333",
       ]),
     );
-    await expect(OnboardingPage()).rejects.toThrow("REDIRECT:/org-selection");
-    expect(redirect).toHaveBeenCalledWith("/org-selection");
+    await expect(OnboardingPage()).rejects.toThrow("REDIRECT:/login");
+    expect(redirect).toHaveBeenCalledWith("/login");
   });
 
   it("onboarding fails closed to /login on membership lookup failure", async () => {
@@ -113,57 +107,4 @@ describe("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experi
     expect(redirect).toHaveBeenCalledWith("/login");
   });
 
-  it("org-selection renders for a multi-org operator", async () => {
-    serverCreateClient.mockReturnValue(
-      clientWithOrgIds([
-        "22222222-2222-4222-8222-222222222222",
-        "33333333-3333-4333-8333-333333333333",
-      ]),
-    );
-    const ui = await OrgSelectionPage();
-    render(ui);
-    expect(redirect).not.toHaveBeenCalled();
-    expect(screen.getByTestId("empty-state")).toBeDefined();
-  });
-
-  it("IPI-1157 · AUTH-UX-001 — org-selection always renders a visible Sign out posting to /auth/sign-out", async () => {
-    serverCreateClient.mockReturnValue(
-      clientWithOrgIds([
-        "22222222-2222-4222-8222-222222222222",
-        "33333333-3333-4333-8333-333333333333",
-      ]),
-    );
-    const ui = await OrgSelectionPage();
-    const { container } = render(ui);
-    const form = container.querySelector('form[action="/auth/sign-out"]');
-    expect(form?.getAttribute("method")).toBe("post");
-    const signOutButton = screen.getByRole("button", { name: "Sign out" });
-    expect(signOutButton.closest("form")).toBe(form);
-  });
-
-  it("org-selection redirects a single-org operator to /app", async () => {
-    serverCreateClient.mockReturnValue(
-      clientWithOrgIds(["22222222-2222-4222-8222-222222222222"]),
-    );
-    await expect(OrgSelectionPage()).rejects.toThrow("REDIRECT:/app");
-    expect(redirect).toHaveBeenCalledWith("/app");
-  });
-
-  it("org-selection redirects a zero-org operator to /onboarding", async () => {
-    serverCreateClient.mockReturnValue(clientWithOrgIds([]));
-    await expect(OrgSelectionPage()).rejects.toThrow("REDIRECT:/onboarding");
-    expect(redirect).toHaveBeenCalledWith("/onboarding");
-  });
-
-  it("org-selection fails closed to /login on membership lookup failure", async () => {
-    serverCreateClient.mockReturnValue({
-      from: () => ({
-        select: () => ({
-          eq: vi.fn().mockResolvedValue({ data: null, error: new Error("db") }),
-        }),
-      }),
-    });
-    await expect(OrgSelectionPage()).rejects.toThrow("REDIRECT:/login");
-    expect(redirect).toHaveBeenCalledWith("/login");
-  });
 });

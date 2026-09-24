@@ -267,7 +267,7 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it("returns 403 needs_org_selection when the user has multiple memberships", async () => {
+  it("returns 403 membership_conflict when the user has multiple memberships", async () => {
     const spy = vi.spyOn(agent, "createLocalAgents");
     memberships.rows = [{ org_id: ORG_A }, { org_id: ORG_B }];
     const response = await POST(
@@ -276,7 +276,7 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({
       error: "forbidden",
-      reason: "needs_org_selection",
+      reason: "membership_conflict",
     });
     expect(spy).not.toHaveBeenCalled();
   });
