@@ -7,24 +7,41 @@ const root = process.cwd();
 const tsx = join(root, "node_modules/.bin/tsx");
 const fixture = join(root, "tests/fixtures/remote-mastra-control");
 const children: ChildProcessWithoutNullStreams[] = [];
+// Everything each child has printed since spawn, so a waitFor attached late
+// can never miss a line that was printed before it started listening.
+const outputs = new Map<ChildProcessWithoutNullStreams, string>();
 
 function start(file: string, ...args: string[]) {
   const child = spawn(tsx, [join(fixture, file), ...args], { cwd: root, env: process.env });
   children.push(child);
+  outputs.set(child, "");
+  const record = (chunk: Buffer) => outputs.set(child, outputs.get(child) + chunk.toString());
+  child.stdout.on("data", record);
+  child.stderr.on("data", record);
   return child;
 }
 
 function waitFor(child: ChildProcessWithoutNullStreams, text: string, timeout = 8000) {
   return new Promise<string>((resolve, reject) => {
-    let output = "";
-    const timer = setTimeout(() => reject(new Error(`Timed out waiting for ${text}\n${output}`)), timeout);
-    const onData = (chunk: Buffer) => {
-      output += chunk.toString();
-      if (output.includes(text)) { clearTimeout(timer); resolve(output); }
+    const output = () => outputs.get(child) ?? "";
+    if (output().includes(text)) return resolve(output());
+    const timer = setTimeout(() => { cleanup(); reject(new Error(`Timed out waiting for ${text}\n${output()}`)); }, timeout);
+    const onData = () => {
+      if (output().includes(text)) { cleanup(); resolve(output()); }
     };
+    const onExit = (code: number | null) => {
+      if (!output().includes(text)) { cleanup(); reject(new Error(`Exited ${code} before ${text}\n${output()}`)); }
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      child.stdout.off("data", onData);
+      child.stderr.off("data", onData);
+      child.off("exit", onExit);
+    };
+    // Registered after start()'s recorder, so output() already includes the chunk.
     child.stdout.on("data", onData);
     child.stderr.on("data", onData);
-    child.once("exit", (code) => { if (!output.includes(text)) { clearTimeout(timer); reject(new Error(`Exited ${code} before ${text}\n${output}`)); } });
+    child.once("exit", onExit);
   });
 }
 
@@ -98,6 +115,7 @@ describe("remote Mastra cross-process run control", () => {
     const b1Out = await waitFor(b1, "B_ABORT_R1 aborted=true");
     expect(b1Out).toContain("B_ACTIVE run=R1");
     await waitFor(a1, "STARTER_DONE run=R1");
+    await waitFor(server, "FIXTURE_STREAM_END reason=aborted");
 
     const a2 = start("starter.ts", "R2", baseUrl);
     await waitFor(a2, "START_TICK run=R2");
@@ -110,5 +128,9 @@ describe("remote Mastra cross-process run control", () => {
     expect(release.status).toBe(200);
     const r2Out = await waitFor(a2, "STARTER_DONE run=R2");
     expect(r2Out).toContain("START_TICK run=R2");
+    // R2's model stream ended because it was released, not aborted: the stale
+    // Stop(R1) did not cancel it. R1 is the only aborted stream.
+    const streamLog = await waitFor(server, "FIXTURE_STREAM_END reason=released");
+    expect(streamLog.match(/FIXTURE_STREAM_END reason=aborted/g)).toHaveLength(1);
   }, 20000);
 });

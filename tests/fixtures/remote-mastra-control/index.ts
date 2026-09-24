@@ -54,6 +54,10 @@ const model = {
           controller.enqueue({ type: "text-delta", id: "fixture-text", delta: `tick-${i} ` });
           if (released) break;
         }
+        // Server-side proof of how the model stream ended, independent of
+        // what the client prints when its stream closes.
+        const reason = options?.abortSignal?.aborted ? "aborted" : released ? "released" : "cap";
+        console.log(`FIXTURE_STREAM_END reason=${reason}`);
         if (!options?.abortSignal?.aborted) {
           controller.enqueue({ type: "text-end", id: "fixture-text" });
           controller.enqueue({ type: "finish", finishReason: "stop", usage: { inputTokens: 1, outputTokens: 12, totalTokens: 13 } });

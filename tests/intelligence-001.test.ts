@@ -315,6 +315,33 @@ describe("IPI-1009 intelligence tenant safety", () => {
     expect(body.runId).toBe("R1");
   });
 
+  // Negative ownership: a Stop from outside the thread's tenant must be
+  // rejected before it can reach the remote abort boundary.
+  it.each([
+    { name: "an unauthenticated caller", sub: undefined, org: ORG_A, status: 401 },
+    { name: "another org's operator", sub: USER_B, org: ORG_B, status: 404 },
+  ])("rejects an exact Stop from $name without calling abort", async ({ sub, org, status }) => {
+    enableIntelligence();
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ aborted: true }), { status: 200 }));
+    claims.sub = sub;
+    memberships.rows = [{ org_id: org }];
+    mockOrgAThreadOwnership();
+
+    const stop = await POST(
+      copilotRequest(
+        `/api/copilotkit/agent/default/stop/${encodeURIComponent(ORG_A_THREAD)}`,
+        { method: "POST", body: { runId: "R1" } },
+      ),
+    );
+    expect(stop.status).toBe(status);
+    const controlCalls = fetchSpy.mock.calls.filter(([input]) =>
+      String(input).includes("/ipix/run-control/"),
+    );
+    expect(controlCalls).toHaveLength(0);
+  });
+
   it.each([{ runId: "" }, { runId: 123 }])(
     "rejects a malformed Stop body %j with 400",
     async (body) => {
