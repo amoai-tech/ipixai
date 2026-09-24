@@ -144,15 +144,16 @@ export async function resolveMastraIdentity(
  * IPI-1326 — deny-by-default HTTP surface. An authenticated tenant may call
  * only the exact METHOD + path the Planner's remote client uses:
  * `@ag-ui/mastra` `getRemoteAgents()` (list agents), the Planner stream, and
- * iPix run control (Stop). Every other built-in Mastra route (workflows,
- * datasets, stored agents/workflows, schedules, tools, MCP, memory, …) is 403.
+ * iPix run control (Stop). Every other registered route (workflows, datasets,
+ * stored agents/workflows, schedules, tools, MCP, memory, …) is 403; paths
+ * with no handler get Mastra's 404 / static page and never reach a handler.
  * Matching is exact: Hono supplies `c.req.path` (no query) and the uppercase
  * method, so encoded, trailing-slash or lowercase variants fail closed.
  * tests/mastra-route-allowlist-contract.test.ts fails if an upgraded client
- * starts calling a route that is not listed here.
+ * starts calling a route that is not listed here. New Mastra or iPix custom
+ * (`/ipix/...`) routes are intentionally denied until explicitly added here
+ * and covered by the HTTP/SDK route contract tests.
  */
-// New Mastra or /ipix/* routes are intentionally denied until explicitly
-// added here and covered by the HTTP/SDK route contract tests.
 const ALLOWED_MASTRA_ROUTES: ReadonlySet<string> = new Set([
   "GET /api/agents",
   "POST /api/agents/production-planner/stream",
