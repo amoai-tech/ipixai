@@ -21,7 +21,7 @@ const traceQueryReference = readFileSync(
 
 describe("IPI-1213 PR-Agent review skills contract", () => {
   it("keeps deterministic review-skill ownership local while the shared core orchestrates it", () => {
-    expect(workflow).toContain("amoai-tech/pr-review-infra/.github/workflows/pr-agent.yml@a3c9600de7a31184266fade8387359ccbb8e6d68");
+    expect(workflow).toContain("amoai-tech/pr-review-infra/.github/workflows/pr-agent.yml@877b08c324b47f3c06063e8a69d71ebe2cd54bbc");
     expect(routing).toContain("pr-agent-code-review");
     expect(routing).toContain("mastra");
     expect(routing).toContain("copilotkit-review");
