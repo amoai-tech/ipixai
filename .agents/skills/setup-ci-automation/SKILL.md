@@ -64,12 +64,12 @@ When the environment renders Mermaid, present a workflow — existing or propose
 
 Tasks worth wiring to CI events — the named skill owns each task's content:
 
-| Event         | Automation                                                  | Task owner                                           |
-| ------------- | ----------------------------------------------------------- | ---------------------------------------------------- |
-| PR opened     | Generate test cases from the PR diff                        | `pull-request-diff-analyzer` + `qa-write-test-cases` |
-| Issue opened  | QA-analyze the feature — edge cases, acceptance criteria    | `qa-thinking`                                        |
-| Deploy done   | Create a scoped test run, launch affected tests             | `setup-change-aware-pr-testing`                      |
-| Schedule      | Detect duplicate or overlapping test cases                  | `qa-automation-test-consolidation`                        |
+| Event         | Automation                                                  | Task owner                                  |
+| ------------- | ----------------------------------------------------------- | ------------------------------------------- |
+| PR opened     | Analyze PR intent/diff and generate targeted test cases     | `qa-pr-analysis` + `qa-write-test-cases`    |
+| Issue opened  | QA-analyze feature risks and edge cases                     | `qa-review`                                 |
+| Deploy done   | Create a scoped test run, launch affected tests             | `setup-change-aware-pr-testing`             |
+| Schedule      | Detect duplicate or overlapping test cases                  | `qa-automation-test-consolidation`          |
 
 ## Related skills
 
