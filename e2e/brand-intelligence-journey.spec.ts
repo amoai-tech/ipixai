@@ -23,14 +23,21 @@ const NAV_TIMEOUT_MS = 30_000;
 /** Reloads the brand page until the draft card appears; fails fast on "Analysis failed". */
 async function waitForDraft(page: Page) {
   const deadline = Date.now() + ANALYSIS_TIMEOUT_MS;
-  for (;;) {
-    await page.goto(`/app/brands/${brandId}`);
-    if (await page.getByText("Analysis failed", { exact: true }).isVisible()) {
-      throw new Error("Brand analysis reached 'Analysis failed'");
+  try {
+    for (;;) {
+      await page.goto(`/app/brands/${brandId}`);
+      if (await page.getByText("Analysis failed", { exact: true }).isVisible()) {
+        throw new Error("the brand page shows 'Analysis failed'");
+      }
+      if (await page.getByText(/— Brand DNA draft$/).isVisible()) return;
+      if (Date.now() > deadline) throw new Error("the draft did not appear in time");
+      await page.waitForTimeout(POLL_MS);
     }
-    if (await page.getByText(/— Brand DNA draft$/).isVisible()) return;
-    if (Date.now() > deadline) throw new Error("Brand analysis did not reach the draft in time");
-    await page.waitForTimeout(POLL_MS);
+  } catch (error) {
+    // A navigation or locator failure mid-poll surfaces with the brand it was waiting on.
+    throw new Error(`Waiting for the Brand DNA draft of brand ${brandId} failed: ${String(error)}`, {
+      cause: error,
+    });
   }
 }
 
