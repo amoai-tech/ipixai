@@ -35,9 +35,9 @@ export function getMastra(): Mastra {
       // resume after the process exits, so a short drain silently truncates live
       // operator turns on every restart or redeploy.
       //
-      // The stand-alone host's termination grace period must be >= this value,
-      // otherwise the platform kills the process mid-drain and the setting has
-      // no effect.
+      // The pinned generated server then bounds `mastra.shutdown()` separately
+      // to 5s, so the host termination grace must exceed this drain window. The
+      // deployment runbook uses 300s for a 240s drain to leave cleanup margin.
       drainTimeout: 240_000,
     },
   });

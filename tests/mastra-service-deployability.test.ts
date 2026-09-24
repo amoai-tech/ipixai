@@ -105,11 +105,16 @@ describe("IPI-1310 · standalone Mastra service is deployable", () => {
     ).toContain(".mastra");
   });
 
-  it("documents enough stop time for the configured Mastra drain window", () => {
+  it("documents shutdown grace beyond the configured Mastra drain and cleanup windows", () => {
     const deployment = read("docs/ipix-platform/02-mastra/deployment.md");
+    const dockerfile = read("Dockerfile.agent");
 
-    expect(deployment).toContain("docker run --stop-timeout 240");
-    expect(deployment).toMatch(/termination grace[^\n]*240/i);
+    expect(deployment).toContain("docker run --stop-timeout 300");
+    expect(deployment).toMatch(/termination grace[^\n]*300/i);
+    expect(deployment).toContain("127.0.0.1:4111:4111");
+    expect(dockerfile).toContain(
+      "docker run --stop-timeout 300 -p 127.0.0.1:4111:4111",
+    );
   });
 
   it("documents /health as liveness and verifies every protected production surface", () => {
@@ -119,7 +124,13 @@ describe("IPI-1310 · standalone Mastra service is deployable", () => {
     expect(deployment).toMatch(/`GET \/health`[^\n]*Liveness only/i);
     expect(verifySection).toContain("$BASE/api/agents");
     expect(verifySection).toContain("$BASE/api/workflows");
-    expect(verifySection).toContain("$BASE/ipix/run-control/active");
+    const activeProbe =
+      verifySection
+        .split("\n")
+        .find((line) => line.includes("$BASE/ipix/run-control/active")) ?? "";
+    expect(activeProbe).toContain("-X POST");
+    expect(activeProbe).toContain("-H 'content-type: application/json'");
+    expect(activeProbe).toContain("--data '{\"threadId\":\"deployment-check\"}'");
   });
 
   it("drains in-flight Planner turns for materially longer than Mastra's 5s default", () => {
@@ -137,7 +148,7 @@ describe("IPI-1310 · standalone Mastra service is deployable", () => {
     // so anything near the default is not a meaningful drain window.
     expect(
       drainTimeout,
-      `drainTimeout=${drainTimeout}ms is not meaningfully longer than Mastra's 5000ms default`,
-    ).toBeGreaterThanOrEqual(60_000);
+      "the production drain contract is 240 seconds; changing it requires re-validating Docker and host shutdown grace",
+    ).toBe(240_000);
   });
 });

@@ -54,7 +54,7 @@ Vercel app.
 
 ```bash
 npm run start:agent                                    # local, reads .env / .env.production
-docker run --stop-timeout 240 -p 4111:4111 --env-file .env ipix-mastra    # container
+docker run --stop-timeout 300 -p 127.0.0.1:4111:4111 --env-file .env ipix-mastra    # container behind same-host HTTPS proxy
 ```
 
 Direct entrypoint (what the image uses):
@@ -64,8 +64,11 @@ node .mastra/output/index.mjs
 ```
 
 `MASTRA_HOST` defaults to `localhost` when unset. Inside a container that means
-loopback-only, so the port is open but unreachable from outside and every
-healthcheck fails. `Dockerfile.agent` sets `MASTRA_HOST=0.0.0.0`.
+loopback-only, so the port is open but unreachable from the container network and every
+healthcheck fails. `Dockerfile.agent` sets `MASTRA_HOST=0.0.0.0`. The manual Docker
+command binds the host port to `127.0.0.1` so port 4111 is not exposed directly to
+the Internet; terminate HTTPS in a same-host reverse proxy. On a managed container
+platform, use its private service network and expose only the stable HTTPS origin.
 
 The image also sets `IPIX_MASTRA_HOSTED=1`. That activates the existing
 `src/mastra/pg-store.ts` fail-closed guard: a missing or unsafe
@@ -113,11 +116,13 @@ On `SIGTERM` the generated server stops accepting connections, waits
 `drainTimeout: 240_000`.
 
 A plain `agent.stream()` **cannot resume after the process exits**, so a short
-drain permanently truncates a live operator turn. Docker's default stop timeout
-is shorter than this drain window, so the documented container command uses
-`--stop-timeout 240`. Separately configure the hosting platform's termination
-grace period to **at least 240 seconds**; otherwise the platform can still kill
-the process mid-drain and the Mastra setting has no effect.
+drain permanently truncates a live operator turn. In the installed Mastra server,
+HTTP draining can consume the full 240 seconds and core shutdown is then bounded
+separately by another 5 seconds. Docker's default stop timeout is shorter than
+that full shutdown envelope, so the documented container command uses
+`--stop-timeout 300`. Configure the hosting platform's termination grace to
+**at least 300 seconds** as well; otherwise Docker or the platform can still kill
+the process after HTTP drain but before cleanup completes.
 
 Active-run ownership is in-memory. A restart during an active run loses that
 ownership even though thread data is durable in Postgres — the turn does not
@@ -131,7 +136,7 @@ BASE=https://<your-mastra-origin>
 curl -s -o /dev/null -w '%{http_code}\n' "$BASE/health"                    # 200 liveness
 curl -s -o /dev/null -w '%{http_code}\n' "$BASE/api/agents"                # 401
 curl -s -o /dev/null -w '%{http_code}\n' "$BASE/api/workflows"             # 401
-curl -s -o /dev/null -w '%{http_code}\n' "$BASE/ipix/run-control/active"   # 401
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'content-type: application/json' --data '{"threadId":"deployment-check"}' "$BASE/ipix/run-control/active"   # 401
 ```
 
 Then, with a real operator JWT, `GET /api/agents` must return `200`.
@@ -141,7 +146,7 @@ Then, with a real operator JWT, `GET /api/agents` must return `200`.
 - [ ] One instance only; autoscaling and replicas disabled.
 - [ ] Stable HTTPS origin.
 - [ ] Liveness check `GET /health`; do not treat this alone as readiness.
-- [ ] Docker stop timeout and platform termination grace are both >= 240s (`drainTimeout`).
+- [ ] Docker stop timeout and platform termination grace are both >= 300s (240s HTTP drain + bounded shutdown cleanup).
 - [ ] `MASTRA_HOST=0.0.0.0`.
 - [ ] All required env vars above set on the host.
 - [ ] Public `GET /api/agents` returns `401`.
