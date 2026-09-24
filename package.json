@@ -78,7 +78,6 @@
     "concurrently": "^9.1.2",
     "dotenv": "^16.4.7",
     "jsdom": "^30.0.1",
-    "safe-regex2": "^5.0.0",
     "tailwindcss": "^4",
     "tsx": "^4.19.2",
     "typescript": "^5",

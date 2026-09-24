@@ -18,7 +18,7 @@ type RegistryEntry = {
   do_not_use_for: string[];
   claude_exposed: boolean;
   replaces?: string[];
-  routing_patterns?: string[];
+  routing_phrases?: string[];
 };
 
 type Registry = { version: number; skills: Record<string, RegistryEntry> };
@@ -71,10 +71,10 @@ describe("skill registry contract", () => {
     for (const [prompt, expected] of cases) expect(selectSkillForPrompt(prompt, registry), prompt).toBe(expected);
   });
 
-  it("rejects unsafe routing regexes before they can execute", () => {
-    const unsafe = structuredClone(registry) as Registry;
-    unsafe.skills.requirements.routing_patterns = ["(a+)+$"];
-    expect(validateRegistry(unsafe)).toContain("requirements: unsafe routing regex (a+)+$");
+  it("uses literal routing phrases instead of dynamic regular expressions", () => {
+    const source = readFileSync(resolve(repoRoot, "scripts/skill-registry.mjs"), "utf8");
+    expect(source).not.toContain("new RegExp");
+    expect(source).not.toContain("routing_patterns");
   });
 
   it("bounds prompt length before evaluating routing regexes", () => {
@@ -83,7 +83,7 @@ describe("skill registry contract", () => {
 
   it("returns undefined for ambiguous routing instead of silently choosing the first match", () => {
     const ambiguous = structuredClone(registry) as Registry;
-    ambiguous.skills["writing-plans"].routing_patterns = ["acceptance criteria"];
+    ambiguous.skills["writing-plans"].routing_phrases = ["acceptance criteria"];
     expect(selectSkillForPrompt("write acceptance criteria", ambiguous)).toBeUndefined();
   });
 

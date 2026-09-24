@@ -99,11 +99,13 @@
       "replaces": [
         "debug-fix-failed-flaky-autotests"
       ],
-      "routing_patterns": [
-        "(?:tests?\\s+flaky\\s+in\\s+ci|tests?\\s+are\\s+flaky\\s+in\\s+ci)",
-        "(?:debug\\s+flaky\\s+test|debug\\s+a\\s+flaky\\s+test)"
-      ],
-      "canonical": ".agents/skills/diagnosing-bugs"
+      "canonical": ".agents/skills/diagnosing-bugs",
+      "routing_phrases": [
+        "tests are flaky in ci",
+        "tests flaky in ci",
+        "debug a flaky test",
+        "debug flaky test"
+      ]
     },
     "dispatching-parallel-agents": {
       "owner": "execution",
@@ -180,11 +182,12 @@
         "explorbot-setup",
         "explorbot-plan"
       ],
-      "routing_patterns": [
-        "explore\\s+this\\s+app\\s+for\\s+bugs",
-        "(?:autonomous\\s+exploratory\\s+test|autonomous\\s+exploratory\\s+browser\\s+test)"
-      ],
-      "canonical": ".agents/skills/explorbot"
+      "canonical": ".agents/skills/explorbot",
+      "routing_phrases": [
+        "explore this app for bugs",
+        "autonomous exploratory test",
+        "autonomous exploratory browser test"
+      ]
     },
     "improve-test-cases": {
       "owner": "qa",
@@ -235,11 +238,11 @@
         "autonomous exploratory testing"
       ],
       "claude_exposed": true,
-      "routing_patterns": [
-        "run\\s+deterministic\\s+browser\\s+steps",
-        "deterministic\\s+browser\\s+automation"
-      ],
-      "canonical": ".agents/skills/playwright-cli"
+      "canonical": ".agents/skills/playwright-cli",
+      "routing_phrases": [
+        "run deterministic browser steps",
+        "deterministic browser automation"
+      ]
     },
     "prima": {
       "owner": "qa-browser",
@@ -467,11 +470,12 @@
         "ordinary feature plans with no migration risk"
       ],
       "claude_exposed": true,
-      "routing_patterns": [
-        "plan\\s+a\\s+risky\\s+multi-file\\s+migration",
-        "(?:plan\\s+multi-file\\s+refactor|plan\\s+a\\s+multi-file\\s+refactor)"
-      ],
-      "canonical": ".agents/skills/refactor-plan"
+      "canonical": ".agents/skills/refactor-plan",
+      "routing_phrases": [
+        "plan a risky multi-file migration",
+        "plan a multi-file refactor",
+        "plan multi-file refactor"
+      ]
     },
     "requesting-code-review": {
       "owner": "engineering-quality",
@@ -513,11 +517,13 @@
         "write-user-story",
         "qa-requirement-reviewer"
       ],
-      "routing_patterns": [
-        "write\\s+acceptance\\s+criteria",
-        "(?:write\\s+user\\s+stor(?:y|ies)|write\\s+a\\s+user\\s+stor(?:y|ies))"
-      ],
-      "canonical": ".agents/skills/requirements"
+      "canonical": ".agents/skills/requirements",
+      "routing_phrases": [
+        "write acceptance criteria",
+        "write a user story",
+        "write user story",
+        "write user stories"
+      ]
     },
     "research": {
       "owner": "research",
@@ -683,11 +689,11 @@
         "implementation execution"
       ],
       "claude_exposed": true,
-      "routing_patterns": [
-        "turn\\s+this\\s+conversation\\s+into\\s+a\\s+spec",
-        "conversation\\s+to\\s+spec"
-      ],
-      "canonical": ".agents/skills/to-spec"
+      "canonical": ".agents/skills/to-spec",
+      "routing_phrases": [
+        "turn this conversation into a spec",
+        "conversation to spec"
+      ]
     },
     "writing-plans": {
       "owner": "planning",
@@ -705,11 +711,12 @@
         "structural migration plans where compatibility or rollback is load-bearing"
       ],
       "claude_exposed": true,
-      "routing_patterns": [
-        "make\\s+an\\s+implementation\\s+plan",
-        "(?:write\\s+implementation\\s+plan|write\\s+an\\s+implementation\\s+plan)"
-      ],
-      "canonical": ".agents/skills/writing-plans"
+      "canonical": ".agents/skills/writing-plans",
+      "routing_phrases": [
+        "make an implementation plan",
+        "write an implementation plan",
+        "write implementation plan"
+      ]
     }
   },
   "deprecated_aliases": {

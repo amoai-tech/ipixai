@@ -1,6 +1,5 @@
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import safeRegex from "safe-regex2";
 import { fileURLToPath } from "node:url";
 
 export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -82,13 +81,9 @@ export function validateRegistry(registry = loadRegistry()) {
     for (const replaced of entry.replaces ?? []) {
       if (pathEntryExists(resolve(agentsRoot, replaced)) || pathEntryExists(resolve(claudeRoot, replaced))) errors.push(`${name}: replaced skill still exists: ${replaced}`);
     }
-    for (const pattern of entry.routing_patterns ?? []) {
-      try {
-        new RegExp(pattern, "i");
-        if (!safeRegex(pattern)) errors.push(`${name}: unsafe routing regex ${pattern}`);
-      } catch {
-        errors.push(`${name}: invalid routing regex ${pattern}`);
-      }
+    for (const phrase of entry.routing_phrases ?? []) {
+      if (typeof phrase !== "string" || !phrase.trim()) errors.push(`${name}: routing phrase must be a non-empty string`);
+      if (phrase.length > 200) errors.push(`${name}: routing phrase is too long`);
     }
   }
   return errors;
@@ -96,11 +91,12 @@ export function validateRegistry(registry = loadRegistry()) {
 
 export function selectSkillForPrompt(prompt, registry = loadRegistry()) {
   if (typeof prompt !== "string" || prompt.length > MAX_ROUTING_PROMPT_LENGTH) return undefined;
+  const normalizedPrompt = prompt.toLowerCase().replace(/\s+/g, " ").trim();
   const matches = [];
   for (const [name, entry] of Object.entries(registry.skills)) {
-    for (const pattern of entry.routing_patterns ?? []) {
-      if (!safeRegex(pattern)) continue;
-      if (new RegExp(pattern, "i").test(prompt)) {
+    for (const phrase of entry.routing_phrases ?? []) {
+      const normalizedPhrase = phrase.toLowerCase().replace(/\s+/g, " ").trim();
+      if (normalizedPhrase && normalizedPrompt.includes(normalizedPhrase)) {
         matches.push(name);
         break;
       }
