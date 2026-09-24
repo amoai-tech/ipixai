@@ -1,4 +1,6 @@
-import { test, expect, type Page, type Request } from "@playwright/test";
+import { test, expect } from "@playwright/test";
+
+import { collectBrowserProblems, isAgentRun as isRun, isAgentStop as isStop } from "./support/browser-problems";
 
 /**
  * IPI-1290 · COPILOTKIT-UPGRADE-001 — the real browser Stop journey.
@@ -14,30 +16,13 @@ import { test, expect, type Page, type Request } from "@playwright/test";
 const NAV_TIMEOUT_MS = 30_000;
 const RESPONSE_TIMEOUT_MS = 90_000;
 
-function collectProblems(page: Page) {
-  const problems: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() === "error") problems.push(`console.error: ${message.text()}`);
-  });
-  page.on("pageerror", (error) => problems.push(`pageerror: ${error.message}`));
-  page.on("response", (response) => {
-    if (response.status() >= 500) {
-      problems.push(`HTTP ${response.status()} ${response.request().method()} ${response.url()}`);
-    }
-  });
-  return problems;
-}
-
-const isStop = (request: Request) => request.method() === "POST" && /\/stop\//.test(request.url());
-const isRun = (request: Request) => request.method() === "POST" && /\/agent\/[^/]+\/run/.test(request.url());
-
 test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
   // Never retry: each attempt re-sends real, paid model requests.
   test.describe.configure({ retries: 0 });
 
   test("Stop ends only its own run; a late Stop(R1) leaves R2 running to completion", async ({ page }) => {
     test.setTimeout(RESPONSE_TIMEOUT_MS * 2 + NAV_TIMEOUT_MS * 4);
-    const problems = collectProblems(page);
+    const problems = collectBrowserProblems(page);
     const marker = `r2-${Date.now().toString(36)}`;
 
     await page.goto("/app");
