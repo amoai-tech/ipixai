@@ -1,8 +1,11 @@
-# iPixai skills
+# iPix skills
 
-Canonical repository skill tree: `.claude/skills/`. Cursor also loads `.cursor/skills` → symlink to the same tree.
+Canonical repository skill source tree: `.agents/skills/`. `.claude/skills/` is the Claude discovery/compatibility layer: shared skills should be symlinks to `.agents/skills/<skill>`, not duplicate directories. Cursor may load `.cursor/skills` through the Claude discovery layer.
+
+**One-real-copy rule:** every skill has exactly one real directory. Prefer `.agents/skills/<skill>/` for reusable/cross-agent skills; expose it to Claude with `.claude/skills/<skill> -> ../../.agents/skills/<skill>`. Existing iPix/Claude-only skills may remain under `.claude/skills/` until migrated, but never keep a second copied directory in `.agents/skills/`.
 
 AI runtime SSOT: `docs/copilotkit-mastra/README.md`. Cursor rules: `.cursor/rules/`.
+Machine-readable ownership/consolidation registry: `.agents/skills/registry.json`. CI validates canonical paths and removed aliases.
 
 ---
 
@@ -18,7 +21,7 @@ AI runtime SSOT: `docs/copilotkit-mastra/README.md`. Cursor rules: `.cursor/rule
 | `shadcn` | UI components |
 | `vercel-react-best-practices` | Perf |
 | `linear` | IPI issues |
-| `tasks` | **Primary iPix task skill** — task setup/execution, agent prompts, pre-commit, testing, PR review, user journeys, CI, migration reuse, and post-merge proof |
+| `tasks` | **Primary iPix task skill** — task setup/execution, fastest-path analysis mode, agent prompts, pre-commit, testing, PR review, user journeys, CI, migration reuse, and post-merge proof |
 | `task-verifier` | **Adversarial independent evidence gate** — Quick narrow checks, Standard task/PR review, automatic Adversarial escalation for high-risk work |
 | `brainstorming` | Selected `obra/superpowers` methodology skill — design/intent exploration before creative implementation work |
 | `writing-plans` | Selected `obra/superpowers` methodology skill — convert an approved design/spec into executable implementation steps |
@@ -26,8 +29,6 @@ AI runtime SSOT: `docs/copilotkit-mastra/README.md`. Cursor rules: `.cursor/rule
 | `dispatching-parallel-agents` | Selected `obra/superpowers` methodology skill — parallelize genuinely independent work |
 | `receiving-code-review` | Selected `obra/superpowers` methodology skill — verify review feedback before applying it |
 | `requesting-code-review` | Selected `obra/superpowers` methodology skill — request focused review before the iPix PR/Done gates |
-| `ipix-task-lifecycle` | **Deprecated compatibility alias** → use `tasks` for new work |
-| `pr-workflow` | **Deprecated compatibility alias** → use `tasks` PR/Actions/post-merge references |
 | `lean` | Velocity audit |
 | `worktrees` | Isolated branches |
 | `refactor-plan` | Multi-file refactors |
@@ -38,6 +39,19 @@ AI runtime SSOT: `docs/copilotkit-mastra/README.md`. Cursor rules: `.cursor/rule
 | `domain-modeling` | Domain language / `CONTEXT.md` / ADR discipline; adapted from Matt Pocock skills |
 | `codebase-design` | Deep-module, seam, interface, and test-surface design; adapted from Matt Pocock skills |
 | `resolving-merge-conflicts` | Intent-based merge/rebase conflict resolution with iPix high-risk verification |
+
+## Consolidated shared skills
+
+These are local canonical skills under `.agents/skills/` built by combining overlapping upstream Testomat.io skills. Their source provenance is recorded in each skill's metadata; the superseded upstream entry points are intentionally removed from `skills-lock.json`.
+
+| Skill | Consolidates |
+|---|---|
+| `qa-review` | `qa-thinking` + `qa-review-pr` |
+| `qa-pr-analysis` | `qa-pr-requirements-analyzer` + `pull-request-diff-analyzer` |
+| `explorbot` | `explorbot-fundamentals` + `explorbot-setup` + `explorbot-plan` |
+| `testomatio` | reporter setup + sprint reporting + test-case sync + MCP + run CLI + change-aware PR testing |
+| `requirements` | `epic-requirements-specification` + `write-user-story` + `qa-requirement-reviewer` as Epic, user-story, and QA-review modes |
+| `diagnosing-bugs` | General bug diagnosis + former `debug-fix-failed-flaky-autotests` as automated-test mode/reference |
 
 Official Cloudinary upstream packs are embedded under `.claude/skills/cloudinary/references/official/` and are not separate triggerable skills. Refresh snapshots into a temporary directory, then sync only the needed embedded references so the iPix security overlay remains authoritative.
 
@@ -61,7 +75,8 @@ Also not copied from the wider old catalog: `mercur`, `amazon-bedrock`, `ipix` r
 - Next: port 3000, `src/app/`
 - Supabase: preview-first, do not `cd /home/sk/ipix` from this repo
 - CopilotKit: `ipix-production.md` is old-app notes
-- Task execution: `tasks` is canonical; `ipix-task-lifecycle` and `pr-workflow` are compatibility aliases only
+- Task execution, fastest-path analysis, and PR lifecycle: `tasks` is the single canonical owner
+- Requirements planning: `requirements` owns Epic/story/acceptance-criteria definition and QA requirements review; `to-spec` owns conversation → spec; `tasks` owns executable Linear tasks; `writing-plans` owns implementation plans
 
 ## External skill provenance
 
@@ -69,4 +84,4 @@ The three Matt Pocock-derived engineering skills above were copied from `mattpoc
 
 ## Superpowers methodology subset
 
-The six Superpowers methodology skills above were vendored from [`obra/superpowers`](https://github.com/obra/superpowers) commit `b36e0829c6d0140e93cfef2ca599b1b07d4a7797` under the upstream MIT license (`SUPERPOWERS_LICENSE.txt`). Only dependency references that would otherwise require unvendored Superpowers skills were adapted to existing iPix owners: `worktrees` for workspace isolation and `tasks` for inline execution / branch finishing / PR-post-merge handling. iPix `tasks`, `task-verifier`, `worktrees`, `pr`, `fastest`, Graphify, and domain skills remain authoritative for repository-specific behavior.
+The six Superpowers methodology skills above were vendored from [`obra/superpowers`](https://github.com/obra/superpowers) commit `b36e0829c6d0140e93cfef2ca599b1b07d4a7797` under the upstream MIT license (`SUPERPOWERS_LICENSE.txt`). Only dependency references that would otherwise require unvendored Superpowers skills were adapted to existing iPix owners: `worktrees` for workspace isolation and `tasks` for inline execution / branch finishing / PR-post-merge handling. iPix `tasks`, `task-verifier`, `worktrees`, `pr`, Graphify, and domain skills remain authoritative for repository-specific behavior.

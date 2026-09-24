@@ -149,7 +149,7 @@ Expect 🔴 until production-state + data-source tables filled
 Do not implement while 🔴 on API/table/component claims
 ```
 
-Skills **before first edit:** `ipix-task-lifecycle` · `design-to-production` · `design-md` · `task-verifier`
+Skills **before first edit:** `tasks` · `design-to-production` · `design-md` · `task-verifier`
 
 ---
 

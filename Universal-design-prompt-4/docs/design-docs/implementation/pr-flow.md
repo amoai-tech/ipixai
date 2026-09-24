@@ -91,7 +91,7 @@ Mismatch → `cd` to correct path before `/pr fix`.
 |------|------|--------------|--------|
 | **A — Thread-only** | Clear inline comment with exact file/line | None unless confidence < 80% | Targeted test + lint |
 | **B — Domain** | UI architecture, Supabase/RLS, auth, agents, migrations, shared components | Max 1–2 skills; MCP only if external truth needed | `npm test` on affected glob |
-| **C — Forensic** | CI red, runtime disputed, AC drift, stacked PR unclear | `task-verifier` + MCP + browser | Full `@pr-workflow` matrix |
+| **C — Forensic** | CI red, runtime disputed, AC drift, stacked PR unclear | `task-verifier` + MCP + browser | Full `tasks` PR verification matrix |
 
 ### Tier A — Thread-only
 
@@ -228,4 +228,4 @@ npm run worktree:audit
 - `.claude/commands/pr.md` — orchestrator SSOT (#172)
 - `.claude/commands/pr-fix.md` — triage + verify loop
 - `npm run worktree:audit` · `npm run worktree:add` — worktree manager (#173)
-- `@pr-workflow` — verify matrix (`cd app && npm run lint && npm test && npm run build`)
+- `tasks` — PR verification matrix (`cd app && npm run lint && npm test && npm run build`)

@@ -308,3 +308,17 @@ Use for Node SDK/Admin/upload API detail not already covered by the official fra
 Do not reinstall upstream skills as top-level triggerable directories.
 Refresh upstream into a temporary directory, compare versions/diffs, then sync only the official snapshots under `references/official/`. Before changing Cloudinary integration behavior, compare local official-reference version metadata with `cloudinary-devs/skills` and check current Cloudinary release/documentation notes for the affected feature.
 After any refresh, verify this canonical `SKILL.md` still preserves the iPix-specific security and ownership contracts above. Never overwrite the canonical iPix overlay automatically with upstream content.
+
+
+## PR review invariants
+
+Use this canonical Cloudinary skill for implementation and review; do not route to a separate reviewer skill.
+
+- Verify exact installed Cloudinary SDK behavior before API claims.
+- API secrets never reach browser, model, or logs; client uploads use server-authorized signed parameters where required.
+- Signature inputs, timestamp/expiry, folder/public ID ownership, transformations, and upload presets must not be caller-escalatable across tenants.
+- Verify provider authenticity before webhook state changes and make replay/idempotent delivery safe.
+- Supabase stores durable application metadata while Cloudinary owns media bytes; foreign provider asset IDs require authorization before mapping.
+- Destructive media operations require server-side tenant authorization and deterministic proof.
+- Transformation/delivery changes must not silently make private media public or bypass intended restrictions.
+- Run the cheapest decisive signature/webhook/tenant test instead of generic media-style review.

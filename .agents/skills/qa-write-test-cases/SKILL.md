@@ -16,7 +16,7 @@ References:
 ## Prerequisites
 
 - Project structure checked (source code, e2e tests, test cases) via Graphify plus direct manifest/config/test-file inspection.
-- Existing Testomat.io tests pulled via the /sync-test-cases-with-tms skill.
+- Existing Testomat.io tests pulled via the /testomatio skill.
 - PLAN mode enabled, if available, for the interview steps.
 
 ## User interaction
@@ -84,7 +84,7 @@ Option 1 — MCP. If the `testomatio` MCP is available, gather context:
 - `steps_list`, `steps_search` — reusable shared steps
 - `tags_list`, `labels_list` — project conventions
 
-Option 2 — `sync-test-cases-with-tms` skill (with `check-tests` lib). Run it with the `pull` action, then analyze the downloaded files for:
+Option 2 — `testomatio` → `references/sync.md` (with `check-tests`). Run it with the `pull` action, then analyze the downloaded files for:
 
 - existing structure and suites
 - current test cases (to avoid duplicates)
@@ -242,7 +242,7 @@ Format rules:
 - **NEVER generate test or suite IDs of any kind:**
   - Do NOT include Testomat.io IDs (`id: @T*`, `id: @S*`, e.g. `@T12345678`, `@S380c64db`).
   - Do NOT include custom/random IDs (e.g. `TC-001`, `TC-R001`, `SUITE-01`) in `id:` fields, titles, or anywhere else.
-  - Testomat.io IDs are server-generated and assigned when the user runs `check-tests push` with `--update-ids` (or via the `sync-test-cases-with-tms` skill). Never add IDs at generation time.
+  - Testomat.io IDs are server-generated and assigned when the user runs `check-tests push` with `--update-ids` (or via `testomatio` → `references/sync.md`). Never add IDs at generation time.
 
 #### Matching existing test case formats
 
@@ -264,4 +264,4 @@ DON'T copy:
 
 - Show a concise summary (markdown table works well): number of test cases and suites, generated files, destination folder.
 - Ask the user to review the files and request changes if needed.
-- Suggest uploading the test cases to Testomat.io via the `sync-test-cases-with-tms` skill.
+- Suggest uploading the test cases to Testomat.io via `testomatio` → `references/sync.md`.

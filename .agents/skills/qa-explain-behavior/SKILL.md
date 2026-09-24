@@ -102,7 +102,7 @@ When the product **is** a CLI or an API, the commands, flags, and endpoints a us
 
 Offer after the answer:
 
-- Turn the behavior into risk scenarios → `qa-thinking` skill.
+- Turn the behavior into risk scenarios → `qa-review` skill.
 - Turn it into test cases or a checklist → `qa-write-test-cases` skill.
 - Map which tests already cover it → `qa-test-code-coverage` skill.
 

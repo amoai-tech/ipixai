@@ -35,7 +35,7 @@ live Linear task
 → Linear Done
 ```
 
-Do not use deprecated `ipix-task-lifecycle` or `pr-workflow` as the primary workflow.
+Use `.claude/skills/tasks/SKILL.md` as the single task and PR lifecycle workflow.
 
 ## Fastest safe path
 

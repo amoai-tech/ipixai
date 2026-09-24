@@ -45,7 +45,7 @@ Override: user says `quick` or `full`. Escalate Quick → Full on 🔴 productio
 | Phase 5b + verify matrix before Done | [tasks pre-merge-tests](../../../tasks/references/pre-merge-tests.md) |
 | Evidence path | PR body + `docs/ecommerce/evidence/YYYY-MM-DD/` when user-facing |
 
-**Lifecycle:** [ipix-task-lifecycle](../../../ipix-task-lifecycle/SKILL.md) · [linear-issue-steps.md](../../../ipix-task-lifecycle/references/linear-issue-steps.md)
+**Lifecycle:** [`tasks`](../../../tasks/SKILL.md)
 
 ---
 
@@ -61,7 +61,7 @@ Override: user says `quick` or `full`. Escalate Quick → Full on 🔴 productio
 | Conversion plan links `design-to-production` | ✅ |
 | DoD: lint · test · build · parity report | per SCR-TEMPLATE |
 
-**Do not require** ipix-task-lifecycle §1–10 sections on SCR files — that is a false 🟡.
+**Do not require** obsolete legacy lifecycle sections on SCR files — that is a false 🟡.
 
 ---
 

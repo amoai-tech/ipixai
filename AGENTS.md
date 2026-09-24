@@ -32,7 +32,7 @@ Ownership:
 - Linear = live task-specific plan, blocker, evidence, progress, and Done source of truth.
 - CI/tests = repeatable automated proof.
 
-Deprecated `ipix-task-lifecycle` and `pr-workflow` are compatibility aliases only. Do not use them as the primary workflow for new work.
+`tasks` is the only task/PR lifecycle skill. Do not create parallel lifecycle skills.
 
 ## Fastest safe path
 
@@ -210,7 +210,9 @@ Do not autonomously publish, pay, delete, or commit sensitive business state.
 - One concern per commit/PR; do not mix unrelated cleanup.
 - Full Linear names: `IPI-NNN · TASK-ID — Full title`, where `TASK-ID` is the real spec identifier such as `BRAND-001`, `DASH-MAIN-002`, or `MIGRATE-TEMPLATE`.
 
-Rules: `.cursor/rules/`. Skills: `.claude/skills/` (`.cursor/skills` symlink). Index: `.claude/skills/index-skills.md`.
+Rules: `.cursor/rules/`. Canonical skill source tree: `.agents/skills/`. Claude discovers shared skills through symlinks under `.claude/skills/`; `.cursor/skills` may point at the Claude discovery layer. Index: `.claude/skills/index-skills.md`.
+
+**One-real-copy rule:** by default, a skill has one real directory in the repository. Shared/cross-agent skills belong in `.agents/skills/<skill>/`; `.claude/skills/<skill>` must be a symlink to that canonical directory. Do not maintain copied skill directories in both trees. Existing iPix/Claude-only skills that have not yet been migrated may remain under `.claude/skills/` temporarily. Any other temporary exception must be explicitly approved and documented in the owning task/PR with the authoritative copy, reason, and removal checkpoint; otherwise stop instead of creating a duplicate. New shared skills and migrated skills must use `.agents/skills/` as their real home.
 
 ## PR instructions
 

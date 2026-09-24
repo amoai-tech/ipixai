@@ -23,7 +23,7 @@ This is a **deterministic policy-conformance benchmark**, not a Claude runtime b
 | `/pr fix 106` | verify findings, edit only, stop before commit/push | Explicit `fix` is edit-only | Explicit `fix` is edit-only | Old ✅ / New ✅ |
 | `/pr ship 106` | verify → allowlisted stage → commit → push → refresh exact-head evidence; never merge | Explicit ship commits/pushes, re-fetches head, never merges; also resolves verified threads | Explicit ship commits/pushes, refreshes exact-head evidence, never merges | Old ✅ / New ✅ |
 | `/pr resolve 106` | verify current findings, reply + resolve only | Explicit resolve is no-code and verifies at HEAD | Explicit resolve is reply + resolution after current-head verification | Old ✅ / New ✅ |
-| `/pr post-merge 106` | use canonical `tasks` post-merge proof | **Fails current ownership rule**: routes to deprecated `pr-workflow/references/post-merge.md` | Routes to `tasks/references/post-merge.md` | Old ❌ / New ✅ |
+| `/pr post-merge 106` | use canonical `tasks` post-merge proof | **Fails current ownership rule**: routes to removed legacy PR-workflow post-merge path | Routes to `tasks/references/post-merge.md` | Old ❌ / New ✅ |
 
 ### Pass rate
 
@@ -78,7 +78,7 @@ so Claude cannot automatically invoke the side-effecting PR workflow.
 
 ### 3. Canonical ownership
 
-The old post-merge path routes through deprecated `pr-workflow`. The new skill routes PR/post-merge behavior through the canonical `tasks` references and keeps `task-verifier` as the independent Done authority.
+The old post-merge path routes through removed legacy PR workflow. The new skill routes PR/post-merge behavior through the canonical `tasks` references and keeps `task-verifier` as the independent Done authority.
 
 ## Runtime benchmark still required
 
