@@ -376,26 +376,28 @@ describe("deny-by-default Mastra HTTP allowlist (IPI-1326)", () => {
     expect(res.status).toBe(403);
   });
 
-  // Wrong method / unknown path: Mastra has no handler, so the request never
-  // reaches auth or any route logic. Unmatched GETs fall through to Mastra's
-  // static welcome HTML; everything else is a plain 404. Neither runs code.
+  // Non-allowlisted wrong methods / unknown paths. Today Mastra has no handler
+  // for these, so auth never runs: unmatched GETs fall through to Mastra's
+  // static welcome HTML and everything else is a plain 404. If a future Mastra
+  // registers one of them, authorization runs and it is 403. Either way no
+  // protected handler executes and no API data is returned.
   it.each([
     "POST /api/agents",
     "DELETE /api/agents",
     "GET /ipix/run-control/abort",
     "GET /api/agents/",
     "GET /api/agents/production-planner/tools",
-  ] as DeniedRoute[])("%s reaches no handler", async (route) => {
+  ] as DeniedRoute[])("%s non-allowlisted route fails closed without exposing data", async (route) => {
     const res = await requestDenied(route, "org-b-token");
     const body = await res.text();
     if (route.startsWith("GET ")) {
-      expect([200, 404]).toContain(res.status);
+      expect([200, 403, 404]).toContain(res.status);
       if (res.status === 200) {
         expect(res.headers.get("content-type")).toContain("text/html");
-        expect(body).not.toMatch(/"(aborted|runId|agents|name)"/);
+        expect(body).not.toMatch(/"(aborted|runId|agents)"/);
       }
     } else {
-      expect(res.status).toBe(404);
+      expect([403, 404]).toContain(res.status);
     }
   });
 

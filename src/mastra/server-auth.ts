@@ -151,6 +151,8 @@ export async function resolveMastraIdentity(
  * tests/mastra-route-allowlist-contract.test.ts fails if an upgraded client
  * starts calling a route that is not listed here.
  */
+// New Mastra or /ipix/* routes are intentionally denied until explicitly
+// added here and covered by the HTTP/SDK route contract tests.
 const ALLOWED_MASTRA_ROUTES: ReadonlySet<string> = new Set([
   "GET /api/agents",
   "POST /api/agents/production-planner/stream",
