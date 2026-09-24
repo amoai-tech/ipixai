@@ -1,6 +1,4 @@
 // @vitest-environment jsdom
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -22,6 +20,7 @@ vi.mock("@/components/ui/error-state", () => ({
 
 import AppPlansError from "@/app/app/plans/error";
 import AppPlanDetailError from "@/app/app/plans/[instanceId]/error";
+import GlobalError from "@/app/global-error";
 
 afterEach(() => {
   cleanup();
@@ -61,13 +60,40 @@ describe("Sentry App Router error boundaries", () => {
     expect(reset).toHaveBeenCalledTimes(1);
   });
 
-  it("provides a global boundary that reports the provided error", () => {
-    const path = join(process.cwd(), "src/app/global-error.tsx");
-    expect(existsSync(path)).toBe(true);
-    if (!existsSync(path)) return;
+  it("reports a client global error once and preserves retry UX", () => {
+    const error = new Error("global client failure");
+    const reset = vi.fn();
 
-    const source = readFileSync(path, "utf8");
-    expect(source).toContain("captureExceptionOnce(error)");
-    expect(source).toContain("Something went wrong");
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(
+      <StrictMode>
+        <GlobalError error={error} reset={reset} />
+      </StrictMode>,
+    );
+    expect(
+      consoleError.mock.calls.every(call => String(call[0]).includes("cannot be a child of")),
+    ).toBe(true);
+    consoleError.mockRestore();
+
+    expect(captureException).toHaveBeenCalledTimes(1);
+    expect(captureException).toHaveBeenCalledWith(error);
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(reset).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not recapture a digest-bearing server render error in the browser", () => {
+    const error = Object.assign(new Error("sanitized server failure"), { digest: "server-digest" });
+    const reset = vi.fn();
+
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(<GlobalError error={error} reset={reset} />);
+    expect(
+      consoleError.mock.calls.every(call => String(call[0]).includes("cannot be a child of")),
+    ).toBe(true);
+    consoleError.mockRestore();
+
+    expect(captureException).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(reset).toHaveBeenCalledTimes(1);
   });
 });

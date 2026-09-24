@@ -1,9 +1,32 @@
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const sentry = vi.hoisted(() => ({
+  init: vi.fn(),
+  replayIntegration: vi.fn((options: unknown) => ({ name: "Replay", options })),
+  captureRouterTransitionStart: vi.fn(),
+  mastraIntegration: vi.fn(() => ({ name: "Mastra" })),
+}));
+
+vi.mock("@sentry/nextjs", () => sentry);
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
+const originalClientDsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+
+beforeEach(() => {
+  vi.resetModules();
+  sentry.init.mockReset();
+  sentry.replayIntegration.mockClear();
+  sentry.mastraIntegration.mockClear();
+  process.env.NEXT_PUBLIC_SENTRY_DSN = "https://public@example.invalid/1";
+});
+
+afterEach(() => {
+  if (originalClientDsn === undefined) delete process.env.NEXT_PUBLIC_SENTRY_DSN;
+  else process.env.NEXT_PUBLIC_SENTRY_DSN = originalClientDsn;
+});
 
 describe("Sentry production configuration", () => {
   it("pins the supported Next.js SDK and creates runtime instrumentation", () => {
@@ -15,28 +38,54 @@ describe("Sentry production configuration", () => {
 
   it("wraps the existing Next.js config without dropping iPix settings", () => {
     const config = read("next.config.ts");
+    expect(config).toContain('from "@sentry/nextjs/config"');
     expect(config).toContain("withSentryConfig");
     expect(config).toContain("SERVICE_REDIRECTS");
     expect(config).toContain("root: process.cwd()");
     expect(config).toContain("cpus: 4");
   });
 
-  it("uses conservative client privacy and replay defaults", () => {
-    const client = read("instrumentation-client.ts");
-    expect(client).toContain("userInfo: false");
-    expect(client).toContain("httpBodies: []");
-    expect(client).toContain("cookies: false");
-    expect(client).toContain("httpHeaders: false");
-    expect(client).toContain("urlQueryParams: false");
-    expect(client).toContain("inputs: false");
-    expect(client).toContain("outputs: false");
-    expect(client).toContain("stackFrameVariables: false");
-    expect(client).toContain("replaysSessionSampleRate: 0");
-    expect(client).toContain("replaysOnErrorSampleRate: 0.1");
-    expect(client).toContain("maskAllText: true");
-    expect(client).toContain("maskAllInputs: true");
-    expect(client).toContain("blockAllMedia: true");
-    expect(client).not.toContain("SENTRY_AUTH_TOKEN");
+  it("passes conservative privacy and replay options to the client SDK", async () => {
+    await import("../instrumentation-client");
+
+    expect(sentry.replayIntegration).toHaveBeenCalledWith({
+      maskAllText: true,
+      maskAllInputs: true,
+      blockAllMedia: true,
+    });
+    expect(sentry.init).toHaveBeenCalledTimes(1);
+    expect(sentry.init).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dsn: "https://public@example.invalid/1",
+        dataCollection: {
+          userInfo: false,
+          cookies: false,
+          httpHeaders: false,
+          httpBodies: [],
+          urlQueryParams: false,
+          graphQL: { document: false, variables: false },
+          genAI: { inputs: false, outputs: false },
+          databaseQueryData: false,
+          queues: false,
+          stackFrameVariables: false,
+        },
+        replaysSessionSampleRate: 0,
+        replaysOnErrorSampleRate: 0.1,
+      }),
+    );
+    expect(sentry.init.mock.calls[0]?.[0]).not.toHaveProperty("enableLogs");
+  });
+
+  it("keeps all production Sentry entrypoints in the normal TypeScript project", () => {
+    const config = JSON.parse(read("tsconfig.json")) as { include?: string[] };
+    expect(config.include).toEqual(
+      expect.arrayContaining([
+        "instrumentation.ts",
+        "instrumentation-client.ts",
+        "sentry.server.config.ts",
+        "sentry.edge.config.ts",
+      ]),
+    );
   });
 
   it("uses environment-driven DSNs and conservative server privacy", () => {
@@ -55,6 +104,7 @@ describe("Sentry production configuration", () => {
       expect(source).toContain("genAI: { inputs: false, outputs: false }");
       expect(source).toContain("databaseQueryData: false");
       expect(source).toContain("stackFrameVariables: false");
+      expect(source).not.toContain("enableLogs");
       expect(source).not.toContain("SENTRY_AUTH_TOKEN");
     }
   });

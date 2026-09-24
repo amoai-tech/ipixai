@@ -1,9 +1,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import * as Sentry from "@sentry/node";
+import { afterEach, describe, expect, it } from "vitest";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
+
+afterEach(async () => {
+  await Sentry.close(0);
+});
 
 describe("Sentry Mastra observability contract", () => {
   it("installs the compatible Mastra observability package", () => {
@@ -43,8 +48,51 @@ describe("Sentry Mastra observability contract", () => {
     expect(runtime.match(/new Mastra\(/g)).toHaveLength(1);
   });
 
-  it("keeps generative-AI payload collection disabled", () => {
-    const server = read("sentry.server.config.ts");
-    expect(server).toContain("genAI: { inputs: false, outputs: false }");
+  it("emits an errored Mastra span without synthetic prompt or response payloads", async () => {
+    const envelopes: unknown[] = [];
+    Sentry.init({
+      dsn: "https://public@example.invalid/1",
+      tracesSampleRate: 1,
+      defaultIntegrations: false,
+      dataCollection: { genAI: { inputs: false, outputs: false } },
+      transport: () => ({
+        send: async envelope => {
+          envelopes.push(envelope);
+          return { statusCode: 200 };
+        },
+        flush: async () => true,
+      }),
+    });
+
+    const exporter = new Sentry.SentryMastraExporter();
+    const startTime = new Date();
+    const exportedSpan = {
+      id: "synthetic-agent-span",
+      name: "synthetic-agent",
+      type: "agent_run",
+      startTime,
+      entityName: "Planner",
+      input: "SYNTHETIC_SECRET_PROMPT",
+      output: "SYNTHETIC_SECRET_RESPONSE",
+      attributes: {
+        prompt: "SYNTHETIC_SECRET_PROMPT",
+        instructions: "SYNTHETIC_SECRET_PROMPT",
+      },
+      errorInfo: { name: "Error", message: "synthetic failure" },
+    } as const;
+
+    await exporter.exportTracingEvent({ type: "span_started", exportedSpan });
+    await exporter.exportTracingEvent({
+      type: "span_ended",
+      exportedSpan: { ...exportedSpan, endTime: new Date() },
+    });
+    await exporter.flush();
+
+    const payload = JSON.stringify(envelopes);
+    expect(envelopes).toHaveLength(1);
+    expect(payload).toContain('"status":"error"');
+    expect(payload).toContain("synthetic failure");
+    expect(payload).not.toContain("SYNTHETIC_SECRET_PROMPT");
+    expect(payload).not.toContain("SYNTHETIC_SECRET_RESPONSE");
   });
 });

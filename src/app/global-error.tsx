@@ -12,6 +12,9 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
+    // Next.js attaches a digest to sanitized Server Component/render errors.
+    // Those are already captured server-side by instrumentation.onRequestError.
+    if (typeof error.digest === "string") return;
     captureExceptionOnce(error);
   }, [error]);
 
