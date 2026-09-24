@@ -1,6 +1,8 @@
-import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync } from "node:fs";
 import { resolve } from "node:path";
+import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
+import { markdownTableCell, pathEntryExists, selectSkillForPrompt, validateRegistry } from "../scripts/skill-registry.mjs";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const agentsRoot = resolve(repoRoot, ".agents/skills");
@@ -29,12 +31,6 @@ function canonicalSkillNames(): string[] {
     .sort();
 }
 
-function selectSkill(prompt: string): string | undefined {
-  for (const [name, entry] of Object.entries(registry.skills)) {
-    if ((entry.routing_patterns ?? []).some((pattern) => new RegExp(pattern, "i").test(prompt))) return name;
-  }
-  return undefined;
-}
 
 describe("skill registry contract", () => {
   it("covers every canonical .agents skill exactly once with required governance metadata", () => {
@@ -72,7 +68,48 @@ describe("skill registry contract", () => {
       ["explore this app for bugs", "explorbot"],
       ["run deterministic browser steps", "playwright-cli"],
     ] as const;
-    for (const [prompt, expected] of cases) expect(selectSkill(prompt), prompt).toBe(expected);
+    for (const [prompt, expected] of cases) expect(selectSkillForPrompt(prompt, registry), prompt).toBe(expected);
+  });
+
+  it("rejects unsafe routing regexes before they can execute", () => {
+    const unsafe = structuredClone(registry) as Registry;
+    unsafe.skills.requirements.routing_patterns = ["(a+)+$"];
+    expect(validateRegistry(unsafe)).toContain("requirements: unsafe routing regex (a+)+$");
+  });
+
+  it("bounds prompt length before evaluating routing regexes", () => {
+    expect(selectSkillForPrompt("a".repeat(20_001), registry)).toBeUndefined();
+  });
+
+  it("returns undefined for ambiguous routing instead of silently choosing the first match", () => {
+    const ambiguous = structuredClone(registry) as Registry;
+    ambiguous.skills["writing-plans"].routing_patterns = ["acceptance criteria"];
+    expect(selectSkillForPrompt("write acceptance criteria", ambiguous)).toBeUndefined();
+  });
+
+  it("detects dangling symlink filesystem entries without following them", () => {
+    const root = mkdtempSync(resolve(tmpdir(), "ipix-skill-registry-"));
+    const link = resolve(root, "deprecated-alias");
+    try {
+      symlinkSync(resolve(root, "missing-target"), link);
+      expect(pathEntryExists(link)).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("reports a missing canonical directory instead of throwing", () => {
+    const broken = structuredClone(registry) as Registry;
+    broken.skills["missing-canonical"] = {
+      ...structuredClone(registry.skills.explain),
+      canonical: ".agents/skills/missing-canonical",
+      claude_exposed: true,
+    };
+    expect(validateRegistry(broken)).toContain("missing-canonical: canonical skill directory missing");
+  });
+
+  it("escapes Markdown table delimiters and newlines", () => {
+    expect(markdownTableCell("owner | team\nline 2")).toBe("owner \\| team<br>line 2");
   });
 
   it("keeps the committed skill index generated from the registry", () => {

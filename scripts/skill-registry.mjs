@@ -1,11 +1,21 @@
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import safeRegex from "safe-regex2";
 import { fileURLToPath } from "node:url";
 
 export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const agentsRoot = resolve(repoRoot, ".agents/skills");
 export const claudeRoot = resolve(repoRoot, ".claude/skills");
 export const registryPath = resolve(agentsRoot, "registry.json");
+export const MAX_ROUTING_PROMPT_LENGTH = 20_000;
+
+export function pathEntryExists(path) {
+  return lstatSync(path, { throwIfNoEntry: false }) !== undefined;
+}
+
+export function markdownTableCell(value) {
+  return String(value).replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>");
+}
 
 export function loadRegistry() {
   return JSON.parse(readFileSync(registryPath, "utf8"));
@@ -41,7 +51,8 @@ export function validateRegistry(registry = loadRegistry()) {
   const claudeOnly = new Set(claudeOnlySkillNames());
   const knownOwners = new Set([...Object.keys(registry.skills), ...claudeOnly]);
   for (const [alias, target] of Object.entries(registry.deprecated_aliases ?? {})) {
-    if (knownOwners.has(alias)) errors.push(`deprecated alias still exists as a live skill: ${alias}`);
+    const aliasExists = [resolve(agentsRoot, alias), resolve(claudeRoot, alias)].some(pathEntryExists);
+    if (knownOwners.has(alias) || aliasExists) errors.push(`deprecated alias still exists as a live skill: ${alias}`);
     if (!knownOwners.has(target)) errors.push(`deprecated alias ${alias} points to unknown owner ${target}`);
   }
   for (const [name, entry] of Object.entries(registry.skills)) {
@@ -50,28 +61,45 @@ export function validateRegistry(registry = loadRegistry()) {
     if (typeof entry.claude_exposed !== "boolean") errors.push(`${name}: claude_exposed must be boolean`);
     if (entry.canonical !== `.agents/skills/${name}`) errors.push(`${name}: canonical must be .agents/skills/${name}`);
 
+    const canonicalPath = resolve(agentsRoot, name);
+    const canonicalExists = pathEntryExists(canonicalPath);
     const claudePath = resolve(claudeRoot, name);
-    const exposed = existsSync(claudePath) && lstatSync(claudePath).isSymbolicLink();
+    const claudeStat = lstatSync(claudePath, { throwIfNoEntry: false });
+    const exposed = claudeStat?.isSymbolicLink() ?? false;
     if (exposed !== entry.claude_exposed) errors.push(`${name}: claude_exposed=${entry.claude_exposed} but symlink=${exposed}`);
-    if (exposed && realpathSync(claudePath) !== realpathSync(resolve(agentsRoot, name))) errors.push(`${name}: Claude symlink targets the wrong canonical skill`);
+    if (entry.claude_exposed && !canonicalExists) errors.push(`${name}: canonical skill directory missing`);
+    if (exposed && canonicalExists) {
+      try {
+        if (realpathSync(claudePath) !== realpathSync(canonicalPath)) errors.push(`${name}: Claude symlink targets the wrong canonical skill`);
+      } catch {
+        errors.push(`${name}: Claude symlink target cannot be resolved`);
+      }
+    }
 
     for (const delegate of entry.delegates_to ?? []) {
       if (!(delegate in registry.skills) && !claudeOnly.has(delegate)) errors.push(`${name}: unknown delegate ${delegate}`);
     }
     for (const replaced of entry.replaces ?? []) {
-      if (existsSync(resolve(agentsRoot, replaced)) || existsSync(resolve(claudeRoot, replaced))) errors.push(`${name}: replaced skill still exists: ${replaced}`);
+      if (pathEntryExists(resolve(agentsRoot, replaced)) || pathEntryExists(resolve(claudeRoot, replaced))) errors.push(`${name}: replaced skill still exists: ${replaced}`);
     }
     for (const pattern of entry.routing_patterns ?? []) {
-      try { new RegExp(pattern, "i"); } catch { errors.push(`${name}: invalid routing regex ${pattern}`); }
+      try {
+        new RegExp(pattern, "i");
+        if (!safeRegex(pattern)) errors.push(`${name}: unsafe routing regex ${pattern}`);
+      } catch {
+        errors.push(`${name}: invalid routing regex ${pattern}`);
+      }
     }
   }
   return errors;
 }
 
 export function selectSkillForPrompt(prompt, registry = loadRegistry()) {
+  if (typeof prompt !== "string" || prompt.length > MAX_ROUTING_PROMPT_LENGTH) return undefined;
   const matches = [];
   for (const [name, entry] of Object.entries(registry.skills)) {
     for (const pattern of entry.routing_patterns ?? []) {
+      if (!safeRegex(pattern)) continue;
       if (new RegExp(pattern, "i").test(prompt)) {
         matches.push(name);
         break;

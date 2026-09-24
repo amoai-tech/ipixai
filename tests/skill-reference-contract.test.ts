@@ -49,7 +49,7 @@ describe("skill reference integrity", () => {
     const routePatterns = [
       /(?:route|hand off|delegate)[^\n.]{0,50}\bto\s+(?:the\s+)?`([a-z0-9][a-z0-9-]+)`(?:\s+skill)?/gi,
       /(?:use|with)\s+(?:the\s+)?`([a-z0-9][a-z0-9-]+)`\s+skill/gi,
-      /`([a-z0-9][a-z0-9-]+)`\s+skill/gi,
+      /(?:load|invoke|call|use)\s+(?:the\s+)?`([a-z0-9][a-z0-9-]+)`\s+skill/gi,
     ];
     for (const file of canonicalSkillFiles()) {
       const text = bodyWithoutFrontmatter(readFileSync(file, "utf8"));
@@ -73,7 +73,7 @@ describe("skill reference integrity", () => {
       const text = readFileSync(file, "utf8");
       for (const match of text.matchAll(linkPattern)) {
         const target = match[1].split("#", 1)[0];
-        if (/^(?:https?:|mailto:)/.test(target) || !target.includes("references/")) continue;
+        if (/^(?:https?:|mailto:)/.test(target)) continue;
         if (!existsSync(resolve(dirname(file), target))) missing.push(`${file.slice(repoRoot.length + 1)} -> ${target}`);
       }
     }
@@ -88,7 +88,7 @@ describe("skill reference integrity", () => {
     ];
     const invalidPaths: string[] = [];
     const staleAliases: string[] = [];
-    const pathPattern = /\.(agents|claude)\/skills\/([a-z0-9][a-z0-9-]+)(?=\/|`|\s|$)/g;
+    const pathPattern = /\.(agents|claude)\/skills\/([a-z0-9][a-z0-9-]+)(?=\/|`|[ \t]|$)/gim;
 
     for (const file of sourceFiles) {
       const text = readFileSync(file, "utf8");

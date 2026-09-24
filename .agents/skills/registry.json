@@ -100,8 +100,8 @@
         "debug-fix-failed-flaky-autotests"
       ],
       "routing_patterns": [
-        "tests?\\s+(?:are\\s+)?flaky\\s+in\\s+ci",
-        "debug\\s+(?:a\\s+)?flaky\\s+test"
+        "(?:tests?\\s+flaky\\s+in\\s+ci|tests?\\s+are\\s+flaky\\s+in\\s+ci)",
+        "(?:debug\\s+flaky\\s+test|debug\\s+a\\s+flaky\\s+test)"
       ],
       "canonical": ".agents/skills/diagnosing-bugs"
     },
@@ -182,7 +182,7 @@
       ],
       "routing_patterns": [
         "explore\\s+this\\s+app\\s+for\\s+bugs",
-        "autonomous\\s+exploratory\\s+(?:browser\\s+)?test"
+        "(?:autonomous\\s+exploratory\\s+test|autonomous\\s+exploratory\\s+browser\\s+test)"
       ],
       "canonical": ".agents/skills/explorbot"
     },
@@ -469,7 +469,7 @@
       "claude_exposed": true,
       "routing_patterns": [
         "plan\\s+a\\s+risky\\s+multi-file\\s+migration",
-        "plan\\s+(?:a\\s+)?multi-file\\s+refactor"
+        "(?:plan\\s+multi-file\\s+refactor|plan\\s+a\\s+multi-file\\s+refactor)"
       ],
       "canonical": ".agents/skills/refactor-plan"
     },
@@ -515,7 +515,7 @@
       ],
       "routing_patterns": [
         "write\\s+acceptance\\s+criteria",
-        "write\\s+(?:a\\s+)?user\\s+stor(?:y|ies)"
+        "(?:write\\s+user\\s+stor(?:y|ies)|write\\s+a\\s+user\\s+stor(?:y|ies))"
       ],
       "canonical": ".agents/skills/requirements"
     },
@@ -707,7 +707,7 @@
       "claude_exposed": true,
       "routing_patterns": [
         "make\\s+an\\s+implementation\\s+plan",
-        "write\\s+(?:an\\s+)?implementation\\s+plan"
+        "(?:write\\s+implementation\\s+plan|write\\s+an\\s+implementation\\s+plan)"
       ],
       "canonical": ".agents/skills/writing-plans"
     }
