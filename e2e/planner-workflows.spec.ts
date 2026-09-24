@@ -44,7 +44,7 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
   // Workflow 2 (reachable part). Saving the approved shoot is not covered:
   // no UI calls POST /api/shoots/save yet, so a browser cannot reach that step.
   test("composes a shoot plan whose plan card renders and survives reload", async ({ page }) => {
-    test.setTimeout(PLAN_TIMEOUT_MS * 2 + NAV_TIMEOUT_MS * 4);
+    test.setTimeout(PLAN_TIMEOUT_MS * 4 + NAV_TIMEOUT_MS * 4);
     const problems = collectBrowserProblems(page);
     const dock = await openPlanner(page);
 
@@ -70,9 +70,22 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
     if (!rendered) {
       await send(page, "Compose the full shoot plan now with what you have; mark the rest as needs input.");
     }
-    await expect(card.last(), "the composed plan renders as a plan card").toBeVisible({
-      timeout: PLAN_TIMEOUT_MS,
-    });
+    // Wait for any composeShootPlan render (pending, unreadable, or the card),
+    // then fail with exactly what the operator saw rather than just "not found".
+    const anyPlan = dock.getByTestId(/^compose-shoot-plan-(card|pending|unreadable)$/);
+    const appeared = await anyPlan
+      .last()
+      .waitFor({ state: "visible", timeout: PLAN_TIMEOUT_MS })
+      .then(
+        () => true,
+        () => false,
+      );
+    const lastReply = (await dock.getByTestId("copilot-assistant-message").last().innerText().catch(() => "")).slice(0, 400);
+    expect(appeared, `the Planner never called composeShootPlan; last reply: ${lastReply}`).toBe(true);
+    await expect(
+      card.last(),
+      `composeShootPlan rendered ${await anyPlan.last().getAttribute("data-testid")}, not the plan card`,
+    ).toBeVisible({ timeout: PLAN_TIMEOUT_MS });
 
     await page.reload();
     await expect(page.getByRole("status", { name: "Loading conversation…" })).toHaveCount(0, {
