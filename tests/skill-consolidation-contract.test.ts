@@ -37,12 +37,13 @@ describe("skill consolidation contract", () => {
   it("routes fastest-path requests through tasks without a standalone fastest skill", () => {
     expect(existsSync(claudeSkill("fastest"))).toBe(false);
 
-    const tasks = read(".claude/skills/tasks/SKILL.md");
-    expect(tasks).toContain("Verified fastest-path mode");
-    expect(tasks).toContain("Stop at the first solution that fully satisfies the task without weakening evidence");
+    const fastestMode = read(".claude/skills/tasks/references/fastest-path.md");
+    expect(fastestMode).toContain("Verified fastest-path mode");
+    expect(fastestMode).toContain("Stop at the first solution that fully satisfies the task without weakening evidence");
 
     const claudeCommand = read(".claude/commands/fastest.md");
     expect(claudeCommand).toContain(".claude/skills/tasks/SKILL.md");
+    expect(claudeCommand).toContain(".claude/skills/tasks/references/fastest-path.md");
     expect(claudeCommand).not.toContain(".claude/skills/fastest/SKILL.md");
   });
 
