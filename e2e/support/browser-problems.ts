@@ -15,7 +15,9 @@ export function collectBrowserProblems(page: Page, expected: RegExp[] = []) {
   page.on("console", (message) => {
     if (message.type() === "error") record(`console.error: ${message.text()}`);
   });
-  page.on("pageerror", (error) => record(`pageerror: ${error.message}`));
+  page.on("pageerror", (error) => {
+    record(`pageerror: ${error.message}`);
+  });
   page.on("response", (response) => {
     if (response.status() >= 500) {
       record(`HTTP ${response.status()} ${response.request().method()} ${response.url()}`);
