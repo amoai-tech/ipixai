@@ -21,7 +21,7 @@ const POLL_MS = 15_000;
 const NAV_TIMEOUT_MS = 30_000;
 
 /** Reloads the brand page until the draft card appears; fails fast on "Analysis failed". */
-async function waitForDraft(page: Page) {
+const waitForDraft = async (page: Page) => {
   const deadline = Date.now() + ANALYSIS_TIMEOUT_MS;
   try {
     for (;;) {
@@ -39,7 +39,7 @@ async function waitForDraft(page: Page) {
       cause: err,
     });
   }
-}
+};
 
 test.describe("brand intelligence journey (authenticated) @S3c7e1290", () => {
   test.describe.configure({ retries: 0, mode: "serial" });
