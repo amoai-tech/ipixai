@@ -10,7 +10,7 @@ metadata:
 
 Turn source material into user stories. Acceptance criteria on each story are the requirements — testable, atomic rules the story must satisfy.
 
-If the source of data is a PR, use `qa-pr-requirements-analyzer` skill.
+If the source of data is a PR, use `qa-pr-analysis` in intent or combined mode first.
 If the source is a ticket in issue tracking system, ask for MCP connection.
 
 ## Rules
@@ -41,5 +41,5 @@ Default: user stories + acceptance criteria. Match the user's format if they spe
 ## Next actions
 
 - Review for gaps and testability → `qa-requirement-reviewer`
-- Risk scenarios → `qa-thinking`
+- Risk scenarios → `qa-review`
 - Test cases from these user stories → `qa-write-test-cases`
