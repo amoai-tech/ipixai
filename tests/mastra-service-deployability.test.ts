@@ -113,8 +113,10 @@ describe("IPI-1310 · standalone Mastra service is deployable", () => {
     expect(deployment).toMatch(/termination grace[^\n]*300/i);
     expect(deployment).toContain("127.0.0.1:4111:4111");
     expect(dockerfile).toContain(
-      "docker run --stop-timeout 300 -p 127.0.0.1:4111:4111",
+      "docker run --stop-timeout 300 -p 127.0.0.1:4111:4111 --env-file .env -e PORT=4111",
     );
+    expect(deployment).toContain("--env-file .env -e PORT=4111 ipix-mastra");
+    expect(deployment).toMatch(/internal healthcheck[\s\S]{0,100}can still pass/i);
   });
 
   it("documents /health as liveness and verifies every protected production surface", () => {

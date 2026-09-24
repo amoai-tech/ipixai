@@ -13,7 +13,7 @@
 # autoscaling or replicas without a distributed run-ownership design.
 #
 # Build:  docker build -f Dockerfile.agent -t ipix-mastra .
-# Run:    docker run --stop-timeout 300 -p 127.0.0.1:4111:4111 --env-file .env ipix-mastra
+# Run:    docker run --stop-timeout 300 -p 127.0.0.1:4111:4111 --env-file .env -e PORT=4111 ipix-mastra
 # Health: GET /health -> 200 (public); /api/* and /ipix/* require a Supabase JWT.
 
 FROM node:24-slim AS builder

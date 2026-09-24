@@ -54,7 +54,7 @@ Vercel app.
 
 ```bash
 npm run start:agent                                    # local, reads .env / .env.production
-docker run --stop-timeout 300 -p 127.0.0.1:4111:4111 --env-file .env ipix-mastra    # container behind same-host HTTPS proxy
+docker run --stop-timeout 300 -p 127.0.0.1:4111:4111 --env-file .env -e PORT=4111 ipix-mastra    # container behind same-host HTTPS proxy
 ```
 
 Direct entrypoint (what the image uses):
@@ -64,11 +64,13 @@ node .mastra/output/index.mjs
 ```
 
 `MASTRA_HOST` defaults to `localhost` when unset. Inside a container that means
-loopback-only, so the port is open but unreachable from the container network and every
-healthcheck fails. `Dockerfile.agent` sets `MASTRA_HOST=0.0.0.0`. The manual Docker
-command binds the host port to `127.0.0.1` so port 4111 is not exposed directly to
-the Internet; terminate HTTPS in a same-host reverse proxy. On a managed container
-platform, use its private service network and expose only the stable HTTPS origin.
+the server is unreachable through the published host port, even though the internal healthcheck
+probing `127.0.0.1` can still pass. `Dockerfile.agent` sets `MASTRA_HOST=0.0.0.0`. The
+manual Docker command binds the host port to `127.0.0.1` so port 4111 is not exposed
+directly to the Internet, and pins `PORT=4111` so `.env` cannot move the server away
+from the mapped container port. Terminate HTTPS in a same-host reverse proxy. On a
+managed container platform, use its private service network and expose only the stable
+HTTPS origin.
 
 The image also sets `IPIX_MASTRA_HOSTED=1`. That activates the existing
 `src/mastra/pg-store.ts` fail-closed guard: a missing or unsafe
