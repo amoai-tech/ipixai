@@ -2,7 +2,7 @@ import { insertAgentLog } from "../_shared/agent-log.ts";
 import { normalizeBrandUrl } from "../_shared/brand-url.ts";
 import { handleCors } from "../_shared/cors.ts";
 import { getOptionalSecret } from "../_shared/env.ts";
-import { firecrawlStartCrawl } from "../_shared/firecrawl.ts";
+import { firecrawlStartCrawl } from "../_shared/firecrawl-start.ts";
 import {
   errorResponse,
   jsonResponse,
