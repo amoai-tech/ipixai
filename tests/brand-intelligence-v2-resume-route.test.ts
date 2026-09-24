@@ -14,21 +14,21 @@ vi.mock("@/mastra/runtime", () => ({
 
 import { POST } from "@/app/api/workflows/brand-intelligence/resume/route";
 
-const SECRET = "resume-secret";
+const TEST_INTERNAL_WEBHOOK_SECRET = "unit-test-value";
 const RUN_ID = "run-v2-1";
 const CRAWL_ID = "33333333-3333-4333-8333-333333333333";
 
 function req(body: Record<string, unknown>) {
   return new Request("http://localhost/api/workflows/brand-intelligence/resume", {
     method: "POST",
-    headers: { "content-type": "application/json", "x-internal-secret": SECRET },
+    headers: { "content-type": "application/json", "x-internal-secret": TEST_INTERNAL_WEBHOOK_SECRET },
     body: JSON.stringify(body),
   });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  process.env.INTERNAL_WEBHOOK_SECRET = SECRET;
+  process.env.INTERNAL_WEBHOOK_SECRET = TEST_INTERNAL_WEBHOOK_SECRET;
   mocks.v1State.mockResolvedValue(null);
   mocks.v2State.mockResolvedValue({ status: "suspended" });
   mocks.resume.mockResolvedValue({ status: "success" });
