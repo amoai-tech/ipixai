@@ -1,15 +1,4 @@
----
-name: sync-test-cases-with-tms
-description: Synchronize test scenarios and cases between a local project and Testomat.io. Use this skill whenever the user wants to pull/export/download tests from Testomat.io; or push/import/sync new or updated test cases back to the TMS in corresponding `*.test.md` format. Supports custom directories, markdown test format and advanced import/export workflows.
-inputs:
-  testDir:
-    description: "Target directory for pulled tests"
-    required: false
-license: MIT
-metadata:
-  author: Testomat.io
-  version: 1.0.0
----
+# Testomat.io Test-Case Sync
 
 # Sync Test Cases with TMS
 
@@ -30,7 +19,7 @@ Use when the user wants to:
 
 - Run `check-tests` via `npx`. Do not install it as a project dependency.
 - **The first `check-tests` call in the session must be `npx check-tests@0.21.0 …`** to resolve the latest version. All later calls in the same session use plain `npx check-tests@0.21.0 …`.
-- **Use only options documented here, in [TESTOMATIO_CLI.md](./references/TESTOMATIO_CLI.md), or listed by `npx check-tests@0.21.0 --help`. Do not invent options** (e.g. `--pattern`, `--force`).
+- **Use only options documented here, in [TESTOMATIO_CLI.md](./sync-cli.md), or listed by `npx check-tests@0.21.0 --help`. Do not invent options** (e.g. `--pattern`, `--force`).
 
 ## Pull
 
@@ -51,7 +40,7 @@ npx check-tests@0.21.0 pull -d .testeiya/manual-tests
 ```
 
 - To pull only specific suites (user names a suite or gives suite IDs): `npx check-tests@0.21.0 pull --suite-ids "@S12345678,@S87654321"`.
-- More pull options: [TESTOMATIO_CLI.md](./references/TESTOMATIO_CLI.md).
+- More pull options: [TESTOMATIO_CLI.md](./sync-cli.md).
 
 ## Push
 
@@ -89,7 +78,7 @@ npx check-tests@0.21.0 push -d .testeiya/manual-tests
 - Quote glob patterns. Paths resolve relative to `--dir`.
 - Use `-d` when `.testeiya` or `manual-tests` directories exist.
 - **Push only the test cases directory** (e.g. `.testeiya/manual-tests`, not `.testeiya/`).
-- More push options and examples: [TESTOMATIO_CLI.md](./references/TESTOMATIO_CLI.md).
+- More push options and examples: [TESTOMATIO_CLI.md](./sync-cli.md).
 
 ## Summary Output
 

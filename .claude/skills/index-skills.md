@@ -48,6 +48,7 @@ These are local canonical skills under `.agents/skills/` built by combining over
 | `qa-review` | `qa-thinking` + `qa-review-pr` |
 | `qa-pr-analysis` | `qa-pr-requirements-analyzer` + `pull-request-diff-analyzer` |
 | `explorbot` | `explorbot-fundamentals` + `explorbot-setup` + `explorbot-plan` |
+| `testomatio` | reporter setup + sprint reporting + test-case sync + MCP + run CLI + change-aware PR testing |
 
 Official Cloudinary upstream packs are embedded under `.claude/skills/cloudinary/references/official/` and are not separate triggerable skills. Refresh snapshots into a temporary directory, then sync only the needed embedded references so the iPix security overlay remains authoritative.
 

@@ -34,6 +34,35 @@ describe("skill consolidation contract", () => {
     }
   });
 
+
+  it("uses one Testomat.io integration skill with reference workflows", () => {
+    expect(existsSync(skill("testomatio"))).toBe(true);
+
+    for (const ref of ["reporting.md", "sync.md", "mcp.md", "runs.md", "pr-testing.md"]) {
+      expect(
+        existsSync(resolve(repoRoot, ".agents/skills/testomatio/references", ref)),
+        `testomatio reference ${ref}`,
+      ).toBe(true);
+    }
+
+    for (const removed of [
+      "qa-e2e-tests-reporting",
+      "qa-sprint-report-by-testomatio",
+      "run-tests-with-testomatio-reporter",
+      "setup-change-aware-pr-testing",
+      "sync-test-cases-with-tms",
+      "testomatio-mcp",
+    ]) {
+      expect(existsSync(skill(removed)), `${removed} should be removed`).toBe(false);
+    }
+
+    const workflow = read(".agents/skills/testing-workflow/SKILL.md");
+    expect(workflow).toContain("`testomatio`");
+    expect(workflow).not.toMatch(
+      /`(?:qa-e2e-tests-reporting|qa-sprint-report-by-testomatio|run-tests-with-testomatio-reporter|setup-change-aware-pr-testing|sync-test-cases-with-tms|testomatio-mcp)`/,
+    );
+  });
+
   it("routes fastest-path requests through tasks without a standalone fastest skill", () => {
     expect(existsSync(claudeSkill("fastest"))).toBe(false);
 
@@ -57,6 +86,12 @@ describe("skill consolidation contract", () => {
       "explorbot-setup",
       "explorbot-plan",
       "explorbot-fundamentals",
+      "qa-e2e-tests-reporting",
+      "qa-sprint-report-by-testomatio",
+      "run-tests-with-testomatio-reporter",
+      "setup-change-aware-pr-testing",
+      "sync-test-cases-with-tms",
+      "testomatio-mcp",
     ]) {
       expect(lock).not.toContain(`\"${removed}\"`);
     }

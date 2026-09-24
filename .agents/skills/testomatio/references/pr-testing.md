@@ -1,11 +1,4 @@
----
-name: setup-change-aware-pr-testing
-description: Set up CI so every pull request gets a Testomat.io run scoped to the code it changes. One job runs after the deploy — it creates the run and launches the affected tests into it. Use when the user wants to integrate Testomat.io runs into a CI pipeline, create test runs per pull request, or set up change-aware testing that triggers affected tests from CI events.
-license: MIT
-metadata:
-  author: Testomat.io
-  version: 5.0.0
----
+# Testomat.io Change-Aware PR Testing
 
 # Setup Change-Aware PR Testing
 
@@ -17,7 +10,7 @@ I set up a project's CI for change-aware PR testing. The knowledge here is the f
 
 Two skills carry the mechanics — read both before wiring:
 
-- `run-tests-with-testomatio-reporter` — every reporter command and env var the job executes.
+- `testomatio` runs reference (`runs.md`) — every reporter command and env var the job executes.
 - `setup-ci-automation` — CI investigation, workflow-authoring rules, diagram conventions, secrets, PR delivery.
 
 > **GOAL: a working pipeline committed to the project's own CI system.** That CI configuration is the one and only finished result. I run locally to author it — I am never part of CI. Do not execute reporter commands while authoring; the only exceptions are the Testomat.io CI profile check (Step 2) and the final battle-test (Step 6).
@@ -57,7 +50,7 @@ A coverage map maps source files/globs to test identifiers; the reporter filters
 - **Only touch CI config files** — never source or test files.
 - Diagrams gate the dialogue: flows diagram before the first question, selected-flow diagram approved before wiring (Step 3).
 - Discovery first — delegate to direct project inspection (Graphify + manifests/configs/test files) before writing anything.
-- Never guess a Testomat.io CI profile name — pick from a list (Testomat.io MCP) confirmed by the user, or ask. Never wire one that has not been proven to launch.
+- Never guess a Testomat.io CI profile name — pick from a list (`testomatio` MCP reference) confirmed by the user, or ask. Never wire one that has not been proven to launch.
 - Say "Testomat.io CI profile" in full, never bare "profile"; every question option explains itself in plain words.
 - Avoid presenting the project's full test inventory as the run scope; never print full test lists.
 - No coverage map → no pipeline; delegate map creation to `qa-test-code-coverage`.
@@ -93,7 +86,7 @@ Automated tests found — ❓ choose the execution mode. Each option in the ques
 | Inline — this pipeline          | mobile/simulators, services this pipeline spins up, or an e2e job that already works in this repo             |
 | Cross-repo dispatch             | the e2e suite lives in another repo and no Testomat.io CI profile covers it                                   |
 
-- Remote chosen → identify the Testomat.io CI profile, never guess it: Testomat.io MCP connected → fetch the list, present it, ❓ ask the user to choose (profiles differ by workflow and job names); no MCP → ❓ ask for the exact profile name; none exists yet → creating one in Testomat.io (Settings → CI) is a prerequisite.
+- Remote chosen → identify the Testomat.io CI profile, never guess it: `testomatio` MCP reference connected → fetch the list, present it, ❓ ask the user to choose (profiles differ by workflow and job names); no MCP → ❓ ask for the exact profile name; none exists yet → creating one in Testomat.io (Settings → CI) is a prerequisite.
 - **Then prove that profile launches before wiring anything around it.** ❓ Ask approval — it executes the full suite. Run `npx @testomatio/reporter@2.16.0 run --remote <profile-name>` unfiltered, then check on the CI that a job actually started. Exit code 0 only means Testomat.io accepted the dispatch; a profile aimed at the wrong workflow, job, or branch fails silently. Nothing started → fix in Settings → CI and repeat.
 - No e2e suite anywhere → wire only the manual flow; never fabricate an e2e job.
 
@@ -128,7 +121,7 @@ One job in the deploy pipeline, gated on the deploy job succeeding through the C
 | Preview deploy (per PR) | the PR that triggered the deploy  | the PR's target branch            | the preview URL      |
 | Post-merge deploy       | resolved from the deployed commit | the deployed push's commit range  | staging / production |
 
-Author it following `setup-ci-automation`'s workflow-authoring rules; take every command and env var from `run-tests-with-testomatio-reporter`. No `--filter-list` pre-checks. Manual-only projects get (a) and (b) alone.
+Author it following `setup-ci-automation`'s workflow-authoring rules; take every command and env var from `testomatio` runs reference (`runs.md`). No `--filter-list` pre-checks. Manual-only projects get (a) and (b) alone.
 
 **(a) Get the PR.** A preview deploy already carries it. After a merge, ask the platform which PR contains the deployed commit — never parse the commit subject, which yields the branch name for a merge commit. No PR → log it and exit 0; direct commits to the mainline deploy as before and create nothing.
 
@@ -138,7 +131,7 @@ Author it following `setup-ci-automation`'s workflow-authoring rules; take every
 - `<range>` is what this deploy shipped — per the table above.
 - `--kind detect` — a diff touching only manual tests then yields a manual run, not a mixed one with an empty automated half.
 - `TESTOMATIO_TITLE` from the resolved PR's number and title and nothing else; `TESTOMATIO_DESCRIPTION` its URL; `TESTOMATIO_RUNGROUP_TITLE` per Step 2.
-- Provide the platform's comment-pipe token so the reporter posts its PR comment (tokens per platform in `run-tests-with-testomatio-reporter`).
+- Provide the platform's comment-pipe token so the reporter posts its PR comment (tokens per platform in `testomatio` runs reference (`runs.md`)).
 - A change touching no mapped tests is normal — `--warn` keeps the job green; never parse the output.
 - Check out the deployed revision with full history — the coverage filter diffs.
 
@@ -153,7 +146,7 @@ Author it following `setup-ci-automation`'s workflow-authoring rules; take every
 
 Provision secrets and open the pipeline PR as `setup-ci-automation` prescribes, plus what is specific here:
 
-- Provision the PR-comment pipe token alongside the API key (tokens per platform in `run-tests-with-testomatio-reporter`).
+- Provision the PR-comment pipe token alongside the API key (tokens per platform in `testomatio` runs reference (`runs.md`)).
 - The Testomat.io CI profile for remote launches is configured in Testomat.io (Settings → CI), not stored as a repo secret.
 - Put in the PR description: the approved flow diagram, the phases wired, the execution mode chosen, and the secrets/prerequisites to provision before merging.
 
@@ -187,4 +180,4 @@ direct project inspection (Graphify + manifests/configs/test files) finds `.test
 
 ## Related skills
 
-`setup-ci-automation` (CI investigation, authoring rules, secrets, PR delivery), `run-tests-with-testomatio-reporter` (the reporter commands every job executes), `qa-test-code-coverage` (creates the coverage map this skill consumes), direct project inspection (Graphify + manifests/configs/test files) (mandatory discovery), `qa-e2e-tests-reporting` (install the reporter if the project has no Testomat.io integration yet), `sync-test-cases-with-tms` (manual cases not yet in Testomat.io).
+`setup-ci-automation` (CI investigation, authoring rules, secrets, PR delivery), `testomatio` runs reference (`runs.md`) (the reporter commands every job executes), `qa-test-code-coverage` (creates the coverage map this skill consumes), direct project inspection (Graphify + manifests/configs/test files) (mandatory discovery), `testomatio` reporting reference (`reporting.md`) (install the reporter if the project has no Testomat.io integration yet), `testomatio` sync reference (`sync.md`) (manual cases not yet in Testomat.io).

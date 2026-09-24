@@ -63,7 +63,7 @@ Optimize for **scanning** by eyes: the user should understand each item and what
 
   🔍 **Found:** Playwright runs in CI but shows only green/red — no history or flakiness data.
   🎯 **Goal:** visibility into runs, history, and flaky tests.
-  ▶ **Action:** add a reporter to the Playwright project → `qa-e2e-tests-reporting` skill
+  ▶ **Action:** add a reporter to the Playwright project → `testomatio` skill
 
 --------------------------------------------------
 

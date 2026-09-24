@@ -23,6 +23,7 @@ const sharedSkills = [
   "resolving-merge-conflicts",
   "subagent-driven-development",
   "tdd",
+  "testomatio",
   "to-spec",
   "writing-plans",
 ] as const;

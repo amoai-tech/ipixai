@@ -1,11 +1,4 @@
----
-name: testomatio-mcp
-description: Configures and leverages the Testomat.io MCP server for test management analytics, run analysis, failure investigation, and defect triage. Use when the user needs to connect to Testomat.io via MCP, analyze test runs, cluster failures, investigate root causes.
-license: MIT
-metadata:
-  author: Testomat.io
-  version: 1.0.0
----
+# Testomat.io MCP
 
 # Testomatio MCP
 
@@ -27,21 +20,21 @@ Set up access to Testomat.io via MCP and run QA analysis workflows: run analysis
 - Run: `runs_list`, `runs_get`, `runs_search`
 - Testrun (results within a run): `testruns_list`, `testruns_get`
 - Suite: `suites_list`, `suites_get`, `suites_search`
-- Label: `labels_list`, `labels_get`, `labels_create`, `labels_update`, `labels_delete`. Labels may be scoped (`key:value`). Attach or swap them on entities via the `link` parameter — [MCP Setup Reference](./references/MCP_SETUP.md).
+- Label: `labels_list`, `labels_get`, `labels_create`, `labels_update`, `labels_delete`. Labels may be scoped (`key:value`). Attach or swap them on entities via the `link` parameter — [MCP Setup Reference](./mcp-setup.md).
 - Tag: `tags_list`, `tags_get`, `tags_search`
 
 **CRUD tools (create, update, delete) exist for all entities. Use them only when explicitly needed for targeted updates.**
 
 ## Rules
 
-- **Prefer local tests over MCP.** If the repo contains markdown test cases (`*.test.md`) or automated test files, read them from the filesystem (or load them via the `sync-test-cases-with-tms` skill) instead of using MCP for full test discovery and analysis.
+- **Prefer local tests over MCP.** If the repo contains markdown test cases (`*.test.md`) or automated test files, read them from the filesystem (or load them via the `testomatio` sync reference (`sync.md`)) instead of using MCP for full test discovery and analysis.
 - Use MCP for:
   - reading and analyzing run reports
   - analytics and reporting
   - test plan management
   - tests that live exclusively in Testomat.io (no local copies), or quick test case searches (`tests_list`, `tests_search`)
   - targeted searches and point updates to remote test cases
-- Filter `runs_list`, `plans_list`, `testruns_list` with TQL (Testomat.io Query Language). Operators and examples: [MCP Setup Reference](./references/MCP_SETUP.md).
+- Filter `runs_list`, `plans_list`, `testruns_list` with TQL (Testomat.io Query Language). Operators and examples: [MCP Setup Reference](./mcp-setup.md).
 
 ## Setup
 
@@ -71,7 +64,7 @@ Credential priority for `TESTOMATIO_PROJECT_TOKEN` and `TESTOMATIO_PROJECT_ID`:
 2. Existing MCP configuration.
 3. User-provided values.
 
-Per-agent config formats (OpenCode, Cursor, Claude Desktop) and where to obtain credentials: [MCP Setup Reference](./references/MCP_SETUP.md).
+Per-agent config formats (OpenCode, Cursor, Claude Desktop) and where to obtain credentials: [MCP Setup Reference](./mcp-setup.md).
 
 **Rules:**
 - **Do not overwrite unrelated MCP server configurations.** Merge changes carefully with existing config content.
@@ -178,7 +171,7 @@ Goal: set, change, or remove labels and tags on tests — for example, update a 
 2. Optionally find the tests to update with `tests_list` + TQL: `label == 'regression:yes'`.
 3. Update selected existing tests with `tests_update` using the `link` array — one `{ action, type, value }` entry per change. To change a value (e.g. `regression:no` → `regression:yes`), send a `remove` and an `add` in the same call. The same shape works for `tag`, `custom_field`, `milestone`, `issue`, and `jira`. Use `tests_create` only when intentionally creating a new test.
 
-Link format and a full swap example: [MCP Setup Reference](./references/MCP_SETUP.md).
+Link format and a full swap example: [MCP Setup Reference](./mcp-setup.md).
 
 ## Quick Commands
 

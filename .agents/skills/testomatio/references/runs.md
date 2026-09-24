@@ -1,11 +1,4 @@
----
-name: run-tests-with-testomatio-reporter
-description: Create and launch Testomat.io test runs with the `@testomatio/reporter` CLI. Covers manual runs for testers, mixed manual+automated runs, local test execution with reported results, and remote launches through a Testomat.io CI profile (`--remote`). Runs can include the whole suite or be filtered by tag, plan, label, Jira ticket, or changed source files. Use when the user asks to start or create a test run from the command line, run a filtered group of tests, launch tests remotely, or report results into an existing run.
-license: MIT
-metadata:
-  author: Testomat.io
-  version: 1.1.0
----
+# Testomat.io Runs
 
 # Run Tests with Testomat.io Reporter
 
@@ -123,7 +116,7 @@ TESTOMATIO_RUN=$RUN_ID npx @testomatio/reporter@2.16.0 run --remote <profile-nam
 
 Profiles differ by workflow, job names, and parameters — never guess one. When talking to the user, always say "Testomat.io CI profile" in full and explain what it is; the bare word "profile" means nothing to them.
 
-- Testomat.io MCP connected → fetch the Testomat.io CI profiles, present the list, and ask the user to choose (see `testomatio-mcp` to connect).
+- Testomat.io MCP connected → fetch the Testomat.io CI profiles, present the list, and ask the user to choose (see `testomatio` MCP reference (`mcp.md`) to connect).
 - No MCP → ask the user for the Testomat.io CI profile name.
 - None exists yet → the user must create one in Testomat.io (Settings → CI) first.
 
@@ -150,4 +143,4 @@ No pipe for the platform (e.g. Azure DevOps) → no comment; results remain visi
 
 ## Related skills
 
-`qa-test-code-coverage` (creates the coverage map the `coverage:` filter needs), `setup-change-aware-pr-testing` (wires these commands into a CI pipeline), `qa-e2e-tests-reporting` (install and configure the reporter in an automation project).
+`qa-test-code-coverage` (creates the coverage map the `coverage:` filter needs), `testomatio` PR-testing reference (`pr-testing.md`) (wires these commands into a CI pipeline), `testomatio` reporting reference (`reporting.md`) (install and configure the reporter in an automation project).

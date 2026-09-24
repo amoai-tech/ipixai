@@ -21,15 +21,11 @@ Orchestrates the test case lifecycle by routing requests to specialized skills a
 | `qa-write-test-cases`                | Generate new test cases and checklists from requirements                          |
 | `improve-test-cases`                 | Improve existing test cases quality                                               |
 | `qa-automation-test-consolidation`   | Find duplicate, near-duplicate, and overlapping test cases                        |
-| `sync-test-cases-with-tms`           | Upload/pull test cases to/from Testomat.io TMS                                    |
-| `qa-e2e-tests-reporting`             | Add Testomat.io reporter to your automation project                               |
+| `testomatio`                         | Testomat.io reporting, sync, MCP analytics, runs, and change-aware PR testing     |
 | `automate-manual-test-cases`         | Convert manual test cases into automated test scripts (write new autotests)       |
 | `debug-fix-failed-flaky-autotests`   | Diagnose and fix failing or flaky autotests (heal autotests)                      |
 | `qa-test-code-coverage`              | Map manual & automated tests to source files (`coverage.tests.yml`)               |
 | `setup-ci-automation`                | Investigate a project's CI and deploy automated QA workflows into it              |
-| `setup-change-aware-pr-testing`      | Set up CI so PRs create scoped runs and launch affected automated tests           |
-| `run-tests-with-testomatio-reporter` | Create/launch test runs via the reporter CLI (manual, mixed, remote)              |
-| `testomatio-mcp`                     | Analyze runs, cluster failures, investigate root causes via Testomat.io MCP       |
 
 ## Routing
 
@@ -50,8 +46,8 @@ User: asks to generate/create test cases/checklist
 Use `qa-write-test-cases` skill to proceed with test case, checklist generation
 =>
 After generation fully completed, suggest next actions:
-1. ⬆️ Upload generated test cases to Testomat.io (with `sync-test-cases-with-tms` skill)
-2. 🔧 Add Testomat.io reporter to your automation project (with `qa-e2e-tests-reporting` skill)
+1. ⬆️ Upload generated test cases to Testomat.io (with `testomatio` skill and the matching reference)
+2. 🔧 Add Testomat.io reporter to your automation project (with `testomatio` skill and the matching reference)
 3. 🤖 Automate the new test cases into autotests (with `automate-manual-test-cases` skill)
 4. 🧹 Check for duplicate/overlapping cases (with `qa-automation-test-consolidation` skill)
 5. 🎭 Generate specific test cases using `qa-write-test-cases` skill and role name
@@ -103,7 +99,7 @@ User: asks for test cases improvement, improve quality, make test cases better
 Use `improve-test-cases` skill to proceed with test case improvement
 =>
 After improvement step fully completed, suggest next actions:
-1. ⬆️ Upload updated test cases to Testomat.io (with `sync-test-cases-with-tms` skill)
+1. ⬆️ Upload updated test cases to Testomat.io (with `testomatio` skill and the matching reference)
 2. 🧹 Check for duplicate/overlapping cases (with `qa-automation-test-consolidation` skill)
 ```
 
@@ -116,7 +112,7 @@ Use `qa-automation-test-consolidation` skill to identify exact, near-duplicate a
 =>
 After detection fully completed, suggest next actions:
 1. ✏️ Improve/merge the surviving test cases (with `improve-test-cases` skill)
-2. ⬆️ Sync the cleaned-up suite to Testomat.io (with `sync-test-cases-with-tms` skill)
+2. ⬆️ Sync the cleaned-up suite to Testomat.io (with `testomatio` skill and the matching reference)
 ```
 
 ### Test Automation Flow (Write New Autotests)
@@ -127,7 +123,7 @@ User: asks to automate manual test cases, write new autotests, or turn manual ca
 Use `automate-manual-test-cases` skill to convert manual cases into automated test scripts
 =>
 After automation fully completed, suggest next actions:
-1. 🔧 Add Testomat.io reporter to your automation project (with `qa-e2e-tests-reporting` skill)
+1. 🔧 Add Testomat.io reporter to your automation project (with `testomatio` skill and the matching reference)
 2. 🗺️ Map the new autotests to source files (with `qa-test-code-coverage` skill)
 3. 🩺 Fix/heal any failing or flaky tests (with `debug-fix-failed-flaky-autotests` skill)
 ```
@@ -140,7 +136,7 @@ User: asks to fix failing tests, heal flaky autotests, or tests pass locally but
 Use `debug-fix-failed-flaky-autotests` skill to diagnose root causes and apply targeted fixes
 =>
 After fixes fully completed, suggest next actions:
-1. 📊 Investigate run failures and patterns across the suite (with `testomatio-mcp` skill)
+1. 📊 Investigate run failures and patterns across the suite (with `testomatio` skill and the matching reference)
 ```
 
 ### Coverage Mapping Flow
@@ -151,10 +147,10 @@ User: asks to run only affected tests, build a traceability matrix, or set up ch
 Use `qa-test-code-coverage` to generate the coverage mapping file (manual & automated tests)
 =>
 After mapping fully completed, suggest next actions:
-1. 🔁 Wire the coverage map into the CI PR pipeline (with `setup-change-aware-pr-testing` skill)
-2. 🏃 Run the affected tests now from the terminal (with `run-tests-with-testomatio-reporter` skill)
-3. 🔧 Add Testomat.io reporter so `--filter "coverage:..."` runs work (with `qa-e2e-tests-reporting` skill)
-4. 📊 Analyze affected runs and failures (with `testomatio-mcp` skill)
+1. 🔁 Wire the coverage map into the CI PR pipeline (with `testomatio` skill and the matching reference)
+2. 🏃 Run the affected tests now from the terminal (with `testomatio` skill and the matching reference)
+3. 🔧 Add Testomat.io reporter so `--filter "coverage:..."` runs work (with `testomatio` skill and the matching reference)
+4. 📊 Analyze affected runs and failures (with `testomatio` skill and the matching reference)
 ```
 
 ### CI Automation Flow
@@ -165,7 +161,7 @@ User: asks what their CI does, wants a CI workflow explained, or wants a QA task
 Use `setup-ci-automation` skill to investigate the CI and deploy the automated workflow
 =>
 After setup fully completed, suggest next actions:
-1. 🔁 Set up PR-scoped test runs in the same CI (with `setup-change-aware-pr-testing` skill)
+1. 🔁 Set up PR-scoped test runs in the same CI (with `testomatio` skill and the matching reference)
 2. 🗺️ Map tests to source files for change-aware runs (with `qa-test-code-coverage` skill)
 ```
 
@@ -174,11 +170,11 @@ After setup fully completed, suggest next actions:
 ```
 User: asks to integrate testing into CI/PR pipeline, create runs per PR, or launch affected tests on preview/merge
 =>
-Use `setup-change-aware-pr-testing` skill to wire run creation and launches into the project's CI
+Use `testomatio` → `references/pr-testing.md` to wire run creation and launches into the project's CI
 =>
 After setup fully completed, suggest next actions:
 1. 🗺️ Regenerate or extend the coverage map (with `qa-test-code-coverage` skill)
-2. 📊 Analyze affected runs and failures (with `testomatio-mcp` skill)
+2. 📊 Analyze affected runs and failures (with `testomatio` skill and the matching reference)
 ```
 
 ### Run Tests via Reporter CLI Flow
@@ -186,11 +182,11 @@ After setup fully completed, suggest next actions:
 ```
 User: asks to start a test run from the command line, run a scoped group of tests, or launch tests via a Testomat.io CI profile
 =>
-Use `run-tests-with-testomatio-reporter` skill for the run commands (manual, mixed, remote)
+Use `testomatio` → `references/runs.md` for run commands (manual, mixed, remote)
 =>
 After the run fully completed, suggest next actions:
-1. 📊 Analyze run results and failures (with `testomatio-mcp` skill)
-2. 🔁 Wire these runs into the CI pipeline (with `setup-change-aware-pr-testing` skill)
+1. 📊 Analyze run results and failures (with `testomatio` skill and the matching reference)
+2. 🔁 Wire these runs into the CI pipeline (with `testomatio` skill and the matching reference)
 ```
 
 ### Run Analysis / Failure Investigation Flow
@@ -198,7 +194,7 @@ After the run fully completed, suggest next actions:
 ```
 User: asks to analyze runs, cluster failures, investigate root causes or triage defects
 =>
-Use `testomatio-mcp` skill to connect to Testomat.io via MCP and analyze runs/failures
+Use `testomatio` → `references/mcp.md` to connect via MCP and analyze runs/failures
 =>
 After analysis fully completed, suggest next actions:
 1. 🩺 Fix/heal the failing or flaky autotests (with `debug-fix-failed-flaky-autotests` skill)
@@ -209,10 +205,10 @@ After analysis fully completed, suggest next actions:
 ```
 User: asks to sync test cases or checklist to Testomat.io
 =>
-Use `sync-test-cases-with-tms` skill to proceed with test case sync
+Use `testomatio` → `references/sync.md` for test-case sync
 =>
 After sync/upload step fully completed, suggest next actions:
-1. 🔧 Add Testomat.io reporter to your automation project (with `qa-e2e-tests-reporting` skill)
+1. 🔧 Add Testomat.io reporter to your automation project (with `testomatio` skill and the matching reference)
 2. 📝 Generate test cases from requirements (with `qa-write-test-cases` skill)
 ```
 
@@ -223,7 +219,7 @@ If the user already has another test reporter installed (e.g. Allure, ReportPort
 ```
 User: asks to add a test reporter (or the Testomat.io reporter) to their automation project
 =>
-Use `qa-e2e-tests-reporting` skill to proceed with test reporter setup
+Use `testomatio` → `references/reporting.md` for reporter setup
 =>
 After previous step fully completed, suggest next actions:
 1. 📝 Generate test cases from requirements (with `qa-write-test-cases` skill)
