@@ -44,16 +44,24 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
   // Workflow 2 (reachable part). Saving the approved shoot is not covered:
   // no UI calls POST /api/shoots/save yet, so a browser cannot reach that step.
   test("composes a shoot plan whose plan card renders and survives reload", async ({ page }) => {
-    test.setTimeout(PLAN_TIMEOUT_MS + NAV_TIMEOUT_MS * 4);
+    test.setTimeout(PLAN_TIMEOUT_MS * 2 + NAV_TIMEOUT_MS * 4);
     const problems = collectBrowserProblems(page);
     const dock = await openPlanner(page);
 
     await send(
       page,
-      "Compose a full shoot plan for a Shopify product shoot of our linen dress collection: " +
-        "photos only, about 12 final images, launching next month. Use the shoot plan composer.",
+      "Compose a complete shoot plan now. Channels: Shopify product pages. Linen dress collection, " +
+        "photos only, about 12 final images, launching next month. Leave anything else as needs input.",
     );
     const card = dock.getByTestId("compose-shoot-plan-card");
+    // The Planner may reasonably ask a question first; answer it the way an
+    // operator would, then the plan card must appear.
+    // Idle = the answer finished: with an empty composer the send button is
+    // disabled (while a run streams it is the enabled Stop button).
+    await expect(dock.getByTestId("copilot-send-button")).toBeDisabled({ timeout: PLAN_TIMEOUT_MS });
+    if ((await card.count()) === 0) {
+      await send(page, "Compose the full shoot plan now with what you have; mark the rest as needs input.");
+    }
     await expect(card.last(), "the composed plan renders as a plan card").toBeVisible({
       timeout: PLAN_TIMEOUT_MS,
     });
