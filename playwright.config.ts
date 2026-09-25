@@ -152,6 +152,8 @@ export default defineConfig({
   // and got the 16 GB runner killed mid-suite.
   webServer: isLocalTarget && !hasExplicitBaseURL
     ? {
+        // E2E_SERVER=production needs `npm run build` first (CI does this);
+        // without a build, `next start` exits at once with Next's own error.
         command: process.env.E2E_SERVER === "production" ? "npm run start:e2e" : "npm run dev:e2e",
         url: baseURL,
         reuseExistingServer: false,
