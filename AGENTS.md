@@ -297,12 +297,12 @@ Critical API names, versions, auth behavior, RLS assumptions, env keys, and URLs
 
 ### Test credentials (.env.test)
 
-- `.env.test` (gitignored) holds only dedicated non-production QA accounts; CI uses the same names as GitHub secrets.
+- `.env.test` (gitignored) holds QA credentials plus test-only settings (`E2E_BASE_URL`, `E2E_SERVER`, opt-in flags). Credential values must be dedicated non-production QA accounts; CI uses the same names as GitHub secrets.
 - Exception to "do not read .env": Playwright auto-loads `.env.test`/`.env`; agents may run tests but must never print, echo, or paste their values.
 - Never put passwords/tokens in chat, PRs, Linear, or logs. Use existing QA accounts/session state, or create test users through the normal sign-up flow. If a task seems to need a credential value, stop and ask the user to set it in `.env.test` or CI secrets instead.
 - Check presence by name only. Missing → report the name and stop.
 - `E2E_BASE_URL` may only be localhost or an iPix Vercel Preview, never Production. If a Production check is needed, ask the user first; the production smoke suite is separate.
-- Live-write tests (`E2E_BRAND_INTEL_ALLOW_WRITES=1`) need a dedicated QA brand and explicit approval.
+- Live-write tests need a dedicated QA brand and explicit approval. The Brand Intelligence journey (`e2e/brand-intelligence-journey.spec.ts`, arriving with IPI-1290 / #270) runs only when `E2E_BRAND_INTEL_ALLOW_WRITES=1` and `E2E_BRAND_INTEL_BRAND_ID` is a valid UUID; until that spec is on `main`, these two settings have no effect.
 
 ## Completion claims
 
