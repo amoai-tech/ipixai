@@ -22,7 +22,12 @@ type WorkflowJob = {
 };
 
 function workflowJob(source: string, jobName: string): WorkflowJob {
-  const workflow = (parse(source) ?? {}) as { jobs?: Record<string, WorkflowJob> };
+  let workflow: { jobs?: Record<string, WorkflowJob> };
+  try {
+    workflow = (parse(source) ?? {}) as { jobs?: Record<string, WorkflowJob> };
+  } catch (error) {
+    throw new Error(`Failed to parse workflow YAML: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+  }
   const job = workflow.jobs?.[jobName];
   if (!job) throw new Error(`Workflow job "${jobName}" is missing`);
   return job;
@@ -142,6 +147,12 @@ describe("Playwright E2E harness hardening", () => {
   it("reports a descriptive missing-job error for an empty workflow", () => {
     expect(() => workflowJob("", "playwright-e2e")).toThrow(
       'Workflow job "playwright-e2e" is missing',
+    );
+  });
+
+  it("reports workflow context when YAML parsing fails", () => {
+    expect(() => workflowJob("jobs:\n  playwright-e2e: [", "playwright-e2e")).toThrow(
+      "Failed to parse workflow YAML",
     );
   });
 
