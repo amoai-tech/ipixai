@@ -138,12 +138,20 @@ export default defineConfig({
   // With no explicit E2E_BASE_URL, Playwright owns a dedicated :3015 server.
   // It never reuses the developer-owned :3000 process, which could be another
   // branch. Any explicit URL is caller-owned and must already be running.
+  // CI sets E2E_SERVER=production after `npm run build`: a production server
+  // uses ~1-2 GB, while `next dev` compiling routes on demand grew to ~13 GB
+  // and got the 16 GB runner killed mid-suite.
   webServer: isLocalTarget && !hasExplicitBaseURL
     ? {
-        command: "npm run dev:e2e",
+        // E2E_SERVER=production needs `npm run build` first (CI does this);
+        // without a build, `next start` exits at once with Next's own error.
+        command: process.env.E2E_SERVER === "production" ? "npm run start:e2e" : "npm run dev:e2e",
         url: baseURL,
         reuseExistingServer: false,
         timeout: 60_000,
+        // Marks this server as Playwright-started; the test-only seed route
+        // requires it in a production build (src/lib/planner/seed-routes.ts).
+        env: { IPIX_E2E_WEBSERVER: "playwright" },
       }
     : undefined,
 });

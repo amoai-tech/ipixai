@@ -8,6 +8,7 @@ vi.mock("../e2e/support/context", () => ({
 
 import { SIGN_IN_TIMEOUT_MS, signInWithCredentials } from "../e2e/support/login";
 import { isAllowedE2EBaseUrl } from "../playwright.config";
+import { E2E_WEBSERVER_MARKER, plannerSeedRoutesEnabled } from "../src/lib/planner/seed-routes";
 
 function never<T>(): Promise<T> {
   return new Promise<T>(() => {});
@@ -64,6 +65,37 @@ describe("Playwright E2E harness hardening", () => {
       expect(pkg.scripts[script]).toContain("--project=mobile-chromium");
       expect(pkg.scripts[script]).not.toContain("chromium-ai-smoke");
     }
+  });
+
+  it("runs the required e2e job against a production build with the seed-route opt-in wired end to end", () => {
+    const read = (file: string) => readFileSync(path.resolve(process.cwd(), file), "utf8");
+    const ci = read(".github/workflows/ci.yml");
+    const job = ci.slice(ci.indexOf("\n  playwright-e2e:"), ci.indexOf("\n  playwright-approval-tenant:"));
+    // The job builds first, then runs the suite with the production-server switch and the opt-in.
+    const build = job.indexOf("- run: npm run build");
+    const e2e = job.indexOf("- run: npm run e2e");
+    expect(build).toBeGreaterThan(-1);
+    expect(e2e).toBeGreaterThan(build);
+    const e2eStep = job.slice(e2e);
+    expect(e2eStep).toContain("E2E_SERVER: production");
+    expect(e2eStep).toContain('IPIX_E2E_SEED_ROUTES: "1"');
+
+    // The production server script exists and serves the same port as the dev server.
+    const pkg = JSON.parse(read("package.json"));
+    expect(pkg.scripts["start:e2e"]).toContain("next start -p 3015");
+    expect(pkg.scripts["dev:e2e"]).toContain("-p 3015");
+
+    // Playwright starts that script and sets the exact marker the seed route checks.
+    const config = read("playwright.config.ts");
+    expect(config).toContain('process.env.E2E_SERVER === "production" ? "npm run start:e2e" : "npm run dev:e2e"');
+    expect(config).toContain(`env: { ${E2E_WEBSERVER_MARKER.key}: "${E2E_WEBSERVER_MARKER.value}" }`);
+    expect(
+      plannerSeedRoutesEnabled({
+        NODE_ENV: "production",
+        IPIX_E2E_SEED_ROUTES: "1",
+        [E2E_WEBSERVER_MARKER.key]: E2E_WEBSERVER_MARKER.value,
+      }),
+    ).toBe(true);
   });
 
   it("gives Playwright time to flush reports before the CI hard timeout", () => {

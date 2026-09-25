@@ -59,7 +59,11 @@ test.describe("populated Command Center (authenticated, real org data) @S4a09cc5
       page.on("pageerror", (err) => errors.push(err.message));
       page.on("console", (msg) => {
         if (msg.type() === "error" && !IGNORABLE_SERVER_REPLAY.test(msg.text())) {
-          errors.push(msg.text());
+          // "Failed to load resource" carries no URL in its text; the
+          // location does in Chromium (the only engine these projects use),
+          // so a failure names what actually failed.
+          const url = msg.location().url;
+          errors.push(url ? `${msg.text()} [${url}]` : msg.text());
         }
       });
 
