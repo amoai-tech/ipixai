@@ -47,6 +47,12 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
     test.setTimeout(PLAN_TIMEOUT_MS * 4 + NAV_TIMEOUT_MS * 4);
     const problems = collectBrowserProblems(page);
     const dock = await openPlanner(page);
+    // The thread may already hold plan cards from earlier runs; only a new
+    // one proves this run called composeShootPlan.
+    const card = dock.getByTestId("compose-shoot-plan-card");
+    const anyPlan = dock.getByTestId(/^compose-shoot-plan-(card|pending|unreadable)$/);
+    const cardsBefore = await card.count();
+    const plansBefore = await anyPlan.count();
 
     await send(
       page,
@@ -56,16 +62,15 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
         "Channels: Shopify product pages. Linen dress collection, photos only, about 12 final images, " +
         "launching next month. Leave anything else as needs input.",
     );
-    const card = dock.getByTestId("compose-shoot-plan-card");
     // The Planner may reasonably ask a question first; answer it the way an
     // operator would, then the plan card must appear.
     // Idle = the answer finished: with an empty composer the send button is
     // disabled (while a run streams it is the enabled Stop button).
     await expect(dock.getByTestId("copilot-send-button")).toBeDisabled({ timeout: PLAN_TIMEOUT_MS });
     // Give a card from the first answer a moment to paint before following up.
-    const rendered = await card
-      .last()
-      .waitFor({ state: "visible", timeout: 10_000 })
+    const rendered = await expect
+      .poll(() => card.count(), { timeout: 10_000 })
+      .toBeGreaterThan(cardsBefore)
       .then(
         () => true,
         () => false,
@@ -75,26 +80,28 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
     }
     // Wait for any composeShootPlan render (pending, unreadable, or the card),
     // then fail with exactly what the operator saw rather than just "not found".
-    const anyPlan = dock.getByTestId(/^compose-shoot-plan-(card|pending|unreadable)$/);
-    const appeared = await anyPlan
-      .last()
-      .waitFor({ state: "visible", timeout: PLAN_TIMEOUT_MS })
+    const appeared = await expect
+      .poll(() => anyPlan.count(), { timeout: PLAN_TIMEOUT_MS })
+      .toBeGreaterThan(plansBefore)
       .then(
         () => true,
         () => false,
       );
     const lastReply = (await dock.getByTestId("copilot-assistant-message").last().innerText().catch(() => "")).slice(0, 400);
     expect(appeared, `the Planner never called composeShootPlan; last reply: ${lastReply}`).toBe(true);
-    await expect(
-      card.last(),
-      `composeShootPlan rendered ${await anyPlan.last().getAttribute("data-testid")}, not the plan card`,
-    ).toBeVisible({ timeout: PLAN_TIMEOUT_MS });
+    await expect
+      .poll(() => card.count(), {
+        message: `composeShootPlan rendered ${await anyPlan.last().getAttribute("data-testid")}, not the plan card`,
+        timeout: PLAN_TIMEOUT_MS,
+      })
+      .toBeGreaterThan(cardsBefore);
+    const cardsAfter = await card.count();
 
     await page.reload();
     await expect(page.getByRole("status", { name: "Loading conversation…" })).toHaveCount(0, {
       timeout: NAV_TIMEOUT_MS,
     });
-    await expect(dock.getByTestId("compose-shoot-plan-card").last(), "the plan card survives reload").toBeVisible({
+    await expect(card.nth(cardsAfter - 1), "the new plan card survives reload").toBeVisible({
       timeout: NAV_TIMEOUT_MS,
     });
 
@@ -113,11 +120,12 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
     const second = marker("nav2");
     const dock = await openPlanner(page);
 
-    await send(page, `Write six short shot ideas for a linen dress lookbook, then end with the exact line ${first}`);
-    await expect(dock.getByTestId("copilot-assistant-message").last()).toHaveText(/\S/, {
-      timeout: RESPONSE_TIMEOUT_MS,
-    });
-
+    await send(page, `Write twelve short shot ideas for a linen dress lookbook, then end with the exact line ${first}`);
+    // Leave while the answer is still streaming: the send button shows the
+    // Stop (square) icon only while a run is in progress. Waiting for text
+    // first could let the whole answer finish before navigation.
+    const streaming = dock.getByTestId("copilot-send-button").locator("svg.lucide-square");
+    await expect(streaming, "the first answer is streaming").toBeVisible({ timeout: NAV_TIMEOUT_MS });
     await page.locator('nav a[href="/app/shoots"]').first().click();
     await expect(page).toHaveURL(/\/app\/shoots$/, { timeout: NAV_TIMEOUT_MS });
     await expect(page.getByRole("heading", { name: "Shoots", level: 1 })).toBeVisible({ timeout: NAV_TIMEOUT_MS });
@@ -130,10 +138,12 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
     });
     await expect(dock.getByTestId("copilot-chat-textarea")).toBeEditable({ timeout: RESPONSE_TIMEOUT_MS });
     await expect(dock.getByTestId("copilot-user-message").filter({ hasText: first })).toHaveCount(1);
-    expect(
-      await dock.getByTestId("copilot-assistant-message").filter({ hasText: first }).count(),
-      "the first answer is never duplicated",
-    ).toBeLessThanOrEqual(1);
+    // The dock lives in the /app layout, so the answer keeps streaming across
+    // pages: exactly one complete first reply, neither lost nor duplicated.
+    await expect(
+      dock.getByTestId("copilot-assistant-message").filter({ hasText: first }),
+      "the first answer survives navigation exactly once",
+    ).toHaveCount(1, { timeout: RESPONSE_TIMEOUT_MS });
 
     // The chat still works after navigating.
     await send(page, `Reply with exactly this and nothing else: ${second}`);
