@@ -302,7 +302,7 @@ Critical API names, versions, auth behavior, RLS assumptions, env keys, and URLs
 - Never put passwords/tokens in chat, PRs, Linear, or logs. Use existing QA accounts/session state, or create test users through the normal sign-up flow. If a task seems to need a credential value, stop and ask the user to set it in `.env.test` or CI secrets instead.
 - Check presence by name only. Missing → report the name and stop.
 - `E2E_BASE_URL` may only be localhost or an iPix Vercel Preview, never Production. If a Production check is needed, ask the user first; the production smoke suite is separate.
-- Live-write tests need a dedicated QA brand and explicit approval. The Brand Intelligence journey (`e2e/brand-intelligence-journey.spec.ts`, arriving with IPI-1290 / #270) runs only when `E2E_BRAND_INTEL_ALLOW_WRITES=1` and `E2E_BRAND_INTEL_BRAND_ID` is a valid UUID; until that spec is on `main`, these two settings have no effect.
+- Live-write tests need a dedicated QA brand and explicit approval. The Brand Intelligence journey (`e2e/brand-intelligence-journey.spec.ts`) runs only when `E2E_BRAND_INTEL_ALLOW_WRITES=1` and `E2E_BRAND_INTEL_BRAND_ID` is a valid UUID; otherwise it is skipped.
 
 ## Completion claims
 
