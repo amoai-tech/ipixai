@@ -156,6 +156,9 @@ export default defineConfig({
         url: baseURL,
         reuseExistingServer: false,
         timeout: 60_000,
+        // Marks this server as Playwright-started; the test-only seed route
+        // requires it in a production build (src/lib/planner/seed-routes.ts).
+        env: { IPIX_E2E_WEBSERVER: "playwright" },
       }
     : undefined,
 });
