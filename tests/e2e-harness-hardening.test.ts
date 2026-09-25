@@ -22,7 +22,7 @@ type WorkflowJob = {
 };
 
 function workflowJob(source: string, jobName: string): WorkflowJob {
-  const workflow = parse(source) as { jobs?: Record<string, WorkflowJob> };
+  const workflow = (parse(source) ?? {}) as { jobs?: Record<string, WorkflowJob> };
   const job = workflow.jobs?.[jobName];
   if (!job) throw new Error(`Workflow job "${jobName}" is missing`);
   return job;
@@ -91,8 +91,8 @@ describe("Playwright E2E harness hardening", () => {
     const job = workflowJob(ci, "playwright-e2e");
     const steps = job.steps ?? [];
     // The job builds first, then runs the suite with the production-server switch and the opt-in.
-    const build = steps.findIndex((step) => step.run === "npm run build");
-    const e2e = steps.findIndex((step) => step.run === "npm run e2e");
+    const build = steps.findIndex((step) => step.run?.trim() === "npm run build");
+    const e2e = steps.findIndex((step) => step.run?.trim() === "npm run e2e");
     expect(build).toBeGreaterThan(-1);
     expect(e2e).toBeGreaterThan(build);
     const e2eStep = steps[e2e];
@@ -124,17 +124,25 @@ describe("Playwright E2E harness hardening", () => {
       - run: echo approval
   playwright-e2e:
     steps:
-      - run: npm run build
-      - run: npm run e2e
+      - run: |
+          npm run build
+      - run: |
+          npm run e2e
         env:
           E2E_SERVER: production
           IPIX_E2E_SEED_ROUTES: 1
 `;
     const job = workflowJob(ci, "playwright-e2e");
-    const e2eStep = job.steps?.find((step) => step.run === "npm run e2e");
+    const e2eStep = job.steps?.find((step) => step.run?.trim() === "npm run e2e");
 
     expect(e2eStep?.env?.E2E_SERVER).toBe("production");
     expect(String(e2eStep?.env?.IPIX_E2E_SEED_ROUTES)).toBe("1");
+  });
+
+  it("reports a descriptive missing-job error for an empty workflow", () => {
+    expect(() => workflowJob("", "playwright-e2e")).toThrow(
+      'Workflow job "playwright-e2e" is missing',
+    );
   });
 
   it("gives Playwright time to flush reports before the CI hard timeout", () => {
