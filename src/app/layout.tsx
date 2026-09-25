@@ -39,7 +39,10 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         {children}
-        <Analytics />
+        {/* The analytics script (/_vercel/insights/script.js) is served only on
+            Vercel (which sets VERCEL=1 at build and runtime); anywhere else, such
+            as the CI production build, requesting it is a guaranteed 404. */}
+        {process.env.VERCEL ? <Analytics /> : null}
       </body>
     </html>
   );
