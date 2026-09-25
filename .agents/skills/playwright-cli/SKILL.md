@@ -227,7 +227,7 @@ has them, the page status says so, and the snapshot lists them at the top:
 Prefer these tools over driving the UI when one matches the task: the page implements them, so a
 single call replaces a sequence of clicks and fills — and it cannot be blocked by a cookie banner or
 a newsletter modal.
-Run `webmcp-call <name> --params '{...}'` to call the tool. Run `webmcp-list` to only list the tools and schemas.
+Run `playwright-cli webmcp-call <name> --params '{...}'` to call the tool. Run `playwright-cli webmcp-list` to only list the tools and schemas.
 
 ```bash
 playwright-cli webmcp-call search --params '{"query":"cats"}'

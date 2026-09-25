@@ -49,11 +49,19 @@ steps:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     run: |
-      files=$(find test-results -name '*.png' -o -name '*.webm' | head -20)
-      if [ -n "$files" ]; then
+      files=()
+      while IFS= read -r -d '' file; do
+        files+=("$file")
+        [ "${#files[@]}" -ge 20 ] && break
+      done < <(find test-results \( -name '*.png' -o -name '*.webm' \) -print0)
+      if [ "${#files[@]}" -gt 0 ]; then
+        attachments=()
+        for file in "${files[@]}"; do
+          attachments+=(--attach "$file")
+        done
         gh pr comment ${{ github.event.pull_request.number }} \
           --body "Failure screenshots and videos from run ${{ github.run_id }}." \
-          $(printf -- '--attach %s ' $files)
+          "${attachments[@]}"
       fi
 ```
 
