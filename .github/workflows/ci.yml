@@ -76,7 +76,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium
-      - run: npm run e2e
+      # Samples memory, disk and the largest processes every 15 s into this
+      # step's log. The runner has been killed ~3.5 min into the suite with
+      # "received a shutdown signal"; the last sample shows whether it ran out
+      # of memory. Read-only, and it stops with the step.
+      - run: |
+          (
+            while true; do
+              echo "[runner] $(date -u +%T) $(free -m | awk 'NR==2{print "mem_used=" $3 "MB avail=" $7 "MB"}') $(df -h / | awk 'NR==2{print "disk=" $5}') top: $(ps -eo rss=,comm= --sort=-rss | head -3 | awk '{printf "%s=%dMB ", $2, $1/1024}')"
+              sleep 15
+            done
+          ) &
+          npm run e2e
       # This repository is public and these tests reuse real authenticated
       # Supabase sessions. Keep traces/reports runner-local instead of
       # publishing reusable session/network data as public CI artifacts.
