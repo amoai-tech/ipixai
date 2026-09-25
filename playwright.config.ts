@@ -77,18 +77,10 @@ export default defineConfig({
       name: "setup",
       testMatch: /auth\.setup\.ts/,
     },
-    // Compiles routes once (signed in) so `next dev` does not pile up
-    // first-compile memory mid-suite; see e2e/dev-warmup.setup.ts.
-    {
-      name: "warmup",
-      testMatch: /dev-warmup\.setup\.ts/,
-      use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/user.json" },
-      dependencies: ["setup"],
-    },
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/user.json" },
-      dependencies: ["warmup"],
+      dependencies: ["setup"],
       // Real, paid OpenAI calls live in their own "chromium-ai-smoke" project
       // so `npm run e2e` — the deterministic release suite — never depends
       // on hosted AI-provider availability. Run them explicitly via
@@ -127,7 +119,7 @@ export default defineConfig({
         viewport: { width: 390, height: 844 },
         storageState: "playwright/.auth/user.json",
       },
-      dependencies: ["warmup"],
+      dependencies: ["setup"],
       // login-journey does its own real UI login (not storageState) —
       // one extra hosted sign-in beyond setup is enough; running it per
       // viewport too would sign into the real account 3× per full run.
