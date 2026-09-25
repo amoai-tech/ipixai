@@ -30,6 +30,20 @@ const ROUTES = [
   "/onboarding",
   "/planner",
 ];
+// API routes compile on first request too. A plain GET is safe for every one:
+// read-only handlers answer (or 401), POST-only handlers answer 405 without
+// running, and either way the route is compiled.
+const API_ROUTES = [
+  "/api/copilotkit/info",
+  "/api/planner/threads",
+  `/api/planner/threads/${MISSING_ID}/messages`,
+  `/api/planner/threads/${MISSING_ID}/seed-rich-history`,
+  "/api/plans/references",
+  "/api/plans/reviews",
+  `/api/assets/${MISSING_ID}/preview`,
+  `/api/references/${MISSING_ID}/preview`,
+  "/api/shoots/save",
+];
 // A route already compiled answers in well under a second; a first compile
 // takes several. Measured on a 16 GB machine: with a 6 s pause after each
 // first compile the dev server fell back to 0.6-1.9 GB between routes (peak
@@ -46,6 +60,13 @@ test("compile routes before the suite", async ({ page }) => {
     // Warmup only compiles; the suite asserts behaviour. Report, don't fail.
     await page.goto(route, { waitUntil: "load", timeout: 120_000 }).catch((error: unknown) => {
       console.warn(`[warmup] ${route} did not load: ${error instanceof Error ? error.message : String(error)}`);
+    });
+    if (Date.now() - started > COMPILED_MS) await page.waitForTimeout(SETTLE_MS);
+  }
+  for (const route of API_ROUTES) {
+    const started = Date.now();
+    await page.request.get(route, { timeout: 120_000, maxRedirects: 0 }).catch((error: unknown) => {
+      console.warn(`[warmup] ${route} did not respond: ${error instanceof Error ? error.message : String(error)}`);
     });
     if (Date.now() - started > COMPILED_MS) await page.waitForTimeout(SETTLE_MS);
   }
