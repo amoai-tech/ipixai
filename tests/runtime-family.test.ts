@@ -99,12 +99,29 @@ describe("IPI-1042 runtime family", () => {
     expect(client.version).toBe("1.42.4");
     expect(cli.version).toBe("1.27.2");
     expect(agui.version).toBe("1.1.4");
-    expect(copilot.version).toBe("1.68.1");
+    expect(copilot.version).toBe("1.73.3");
 
     const peer = pg.peerDependencies?.["@mastra/core"];
     expect(peer).toBeTruthy();
     expect(coreSatisfiesMastraPeer("1.63.2", peer ?? "")).toBe(true);
     expect(coreSatisfiesMastraPeer("1.63.0", peer ?? "")).toBe(false);
+  });
+
+  it("pins one CopilotKit 1.73.3 / AG-UI 0.0.59 family (IPI-1290)", () => {
+    // Read manifests from disk: @copilotkit/channels does not export ./package.json.
+    const version = (name: string) =>
+      (
+        JSON.parse(
+          readFileSync(new URL(`../node_modules/${name}/package.json`, import.meta.url), "utf8"),
+        ) as { version: string }
+      ).version;
+
+    expect(version("@copilotkit/runtime")).toBe("1.73.3");
+    expect(version("@copilotkit/react-core")).toBe("1.73.3");
+    expect(version("@copilotkit/channels")).toBe("0.11.0");
+    for (const pkg of ["@ag-ui/client", "@ag-ui/core", "@ag-ui/encoder", "@ag-ui/proto"]) {
+      expect(version(pkg)).toBe("0.0.59");
+    }
   });
 
   it("can import PostgresStore from @mastra/pg@1.22.2", async () => {
