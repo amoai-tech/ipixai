@@ -82,8 +82,7 @@
     "tailwindcss": "^4",
     "tsx": "^4.19.2",
     "typescript": "^5",
-    "vitest": "^4.0.0",
-    "yaml": "2.9.0"
+    "vitest": "^4.0.0"
   },
   "overrides": {
     "@ag-ui/client": "0.0.59",

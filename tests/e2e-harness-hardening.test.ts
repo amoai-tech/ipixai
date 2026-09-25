@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { parse } from "yaml";
 
 vi.mock("../e2e/support/context", () => ({
   gotoPageWithRetry: vi.fn(async () => undefined),
@@ -10,23 +9,6 @@ vi.mock("../e2e/support/context", () => ({
 import { SIGN_IN_TIMEOUT_MS, signInWithCredentials } from "../e2e/support/login";
 import { isAllowedE2EBaseUrl } from "../playwright.config";
 import { E2E_WEBSERVER_MARKER, plannerSeedRoutesEnabled } from "../src/lib/planner/seed-routes";
-
-
-type WorkflowStep = {
-  run?: string;
-  env?: Record<string, unknown>;
-};
-
-type WorkflowJob = {
-  steps?: WorkflowStep[];
-};
-
-function workflowJob(source: string, jobName: string): WorkflowJob {
-  const workflow = parse(source) as { jobs?: Record<string, WorkflowJob> };
-  const job = workflow.jobs?.[jobName];
-  if (!job) throw new Error(`Workflow job "${jobName}" is missing`);
-  return job;
-}
 
 function never<T>(): Promise<T> {
   return new Promise<T>(() => {});
@@ -88,16 +70,15 @@ describe("Playwright E2E harness hardening", () => {
   it("runs the required e2e job against a production build with the seed-route opt-in wired end to end", () => {
     const read = (file: string) => readFileSync(path.resolve(process.cwd(), file), "utf8");
     const ci = read(".github/workflows/ci.yml");
-    const job = workflowJob(ci, "playwright-e2e");
-    const steps = job.steps ?? [];
+    const job = ci.slice(ci.indexOf("\n  playwright-e2e:"), ci.indexOf("\n  playwright-approval-tenant:"));
     // The job builds first, then runs the suite with the production-server switch and the opt-in.
-    const build = steps.findIndex((step) => step.run === "npm run build");
-    const e2e = steps.findIndex((step) => step.run === "npm run e2e");
+    const build = job.indexOf("- run: npm run build");
+    const e2e = job.indexOf("- run: npm run e2e");
     expect(build).toBeGreaterThan(-1);
     expect(e2e).toBeGreaterThan(build);
-    const e2eStep = steps[e2e];
-    expect(e2eStep?.env?.E2E_SERVER).toBe("production");
-    expect(String(e2eStep?.env?.IPIX_E2E_SEED_ROUTES)).toBe("1");
+    const e2eStep = job.slice(e2e);
+    expect(e2eStep).toContain("E2E_SERVER: production");
+    expect(e2eStep).toContain('IPIX_E2E_SEED_ROUTES: "1"');
 
     // The production server script exists and serves the same port as the dev server.
     const pkg = JSON.parse(read("package.json"));
@@ -115,26 +96,6 @@ describe("Playwright E2E harness hardening", () => {
         [E2E_WEBSERVER_MARKER.key]: E2E_WEBSERVER_MARKER.value,
       }),
     ).toBe(true);
-  });
-
-  it("reads the playwright e2e job by YAML structure, regardless of job order or scalar quoting", () => {
-    const ci = `jobs:
-  playwright-approval-tenant:
-    steps:
-      - run: echo approval
-  playwright-e2e:
-    steps:
-      - run: npm run build
-      - run: npm run e2e
-        env:
-          E2E_SERVER: production
-          IPIX_E2E_SEED_ROUTES: 1
-`;
-    const job = workflowJob(ci, "playwright-e2e");
-    const e2eStep = job.steps?.find((step) => step.run === "npm run e2e");
-
-    expect(e2eStep?.env?.E2E_SERVER).toBe("production");
-    expect(String(e2eStep?.env?.IPIX_E2E_SEED_ROUTES)).toBe("1");
   });
 
   it("gives Playwright time to flush reports before the CI hard timeout", () => {
