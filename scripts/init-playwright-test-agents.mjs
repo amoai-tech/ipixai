@@ -132,7 +132,7 @@ try {
   healer = replaceOnce(
     healer,
     "1. **Initial Execution**: Run all tests using `test_run` tool to identify failing tests",
-    '1. **Initial Execution**: Run the requested failing tests with `test_run`; use `projects: ["playwright-agent"]` for locations under `e2e/agents/`, otherwise use `projects: ["chromium"]`',
+    '1. **Initial Execution**: Run the requested failing tests with `test_run`; use `projects: ["playwright-agent"]` for any requested test location under `e2e/agents/`, otherwise use `projects: ["chromium"]`',
     "healer deterministic-project guard",
   );
   healer = replaceOnce(
