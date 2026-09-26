@@ -300,7 +300,7 @@ Critical API names, versions, auth behavior, RLS assumptions, env keys, and URLs
 ### Test credentials (.env.test)
 
 - `.env.test` (gitignored) holds QA credentials (dedicated non-production accounts only) plus test-only settings (`E2E_BASE_URL`, `E2E_SERVER`, opt-in flags); CI uses the same names as GitHub secrets.
-- Exception to "do not read .env": Playwright loads `.env.test`/`.env` through Dotenvx; agents may run tests but must never print, echo, or paste their values.
+- Playwright loads `.env.test` plus canonical `.env.local` through Dotenvx; agents may run tests but must never print, echo, or paste their values.
 - Never put passwords/tokens in chat, PRs, Linear, or logs. Use existing QA accounts/session state, or create test users through the normal sign-up flow. If a task seems to need a credential value, stop and ask the user to set it in `.env.test` or CI secrets instead.
 - Check presence by name only. Missing → report the name and stop.
 - `E2E_BASE_URL` may only be localhost or an iPix Vercel Preview, never Production. If a Production check is needed, ask the user first; the production smoke suite is separate.

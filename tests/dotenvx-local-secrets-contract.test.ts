@@ -22,7 +22,7 @@ describe("Dotenvx local secrets contract", () => {
     expect(pkg.scripts?.["dev:e2e"]).toMatch(/^dotenvx run --convention=nextjs -- /);
     expect(pkg.scripts?.["start:e2e"]).toMatch(/^dotenvx run --convention=nextjs -- /);
     expect(pkg.scripts?.build).toMatch(/^dotenvx run --convention=nextjs -- /);
-    expect(pkg.scripts?.start).toBe("next start");
+    expect(pkg.scripts?.start).toMatch(/^dotenvx run --convention=nextjs -- /);
   });
 
   it("loads Playwright env files through Dotenvx so encryption remains readable", () => {
