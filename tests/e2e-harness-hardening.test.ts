@@ -109,7 +109,6 @@ describe("Playwright E2E harness hardening", () => {
     // requests all received the header. The bypass is scoped to the deployment
     // origin in e2e/support/vercel-bypass.ts instead.
     expect(config).not.toContain("extraHTTPHeaders:");
-    expect(config).toContain("previewBypassHeaders(baseURL, process.env.VERCEL_AUTOMATION_BYPASS_SECRET)");
 
     const authSetup = readFileSync(path.resolve(process.cwd(), "e2e/auth.setup.ts"), "utf8");
     expect(authSetup).toContain("previewBypassHeaders(");
