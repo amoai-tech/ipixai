@@ -143,7 +143,7 @@ export default defineConfig({
       // `npm run e2e:ai-smoke` or .github/workflows/ai-smoke.yml.
       testIgnore: [
         /production-smoke\.spec\.ts/,
-        /[\\/]e2e[\\/]agents[\\/].*\.spec\.ts$/,
+        /[\\/]e2e[\\/]agents[\\/]/,
         /planner-journey\.spec\.ts/,
         /copilot-intelligence-isolation\.spec\.ts/,
         /planner-thread-isolation\.spec\.ts/,
@@ -188,7 +188,7 @@ export default defineConfig({
       testIgnore: [
         /login-journey\.spec\.ts/,
         /production-smoke\.spec\.ts/,
-        /[\\/]e2e[\\/]agents[\\/].*\.spec\.ts$/,
+        /[\\/]e2e[\\/]agents[\\/]/,
         /planner-journey\.spec\.ts/,
         /session-reuse\.spec\.ts/,
         /copilot-intelligence-isolation\.spec\.ts/,
