@@ -122,9 +122,17 @@ const useAgentMock = vi.hoisted(() =>
 );
 
 const runAgentMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+// IPI-1339: capture the real provider props so a test can prove the Planner
+// message filter is wired onto this provider, not merely defined in the module.
+const copilotKitPropsMock = vi.hoisted(() => ({
+  current: null as (Record<string, unknown> & { children?: React.ReactNode }) | null,
+}));
 
 vi.mock("@copilotkit/react-core/v2", () => ({
-  CopilotKit: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  CopilotKit: (props: { children: React.ReactNode } & Record<string, unknown>) => {
+    copilotKitPropsMock.current = props;
+    return <>{props.children}</>;
+  },
   useAgent: useAgentMock,
   // IPI-1224: insight buttons send via agent.addMessage + copilotkit.runAgent
   // (the documented agent-access pattern) — stubbed the same shape here.
@@ -205,7 +213,7 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-import { OperatorPanel } from "./operator-panel";
+import { OperatorPanel, plannerRunMessageFilter } from "./operator-panel";
 import { navItemIsActive, OPERATOR_NAV } from "./nav";
 import { ReportWorkspaceStats } from "./workspace-stats";
 import { ReportPlannerContext } from "./planner-context";
@@ -277,6 +285,31 @@ describe("OperatorPanel", () => {
     for (const item of OPERATOR_NAV) {
       expect(screen.getByRole("link", { name: item.label })).toBeDefined();
     }
+  });
+
+  // IPI-1339 · PLANNER-PAYLOAD-001 — the Planner's Mastra agent already owns the
+  // durable thread, so the run must carry only the newest turn instead of the
+  // whole restored transcript (which is what grew the /run body to ~8.5 MB and
+  // produced Vercel 413 FUNCTION_PAYLOAD_TOO_LARGE).
+  it("wires the newest-turn message filter onto the provider (IPI-1339)", async () => {
+    render(
+      <OperatorPanel>
+        <p>Workspace body</p>
+      </OperatorPanel>,
+    );
+    await waitFor(() => expect(screen.getByTestId("copilot-chat-stub")).toBeDefined());
+
+    expect(copilotKitPropsMock.current?.messageFilter).toBe(plannerRunMessageFilter);
+
+    const transcript = [
+      { id: "m1", role: "user" as const, content: "draft a linen lookbook plan" },
+      { id: "m2", role: "assistant" as const, content: "here is the plan" },
+      { id: "m3", role: "user" as const, content: "now change the channels" },
+    ];
+    expect(plannerRunMessageFilter(transcript, { agentId: "default" })).toEqual([transcript[2]]);
+    // Nothing else on the provider is filtered or replaced by this change.
+    expect(copilotKitPropsMock.current?.runtimeUrl).toBe("/api/copilotkit");
+    expect(copilotKitPropsMock.current?.useSingleEndpoint).toBe(false);
   });
 
   it("opens and closes the Production Copilot panel without remounting the chat", async () => {

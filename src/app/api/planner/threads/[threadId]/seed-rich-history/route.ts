@@ -6,14 +6,33 @@ import {
   canonicalizePlannerThreadId,
   ensureMastraThread,
   getPlannerMemory,
+  RICH_RESULT_DECODE_CAP,
 } from "@/mastra/thread-persistence";
 import { ShootPlanSchema, type ShootPlan } from "@/mastra/tools/plan-schema";
 import { plannerSeedRoutesEnabled } from "@/lib/planner/seed-routes";
 
+/**
+ * IPI-1339 · PLANNER-PAYLOAD-001 — optionally store the result in the exact
+ * shape the old restore/replay loop produced: JSON text containing JSON text,
+ * one layer per cycle, which no single `JSON.parse` could reach. Only ever
+ * wraps the plan that `ShootPlanSchema` already accepted — this adds an
+ * encoding, never valid content, and never bypasses validation or auth.
+ */
+function encodeLegacyLayers(result: ShootPlan, layers: number): unknown {
+  let current: unknown = result;
+  for (let layer = 0; layer < layers; layer += 1) current = JSON.stringify(current);
+  return current;
+}
+
 /** The one seeded message: a completed `composeShootPlan` tool-invocation,
  *  in the exact shape `mastraMessagesToChat` reads back (see
  *  `richToolInvocations` in thread-persistence.ts). */
-function buildSeedMessage(input: { threadId: string; resourceId: string; plan: ShootPlan }) {
+function buildSeedMessage(input: {
+  threadId: string;
+  resourceId: string;
+  plan: ShootPlan;
+  legacyLayers?: number;
+}) {
   return {
     id: randomUUID(),
     role: "assistant" as const,
@@ -30,7 +49,9 @@ function buildSeedMessage(input: { threadId: string; resourceId: string; plan: S
             toolCallId: randomUUID(),
             toolName: "composeShootPlan",
             args: { channels: input.plan.channels },
-            result: input.plan,
+            result: input.legacyLayers
+              ? encodeLegacyLayers(input.plan, input.legacyLayers)
+              : input.plan,
           },
         },
       ],
@@ -82,6 +103,20 @@ export async function POST(
     );
   }
 
+  // Optional legacy encoding depth; bounded by the same cap the read path uses
+  // so a spec can never ask for a value the recovery path would not unwrap.
+  const rawLegacyLayers = (body as { legacyLayers?: unknown } | null)?.legacyLayers;
+  if (
+    rawLegacyLayers !== undefined &&
+    (typeof rawLegacyLayers !== "number" ||
+      !Number.isInteger(rawLegacyLayers) ||
+      rawLegacyLayers < 1 ||
+      rawLegacyLayers > RICH_RESULT_DECODE_CAP)
+  ) {
+    return Response.json({ error: "invalid_legacy_layers" }, { status: 400 });
+  }
+  const legacyLayers = typeof rawLegacyLayers === "number" ? rawLegacyLayers : undefined;
+
   const memory = await getPlannerMemory();
   if (!memory) {
     return Response.json({ error: "memory_unavailable" }, { status: 503 });
@@ -89,7 +124,12 @@ export async function POST(
 
   await ensureMastraThread(memory, { threadId, resourceId: session.resourceId });
 
-  const message = buildSeedMessage({ threadId, resourceId: session.resourceId, plan: parsedPlan.data });
+  const message = buildSeedMessage({
+    threadId,
+    resourceId: session.resourceId,
+    plan: parsedPlan.data,
+    ...(legacyLayers === undefined ? {} : { legacyLayers }),
+  });
   await memory.saveMessages({ messages: [message] });
 
   return Response.json({ threadId, messageId: message.id });

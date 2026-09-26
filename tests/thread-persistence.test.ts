@@ -7,12 +7,15 @@ import {
   resolvePlannerThreadId,
 } from "../src/mastra/thread-types";
 import {
+  RICH_RESULT_DECODE_CAP,
+  canonicalRichToolResult,
   ensureMastraThread,
   listMastraThreadsForResource,
   mastraMessagesToChat,
   recallPlannerChatMessages,
   splitRunThreadIds,
 } from "../src/mastra/thread-persistence";
+import { describeProductionPlanCard } from "../src/lib/shoot/compose-shoot-plan-card-view";
 
 function isolatedMemory() {
   return new Memory({
@@ -20,6 +23,13 @@ function isolatedMemory() {
       id: `thread-persist-${crypto.randomUUID()}`,
     }),
   });
+}
+
+/** Re-encodes `value` once per layer, reproducing the replay amplification. */
+function nestJson(value: unknown, layers: number): string {
+  let current: unknown = value;
+  for (let layer = 0; layer < layers; layer += 1) current = JSON.stringify(current);
+  return String(current);
 }
 
 describe("splitRunThreadIds", () => {
@@ -477,5 +487,121 @@ describe("recallPlannerChatMessages — rich history", () => {
 
     const asOwnerB = await recallPlannerChatMessages(memory, { threadId, resourceId: ownerB });
     expect(asOwnerB).toEqual([]);
+  });
+
+  // IPI-1339 · PLANNER-PAYLOAD-001 — the production P0: a restored result that
+  // was persisted back as JSON *text* must come out of recall as one canonical
+  // layer, not as the latest link in a growing escaping chain.
+  it("normalizes a legacy multi-layer composeShootPlan result on recall", async () => {
+    const memory = isolatedMemory();
+    const threadId = "33333333-3333-4333-8333-333333333333";
+    const resourceId = "org:org-a::user:user-a";
+    const plan = { status: "complete", channels: ["shopify"], objective: "Linen lookbook" };
+    await ensureMastraThread(memory, { threadId, resourceId });
+
+    await memory.saveMessages({
+      messages: [
+        {
+          id: "msg-legacy",
+          role: "assistant",
+          createdAt: new Date(),
+          threadId,
+          resourceId,
+          content: {
+            format: 2,
+            parts: [
+              { type: "text", text: "Here is your plan." },
+              {
+                type: "tool-invocation",
+                toolInvocation: {
+                  state: "result",
+                  toolCallId: "call-legacy",
+                  toolName: "composeShootPlan",
+                  args: { channels: ["shopify"] },
+                  // Exactly what the replay loop persisted: the result as a
+                  // string, re-encoded once per restore cycle.
+                  result: nestJson(plan, 14),
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    const recalled = await recallPlannerChatMessages(memory, { threadId, resourceId });
+    const toolMessage = recalled.find((message) => message.role === "tool");
+    expect(toolMessage).toBeDefined();
+    // One parse is all the plan-card renderer does — this must succeed.
+    expect(describeProductionPlanCard(JSON.parse(String(toolMessage?.content)))).not.toBeNull();
+    expect(toolMessage?.content).toBe(JSON.stringify(plan));
+  });
+});
+
+describe("canonicalRichToolResult — IPI-1339 amplification guard", () => {
+  const plan = {
+    status: "complete" as const,
+    channels: ["shopify", "instagram"],
+    objective: "Linen dress lookbook",
+    shotListResult: { totalShots: 8, shots: [{ id: "s1" }] },
+    deliverablesResult: { totalAssets: 24 },
+  };
+  const clean = JSON.stringify(plan);
+
+  it("serializes a clean object or array result exactly once", () => {
+    expect(canonicalRichToolResult(plan)).toBe(clean);
+    expect(canonicalRichToolResult([plan])).toBe(JSON.stringify([plan]));
+  });
+
+  it("recovers the measured 14-layer legacy corruption to the canonical result", () => {
+    const corrupted = nestJson(plan, 14);
+    // Sanity: the corrupted value really is explosive (this is the 8.4 MB row).
+    expect(corrupted.length).toBeGreaterThan(clean.length * 100);
+
+    const recovered = canonicalRichToolResult(corrupted);
+    expect(recovered).toBe(clean);
+    // Recovered history stays renderable by the existing plan-card path.
+    expect(describeProductionPlanCard(JSON.parse(recovered))).toEqual(
+      describeProductionPlanCard(plan),
+    );
+  });
+
+  it("is idempotent — 20 restore/replay cycles never grow the bytes", () => {
+    let content = canonicalRichToolResult(plan);
+    const sizes = [content.length];
+    for (let cycle = 0; cycle < 20; cycle += 1) {
+      // Next cycle's stored value is what the client sent back last time.
+      content = canonicalRichToolResult(content);
+      sizes.push(content.length);
+    }
+    expect(new Set(sizes).size).toBe(1);
+    expect(content).toBe(clean);
+  });
+
+  it("bounds work at the decode cap instead of decoding without limit", () => {
+    // A JSON-string chain roughly doubles per layer, so an object fixture one
+    // layer past the cap would be tens of MB. Nesting a number instead keeps
+    // the fixture exactly one layer deeper than the cap at a cheap ~2 MB
+    // (lengths are exactly 2^n - 1).
+    const beyondCap = nestJson(1, RICH_RESULT_DECODE_CAP + 1);
+    expect(beyondCap.length).toBe(2 ** (RICH_RESULT_DECODE_CAP + 1) - 1);
+
+    // Unwrapping stops at the cap: the result is still valid, re-serializable
+    // JSON text, orders of magnitude smaller than the input, and never throws.
+    const firstPass = canonicalRichToolResult(beyondCap);
+    expect(JSON.parse(firstPass)).toBeDefined();
+    expect(firstPass.length).toBeLessThan(beyondCap.length / 1000);
+
+    // The next pass is already inside the cap and reaches the chain's terminal
+    // value, so a capped value degrades safely instead of being lost.
+    expect(canonicalRichToolResult(firstPass)).toBe(JSON.stringify(1));
+  });
+
+  it("keeps the existing safe unreadable-result behavior for invalid input", () => {
+    expect(canonicalRichToolResult(plan)).toBe(clean);
+    expect(canonicalRichToolResult("not json at all")).toBe(JSON.stringify("not json at all"));
+    expect(canonicalRichToolResult("{ truncated")).toBe(JSON.stringify("{ truncated"));
+    expect(canonicalRichToolResult(undefined)).toBe("null");
+    expect(canonicalRichToolResult(null)).toBe("null");
   });
 });

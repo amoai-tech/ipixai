@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type Ref } from "react";
-import { CopilotChat, CopilotKit, useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  CopilotKit,
+  useAgent,
+  useCopilotKit,
+  type CopilotKitMessageFilter,
+} from "@copilotkit/react-core/v2";
 import type { AbstractAgent } from "@ag-ui/client";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -33,6 +39,27 @@ const MOBILE_NAV = "(max-width: 767px)";
 // only the Copilot panel reacts to this breakpoint, not the nav.
 const COPILOT_COMPACT = "(max-width: 1023px)";
 const RUN_FAILURE_MESSAGE = "The AI run stopped before it completed";
+
+/**
+ * IPI-1339 · PLANNER-PAYLOAD-001 — the Planner's Mastra agent already owns the
+ * durable thread, so re-sending the whole restored transcript on every run is
+ * pure waste: it makes the `/run` body grow with stored history and hands
+ * `@ag-ui/mastra` history it already persisted. Send only the newest turn.
+ *
+ * This is CopilotKit's documented persistent-agent pattern (its own example is
+ * `messages.slice(-1)`): it rewrites the request body only — the transcript the
+ * UI renders is untouched — and CopilotKit repairs tool-call/tool-result pairs
+ * before sending, so a filter this blunt cannot strand a tool result mid-HITL.
+ * It applies to agents reached through `runtimeUrl` (the Planner's
+ * `/api/copilotkit` route), which is exactly the surface this provider owns.
+ *
+ * A module-scope constant is a strictly more stable reference than the
+ * `useCallback` the docs suggest, so the filter is registered once and never
+ * re-registered on render. It closes over nothing and needs no per-render
+ * value, so a hook would add surface without adding behavior.
+ */
+export const plannerRunMessageFilter: CopilotKitMessageFilter = (messages) =>
+  messages.slice(-1);
 
 /** Single source of truth for "N brand(s) · N shoot(s)" — the pinned bar and
  *  the chat welcome each rendered their own brandNoun/shootNoun before this,
@@ -837,6 +864,7 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
       useSingleEndpoint={false}
       showDevConsole={false}
       enableInspector={false}
+      messageFilter={plannerRunMessageFilter}
       publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_PUBLIC_LICENSE_KEY}
     >
       {/* IPI-1084 · APPROVAL-001 — HITL plan review. Renders inside this
