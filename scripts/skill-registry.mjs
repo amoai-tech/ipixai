@@ -6,14 +6,29 @@ export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const agentsRoot = resolve(repoRoot, ".agents/skills");
 export const claudeRoot = resolve(repoRoot, ".claude/skills");
 export const registryPath = resolve(agentsRoot, "registry.json");
-export const MAX_ROUTING_PROMPT_LENGTH = 20_000;
+export const MAX_ROUTING_PROMPT_LENGTH = 20_000; // Bound raw input before normalization to cap routing work.
 
 export function pathEntryExists(path) {
   return lstatSync(path, { throwIfNoEntry: false }) !== undefined;
 }
 
 export function markdownTableCell(value) {
-  return String(value).replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>");
+  return String(value).replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>");
+}
+
+function hasLiteralPhraseAtBoundaries(prompt, phrase) {
+  let fromIndex = 0;
+  while (fromIndex <= prompt.length - phrase.length) {
+    const index = prompt.indexOf(phrase, fromIndex);
+    if (index === -1) return false;
+    const before = index > 0 ? prompt[index - 1] : "";
+    const afterIndex = index + phrase.length;
+    const after = afterIndex < prompt.length ? prompt[afterIndex] : "";
+    const isWordChar = (char) => /[a-z0-9_]/.test(char);
+    if (!isWordChar(before) && !isWordChar(after)) return true;
+    fromIndex = index + 1;
+  }
+  return false;
 }
 
 export function loadRegistry() {
@@ -112,7 +127,7 @@ export function selectSkillForPrompt(prompt, registry = loadRegistry()) {
   for (const [name, entry] of Object.entries(registry.skills)) {
     for (const phrase of entry.routing_phrases ?? []) {
       const normalizedPhrase = phrase.toLowerCase().replace(/\s+/g, " ").trim();
-      if (normalizedPhrase && normalizedPrompt.includes(normalizedPhrase)) {
+      if (normalizedPhrase && hasLiteralPhraseAtBoundaries(normalizedPrompt, normalizedPhrase)) {
         matches.push(name);
         break;
       }

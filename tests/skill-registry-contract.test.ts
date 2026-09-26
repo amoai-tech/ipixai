@@ -77,7 +77,7 @@ describe("skill registry contract", () => {
     expect(source).not.toContain("routing_patterns");
   });
 
-  it("bounds prompt length before evaluating routing regexes", () => {
+  it("bounds raw prompt length before normalization and matching", () => {
     expect(selectSkillForPrompt("a".repeat(20_001), registry)).toBeUndefined();
   });
 
@@ -85,6 +85,12 @@ describe("skill registry contract", () => {
     const ambiguous = structuredClone(registry) as Registry;
     ambiguous.skills["writing-plans"].routing_phrases = ["acceptance criteria"];
     expect(selectSkillForPrompt("write acceptance criteria", ambiguous)).toBeUndefined();
+  });
+
+  it("matches routing phrases only at literal token boundaries", () => {
+    expect(selectSkillForPrompt("please write a user story about checkout", registry)).toBe("requirements");
+    expect(selectSkillForPrompt("please write a user storyboard", registry)).toBeUndefined();
+    expect(selectSkillForPrompt("plan a multi-file refactoring", registry)).toBeUndefined();
   });
 
   it("rejects aliases claimed by different owners", () => {
@@ -135,6 +141,10 @@ describe("skill registry contract", () => {
 
   it("escapes Markdown table delimiters and newlines", () => {
     expect(markdownTableCell("owner | team\nline 2")).toBe("owner \\| team<br>line 2");
+  });
+
+  it("preserves literal backslashes while escaping Markdown table pipes", () => {
+    expect(markdownTableCell(String.raw`owner \| team`)).toBe(String.raw`owner \\\| team`);
   });
 
   it("keeps the committed skill index generated from the registry", () => {

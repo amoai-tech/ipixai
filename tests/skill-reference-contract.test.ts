@@ -48,8 +48,7 @@ describe("skill reference integrity", () => {
     const offenders: string[] = [];
     const routePatterns = [
       /(?:route|hand off|delegate)[^\n.]{0,50}\bto\s+(?:the\s+)?`([a-z0-9][a-z0-9-]+)`(?:\s+skill)?/gi,
-      /(?:use|with)\s+(?:the\s+)?`([a-z0-9][a-z0-9-]+)`\s+skill/gi,
-      /(?:load|invoke|call|use)\s+(?:the\s+)?`([a-z0-9][a-z0-9-]+)`\s+skill/gi,
+      /(?:use|with|load|invoke|call)\s+(?:the\s+)?`([a-z0-9][a-z0-9-]+)`\s+skill/gi,
     ];
     for (const file of canonicalSkillFiles()) {
       const text = bodyWithoutFrontmatter(readFileSync(file, "utf8"));
@@ -74,6 +73,7 @@ describe("skill reference integrity", () => {
       for (const match of text.matchAll(linkPattern)) {
         const target = match[1].split("#", 1)[0];
         if (/^(?:https?:|mailto:)/.test(target)) continue;
+        // Intentionally validate every relative Markdown link, not only references/, to catch cross-doc rot.
         if (!existsSync(resolve(dirname(file), target))) missing.push(`${file.slice(repoRoot.length + 1)} -> ${target}`);
       }
     }
