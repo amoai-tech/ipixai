@@ -187,6 +187,20 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
     const resolvedThreadId = await getStoredPlannerThreadId(page);
     expect(resolvedThreadId, "PlannerChatDock should persist the active thread before reload").not.toBeNull();
 
+    // IPI-1344: the turn must have *finished*, not merely started, before the
+    // reload. Waiting only for non-empty assistant text let the reload land
+    // mid-stream; the restored conversation then rehydrated with the run still
+    // in flight, CopilotKit kept the composer in Stop mode, and the follow-up
+    // click below produced no /run at all — the test then waited out its whole
+    // 330s budget for a request that was never sent (observed on the first,
+    // cold request to a freshly deployed Preview). `svg.lucide-square` is this
+    // suite's established streaming signal — see planner-stop-journey.spec.ts
+    // ("R1 must return to send-ready before the next message is sent").
+    await expect(
+      chatDock.getByTestId("copilot-send-button").locator("svg.lucide-square"),
+      "the plan turn must reach send-ready before the reload",
+    ).toBeHidden({ timeout: PLAN_RESPONSE_TIMEOUT_MS });
+
     await page.reload();
     await expect(page.getByRole("status", { name: "Loading conversation…" })).toHaveCount(0, {
       timeout: NAV_TIMEOUT_MS,
@@ -208,6 +222,14 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
     // stored history until Vercel rejected it, so measure the actual browser
     // body rather than estimating it.
     await expect(textarea).toBeEditable({ timeout: NAV_TIMEOUT_MS });
+    // The restored conversation must be send-ready too: clicking while the
+    // button is still Stop sends a Stop instead of a run, so the /run wait
+    // below would hang. Assert it here so a regression reports the real cause
+    // instead of a bare timeout.
+    await expect(
+      chatDock.getByTestId("copilot-send-button").locator("svg.lucide-square"),
+      "the restored thread must be send-ready before the follow-up",
+    ).toBeHidden({ timeout: NAV_TIMEOUT_MS });
     const followUpMarker = `follow-up-${randomUUID()}`;
     await textarea.fill(`Reply with only this token, nothing else: ${followUpMarker}`);
     const followUpRun = page.waitForRequest(isRun);
