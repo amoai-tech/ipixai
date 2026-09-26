@@ -8,7 +8,7 @@ vi.mock("../e2e/support/context", () => ({
 }));
 
 import { SIGN_IN_TIMEOUT_MS, signInWithCredentials } from "../e2e/support/login";
-import { isAllowedE2EBaseUrl } from "../playwright.config";
+import { isAllowedE2EBaseUrl, previewBypassHeaders } from "../playwright.config";
 import { E2E_WEBSERVER_MARKER, plannerSeedRoutesEnabled } from "../src/lib/planner/seed-routes";
 
 
@@ -52,6 +52,50 @@ describe("Playwright E2E harness hardening", () => {
     expect(isAllowedE2EBaseUrl("https://evil-amoco.vercel.app")).toBe(false);
     expect(isAllowedE2EBaseUrl("https://ipix.co")).toBe(false);
     expect(isAllowedE2EBaseUrl("http://ipixai-5y1wsa98w-amoco.vercel.app")).toBe(false);
+  });
+
+  // IPI-1344 · E2E-PREVIEW-BYPASS-001: certifying a Preview against Vercel
+  // Deployment Protection used to depend on single-use share links, which
+  // silently stopped granting access and made journeys fail on an SSO screen.
+  it("requires and sends the Vercel bypass secret for Preview runs, and never locally", () => {
+    expect(previewBypassHeaders("http://localhost:3015", undefined)).toBeUndefined();
+    expect(previewBypassHeaders("http://127.0.0.1:3015", "ignored-secret")).toBeUndefined();
+
+    expect(() => previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", undefined)).toThrow(
+      "VERCEL_AUTOMATION_BYPASS_SECRET is required for Vercel Preview E2E",
+    );
+    expect(() => previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", "")).toThrow(
+      /VERCEL_AUTOMATION_BYPASS_SECRET is required/,
+    );
+
+    expect(previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", "the-secret")).toEqual({
+      "x-vercel-protection-bypass": "the-secret",
+      "x-vercel-set-bypass-cookie": "true",
+    });
+  });
+
+  it("wires the bypass secret and Preview URL into the exact-SHA journey run", () => {
+    const source = readFileSync(
+      path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"),
+      "utf8",
+    );
+    const job = workflowJob(source, "deploy");
+    const journey = (job.steps ?? []).find((step) =>
+      step.run?.includes("npx playwright test"),
+    );
+    expect(journey, "the exact-SHA Preview workflow must run the Planner journeys").toBeDefined();
+    // The deployed artifact must be the target, and Deployment Protection must be
+    // cleared by the existing secret rather than an unprotected preview.
+    expect(journey?.env?.E2E_BASE_URL).toContain("steps.deploy.outputs.url");
+    expect(journey?.env?.VERCEL_AUTOMATION_BYPASS_SECRET).toContain(
+      "secrets.VERCEL_AUTOMATION_BYPASS_SECRET",
+    );
+    expect(journey?.run).toContain("e2e/planner-stop-journey.spec.ts");
+    expect(journey?.run).toContain("e2e/planner-journey.spec.ts");
+    // It must not silently widen to the writing brand-intelligence journey.
+    // Assert on the spec path, not the bare name, so the workflow's own
+    // explanatory comment cannot satisfy or break this check.
+    expect(journey?.run).not.toContain("brand-intelligence-journey.spec.ts");
   });
 
   it("reports a clear Supabase Auth timeout instead of a raw Playwright TimeoutError", async () => {
