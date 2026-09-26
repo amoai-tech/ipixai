@@ -8,6 +8,7 @@ import {
   getPlannerMemory,
 } from "@/mastra/thread-persistence";
 import { ShootPlanSchema, type ShootPlan } from "@/mastra/tools/plan-schema";
+import { plannerSeedRoutesEnabled } from "@/lib/planner/seed-routes";
 
 /** The one seeded message: a completed `composeShootPlan` tool-invocation,
  *  in the exact shape `mastraMessagesToChat` reads back (see
@@ -57,7 +58,7 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ threadId: string }> },
 ) {
-  if (process.env.NODE_ENV === "production") {
+  if (!plannerSeedRoutesEnabled()) {
     return Response.json({ error: "not_found" }, { status: 404 });
   }
 
@@ -107,7 +108,7 @@ export async function DELETE(
   request: Request,
   context: { params: Promise<{ threadId: string }> },
 ) {
-  if (process.env.NODE_ENV === "production") {
+  if (!plannerSeedRoutesEnabled()) {
     return Response.json({ error: "not_found" }, { status: 404 });
   }
 

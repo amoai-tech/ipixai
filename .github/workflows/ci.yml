@@ -41,8 +41,9 @@ jobs:
       - run: npm run build
 
   # Playwright E2E — real UI login + tenant-isolation smoke against a local
-  # dev server. Requires E2E_TEST_EMAIL / E2E_TEST_PASSWORD (and, for the
-  # app itself to authenticate, NEXT_PUBLIC_SUPABASE_URL /
+  # production build (npm run build + next start). Requires E2E_TEST_EMAIL /
+  # E2E_TEST_PASSWORD (and, for the app itself to authenticate,
+  # NEXT_PUBLIC_SUPABASE_URL /
   # NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) as repo secrets — a maintainer
   # with repo admin must add these; until then this job fails with the
   # harness's own clear "credentials missing" error, not a silent skip.
@@ -78,7 +79,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium
+      # Test a production build, not `next dev`: compiling routes on demand
+      # grew the dev server to ~13 GB and the 16 GB runner was killed mid-suite.
+      # NEXT_PUBLIC_* values are inlined here, so build with the job env.
+      - run: npm run build
+        env:
+          OPENAI_API_KEY: placeholder
       - run: npm run e2e
+        env:
+          E2E_SERVER: production
+          # Opts the test-only Planner seed route into this production build
+          # (never enabled on Vercel; see src/lib/planner/seed-routes.ts).
+          IPIX_E2E_SEED_ROUTES: "1"
       # This repository is public and these tests reuse real authenticated
       # Supabase sessions. Keep traces/reports runner-local instead of
       # publishing reusable session/network data as public CI artifacts.

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { parse } from "yaml";
 
 vi.mock("../e2e/support/context", () => ({
   gotoPageWithRetry: vi.fn(async () => undefined),
@@ -8,6 +9,29 @@ vi.mock("../e2e/support/context", () => ({
 
 import { SIGN_IN_TIMEOUT_MS, signInWithCredentials } from "../e2e/support/login";
 import { isAllowedE2EBaseUrl } from "../playwright.config";
+import { E2E_WEBSERVER_MARKER, plannerSeedRoutesEnabled } from "../src/lib/planner/seed-routes";
+
+
+type WorkflowStep = {
+  run?: string;
+  env?: Record<string, unknown>;
+};
+
+type WorkflowJob = {
+  steps?: WorkflowStep[];
+};
+
+function workflowJob(source: string, jobName: string): WorkflowJob {
+  let workflow: { jobs?: Record<string, WorkflowJob> };
+  try {
+    workflow = (parse(source) ?? {}) as { jobs?: Record<string, WorkflowJob> };
+  } catch (error) {
+    throw new Error(`Failed to parse workflow YAML: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+  }
+  const job = workflow.jobs?.[jobName];
+  if (!job) throw new Error(`Workflow job "${jobName}" is missing`);
+  return job;
+}
 
 function never<T>(): Promise<T> {
   return new Promise<T>(() => {});
@@ -64,6 +88,72 @@ describe("Playwright E2E harness hardening", () => {
       expect(pkg.scripts[script]).toContain("--project=mobile-chromium");
       expect(pkg.scripts[script]).not.toContain("chromium-ai-smoke");
     }
+  });
+
+  it("runs the required e2e job against a production build with the seed-route opt-in wired end to end", () => {
+    const read = (file: string) => readFileSync(path.resolve(process.cwd(), file), "utf8");
+    const ci = read(".github/workflows/ci.yml");
+    const job = workflowJob(ci, "playwright-e2e");
+    const steps = job.steps ?? [];
+    // The job builds first, then runs the suite with the production-server switch and the opt-in.
+    const build = steps.findIndex((step) => step.run?.trim() === "npm run build");
+    const e2e = steps.findIndex((step) => step.run?.trim() === "npm run e2e");
+    expect(build).toBeGreaterThan(-1);
+    expect(e2e).toBeGreaterThan(build);
+    const e2eStep = steps[e2e];
+    expect(e2eStep?.env?.E2E_SERVER).toBe("production");
+    expect(String(e2eStep?.env?.IPIX_E2E_SEED_ROUTES)).toBe("1");
+
+    // The production server script exists and serves the same port as the dev server.
+    const pkg = JSON.parse(read("package.json"));
+    expect(pkg.scripts["start:e2e"]).toContain("next start -p 3015");
+    expect(pkg.scripts["dev:e2e"]).toContain("-p 3015");
+
+    // Playwright starts that script and sets the exact marker the seed route checks.
+    const config = read("playwright.config.ts");
+    expect(config).toContain('process.env.E2E_SERVER === "production" ? "npm run start:e2e" : "npm run dev:e2e"');
+    expect(config).toContain(`env: { ${E2E_WEBSERVER_MARKER.key}: "${E2E_WEBSERVER_MARKER.value}" }`);
+    expect(
+      plannerSeedRoutesEnabled({
+        NODE_ENV: "production",
+        IPIX_E2E_SEED_ROUTES: "1",
+        [E2E_WEBSERVER_MARKER.key]: E2E_WEBSERVER_MARKER.value,
+      }),
+    ).toBe(true);
+  });
+
+  it("reads the playwright e2e job by YAML structure, regardless of job order or scalar quoting", () => {
+    const ci = `jobs:
+  playwright-approval-tenant:
+    steps:
+      - run: echo approval
+  playwright-e2e:
+    steps:
+      - run: |
+          npm run build
+      - run: |
+          npm run e2e
+        env:
+          E2E_SERVER: production
+          IPIX_E2E_SEED_ROUTES: 1
+`;
+    const job = workflowJob(ci, "playwright-e2e");
+    const e2eStep = job.steps?.find((step) => step.run?.trim() === "npm run e2e");
+
+    expect(e2eStep?.env?.E2E_SERVER).toBe("production");
+    expect(String(e2eStep?.env?.IPIX_E2E_SEED_ROUTES)).toBe("1");
+  });
+
+  it("reports a descriptive missing-job error for an empty workflow", () => {
+    expect(() => workflowJob("", "playwright-e2e")).toThrow(
+      'Workflow job "playwright-e2e" is missing',
+    );
+  });
+
+  it("reports workflow context when YAML parsing fails", () => {
+    expect(() => workflowJob("jobs:\n  playwright-e2e: [", "playwright-e2e")).toThrow(
+      "Failed to parse workflow YAML",
+    );
   });
 
   it("gives Playwright time to flush reports before the CI hard timeout", () => {

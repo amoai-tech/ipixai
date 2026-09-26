@@ -27,10 +27,24 @@ const mastraMocks = vi.hoisted(() => ({
   getWorkflow: vi.fn(),
 }));
 
+// IPI-1326: the route builds a trusted workflow RequestContext from the
+// session token. Stub only that builder; the reader stays real.
+const identityMocks = vi.hoisted(() => ({
+  createTrustedWorkflowRequestContext: vi.fn(),
+}));
+
+vi.mock("@/mastra/workflow-identity", async (importActual) => ({
+  ...(await importActual<typeof import("@/mastra/workflow-identity")>()),
+  createTrustedWorkflowRequestContext: identityMocks.createTrustedWorkflowRequestContext,
+}));
+
 vi.mock("@/mastra/runtime", () => ({
   getMastra: () => ({ getWorkflow: mastraMocks.getWorkflow }),
 }));
 
+import { MASTRA_AUTH_TOKEN_KEY, RequestContext } from "@mastra/core/request-context";
+
+import { MASTRA_USER_KEY } from "@/mastra/workflow-identity";
 import { POST as startReview } from "../src/app/api/plans/reviews/route";
 import { POST as decideRevision } from "../src/app/api/plans/approvals/[approvalId]/decision/route";
 import { POST as reviseRevision } from "../src/app/api/plans/approvals/[approvalId]/revision/route";
@@ -53,6 +67,7 @@ const PLAN = {
 type RpcCall = { name: string; args: Record<string, unknown> };
 
 type SupabaseMockOptions = {
+  noSession?: boolean;
   orgId?: string | null;
   brandError?: unknown;
   editor?: boolean;
@@ -63,6 +78,11 @@ type SupabaseMockOptions = {
 function mockSupabase(options: SupabaseMockOptions = {}) {
   const calls: RpcCall[] = [];
   const client = {
+    auth: {
+      getSession: async () => ({
+        data: { session: options.noSession ? null : { access_token: "jwt-user-a" } },
+      }),
+    },
     from: (table: string) => {
       expect(table).toBe("brands");
       return {
@@ -127,7 +147,16 @@ beforeEach(() => {
   serviceRoleMocks.createServiceRoleClient.mockReset();
   mastraMocks.getWorkflow.mockReset();
   authMocks.getVerifiedOperatorForRequest.mockResolvedValue({ id: USER_A, name: "a@ipix.co" });
+  identityMocks.createTrustedWorkflowRequestContext.mockReset();
+  identityMocks.createTrustedWorkflowRequestContext.mockResolvedValue(trustedContext(USER_A, ORG_A));
 });
+
+function trustedContext(userId: string, orgId: string): RequestContext {
+  const ctx = new RequestContext();
+  ctx.set(MASTRA_USER_KEY, { id: userId, orgId, resourceId: `org:${orgId}::user:${userId}` });
+  ctx.set(MASTRA_AUTH_TOKEN_KEY, "jwt-user-a");
+  return ctx;
+}
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -214,9 +243,47 @@ describe("POST /api/plans/reviews", () => {
     // `start` is what reaches the suspended state and carries the payload;
     // `startAsync` resolves immediately with only a run id and cannot.
     expect(start).toHaveBeenCalledTimes(1);
-    const input = start.mock.calls[0][0] as { inputData: Record<string, unknown> };
+    const input = start.mock.calls[0][0] as {
+      inputData: Record<string, unknown>;
+      requestContext: RequestContext;
+    };
     expect(input.inputData.brandId).toBe(BRAND_A);
     expect(input.inputData.stagedBy).toBe(USER_A);
+    // IPI-1326: the workflow gets the verified identity, not just `stagedBy`.
+    expect(identityMocks.createTrustedWorkflowRequestContext).toHaveBeenCalledWith("jwt-user-a");
+    expect(input.requestContext.get(MASTRA_USER_KEY)).toMatchObject({ id: USER_A, orgId: ORG_A });
+  });
+
+  it("denies when the session has no access token to build trusted workflow identity", async () => {
+    const { client } = mockSupabase({ orgId: ORG_A, noSession: true });
+    authMocks.createClientFromRequest.mockReturnValue(client);
+
+    const response = await startReview(jsonRequest({ brandId: BRAND_A, plan: PLAN }));
+
+    expect(response.status).toBe(401);
+    expect(mastraMocks.getWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("denies when the session cannot be re-verified into a trusted org", async () => {
+    const { client } = mockSupabase({ orgId: ORG_A });
+    authMocks.createClientFromRequest.mockReturnValue(client);
+    identityMocks.createTrustedWorkflowRequestContext.mockResolvedValue(null);
+
+    const response = await startReview(jsonRequest({ brandId: BRAND_A, plan: PLAN }));
+
+    expect(response.status).toBe(401);
+    expect(mastraMocks.getWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("denies when the trusted org is not the authorized brand's org", async () => {
+    const { client } = mockSupabase({ orgId: ORG_A });
+    authMocks.createClientFromRequest.mockReturnValue(client);
+    identityMocks.createTrustedWorkflowRequestContext.mockResolvedValue(trustedContext(USER_A, ORG_B));
+
+    const response = await startReview(jsonRequest({ brandId: BRAND_A, plan: PLAN }));
+
+    expect(response.status).toBe(403);
+    expect(mastraMocks.getWorkflow).not.toHaveBeenCalled();
   });
 
   it("does not accept agentThreadId or expiresAt from the browser", async () => {

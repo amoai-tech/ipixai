@@ -26,7 +26,30 @@ vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: mocks.createServiceRoleClient,
 }));
 
+// IPI-1326: stageRevision re-checks editor authority under the operator's own
+// session before service-role staging. This is that user-scoped client.
+const userClient = vi.hoisted(() => ({
+  orgId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  editor: true,
+}));
+
+vi.mock("@supabase/supabase-js", () => ({
+  createClient: () => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({ single: async () => ({ data: { org_id: userClient.orgId }, error: null }) }),
+      }),
+    }),
+    rpc: async (name: string) =>
+      name === "is_org_editor_or_above"
+        ? { data: userClient.editor, error: null }
+        : { data: null, error: { message: "unexpected rpc" } },
+  }),
+}));
+
 import { Mastra } from "@mastra/core/mastra";
+import { MASTRA_AUTH_TOKEN_KEY, RequestContext } from "@mastra/core/request-context";
+import { MASTRA_USER_KEY } from "@/mastra/workflow-identity";
 import { InMemoryStore } from "@mastra/core/storage";
 
 import { readSuspendedPlanReview } from "@/lib/shoot/plan-approval";
@@ -37,6 +60,17 @@ const APPROVAL_ID = "11111111-1111-4111-8111-111111111111";
 const STAGED_BY = "33333333-3333-4333-8333-333333333333";
 const PLAN_HASH = "hash-abc";
 const REVISION = 1;
+
+function editorContext(userId: string): RequestContext {
+  const ctx = new RequestContext();
+  ctx.set(MASTRA_USER_KEY, {
+    id: userId,
+    orgId: userClient.orgId,
+    resourceId: `org:${userClient.orgId}::user:${userId}`,
+  });
+  ctx.set(MASTRA_AUTH_TOKEN_KEY, "jwt-editor");
+  return ctx;
+}
 
 const PLAN = {
   objective: { value: "Launch the spring capsule", status: "confirmed" },
@@ -69,6 +103,8 @@ function proofPayload(status: string) {
 }
 
 beforeEach(() => {
+  vi.stubEnv("SUPABASE_URL", "https://project.supabase.co");
+  vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test");
   mocks.rpc.mockReset();
   mocks.createServiceRoleClient.mockReset();
   mocks.createServiceRoleClient.mockReturnValue({ rpc: mocks.rpc });
@@ -103,6 +139,7 @@ describe("shoot-plan-review — real Mastra engine lifecycle", () => {
 
     const started = (await run.start({
       inputData: { brandId: BRAND_ID, plan: PLAN, stagedBy: STAGED_BY },
+      requestContext: editorContext(STAGED_BY),
     })) as StartResult;
 
     expect(started.status).toBe("suspended");
@@ -181,7 +218,10 @@ describe("shoot-plan-review — real Mastra engine lifecycle", () => {
     const mastra = newEngine();
     const workflow = mastra.getWorkflow("shoot-plan-review");
     const run = await workflow.createRun();
-    await run.start({ inputData: { brandId: BRAND_ID, plan: PLAN, stagedBy: STAGED_BY } });
+    await run.start({
+      inputData: { brandId: BRAND_ID, plan: PLAN, stagedBy: STAGED_BY },
+      requestContext: editorContext(STAGED_BY),
+    });
 
     const resumed = await workflow.createRun({ runId: run.runId });
     const result = (await resumed.resume({
