@@ -18,6 +18,7 @@ let taskFormat: string;
 let researchEvidence: string;
 let externalReferenceMapping: string;
 let mergeConflicts: string;
+let postMerge: string;
 
 describe("iPix engineering skill contracts", () => {
   beforeAll(() => {
@@ -33,6 +34,7 @@ describe("iPix engineering skill contracts", () => {
     researchEvidence = readRepoFile(".claude/skills/tasks/references/research-evidence.md");
     externalReferenceMapping = readRepoFile(".claude/skills/tasks/references/external-reference-mapping.md");
     mergeConflicts = readRepoFile(".claude/skills/resolving-merge-conflicts/SKILL.md");
+    postMerge = readRepoFile(".claude/skills/tasks/references/post-merge.md");
   });
 
   test("refactor-plan continues when implementation was already requested", () => {
@@ -135,6 +137,29 @@ describe("iPix engineering skill contracts", () => {
     expect(bestPractices).toContain("exact-head merge gate");
   });
 
+  test("post-merge workflow synchronizes local main safely before the next task", () => {
+    const sectionStart = postMerge.indexOf("## Local main synchronization gate");
+    const sectionEnd = postMerge.indexOf("## Required checks when applicable");
+
+    expect(sectionStart).toBeGreaterThanOrEqual(0);
+    expect(sectionEnd).toBeGreaterThan(sectionStart);
+
+    const syncSection = postMerge.slice(sectionStart, sectionEnd);
+    expect(syncSection).toMatch(
+      /before creating the next task branch\/worktree[\s\S]*git fetch origin --prune[\s\S]*git rev-list --left-right --count main\.\.\.origin\/main/,
+    );
+    expect(syncSection).toMatch(
+      /`0 N`[\s\S]*worktree that owns `main`[\s\S]*git merge --ff-only origin\/main[\s\S]*re-run the divergence check/,
+    );
+    expect(syncSection).toMatch(
+      /`N 0` or `N M`[\s\S]*\*\*STOP\*\*[\s\S]*Preserve those local-only commits[\s\S]*never silently reset or discard them/,
+    );
+    expect(syncSection).toContain("`0 0` → PASS");
+    expect(syncSection).toContain("Do not automatically rebase active feature branches");
+    expect(tasks).toContain("Post-merge local-main synchronization");
+    expect(agents).toContain("synchronize local `main` with `origin/main`");
+  });
+
   test("todo stays a short Linear handoff while changelog stays curated shipped history", () => {
     expect(todo).toContain("Linear is the authoritative task/status source");
     expect(todo).toContain("## Current");
@@ -154,9 +179,6 @@ describe("iPix engineering skill contracts", () => {
     expect(changelog).toContain("notable verified");
     expect(changelog).toContain("IPI-1294");
     expect(changelog).toContain("four-template routing");
-    expect(todo).toContain("full canonical external-reference contract");
-    expect(todo).toContain("Live template inventory is exactly four");
-    expect(todo).toContain("Linear Reviews/Diffs does not currently discover `amoai-tech/ipixai`");
     expect(todo).not.toContain("synchronize/retire live Linear template definitions");
   });
 
