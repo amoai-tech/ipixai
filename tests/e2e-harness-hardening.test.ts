@@ -8,7 +8,7 @@ vi.mock("../e2e/support/context", () => ({
 }));
 
 import { SIGN_IN_TIMEOUT_MS, signInWithCredentials } from "../e2e/support/login";
-import { isAllowedE2EBaseUrl } from "../playwright.config";
+import playwrightConfig, { isAllowedE2EBaseUrl } from "../playwright.config";
 import { E2E_WEBSERVER_MARKER, plannerSeedRoutesEnabled } from "../src/lib/planner/seed-routes";
 
 
@@ -224,6 +224,78 @@ describe("Playwright E2E harness hardening", () => {
     expect(reportStep).toBeDefined();
     expect(String(reportStep?.env?.TESTOMATIO_DISABLE_ARTIFACTS)).toBe("1");
     expect(steps.some((step) => step.uses?.startsWith("actions/upload-artifact@"))).toBe(false);
+  });
+
+  it("generates the official Playwright Test Agents with iPix approval guardrails and local MCP wiring", () => {
+    const read = (file: string) => readFileSync(path.resolve(process.cwd(), file), "utf8");
+    const pkg = JSON.parse(read("package.json"));
+    expect(pkg.scripts["e2e:agents:init"]).toBeDefined();
+    expect(pkg.scripts["e2e:agents:init"]).toContain("init-playwright-test-agents.mjs");
+
+    const initializer = read("scripts/init-playwright-test-agents.mjs");
+    expect(initializer).toContain('path.join(root, "node_modules", "playwright", "cli.js")');
+    expect(initializer).toContain("spawnSync(\n  process.execPath");
+
+    const mcp = JSON.parse(read(".mcp.json"));
+    expect(mcp).toEqual({
+      mcpServers: {
+        "playwright-test": {
+          command: "npx",
+          args: ["playwright", "run-test-mcp-server"],
+        },
+      },
+    });
+
+    const planner = read(".claude/agents/playwright-test-planner.md");
+    const generator = read(".claude/agents/playwright-test-generator.md");
+    const healer = read(".claude/agents/playwright-test-healer.md");
+
+    expect(planner).toContain("name: playwright-test-planner");
+    expect(generator).toContain("name: playwright-test-generator");
+    expect(healer).toContain("name: playwright-test-healer");
+    expect(planner).toContain("project `playwright-agent`");
+    expect(generator).toContain("project `playwright-agent`");
+    expect(planner).toContain("`e2e/agents/seed.spec.ts`");
+    expect(generator).toContain("`e2e/agents/seed.spec.ts`");
+
+    expect(generator).not.toContain("async { page } =>");
+    expect(generator).toContain("async ({ page }) =>");
+
+    expect(healer).toContain("## iPix human-approval guardrails");
+    expect(healer).toContain('projects: ["chromium"]');
+    expect(healer).toContain("Never modify application/product code");
+    expect(healer).toContain("Never add `test.skip()`, `test.fixme()`, or an equivalent skip");
+    expect(healer).not.toContain("mark this test as test.fixme()");
+  });
+
+  it("keeps the Playwright agent seed authenticated but outside required release E2E projects", () => {
+    const pkg = JSON.parse(readFileSync(path.resolve(process.cwd(), "package.json"), "utf8"));
+    expect(pkg.scripts.e2e).not.toContain("playwright-agent");
+    expect(pkg.scripts["e2e:ai-smoke"]).not.toContain("playwright-agent");
+    expect(pkg.scripts["e2e:approval"]).not.toContain("playwright-agent");
+
+    const agentProject = playwrightConfig.projects?.find((project) => project.name === "playwright-agent");
+    expect(agentProject).toBeDefined();
+    expect(agentProject?.testDir).toBe("./e2e/agents");
+    expect(agentProject?.dependencies).toEqual(["setup"]);
+    expect(agentProject?.use).toEqual(
+      expect.objectContaining({ storageState: "playwright/.auth/user.json" }),
+    );
+
+    for (const name of ["chromium", "mobile-chromium"]) {
+      const project = playwrightConfig.projects?.find((candidate) => candidate.name === name);
+      const ignores = Array.isArray(project?.testIgnore) ? project.testIgnore : [project?.testIgnore].filter(Boolean);
+      expect(
+        ignores.some((pattern) => pattern instanceof RegExp && pattern.test("/repo/e2e/agents/seed.spec.ts")),
+      ).toBe(true);
+      expect(
+        ignores.some((pattern) => pattern instanceof RegExp && pattern.test("/repo/e2e/dashboard.spec.ts")),
+      ).toBe(false);
+    }
+
+    const seed = readFileSync(path.resolve(process.cwd(), "e2e/agents/seed.spec.ts"), "utf8");
+    expect(seed).toContain('await page.goto("/app")');
+    expect(seed).toContain("toHaveURL");
   });
 
   it("keeps live-AI planner smoke health-only instead of requiring composeShootPlan tool selection", () => {

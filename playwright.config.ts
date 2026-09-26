@@ -87,6 +87,7 @@ export default defineConfig({
       // `npm run e2e:ai-smoke` or .github/workflows/ai-smoke.yml.
       testIgnore: [
         /production-smoke\.spec\.ts/,
+        /[\\/]e2e[\\/]agents[\\/].*\.spec\.ts$/,
         /planner-journey\.spec\.ts/,
         /copilot-intelligence-isolation\.spec\.ts/,
         /planner-thread-isolation\.spec\.ts/,
@@ -96,6 +97,15 @@ export default defineConfig({
         // Local-stack only (see the global testIgnore note above).
         /approval-001-tenant-review\.spec\.ts/,
       ],
+    },
+    {
+      // Official Playwright Test Agents use a dedicated authenticated seed
+      // project so planning/generation never joins required release E2E or
+      // the paid-AI smoke lane by accident.
+      name: "playwright-agent",
+      testDir: "./e2e/agents",
+      use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/user.json" },
+      dependencies: ["setup"],
     },
     {
       name: "chromium-ai-smoke",
@@ -131,6 +141,7 @@ export default defineConfig({
       testIgnore: [
         /login-journey\.spec\.ts/,
         /production-smoke\.spec\.ts/,
+        /[\\/]e2e[\\/]agents[\\/].*\.spec\.ts$/,
         /planner-journey\.spec\.ts/,
         /session-reuse\.spec\.ts/,
         /copilot-intelligence-isolation\.spec\.ts/,
