@@ -14,15 +14,20 @@ describe("Brand crawl service authentication contract", () => {
     expect(startCrawlSource).not.toContain('Authorization: `Bearer ${key}`');
   });
 
-  it("reads the canonical SUPABASE_SECRET_KEYS map with legacy fallback", () => {
-    expect(workflowSource).toContain("process.env.SUPABASE_SECRET_KEYS");
-    expect(workflowSource).not.toContain("process.env.SUPABASE_SECRET_KEY ??");
-    expect(workflowSource).toContain("process.env.SUPABASE_SERVICE_ROLE_KEY");
+  it("uses one shared backend key for every Edge call, never as a Bearer token", () => {
+    expect(workflowSource).toContain("getBackendSecretKey()");
+    expect(workflowSource).not.toContain("process.env.SUPABASE_SERVICE_ROLE_KEY");
+    expect(workflowSource).not.toMatch(/Authorization: `Bearer \$\{key\}`/);
+    const start = workflowSource.indexOf('const extractProfile = createStep({');
+    const end = workflowSource.indexOf('const saveDraftAndWait = createStep({');
+    expect(workflowSource.slice(start, end)).toContain("apikey: key");
   });
 
-  it("disables platform JWT verification for the service-authenticated function", () => {
-    expect(configSource).toMatch(
-      /\[functions\.start-brand-crawl\][\s\S]*?verify_jwt\s*=\s*false/,
-    );
+  it.each([
+    ["start-brand-crawl", /\[functions\.start-brand-crawl\][\s\S]*?verify_jwt\s*=\s*false/],
+    ["brand-intelligence", /\[functions\.brand-intelligence\][\s\S]*?verify_jwt\s*=\s*false/],
+    ["firecrawl-webhook", /\[functions\.firecrawl-webhook\][\s\S]*?verify_jwt\s*=\s*false/],
+  ])("disables platform JWT verification for %s (the handler authenticates)", (_fn, pattern) => {
+    expect(configSource).toMatch(pattern);
   });
 });

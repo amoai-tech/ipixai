@@ -2,7 +2,9 @@ import { rm } from "node:fs/promises";
 import path from "node:path";
 import { test as setup } from "@playwright/test";
 
+import { previewBypassHeaders } from "../playwright.config";
 import { signInAsE2ETestOperator, signInWithCredentials } from "./support/login";
+import { establishAndProveVercelBypass } from "./support/vercel-bypass";
 
 /**
  * https://playwright.dev/docs/auth — project-dependency auth setup.
@@ -23,6 +25,44 @@ setup.use({ trace: "off", screenshot: "off" });
 // wider budget scoped to this one setup test instead of masking slow tests
 // across the whole suite.
 setup.setTimeout(60_000);
+
+/**
+ * IPI-1344 · E2E-PREVIEW-BYPASS-001 — clear Vercel Deployment Protection before
+ * any sign-in, or `/login` is served as Vercel's SSO screen.
+ *
+ * `establishAndProveVercelBypass` does three things, and the third is the one
+ * that matters: it sends the bypass header only to the deployment origin (a
+ * context-wide `extraHTTPHeaders` would leak the secret to Supabase and
+ * Cloudinary — see the module), lets Vercel store its bypass cookie, then
+ * removes the bypass route and re-requests. Only the stored cookie can grant
+ * access on that replay, which is what the other projects need: they carry
+ * only storageState and never re-send the header.
+ */
+setup.beforeEach(async ({ page, context, baseURL }) => {
+  const headers = previewBypassHeaders(
+    baseURL ?? "",
+    process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+  );
+  if (!headers) return; // local run — nothing to bypass
+
+  // `previewBypassHeaders` only returns headers for a non-local target, and
+  // `isLocalE2ETarget("")` is false — so without this guard a missing baseURL
+  // would reach `new URL("")` and surface as "TypeError: Invalid URL" instead
+  // of naming the real problem. Unreachable via this config (`use.baseURL` is
+  // always set and already validated at load), but never worth a cryptic crash.
+  if (!baseURL) {
+    throw new Error(
+      "E2E baseURL is required to clear Vercel Deployment Protection, but `use.baseURL` is unset.",
+    );
+  }
+
+  await establishAndProveVercelBypass({
+    context,
+    page,
+    deploymentOrigin: new URL(baseURL).origin,
+    headers,
+  });
+});
 
 setup("authenticate as the E2E test operator", async ({ page }) => {
   await signInAsE2ETestOperator(page);

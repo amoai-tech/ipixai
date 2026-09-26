@@ -24,21 +24,74 @@ const baseURL = process.env.E2E_BASE_URL || "http://localhost:3015";
 // vercel.app subdomain, including a bare one, is rejected.
 const ALLOWED_PREVIEW_HOST = /^ipixai(-[a-z0-9-]+)?-amoco\.vercel\.app$/i;
 
+const LOCAL_TARGET = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/;
+
+export function isLocalE2ETarget(candidate: string): boolean {
+  return LOCAL_TARGET.test(candidate);
+}
+
 export function isAllowedE2EBaseUrl(candidate: string): boolean {
-  const isLocalTarget = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(candidate);
-  if (isLocalTarget) return true;
+  if (isLocalE2ETarget(candidate)) return true;
 
   const parsedCandidate = new URL(candidate);
   return parsedCandidate.protocol === "https:" && ALLOWED_PREVIEW_HOST.test(parsedCandidate.hostname);
 }
 
-const isLocalTarget = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(baseURL);
+const isLocalTarget = isLocalE2ETarget(baseURL);
 
 if (!isAllowedE2EBaseUrl(baseURL)) {
   throw new Error(
     `E2E_BASE_URL "${baseURL}" is not localhost or an ipixai/amoco Vercel preview — refusing to run real sign-in against it.`,
   );
 }
+
+/**
+ * Vercel Deployment Protection serves an SSO screen in front of a Preview, so a
+ * real sign-in can never reach `/login` and every `page.request` JSON call parses
+ * that HTML instead (observed as `SyntaxError: Unexpected token '<'`). The
+ * project's existing `VERCEL_AUTOMATION_BYPASS_SECRET` ("Protection Bypass for
+ * Automation",
+ * https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation)
+ * clears it. Vercel also documents `x-vercel-set-bypass-cookie: true` for
+ * "follow-up requests (e.g. for in-browser testing)": it makes Vercel set the
+ * bypass as a cookie, which the browser then scopes to the deployment host.
+ *
+ * These headers are meant to be sent on **one** request — see
+ * `e2e/auth.setup.ts`, which establishes the cookie for every later project.
+ * They must NOT be handed to Playwright's context-wide `extraHTTPHeaders`:
+ * that attaches them to every request the browser makes, including cross-origin
+ * calls to Supabase and Cloudinary. Measured against the installed Playwright
+ * with a two-origin probe, a context-wide `extraHTTPHeaders` did reach
+ * cross-origin `fetch`, `<img>` and `<script>` requests, and forced a CORS
+ * preflight that the third party must then allow. That both leaks the
+ * deployment-protection secret to third parties and can silently break those
+ * requests — a documented footgun (see
+ * https://dev.to/forrestmiller/one-playwright-header-broke-every-websocket-test-2m8g).
+ *
+ * Fail closed: a Preview target with no secret would otherwise fail much later
+ * as a confusing auth/JSON error. Local runs need no secret and get no headers.
+ */
+export function previewBypassHeaders(
+  candidate: string,
+  secret: string | undefined,
+): Record<string, string> | undefined {
+  if (isLocalE2ETarget(candidate)) return undefined;
+  // A whitespace-only secret is truthy; sending it would push the run all the
+  // way to Vercel's SSO boundary instead of failing closed here.
+  const trimmedSecret = secret?.trim();
+  if (!trimmedSecret) {
+    throw new Error(
+      "VERCEL_AUTOMATION_BYPASS_SECRET is required for Vercel Preview E2E: without it Vercel Deployment Protection answers with an SSO screen instead of the app.",
+    );
+  }
+  return {
+    "x-vercel-protection-bypass": trimmedSecret,
+    "x-vercel-set-bypass-cookie": "true",
+  };
+}
+
+// Evaluated at config load purely to fail closed before any test runs.
+previewBypassHeaders(baseURL, process.env.VERCEL_AUTOMATION_BYPASS_SECRET);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -67,6 +120,9 @@ export default defineConfig({
     baseURL,
     trace: process.env.CI ? "on-first-retry" : "retain-on-failure",
     screenshot: "only-on-failure",
+    // Deliberately NOT `extraHTTPHeaders`: a context-wide bypass header leaks
+    // the secret to cross-origin services and breaks their CORS preflight. The
+    // Preview bypass is established once as a cookie in e2e/auth.setup.ts.
   },
 
   projects: [

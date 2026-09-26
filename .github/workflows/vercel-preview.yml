@@ -22,7 +22,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout exact requested SHA
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -95,3 +95,41 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
         run: vercel inspect "$DEPLOYMENT_URL" --token="$VERCEL_TOKEN"
+
+      # IPI-1344 · E2E-PREVIEW-BYPASS-001 — certifying a Preview used to depend
+      # on single-use Vercel share links, which silently stopped granting access
+      # and made the journeys fail on an SSO screen (recorded as a residual risk
+      # on IPI-1339). Playwright now clears Deployment Protection with the
+      # project's existing VERCEL_AUTOMATION_BYPASS_SECRET, so the real journeys
+      # can run here. playwright.config.ts fails closed when a Preview target has
+      # no secret.
+      - name: Install dependencies for the authenticated journeys
+        run: npm ci
+
+      - name: Install Chromium
+        run: PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium
+
+      - name: Run authenticated Planner journeys against this exact Preview
+        env:
+          E2E_BASE_URL: ${{ steps.deploy.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          COPILOTKIT_TELEMETRY_DISABLED: "true"
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          E2E_TEST_EMAIL_ORG_B: ${{ secrets.E2E_TEST_EMAIL_ORG_B }}
+          E2E_TEST_PASSWORD_ORG_B: ${{ secrets.E2E_TEST_PASSWORD_ORG_B }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          # IPI-1329: planner-thread-isolation proves Org B cannot list/read
+          # Org A's Planner thread on this exact Preview (uses the ORG_B secrets).
+          # Named specs only: brand-intelligence-journey is deliberately not
+          # included because it writes to a hosted brand and must never run
+          # against a Preview by accident.
+          PLAYWRIGHT_BROWSERS_PATH=0 npx playwright test \
+            --project=chromium-ai-smoke \
+            e2e/planner-stop-journey.spec.ts \
+            e2e/planner-journey.spec.ts \
+            e2e/planner-thread-isolation.spec.ts
