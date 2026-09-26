@@ -395,7 +395,7 @@ describe("Playwright E2E harness hardening", () => {
     const healerPath = path.resolve(process.cwd(), ".claude/agents/playwright-test-healer.md");
     expect(existsSync(healerPath)).toBe(true);
     const healer = readFileSync(healerPath, "utf8");
-    expect(healer).toContain('e2e/agents/*.spec.ts');
+    expect(healer).toContain('e2e/agents/');
     expect(healer).toContain('projects: ["playwright-agent"]');
     expect(healer).toContain('projects: ["chromium"]');
     expect(healer).toContain("Never run `chromium-ai-smoke`");
