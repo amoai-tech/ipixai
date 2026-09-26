@@ -50,7 +50,7 @@ The operator app at **www.ipix.co/app** uses CopilotKit for the right-hand AI ch
 | Variable | Required | What it does |
 |----------|----------|--------------|
 | `MASTRA_DATABASE_URL` | Yes | Mastra Postgres storage (schema `mastra`) — durable Planner threads/messages. `src/mastra/pg-store.ts` reads only this name; `DATABASE_URL` does **not** configure Planner storage. |
-| `IPIX_MASTRA_HOSTED` | Yes (`1`) | Refuses the in-memory fallback when `MASTRA_DATABASE_URL` is missing, so conversations can't silently stop persisting |
+| `IPIX_MASTRA_HOSTED` | Yes for hosted iPix (`1`, `true`, or `yes`) | Existing storage guard: when enabled, a missing `MASTRA_DATABASE_URL` throws instead of falling back to `InMemoryStore`. IPI-1329 documents this contract; it does not introduce it. |
 | `CPK_INTELLIGENCE_API_KEY` / `COPILOTKIT_API_KEY` | No — ignored | Not read by the Product route since IPI-1329. Leave unset. |
 | `MASTRA_BASE_URL` | No — ignored by Product | Only read by legacy remote-Mastra helpers kept until IPI-1334. Leave unset in Production. |
 | `COPILOTKIT_LICENSE_TOKEN` | No | Offline/self-hosted-only credential — do not set; a stale/wrong-format value here is what caused `Invalid CopilotKit license token`. |
