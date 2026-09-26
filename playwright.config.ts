@@ -60,8 +60,8 @@ export default defineConfig({
   // One worker avoids shared-account races and Turbopack cold-compile storms.
   workers: 1,
   // https://playwright.dev/docs/ci-intro — 'github' annotates failures
-  // directly on the Actions run; keep 'html' too so CI still produces the
-  // playwright-report/ dir the workflow uploads as an artifact.
+  // directly on the Actions run; keep 'html' for runner-local diagnostics.
+  // Authenticated CI workflows must not publish the generated report artifacts.
   reporter: process.env.CI ? [["github"], ["html"]] : "html",
   use: {
     baseURL,

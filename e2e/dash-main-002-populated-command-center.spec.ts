@@ -40,10 +40,9 @@ async function signInPopulatedOrg(browser: Browser): Promise<{ page: Page; close
   );
 }
 
-/** Attaches a full-page screenshot to the HTML report/artifact instead of
- *  writing a loose file — the CI playwright-report upload already carries
- *  test attachments, so this is the same evidence path dashboard.spec.ts's
- *  existing assertions ride, not a new artifact mechanism. */
+/** Attaches a screenshot to Playwright's runner-local HTML report instead of
+ *  writing a loose file. Authenticated CI workflows intentionally do not
+ *  publish that report or its attachments as reusable artifacts. */
 async function attachScreenshot(testInfo: TestInfo, name: string, page: Page) {
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: false }), contentType: "image/png" });
 }
