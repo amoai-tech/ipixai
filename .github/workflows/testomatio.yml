@@ -54,19 +54,10 @@ jobs:
           TESTOMATIO: ${{ inputs.testomatio }}
           TESTOMATIO_RUN: ${{ inputs.run }}
           TESTOMATIO_TITLE: "GitHub Actions · ${{ github.ref_name }}"
+          TESTOMATIO_DISABLE_ARTIFACTS: "1"
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PLAYWRIGHT_BROWSERS_PATH: "0"
           GREP: ${{ inputs.grep }}
         run: |
           npx @testomatio/reporter@2.16.0 run \
             "node .github/scripts/run-testomatio-playwright.mjs"
-
-      - if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: playwright-report
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 7
-          if-no-files-found: ignore

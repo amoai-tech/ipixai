@@ -14,6 +14,7 @@ import { E2E_WEBSERVER_MARKER, plannerSeedRoutesEnabled } from "../src/lib/plann
 
 type WorkflowStep = {
   run?: string;
+  uses?: string;
   env?: Record<string, unknown>;
 };
 
@@ -193,6 +194,17 @@ describe("Playwright E2E harness hardening", () => {
     const aiSmoke = readFileSync(path.resolve(process.cwd(), ".github/workflows/ai-smoke.yml"), "utf8");
     expect(ci).not.toContain("name: playwright-report");
     expect(aiSmoke).not.toContain("name: playwright-ai-smoke-report");
+  });
+
+  it("keeps Testomat reporting but does not publish authenticated Playwright artifacts", () => {
+    const source = readFileSync(path.resolve(process.cwd(), ".github/workflows/testomatio.yml"), "utf8");
+    const job = workflowJob(source, "playwright");
+    const steps = job.steps ?? [];
+
+    const reportStep = steps.find((step) => step.run?.includes("@testomatio/reporter@"));
+    expect(reportStep).toBeDefined();
+    expect(String(reportStep?.env?.TESTOMATIO_DISABLE_ARTIFACTS)).toBe("1");
+    expect(steps.some((step) => step.uses?.startsWith("actions/upload-artifact@"))).toBe(false);
   });
 
   it("keeps live-AI planner smoke health-only instead of requiring composeShootPlan tool selection", () => {
