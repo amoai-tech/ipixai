@@ -320,7 +320,7 @@ const extractProfile = createStep({
   id: "extractProfile",
   inputSchema: extractProfileInputSchema,
   outputSchema: extractProfileOutputSchema,
-  execute: async ({ inputData }) => {
+  execute: async ({ inputData, runId }) => {
     const { crawlId, brandId } = inputData;
     const sb = await requireServiceRoleClient();
     const key = requireBackendSecretKey();
@@ -342,7 +342,8 @@ const extractProfile = createStep({
       throw await failAnalysis(brandId, "Failed to mark analysis running", statusError.message);
     }
 
-    const correlationId = `BI-${crypto.randomUUID()}`;
+    // Stable per workflow run, so every retry of this step shares one trace id.
+    const correlationId = `BI-${runId}`;
     const url = edgeFnUrl("brand-intelligence");
 
     let res: Response;

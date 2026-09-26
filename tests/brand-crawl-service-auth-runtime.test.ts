@@ -64,6 +64,45 @@ describe("Brand crawl start idempotency", () => {
   });
 });
 
+function extractProfileExecute(): StepExecute {
+  const step = brandIntelligenceWorkflow.steps.extractProfile as unknown as {
+    execute: StepExecute;
+  };
+  return step.execute;
+}
+
+// Just enough of the Supabase client for extractProfile to reach its edge call.
+function fakeServiceClient() {
+  const chain = {
+    select: () => chain,
+    update: () => chain,
+    eq: () => chain,
+    single: async () => ({ data: { brand_url: "https://brand.example" }, error: null }),
+    then: (resolve: (value: { error: null }) => unknown) => resolve({ error: null }),
+  };
+  return { from: () => chain };
+}
+
+describe("Brand intelligence extraction correlation id", () => {
+  it("derives x-request-id from the workflow run so every retry of the step shares it", async () => {
+    process.env.SUPABASE_SECRET_KEY = "sb_secret_singular_test";
+    mocks.serviceClient.mockReturnValue(fakeServiceClient());
+    mocks.fetch.mockResolvedValue(new Response("boom", { status: 500 }));
+    const args = {
+      inputData: { brandId: INPUT.brandId, crawlId: "33333333-3333-4333-8333-333333333333" },
+      runId: "run-extract-1",
+    };
+
+    await expect(extractProfileExecute()(args)).rejects.toThrow();
+    await expect(extractProfileExecute()(args)).rejects.toThrow();
+
+    const requestIds = mocks.fetch.mock.calls.map(
+      ([, init]) => ((init as RequestInit).headers as Record<string, string>)["x-request-id"],
+    );
+    expect(requestIds).toEqual(["BI-run-extract-1", "BI-run-extract-1"]);
+  });
+});
+
 describe("Brand crawl service auth runtime", () => {
   it("prefers the modern SUPABASE_SECRET_KEY over every other variable", async () => {
     process.env.SUPABASE_SECRET_KEY = "sb_secret_singular_test";
