@@ -116,6 +116,43 @@ describe("IPI-1290 TenantAbortRunner exact-run Stop", () => {
     expect(slow.runs).toBe(0);
   });
 
+  // Preview failure: the browser only sends its next message once the stopped
+  // run's stream reports an end. A run cancelled while starting used to close
+  // with no events, so the chat stayed "running" and R2 never left the browser.
+  it("a run stopped while starting still reports RUN_STARTED then RUN_FINISHED for that run", async () => {
+    memoryGate = new Promise((resolve) => (releaseMemory = resolve));
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+
+    const r1 = collect(
+      runner.run({ threadId, agent: wrapAbortRun(new SlowAgent()), input: input(threadId, "R1") }),
+    );
+    expect(await runner.stop({ threadId, runId: "R1" })).toBe(true);
+    releaseMemory();
+    await r1.done;
+
+    expect(r1.events).toEqual([
+      expect.objectContaining({ type: EventType.RUN_STARTED, threadId, runId: "R1" }),
+      expect.objectContaining({ type: EventType.RUN_FINISHED, threadId, runId: "R1" }),
+    ]);
+  });
+
+  it("a run whose client disconnected while starting ends silently", async () => {
+    memoryGate = new Promise((resolve) => (releaseMemory = resolve));
+    const threadId = nextThread();
+    const controller = new AbortController();
+    const slow = new SlowAgent();
+    const runner = new TenantAbortRunner(RESOURCE, controller.signal);
+
+    const r1 = collect(runner.run({ threadId, agent: wrapAbortRun(slow), input: input(threadId, "R1") }));
+    controller.abort();
+    releaseMemory();
+    await r1.done;
+
+    expect(r1.events).toEqual([]);
+    expect(slow.runs).toBe(0);
+  });
+
   it("a stale Stop(R1) is a no-op against an active R2, and Stop(R2) still works", async () => {
     memoryGate = Promise.resolve();
     const threadId = nextThread();

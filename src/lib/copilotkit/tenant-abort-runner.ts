@@ -107,16 +107,37 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
           pendingRuns.delete(runnerThreadId);
         }
       };
+      // A user Stop that lands while the run is still starting must still end
+      // the stream the way a normal Stop does. The browser sends its next
+      // message only after the stopped run reports RUN_FINISHED; an empty
+      // stream left the chat "running" and R2 never left the browser (seen on
+      // a Vercel Preview, where memory setup is slow enough for Stop to win).
+      // A disconnected client (cancelled / request aborted) gets nothing.
+      const endSkippedRun = () => {
+        releasePending();
+        if (pending.stopRequested && !cancelled && !this.signal.aborted) {
+          const runId = input?.runId ?? randomUUID();
+          subscriber.next({
+            type: EventType.RUN_STARTED,
+            threadId: mastraThreadId,
+            runId,
+          } as BaseEvent);
+          subscriber.next({
+            type: EventType.RUN_FINISHED,
+            threadId: mastraThreadId,
+            runId,
+          } as BaseEvent);
+        }
+        subscriber.complete();
+      };
       void (async () => {
         if (this.shouldSkipRun(pending, cancelled)) {
-          releasePending();
-          subscriber.complete();
+          endSkippedRun();
           return;
         }
         const memory = await getPlannerMemory();
         if (this.shouldSkipRun(pending, cancelled)) {
-          releasePending();
-          subscriber.complete();
+          endSkippedRun();
           return;
         }
         if (!memory) {
@@ -129,8 +150,7 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
           resourceId: this.resourceId,
         });
         if (this.shouldSkipRun(pending, cancelled)) {
-          releasePending();
-          subscriber.complete();
+          endSkippedRun();
           return;
         }
         inner = super
