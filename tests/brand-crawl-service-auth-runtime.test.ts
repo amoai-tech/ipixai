@@ -54,6 +54,16 @@ async function sentApiKey(): Promise<unknown> {
   return headers.apikey;
 }
 
+describe("Brand crawl start idempotency", () => {
+  it("keys each crawl to its own workflow run so a retry never reuses an old crawl", async () => {
+    process.env.SUPABASE_SECRET_KEY = "sb_secret_singular_test";
+    await startCrawlExecute()({ inputData: INPUT, runId: "run-retry-2" });
+    const [, init] = mocks.fetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(body).toMatchObject({ workflowId: "run-retry-2", idempotencyKey: "workflow-run-retry-2" });
+  });
+});
+
 describe("Brand crawl service auth runtime", () => {
   it("prefers the modern SUPABASE_SECRET_KEY over every other variable", async () => {
     process.env.SUPABASE_SECRET_KEY = "sb_secret_singular_test";

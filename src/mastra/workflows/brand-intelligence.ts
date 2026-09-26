@@ -248,7 +248,17 @@ const startCrawl = createStep({
           "Content-Type": "application/json",
           apikey: key,
         },
-        body: JSON.stringify({ brandId, url: brandUrl, actorId, workflowId: runId }),
+        // One crawl per workflow run: without this, start-brand-crawl keys the
+        // crawl on brand + URL, so a retry or re-analysis would reuse an old
+        // (possibly dead or already finished) crawl and wait forever for a
+        // webhook that never comes. Retries of this same step stay idempotent.
+        body: JSON.stringify({
+          brandId,
+          url: brandUrl,
+          actorId,
+          workflowId: runId,
+          idempotencyKey: `workflow-${runId}`,
+        }),
         signal: AbortSignal.timeout(30_000),
       });
     } catch (err) {
