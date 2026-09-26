@@ -557,32 +557,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Prime postgres-meta image for type generation
-        # Supabase CLI 2.116.0 runs postgres-meta:v0.98.0 even when
-        # `gen types` is given a direct --db-url. The job normally routes
-        # images to public ECR, but ECR can independently rate-limit that
-        # one late pull. Prefer ECR; if it is throttled, use Supabase CLI's
-        # official slim pgmeta mirror from authenticated GHCR and tag it
-        # with the exact image name the pinned CLI requests.
-        run: |
-          set -euo pipefail
-          ecr_image="public.ecr.aws/supabase/postgres-meta:v0.98.0"
-          ghcr_image="ghcr.io/supabase/cli/pgmeta:v0.98.0"
-
-          if docker image inspect "$ecr_image" >/dev/null 2>&1; then
-            exit 0
-          fi
-          if docker pull "$ecr_image"; then
-            exit 0
-          fi
-
-          echo "ECR postgres-meta pull failed; falling back to authenticated GHCR slim mirror"
-          docker pull "$ghcr_image"
-          docker tag "$ghcr_image" "$ecr_image"
+        # `supabase gen types --db-url` still launches a short-lived
+        # postgres-meta:v0.98.0 container in the pinned Supabase CLI 2.116.0,
+        # so this job primes that image before generated-type verification.
+        # The ECR override above also disables the CLI's own registry
+        # fallback, so the script prefers ECR and, only if ECR fails or
+        # throttles, pulls the identical upstream mirror from authenticated
+        # GHCR and tags it with the exact name the CLI requests. If both
+        # registries fail, the step fails — the type gate is never skipped.
+        run: bash scripts/prime-supabase-pgmeta.sh
       - name: Start local Supabase stack with bounded retry
         # This job is DB-only. Most assertions are raw `psql`/`pg` against
         # port 54322. `supabase gen types --db-url` still runs a short-lived
         # postgres-meta container, so the step above primes that one image.
-        # nothing here goes through Kong/GoTrue/PostgREST/Storage/Realtime/
+        # Nothing here goes through Kong/GoTrue/PostgREST/Storage/Realtime/
         # Edge Functions, so every non-Postgres container is excludable, not
         # just the admin/observability ones. Verified locally: `supabase
         # start` with this same --exclude list, then `supabase db reset
