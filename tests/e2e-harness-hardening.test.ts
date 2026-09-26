@@ -320,6 +320,20 @@ describe("Playwright E2E harness hardening", () => {
     expect(source).not.toContain('getByTestId("compose-shoot-plan-card")');
   });
 
+  it("waits for the Planner turn to settle before reloading the thread", () => {
+    const source = readFileSync(path.resolve(process.cwd(), "e2e/planner-journey.spec.ts"), "utf8");
+    // IPI-1344: reloading while the first run is still streaming restores a
+    // conversation whose run never reached a terminal event. CopilotKit then
+    // keeps the composer in Stop mode, the post-reload follow-up click sends a
+    // Stop instead of a run, and the test waits out its whole budget for a
+    // /run that was never sent. Observed once on the first, cold request to a
+    // freshly deployed Preview — see planner-stop-journey.spec.ts for the
+    // documented form of the same hazard.
+    expect(source).toContain("the plan turn must reach send-ready before the reload");
+    expect(source).toContain("the restored thread must be send-ready before the follow-up");
+    expect(source).toContain('locator("svg.lucide-square")');
+  });
+
 });
 
 // IPI-1344 · E2E-PREVIEW-BYPASS-001 — the bypass is only useful if the cookie
