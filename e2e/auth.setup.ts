@@ -45,10 +45,21 @@ setup.beforeEach(async ({ page, context, baseURL }) => {
   );
   if (!headers) return; // local run — nothing to bypass
 
+  // `previewBypassHeaders` only returns headers for a non-local target, and
+  // `isLocalE2ETarget("")` is false — so without this guard a missing baseURL
+  // would reach `new URL("")` and surface as "TypeError: Invalid URL" instead
+  // of naming the real problem. Unreachable via this config (`use.baseURL` is
+  // always set and already validated at load), but never worth a cryptic crash.
+  if (!baseURL) {
+    throw new Error(
+      "E2E baseURL is required to clear Vercel Deployment Protection, but `use.baseURL` is unset.",
+    );
+  }
+
   await establishAndProveVercelBypass({
     context,
     page,
-    deploymentOrigin: new URL(baseURL ?? "").origin,
+    deploymentOrigin: new URL(baseURL).origin,
     headers,
   });
 });

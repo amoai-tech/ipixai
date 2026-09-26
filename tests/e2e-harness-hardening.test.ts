@@ -103,6 +103,9 @@ describe("Playwright E2E harness hardening", () => {
     expect(authSetup).toContain("previewBypassHeaders(");
     expect(authSetup).toContain("setup.beforeEach(");
     expect(authSetup).toContain("establishAndProveVercelBypass(");
+    // `isLocalE2ETarget("")` is false, so a missing baseURL would otherwise
+    // reach `new URL("")` and die as a bare "TypeError: Invalid URL".
+    expect(authSetup).toContain("E2E baseURL is required to clear Vercel Deployment Protection");
 
     const bypass = readFileSync(
       path.resolve(process.cwd(), "e2e/support/vercel-bypass.ts"),
