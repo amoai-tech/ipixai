@@ -14,11 +14,11 @@ import type { ShotReferenceCatalogEntry } from "@/lib/shoot/shot-type-references
  */
 
 const copilot = vi.hoisted(() => ({
-  config: null as null | { render: (props: unknown) => unknown },
+  config: null as null | { render: (props: unknown) => unknown; parameters?: unknown },
 }));
 
 vi.mock("@copilotkit/react-core/v2", () => ({
-  useHumanInTheLoop: (config: { render: (props: unknown) => unknown }) => {
+  useHumanInTheLoop: (config: { render: (props: unknown) => unknown; parameters?: unknown }) => {
     copilot.config = config;
   },
 }));
@@ -190,5 +190,21 @@ describe("ShootPlanReviewHitl — reference catalog", () => {
     await waitFor(() => expect(respond).toHaveBeenCalledTimes(1));
     expect(respond).toHaveBeenCalledWith({ ok: false, error: "review_start_failed" });
     expect(screen.getByTestId("shoot-plan-review-failed")).toBeTruthy();
+  });
+});
+
+describe("ShootPlanReviewHitl — model-facing arguments", () => {
+  // Without a parameters schema CopilotKit advertises an empty object, so the
+  // model calls reviewShootPlan with no brandId/plan and the card can only say
+  // "The plan could not be read for review."
+  it("advertises brandId and plan, which the review card needs", () => {
+    render(<ShootPlanReviewHitl />);
+    const schema = copilot.config?.parameters as
+      | { safeParse: (value: unknown) => { success: boolean }; shape: Record<string, unknown> }
+      | undefined;
+    expect(schema, "reviewShootPlan must declare its parameters").toBeTruthy();
+    expect(Object.keys(schema!.shape).sort()).toEqual(["brandId", "plan"]);
+    expect(schema!.safeParse({ brandId: BRAND_ID, plan: PLAN }).success).toBe(true);
+    expect(schema!.safeParse({}).success).toBe(false);
   });
 });

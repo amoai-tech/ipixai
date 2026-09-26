@@ -2,6 +2,7 @@
 
 import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
 import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 
 import {
   ShootPlanReview,
@@ -21,6 +22,20 @@ import type { ShotReferenceCatalogEntry } from "@/lib/shoot/shot-type-references
  * run parked. A failed staging attempt still responds with an error so the
  * agent can surface it and retry.
  */
+
+/**
+ * What the model must pass. Without this CopilotKit advertises an empty
+ * object and the model calls the tool with no brand or plan. The plan stays
+ * permissive (the real ShootPlanSchema imports Mastra server code); the
+ * review route re-validates both fields before anything is staged.
+ */
+const ReviewShootPlanParameters = z.object({
+  brandId: z.string().describe("The id of the brand the plan is for, from the Planner context."),
+  plan: z
+    .object({})
+    .passthrough()
+    .describe("The exact ShootPlan object composeShootPlan returned, unchanged."),
+});
 
 type ReviewShootPlanArgs = {
   brandId?: unknown;
@@ -186,6 +201,7 @@ export function ShootPlanReviewHitl() {
       name: "reviewShootPlan",
       description:
         "Ask the operator to review, edit, approve, reject, request changes on, or cancel a ShootPlan before anything is saved.",
+      parameters: ReviewShootPlanParameters,
       render: ({ status, args, respond, toolCallId }) => {
         // `respond` is only present on the Executing branch of the render-prop
         // union, so checking it both narrows the type and correctly reports
