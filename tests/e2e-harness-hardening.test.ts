@@ -105,6 +105,9 @@ describe("Playwright E2E harness hardening", () => {
     expect(script).toContain("--debug=cli");
     expect(script).not.toContain("--project=mobile-chromium");
     expect(script).not.toContain("chromium-ai-smoke");
+
+    const attachScript = pkg.scripts["e2e:debug:cli:attach"] as string | undefined;
+    expect(attachScript).toBe("playwright-cli attach");
   });
 
   it("runs the required e2e job against a production build with the seed-route opt-in wired end to end", () => {

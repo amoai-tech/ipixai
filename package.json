@@ -36,7 +36,8 @@
     "skills:registry:check": "node scripts/validate-skill-registry.mjs",
     "skills:index": "node scripts/generate-skill-index.mjs",
     "skills:index:check": "node scripts/generate-skill-index.mjs --check",
-    "e2e:debug:cli": "PLAYWRIGHT_HTML_OPEN=never PLAYWRIGHT_BROWSERS_PATH=0 playwright test --project=chromium --debug=cli"
+    "e2e:debug:cli": "PLAYWRIGHT_HTML_OPEN=never PLAYWRIGHT_BROWSERS_PATH=0 playwright test --project=chromium --debug=cli",
+    "e2e:debug:cli:attach": "playwright-cli attach"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.59",
