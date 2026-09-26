@@ -62,6 +62,16 @@ test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
 
     // R2: send, then replay the exact Stop(R1) while R2 streams.
     await expect(textarea).toBeEditable({ timeout: NAV_TIMEOUT_MS });
+    // An accepted Stop is not the same as a settled client: CopilotKit returns
+    // the composer to send-ready only once R1's terminal event arrives, which
+    // is bounded but not instant (measured ~0.5-1.5 s on a warm instance,
+    // longer on a cold one). Clicking while the button is still Stop sends a
+    // second Stop instead of R2's run, and the journey then waits out its
+    // timeout for a /run that was never sent.
+    await expect(
+      sendOrStop.locator("svg.lucide-square"),
+      "R1 must return to send-ready before the next message is sent",
+    ).toHaveCount(0, { timeout: NAV_TIMEOUT_MS });
     await textarea.fill(
       `List 8 one-line shot ideas for a linen dress collection. After the list, end with the exact line ${marker}`,
     );
