@@ -150,6 +150,39 @@ function safeJsonStringify(value: unknown): string {
   }
 }
 
+/**
+ * IPI-1339 · PLANNER-PAYLOAD-001 — a restored rich tool result can be JSON
+ * *text that itself contains* JSON text: CopilotKit re-forwards the restored
+ * transcript, `@ag-ui/mastra` treats the synthetic tool result as new history,
+ * and Mastra persists it back. Because `safeJsonStringify` re-serializes
+ * whatever it is given, each restore/replay cycle wrapped the previous string
+ * in one more escaping layer until the message had grown geometrically
+ * (measured: 14 layers, one 8,410,422-byte row, Vercel `413`
+ * `FUNCTION_PAYLOAD_TOO_LARGE`).
+ *
+ * Unwrap those layers back to the single canonical serialization so the rich
+ * history round trip is idempotent. Decoding only while the value still parses
+ * as JSON text keeps a genuine object/array result serialized exactly once, and
+ * the hard cap bounds the work on a pathological or hostile value. Past the cap
+ * the deepest value reached is kept, which the plan-card renderer already shows
+ * as an unreadable result instead of crashing — never a throw, never invented
+ * data, and never a durable write.
+ */
+export const RICH_RESULT_DECODE_CAP = 20;
+
+export function canonicalRichToolResult(value: unknown): string {
+  let current: unknown = value;
+  for (let depth = 0; depth < RICH_RESULT_DECODE_CAP; depth += 1) {
+    if (typeof current !== "string") break;
+    try {
+      current = JSON.parse(current);
+    } catch {
+      break; // not JSON text — this string is the terminal value
+    }
+  }
+  return safeJsonStringify(current);
+}
+
 function richToolInvocations(parts: ToolInvocationPart[] | undefined) {
   const found: Array<{ toolCallId: string; toolName: string; args: unknown; result: unknown }> = [];
   for (const part of parts ?? []) {
@@ -219,7 +252,7 @@ export function mastraMessagesToChat(
         id: `${id}:tool:${call.toolCallId}`,
         role: "tool",
         toolCallId: call.toolCallId,
-        content: safeJsonStringify(call.result),
+        content: canonicalRichToolResult(call.result),
       });
     }
   }

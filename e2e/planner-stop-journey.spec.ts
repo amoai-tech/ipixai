@@ -16,12 +16,22 @@ import { collectBrowserProblems, isAgentRun as isRun, isAgentStop as isStop } fr
 const NAV_TIMEOUT_MS = 30_000;
 const RESPONSE_TIMEOUT_MS = 90_000;
 
+/**
+ * IPI-1339 · PLANNER-PAYLOAD-001 — Vercel rejects a function request body above
+ * 4.5 MB with `413 FUNCTION_PAYLOAD_TOO_LARGE`. A single Planner turn measured
+ * ~1-9 KB, so this ceiling is generous while still catching the amplification
+ * that produced an 8.5 MB body (one persisted 8,410,422-byte tool message).
+ */
+const BOUNDED_RUN_BODY_BYTES = 64 * 1024;
+/** Distinctive text from R1; only the newest turn may be forwarded on a run. */
+const R1_PROMPT = "Write a detailed 800-word creative brief for a linen dress lookbook shoot, section by section.";
+
 test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
   // Never retry: each attempt re-sends real, paid model requests.
   test.describe.configure({ retries: 0 });
 
   test("Stop ends only its own run; a late Stop(R1) leaves R2 running to completion", async ({ page }) => {
-    test.setTimeout(RESPONSE_TIMEOUT_MS * 2 + NAV_TIMEOUT_MS * 4);
+    test.setTimeout(RESPONSE_TIMEOUT_MS * 3 + NAV_TIMEOUT_MS * 6);
     const problems = collectBrowserProblems(page);
     const marker = `r2-${Date.now().toString(36)}`;
 
@@ -38,9 +48,7 @@ test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
     // send, so an enabled button can only be Stop; waiting for text first let
     // a short answer finish before the click (the button went back to a
     // disabled Send and Stop could never be pressed).
-    await textarea.fill(
-      "Write a detailed 800-word creative brief for a linen dress lookbook shoot, section by section.",
-    );
+    await textarea.fill(R1_PROMPT);
     const r1Run = page.waitForRequest(isRun);
     await sendOrStop.click();
     await r1Run;
@@ -79,7 +87,13 @@ test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
     );
     const r2Run = page.waitForRequest(isRun);
     await sendOrStop.click();
-    await r2Run;
+    const r2 = await r2Run;
+    // IPI-1339: R2 carries only its own turn even though R1's exchange is
+    // already in the client transcript.
+    expect(
+      r2.postData() ?? "",
+      "a run must not resend earlier turns now that Mastra owns the thread",
+    ).not.toContain(R1_PROMPT);
     const replay = await page.request.post(stop.url(), {
       data: stop.postData() ?? "",
       headers: { "content-type": "application/json" },
@@ -104,6 +118,36 @@ test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
     await expect(assistant.filter({ hasText: marker })).toHaveCount(1, {
       timeout: NAV_TIMEOUT_MS,
     });
+
+    // IPI-1339 · PLANNER-PAYLOAD-001 — the decisive run: after reload the client
+    // holds the whole restored transcript, so this is the request that used to
+    // grow with stored history until Vercel rejected it. Measure the real
+    // browser body rather than estimating it.
+    await expect(textarea).toBeEditable({ timeout: NAV_TIMEOUT_MS });
+    const followUpMarker = `r3-${Date.now().toString(36)}`;
+    await textarea.fill(`Reply with only this token, nothing else: ${followUpMarker}`);
+    const r3Run = page.waitForRequest(isRun);
+    const r3Response = page.waitForResponse((response) => isRun(response.request()));
+    await sendOrStop.click();
+    const [followUp, followUpResponse] = await Promise.all([r3Run, r3Response]);
+
+    expect(
+      followUpResponse.status(),
+      "the restored-thread run must be accepted, not rejected as FUNCTION_PAYLOAD_TOO_LARGE",
+    ).toBe(200);
+    const { requestBodySize } = await followUp.sizes();
+    expect(
+      requestBodySize,
+      "the run body must stay far below Vercel's 4.5 MB function payload ceiling",
+    ).toBeLessThan(BOUNDED_RUN_BODY_BYTES);
+    expect(
+      followUp.postData() ?? "",
+      "restored durable history must not be re-sent — only the newest turn is forwarded",
+    ).not.toContain(R1_PROMPT);
+    await expect(assistant.last(), "the follow-up after restore must still be answered").toContainText(
+      followUpMarker,
+      { timeout: RESPONSE_TIMEOUT_MS },
+    );
 
     expect(problems, "no console errors, page errors, or 5xx during the journey").toEqual([]);
   });
