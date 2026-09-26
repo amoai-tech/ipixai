@@ -39,11 +39,26 @@ describe("self-hosted fonts", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("builds with Turbopack, which names the family after the JS variable", () => {
+    // Turbopack emits `font-family: inter` for `const inter = localFont(...)`;
+    // webpack's next/font loader renames it to a hashed `__inter_<hash>`, which
+    // would silently orphan every subset rule above. Refuse a webpack build.
+    const scripts = Object.values(
+      (JSON.parse(read("package.json")) as { scripts: Record<string, string> }).scripts,
+    );
+    const workflows = readdirSync(path.resolve(root, ".github/workflows")).map((f) =>
+      read(`.github/workflows/${f}`),
+    );
+    for (const text of [...scripts, ...workflows, read("next.config.ts")]) {
+      expect(text).not.toMatch(/--webpack\b/);
+    }
+  });
+
   for (const { layout, css, fonts } of LAYOUTS) {
     it(`${css} adds subsets under the family names next/font/local uses in ${layout}`, () => {
       const source = read(layout);
       for (const name of fonts) {
-        expect(source).toMatch(new RegExp(`const ${name} = localFont\\(`));
+        expect(source).toContain(`const ${name} = localFont(`);
       }
       expect(source).toContain(`import "./${path.relative(path.dirname(layout), css)}";`);
 
