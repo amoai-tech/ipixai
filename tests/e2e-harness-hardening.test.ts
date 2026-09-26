@@ -395,6 +395,8 @@ describe("Playwright E2E harness hardening", () => {
     const healerPath = path.resolve(process.cwd(), ".claude/agents/playwright-test-healer.md");
     expect(existsSync(healerPath)).toBe(true);
     const healer = readFileSync(healerPath, "utf8");
+    expect(healer).toContain('e2e/agents/*.spec.ts');
+    expect(healer).toContain('projects: ["playwright-agent"]');
     expect(healer).toContain('projects: ["chromium"]');
     expect(healer).toContain("Never run `chromium-ai-smoke`");
   });
@@ -464,6 +466,9 @@ describe("Playwright E2E harness hardening", () => {
       const ignores = Array.isArray(project?.testIgnore) ? project.testIgnore : [project?.testIgnore].filter(Boolean);
       expect(
         ignores.some((pattern) => pattern instanceof RegExp && pattern.test("/repo/e2e/agents/seed.spec.ts")),
+      ).toBe(true);
+      expect(
+        ignores.some((pattern) => pattern instanceof RegExp && pattern.test("/repo/e2e/agents/helper.ts")),
       ).toBe(true);
       expect(
         ignores.some((pattern) => pattern instanceof RegExp && pattern.test("/repo/e2e/dashboard.spec.ts")),
