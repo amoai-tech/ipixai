@@ -6,10 +6,10 @@ import dotenvx from "@dotenvx/dotenvx";
 dotenvx.config({ path: path.resolve(__dirname, ".env.test"), quiet: true, ignore: ["MISSING_ENV_FILE"] });
 // NEXT_PUBLIC_SUPABASE_URL / PUBLISHABLE_KEY for direct read-only REST calls
 // from spec files (e.g. tenant-isolation.spec.ts's org-identity check) — the
-// webServer's spawned Next process reads .env on its own, but the Playwright
-// test runner process does not; load it here too. No-ops harmlessly when
-// .env doesn't exist (CI supplies these as real job env vars instead).
-dotenvx.config({ path: path.resolve(__dirname, ".env"), quiet: true, ignore: ["MISSING_ENV_FILE"] });
+// webServer's spawned Next process reads the Next.js convention itself, but the Playwright
+// test runner process does not; load the canonical local runtime file here too.
+// No-ops harmlessly when .env.local doesn't exist (CI supplies these as real job env vars instead).
+dotenvx.config({ path: path.resolve(__dirname, ".env.local"), quiet: true, ignore: ["MISSING_ENV_FILE"] });
 
 const hasExplicitBaseURL = Boolean(process.env.E2E_BASE_URL);
 const baseURL = process.env.E2E_BASE_URL || "http://localhost:3015";

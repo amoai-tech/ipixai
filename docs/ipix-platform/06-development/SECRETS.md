@@ -18,8 +18,9 @@ flowchart LR
 
 | File | Owner | Rule |
 |---|---|---|
-| `.env.local` | Target local Next.js/Mastra runtime | Preferred home for local application values. Never launch a coding agent with this whole file. |
-| `.env` | Transitional local compatibility | Existing values may remain until deliberately consolidated into `.env.local`; do not add new secrets here. |
+| `.env.local` | Canonical local Next.js/Mastra runtime | Encrypted local application values. Never launch a coding agent with this whole file. |
+| `.env` | Retired | Must not exist after cutover. If a tool recreates it, migrate the required names to their owning file and remove it. |
+| `.env.legacy-retired` | Encrypted rollback archive | Historical local `.env` snapshot for rollback only; never loaded by normal app/test commands. |
 | `.env.sentry-build-plugin` | Legacy Sentry build fallback | Currently only duplicates `SENTRY_AUTH_TOKEN`; `next.config.ts` reads the normal process env. Add no new secrets here and remove only after a real source-map upload smoke passes through Dotenvx. |
 | `.env.test` | Playwright/E2E | QA accounts and test-only flags only. |
 | `.env.agent` | Coding-agent process | Least privilege; starts empty. Add only a credential required for that session. |
@@ -109,8 +110,8 @@ This table is names-only. No value from the legacy file is authoritative merely 
 
 1. Keep deployment-provider secrets unchanged.
 2. Use Dotenvx for local UI, Mastra, channel, and E2E dev-server injection.
-3. Use Dotenvx directly inside Playwright config loading so encrypted `.env.test`/`.env` remain readable.
-4. Keep `.env.agent` minimal and fail closed when it is missing.
-5. Encrypt local files only after targeted tests, typecheck, build, and runtime smoke pass.
-6. Verify a real Sentry source-map upload with `SENTRY_AUTH_TOKEN` injected through Dotenvx, then archive/remove `.env.sentry-build-plugin`.
+3. Playwright loads encrypted `.env.test` plus canonical `.env.local`; plain `.env` is retired.
+4. Keep `.env.agent` minimal; an empty mode-600 file is valid and injects zero secrets.
+5. `.env.local`, `.env.test`, `.env.legacy-retired`, and the temporary Sentry fallback are encrypted; `.env.keys` is mode 600 and never committed.
+6. Verify a real Sentry source-map upload with `SENTRY_AUTH_TOKEN` injected through Dotenvx, then remove `.env.sentry-build-plugin`. Current production build passes but emits no observable upload proof, so the encrypted fallback remains.
 7. Retain `.infisical.json` only as rollback metadata until names-only parity is independently verified; do not use it as local secret truth.

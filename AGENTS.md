@@ -289,7 +289,7 @@ Critical API names, versions, auth behavior, RLS assumptions, env keys, and URLs
 
 - Dotenvx is the canonical local secret-injection path. The repo pins `@dotenvx/dotenvx`; do not depend on a developer's global version.
 - `npm run dev:ui`, `npm run dev:agent`, `npm run dev:e2e`, and `npm run channel` inject the Next.js env convention through Dotenvx.
-- `.env.local` is the target local app/runtime file. Existing `.env` remains transitional compatibility until its names are deliberately consolidated; do not add new secrets there. `.env.test` owns QA/E2E values. `.env.agent` is a separate least-privilege file for coding-agent credentials and starts empty by default.
+- `.env.local` is the canonical local app/runtime file. Plain `.env` is retired and should not exist. `.env.legacy-retired` is an encrypted rollback archive only; never load it as normal runtime truth. `.env.test` owns QA/E2E values. `.env.agent` is a separate least-privilege file for coding-agent credentials and starts empty by default.
 - Production/deployment secrets remain provider-managed (for example Vercel, GitHub Actions, Supabase, or Cloudflare). Local Dotenvx files are not production secret truth.
 - Coding agents must not be launched with the full `.env`/`.env.local`. Use `npm run agent:claude` or `npm run agent:codex`, which load only `.env.agent` and redact exact secret matches from stdout/stderr.
 - `--redact` is output protection, not an authorization boundary: the child process can read values loaded into it. Keep `.env.agent` minimal and never add service-role keys, database credentials, deployment tokens, or production credentials.

@@ -33,6 +33,12 @@ describe("Dotenvx local secrets contract", () => {
     }
   });
 
+  it("loads the app fallback from .env.local, not transitional .env", () => {
+    const source = read("playwright.config.ts");
+    expect(source).toContain('path.resolve(__dirname, ".env.local")');
+    expect(source).not.toContain('path.resolve(__dirname, ".env")');
+  });
+
   it("launches coding agents with a separate least-privilege env file", () => {
     expect(pkg.scripts?.["agent:claude"]).toBe(
       "dotenvx run -f .env.agent --strict --redact -- claude",
