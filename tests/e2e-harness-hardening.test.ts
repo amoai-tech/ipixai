@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -476,6 +477,43 @@ describe("Playwright E2E harness hardening", () => {
     expect(initializer).toContain('process.platform === "win32"');
     expect(initializer).toContain("unsupported on Windows");
   });
+
+  it("regenerates Playwright Test Agents deterministically with the installed CLI", () => {
+    const managed = [
+      ".claude/agents/playwright-test-planner.md",
+      ".claude/agents/playwright-test-generator.md",
+      ".claude/agents/playwright-test-healer.md",
+      ".mcp.json",
+      "e2e/agents/seed.spec.ts",
+      "specs/README.md",
+    ];
+    const before = new Map(
+      managed.map((file) => [
+        file,
+        readFileSync(path.resolve(process.cwd(), file)),
+      ]),
+    );
+
+    const result = spawnSync(
+      process.execPath,
+      ["scripts/init-playwright-test-agents.mjs"],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        env: { ...process.env, CI: "1" },
+      },
+    );
+
+    expect(
+      result.status,
+      `initializer failed:\n${result.stderr || result.stdout}`,
+    ).toBe(0);
+    for (const file of managed) {
+      expect(readFileSync(path.resolve(process.cwd(), file))).toEqual(
+        before.get(file),
+      );
+    }
+  }, 30_000);
 
   it("fails closed when generated Playwright agent output drifts", () => {
     const initializer = readFileSync(
