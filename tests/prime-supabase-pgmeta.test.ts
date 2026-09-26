@@ -101,6 +101,14 @@ describe("supabase-fresh-replay workflow wiring", () => {
     expect(gate).toBeGreaterThan(prime);
   });
 
+  it("keeps the primed pgmeta tag coupled to the pinned Supabase CLI", () => {
+    // CLI 2.116.0 requests postgres-meta:v0.98.0 (apps/cli-go/pkg/config/
+    // templates/Dockerfile). Bumping the CLI without re-checking that tag
+    // would silently prime the wrong image and lose the GHCR fallback.
+    expect(steps).toMatch(/supabase\/setup-cli@[0-9a-f]{40}[^\n]*\n\s+with:\n\s+version: 2\.116\.0\n/);
+    expect(readFileSync(script, "utf8")).toMatch(/^version="v0\.98\.0"$/m);
+  });
+
   it("does not make the prime step or type gate optional", () => {
     const primeStep = steps.slice(
       steps.indexOf("- name: Prime postgres-meta image"),
