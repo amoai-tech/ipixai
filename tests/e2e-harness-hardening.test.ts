@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { parse } from "yaml";
@@ -8,6 +8,7 @@ vi.mock("../e2e/support/context", () => ({
 }));
 
 import { SIGN_IN_TIMEOUT_MS, signInWithCredentials } from "../e2e/support/login";
+import agentPlaywrightConfig from "../playwright.agents.config";
 import playwrightConfig, { isAllowedE2EBaseUrl } from "../playwright.config";
 import { E2E_WEBSERVER_MARKER, plannerSeedRoutesEnabled } from "../src/lib/planner/seed-routes";
 
@@ -226,61 +227,128 @@ describe("Playwright E2E harness hardening", () => {
     expect(steps.some((step) => step.uses?.startsWith("actions/upload-artifact@"))).toBe(false);
   });
 
-  it("generates the official Playwright Test Agents with iPix approval guardrails and local MCP wiring", () => {
-    const read = (file: string) => readFileSync(path.resolve(process.cwd(), file), "utf8");
-    const pkg = JSON.parse(read("package.json"));
-    expect(pkg.scripts["e2e:agents:init"]).toBeDefined();
-    expect(pkg.scripts["e2e:agents:init"]).toContain("init-playwright-test-agents.mjs");
+  it("generates exactly the three official Playwright Test Agent definitions", () => {
+    const agentDir = path.resolve(process.cwd(), ".claude/agents");
+    expect(existsSync(agentDir)).toBe(true);
 
-    const initializer = read("scripts/init-playwright-test-agents.mjs");
-    expect(initializer).toContain('path.join(root, "node_modules", "playwright", "cli.js")');
-    expect(initializer).toContain("spawnSync(\n  process.execPath");
+    const agentFiles = readdirSync(agentDir)
+      .filter((file) => file.startsWith("playwright-test-") && file.endsWith(".md"))
+      .sort();
+    expect(agentFiles).toEqual([
+      "playwright-test-generator.md",
+      "playwright-test-healer.md",
+      "playwright-test-planner.md",
+    ]);
 
-    const mcp = JSON.parse(read(".mcp.json"));
-    expect(mcp).toEqual({
+    for (const [file, name] of [
+      ["playwright-test-planner.md", "playwright-test-planner"],
+      ["playwright-test-generator.md", "playwright-test-generator"],
+      ["playwright-test-healer.md", "playwright-test-healer"],
+    ] as const) {
+      const source = readFileSync(path.join(agentDir, file), "utf8");
+      expect(source).toContain(`name: ${name}`);
+    }
+  });
+
+  it("wires the Playwright Test Agents through the repo Playwright MCP server", () => {
+    const mcpPath = path.resolve(process.cwd(), ".mcp.json");
+    expect(existsSync(mcpPath)).toBe(true);
+    expect(JSON.parse(readFileSync(mcpPath, "utf8"))).toEqual({
       mcpServers: {
         "playwright-test": {
           command: "npx",
-          args: ["playwright", "run-test-mcp-server"],
+          args: ["playwright", "run-test-mcp-server", "--config=playwright.agents.config.ts"],
         },
       },
     });
+  });
 
-    const planner = read(".claude/agents/playwright-test-planner.md");
-    const generator = read(".claude/agents/playwright-test-generator.md");
-    const healer = read(".claude/agents/playwright-test-healer.md");
-
-    expect(planner).toContain("name: playwright-test-planner");
-    expect(generator).toContain("name: playwright-test-generator");
-    expect(healer).toContain("name: playwright-test-healer");
-    expect(planner).toContain("project `playwright-agent`");
-    expect(generator).toContain("project `playwright-agent`");
-    expect(planner).toContain("`e2e/agents/seed.spec.ts`");
-    expect(generator).toContain("`e2e/agents/seed.spec.ts`");
-
-    expect(generator).not.toContain("async { page } =>");
-    expect(generator).toContain("async ({ page }) =>");
+  it("requires human approval before the healer can skip or fixme a failing test", () => {
+    const healerPath = path.resolve(process.cwd(), ".claude/agents/playwright-test-healer.md");
+    expect(existsSync(healerPath)).toBe(true);
+    const healer = readFileSync(healerPath, "utf8");
 
     expect(healer).toContain("## iPix human-approval guardrails");
-    expect(healer).toContain('projects: ["chromium"]');
-    expect(healer).toContain("Never modify application/product code");
-    expect(healer).toContain("Never add `test.skip()`, `test.fixme()`, or an equivalent skip");
+    expect(healer).toContain("Never add `test.skip()`, `test.fixme()`, or an equivalent skip without explicit human approval");
     expect(healer).not.toContain("mark this test as test.fixme()");
   });
 
-  it("keeps the Playwright agent seed authenticated but outside required release E2E projects", () => {
-    const pkg = JSON.parse(readFileSync(path.resolve(process.cwd(), "package.json"), "utf8"));
-    expect(pkg.scripts.e2e).not.toContain("playwright-agent");
-    expect(pkg.scripts["e2e:ai-smoke"]).not.toContain("playwright-agent");
-    expect(pkg.scripts["e2e:approval"]).not.toContain("playwright-agent");
+  it("keeps Playwright Test Agents from autonomously modifying product code", () => {
+    for (const file of [
+      "playwright-test-planner.md",
+      "playwright-test-generator.md",
+      "playwright-test-healer.md",
+    ]) {
+      const filePath = path.resolve(process.cwd(), ".claude/agents", file);
+      expect(existsSync(filePath)).toBe(true);
+      expect(readFileSync(filePath, "utf8")).toContain("Never modify application/product code");
+    }
+  });
 
-    const agentProject = playwrightConfig.projects?.find((project) => project.name === "playwright-agent");
+  it("defaults Playwright agent execution to deterministic Chromium only", () => {
+    const agentProject = agentPlaywrightConfig.projects?.find((project) => project.name === "playwright-agent");
     expect(agentProject).toBeDefined();
     expect(agentProject?.testDir).toBe("./e2e/agents");
     expect(agentProject?.dependencies).toEqual(["setup"]);
-    expect(agentProject?.use).toEqual(
-      expect.objectContaining({ storageState: "playwright/.auth/user.json" }),
+    expect(agentProject?.use).toEqual(expect.objectContaining({ storageState: "playwright/.auth/user.json" }));
+
+    expect(agentPlaywrightConfig.projects?.map((project) => project.name)).toEqual([
+      "setup",
+      "chromium",
+      "playwright-agent",
+    ]);
+    const config = readFileSync(path.resolve(process.cwd(), "playwright.agents.config.ts"), "utf8");
+    expect(config).toContain('devices["Desktop Chrome"]');
+    expect(config).not.toContain('name: "chromium-ai-smoke"');
+
+    const healerPath = path.resolve(process.cwd(), ".claude/agents/playwright-test-healer.md");
+    expect(existsSync(healerPath)).toBe(true);
+    const healer = readFileSync(healerPath, "utf8");
+    expect(healer).toContain('projects: ["chromium"]');
+    expect(healer).toContain("Never run `chromium-ai-smoke`");
+  });
+
+  it("keeps the Playwright agent project out of the default Playwright config", () => {
+    expect(playwrightConfig.projects?.some((project) => project.name === "playwright-agent")).toBe(false);
+
+    const agentConfigPath = path.resolve(process.cwd(), "playwright.agents.config.ts");
+    expect(existsSync(agentConfigPath)).toBe(true);
+    const agentConfigSource = readFileSync(agentConfigPath, "utf8");
+    expect(agentConfigSource).toContain('name: "playwright-agent"');
+    expect(agentConfigSource).toContain('requiredProject("chromium")');
+
+    const mcp = JSON.parse(readFileSync(path.resolve(process.cwd(), ".mcp.json"), "utf8"));
+    expect(mcp.mcpServers["playwright-test"].args).toContain("--config=playwright.agents.config.ts");
+  });
+
+  it("describes the real authenticated seed state instead of assuming blank data", () => {
+    const planner = readFileSync(
+      path.resolve(process.cwd(), ".claude/agents/playwright-test-planner.md"),
+      "utf8",
     );
+    expect(planner).not.toContain("always assume blank/fresh state");
+    expect(planner).toContain("existing authenticated account/data");
+    expect(planner).toContain("human-approved setup");
+  });
+
+  it("fails closed when generated Playwright agent output drifts", () => {
+    const initializer = readFileSync(
+      path.resolve(process.cwd(), "scripts/init-playwright-test-agents.mjs"),
+      "utf8",
+    );
+    expect(initializer).toContain("snapshotManagedFiles");
+    expect(initializer).toContain("restoreManagedFiles");
+    expect(initializer).toContain("deepStrictEqual");
+    expect(initializer).toContain("mkdir");
+  });
+
+  it("keeps the generated Playwright agent seed out of normal release E2E", () => {
+    const pkg = JSON.parse(readFileSync(path.resolve(process.cwd(), "package.json"), "utf8"));
+    expect(pkg.scripts.e2e).not.toContain("playwright-agent");
+    expect(pkg.scripts["e2e:agents:seed"]).toContain("--config=playwright.agents.config.ts");
+    expect(pkg.scripts["e2e:agents:seed"]).toContain("--project=playwright-agent");
+    expect(pkg.scripts["e2e:ai-smoke"]).not.toContain("playwright-agent");
+    expect(pkg.scripts["e2e:approval"]).not.toContain("playwright-agent");
 
     for (const name of ["chromium", "mobile-chromium"]) {
       const project = playwrightConfig.projects?.find((candidate) => candidate.name === name);
@@ -293,7 +361,9 @@ describe("Playwright E2E harness hardening", () => {
       ).toBe(false);
     }
 
-    const seed = readFileSync(path.resolve(process.cwd(), "e2e/agents/seed.spec.ts"), "utf8");
+    const seedPath = path.resolve(process.cwd(), "e2e/agents/seed.spec.ts");
+    expect(existsSync(seedPath)).toBe(true);
+    const seed = readFileSync(seedPath, "utf8");
     expect(seed).toContain('await page.goto("/app")');
     expect(seed).toContain("toHaveURL");
   });

@@ -99,15 +99,6 @@ export default defineConfig({
       ],
     },
     {
-      // Official Playwright Test Agents use a dedicated authenticated seed
-      // project so planning/generation never joins required release E2E or
-      // the paid-AI smoke lane by accident.
-      name: "playwright-agent",
-      testDir: "./e2e/agents",
-      use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/user.json" },
-      dependencies: ["setup"],
-    },
-    {
       name: "chromium-ai-smoke",
       testMatch: [
         /planner-journey\.spec\.ts/,

@@ -36,7 +36,7 @@ You will:
    - Clear, descriptive title
    - Detailed step-by-step instructions
    - Expected outcomes where appropriate
-   - Assumptions about starting state (always assume blank/fresh state)
+   - Assumptions about starting state (use the existing authenticated account/data supplied by the seed; never assume blank/fresh data)
    - Success criteria and failure conditions
 
 5. **Create Documentation**
@@ -54,5 +54,6 @@ professional formatting suitable for sharing with development and QA teams.
 ## iPix project contract
 - Always invoke `planner_setup_page` with project `playwright-agent` and seed file `e2e/agents/seed.spec.ts`.
 - Keep planning read-only by default. Do not publish, pay, delete, or perform other consequential application actions unless a human explicitly approved that exact synthetic test action.
+- Scenarios that require isolated or mutable data must stop and request human-approved setup; never mutate shared seed data just to manufacture a fresh state.
 - Save plans only under `specs/**`. Never modify application/product code.
 - Never run paid-AI, approval/local-stack, production, or other non-default projects unless a human explicitly asks.
