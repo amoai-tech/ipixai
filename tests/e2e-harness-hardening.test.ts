@@ -89,6 +89,17 @@ describe("Playwright E2E harness hardening", () => {
     });
   });
 
+  it("keeps Preview config collection credential-independent while auth setup fails closed", () => {
+    const config = readFileSync(path.resolve(process.cwd(), "playwright.config.ts"), "utf8");
+    const authSetup = readFileSync(path.resolve(process.cwd(), "e2e/auth.setup.ts"), "utf8");
+
+    expect(config).not.toContain(
+      "previewBypassHeaders(baseURL, process.env.VERCEL_AUTOMATION_BYPASS_SECRET);",
+    );
+    expect(authSetup).toContain("previewBypassHeaders(");
+    expect(authSetup).toContain("process.env.VERCEL_AUTOMATION_BYPASS_SECRET");
+  });
+
   it("never sets a context-wide extraHTTPHeaders for the bypass", () => {
     const config = readFileSync(path.resolve(process.cwd(), "playwright.config.ts"), "utf8");
     // Playwright's extraHTTPHeaders is global to the browser context: the bypass
@@ -396,6 +407,9 @@ describe("Playwright E2E harness hardening", () => {
     expect(existsSync(healerPath)).toBe(true);
     const healer = readFileSync(healerPath, "utf8");
     expect(healer).toContain('e2e/agents/');
+    // Nested generated tests must stay on the dedicated agent project too:
+    // e2e/agents/checkout/nested.spec.ts is still "under e2e/agents/".
+    expect(healer).toContain('any requested test location under `e2e/agents/`');
     expect(healer).toContain('projects: ["playwright-agent"]');
     expect(healer).toContain('projects: ["chromium"]');
     expect(healer).toContain("Never run `chromium-ai-smoke`");
