@@ -28,6 +28,17 @@ export function getMastra(): Mastra {
     server: {
       auth: plannerMastraAuth,
       apiRoutes: plannerRunControlRoutes,
+      // IPI-1310 · MASTRA-PROD-001 — Mastra's default drain window is 5s, which
+      // is far shorter than a Planner turn. On SIGTERM the generated server
+      // stops accepting connections, waits this long for in-flight requests and
+      // streams, then runs `mastra.shutdown()`. A plain `agent.stream()` cannot
+      // resume after the process exits, so a short drain silently truncates live
+      // operator turns on every restart or redeploy.
+      //
+      // The pinned generated server then bounds `mastra.shutdown()` separately
+      // to 5s, so the host termination grace must exceed this drain window. The
+      // deployment runbook uses 300s for a 240s drain to leave cleanup margin.
+      drainTimeout: 240_000,
     },
   });
   return cachedMastra;

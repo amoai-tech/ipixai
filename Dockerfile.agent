@@ -1,0 +1,69 @@
+# iPix Mastra service — one long-running production process (IPI-1310 · MASTRA-PROD-001).
+#
+# This is NOT the Next.js image. The root `Dockerfile` builds the Vercel app;
+# this one builds the standalone Mastra server that the app calls through
+# `MASTRA_BASE_URL`.
+#
+# Why a separate image instead of serverless: exact-run Stop resolves the active
+# Planner run from the process that owns it
+# (`Agent.listActiveThreadRuns` / `Agent.abortRunStream` in
+# `src/mastra/run-control.ts`). Mastra's default PubSub is in-process, so two
+# instances cannot see each other's runs and a Stop could silently no-op. Run
+# this image as a SINGLE instance behind one stable HTTPS origin. Do not add
+# autoscaling or replicas without a distributed run-ownership design.
+#
+# Build:  docker build -f Dockerfile.agent -t ipix-mastra .
+# Run:    docker run --stop-timeout 300 -p 127.0.0.1:4111:4111 --env-file .env -e PORT=4111 ipix-mastra
+# Health: GET /health -> 200 (public); /api/* and /ipix/* require a Supabase JWT.
+
+FROM node:24-slim AS builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+
+# Produces the self-contained `.mastra/output` server (its own node_modules and
+# package-lock). Do not add --studio: Mastra Studio is not separately protected
+# and must not be exposed on a public origin.
+RUN npx --no-install mastra build
+
+FROM node:24-slim AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+# The production image must never silently fall back to ephemeral Mastra storage.
+# With hosted mode enabled, src/mastra/pg-store.ts rejects a missing/unsafe
+# MASTRA_DATABASE_URL before the service can operate. Local dev remains unchanged.
+ENV IPIX_MASTRA_HOSTED=1
+# The generated server binds `serverOptions?.host ?? MASTRA_HOST ?? "localhost"`.
+# Without this the container listens on loopback only and is unreachable from
+# outside the container.
+ENV MASTRA_HOST=0.0.0.0
+ENV PORT=4111
+
+COPY --from=builder --chown=node:node /app/.mastra/output ./
+
+# The service reads config from the environment and persists everything to
+# Postgres, so it never needs to write inside the container.
+USER node
+
+EXPOSE 4111
+
+# Liveness only: this proves the Mastra process answers /health. Hosted startup
+# now fails closed for missing/unsafe auth config, but authenticated probes are
+# still required before routing production traffic.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4111)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+# The generated server drains in-flight requests and streams for
+# `server.drainTimeout` (set in src/mastra/runtime.ts) before running
+# mastra.shutdown(), which this pinned Mastra server bounds separately to 5s.
+# Keep Docker/platform termination grace >= 300s so a 240s HTTP drain still has
+# room for core shutdown instead of being truncated by SIGKILL.
+STOPSIGNAL SIGTERM
+
+CMD ["node", "index.mjs"]
