@@ -89,16 +89,21 @@ describe("Playwright E2E harness hardening", () => {
     // Playwright's extraHTTPHeaders is global to the browser context: the bypass
     // secret would be attached to cross-origin calls to Supabase and Cloudinary,
     // leaking it and forcing a CORS preflight those services need not allow.
-    // The bypass is established as a host-scoped cookie in e2e/auth.setup.ts.
+    // Measured against the installed Playwright, cross-origin fetch/img/script
+    // requests all received the header. The bypass is scoped to the deployment
+    // origin in e2e/auth.setup.ts instead.
     expect(config).not.toContain("extraHTTPHeaders:");
     expect(config).toContain("previewBypassHeaders(baseURL, process.env.VERCEL_AUTOMATION_BYPASS_SECRET)");
 
     const authSetup = readFileSync(path.resolve(process.cwd(), "e2e/auth.setup.ts"), "utf8");
     expect(authSetup).toContain("previewBypassHeaders(");
     expect(authSetup).toContain("setup.beforeEach(");
-    // One request carries the headers; the cookie Vercel sets carries the rest.
-    expect(authSetup).toContain("page.request.get(\"/\", { headers })");
-    expect(authSetup).toContain("vercel.com/sso");
+    // The header is added only on the deployment origin...
+    expect(authSetup).toContain("context.route(");
+    expect(authSetup).toContain("new URL(request.url()).origin !== deploymentOrigin");
+    // ...and the cookie Vercel issues is asserted, because the other projects
+    // carry only storageState and would otherwise die on an SSO screen.
+    expect(authSetup).toContain("_vercel_jwt");
   });
 
   it("keeps the exact-SHA Preview workflow's journey run wired to the deployed artifact", () => {
