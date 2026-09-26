@@ -112,10 +112,13 @@ function buildSeedPlan(objectiveText: string, runMarker: string) {
   };
 }
 
-async function seedRichHistory(page: Page, threadId: string, plan: unknown) {
+/** IPI-1339: `legacyLayers` seeds the result in the exact shape the old
+ *  restore/replay loop persisted — JSON text containing JSON text — so the
+ *  browser proof covers history that no single `JSON.parse` could reach. */
+async function seedRichHistory(page: Page, threadId: string, plan: unknown, legacyLayers?: number) {
   const response = await page.request.post(
     `${THREADS_API}/${encodeURIComponent(threadId)}/seed-rich-history`,
-    { data: { plan } },
+    { data: legacyLayers ? { plan, legacyLayers } : { plan } },
   );
   expect(
     response.ok(),
@@ -288,6 +291,56 @@ test(
       // Shared hosted QA account — always remove the seeded thread, pass or
       // fail, so a later unrelated test never resumes it (see
       // deleteSeedThread's comment).
+      await deleteSeedThread(page, threadId);
+    }
+  },
+);
+
+/**
+ * IPI-1339 · PLANNER-PAYLOAD-001 — the reload half of the P0.
+ *
+ * The old restore/replay loop re-serialized an already-serialized
+ * `composeShootPlan` result, so a stored result could be JSON text containing
+ * JSON text. The renderer parses the restored content exactly once, so those
+ * histories showed "Couldn't display this plan." — and the growing message was
+ * what pushed `/run` past Vercel's 4.5 MB limit.
+ *
+ * This seeds that exact shape through the same test-only route and proves the
+ * real browser path (recall → `mastraMessagesToChat` → `RestoreMastraHistory` →
+ * `useRenderTool`) renders the plan again. Depth is deliberately small so the
+ * fixture stays cheap in required CI; the measured production depth of 14 is
+ * covered by `tests/thread-persistence.test.ts` and by a live read-only check
+ * of the real polluted row.
+ */
+test(
+  "Production Plan Card: a legacy-encoded (repeatedly re-serialized) result still renders after reload",
+  async ({ page }) => {
+    const threadId = randomUUID();
+    const runMarker = `legacy-card-${Date.now()}-${randomUUID().slice(0, 8)}`;
+    const objectiveText = `Legacy recovery objective [${runMarker}]`;
+    const plan = buildSeedPlan(objectiveText, runMarker);
+    const LEGACY_LAYERS = 8;
+
+    const threadsResponse = await page.request.get(THREADS_API);
+    expect(threadsResponse.ok(), "GET /api/planner/threads should succeed for Org A").toBe(true);
+    const { resourceId } = (await threadsResponse.json()) as { resourceId: string };
+
+    await seedRichHistory(page, threadId, plan, LEGACY_LAYERS);
+
+    try {
+      await page.goto("/app");
+      await page.evaluate(
+        ([key, id]) => window.localStorage.setItem(key, id),
+        [plannerThreadStorageKey(resourceId), threadId],
+      );
+
+      // One reload renders the recovered plan; the second proves the read path
+      // is idempotent rather than repairing the value only once.
+      await page.reload();
+      await assertCardRenders(page, objectiveText);
+      await page.reload();
+      await assertCardRenders(page, objectiveText);
+    } finally {
       await deleteSeedThread(page, threadId);
     }
   },
