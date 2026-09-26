@@ -2,7 +2,7 @@ import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 
 import { getPublicSupabaseConfig } from "@/lib/supabase/env";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { createServiceRoleClient, getBackendSecretKey } from "@/lib/supabase/service-role";
 import {
   assertBrandProfile,
   extractDraftScores,
@@ -18,50 +18,15 @@ function boundDetail(raw: unknown): string {
   return `${text.slice(0, FAILURE_DETAIL_LIMIT)}… [truncated, ${text.length} chars]`;
 }
 
-function requireServiceRoleCredentials(): { url: string; key: string } {
-  const config = getPublicSupabaseConfig();
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!config?.url || !key) {
-    throw new Error("Service-role credentials unavailable");
-  }
-  return { url: config.url, key };
-}
-
-function logCrawlSecretConfigError(reason: string): void {
-  // Never include the raw environment value: it contains privileged API keys.
-  console.error(`[brand-intelligence] Invalid SUPABASE_SECRET_KEYS: ${reason}`);
-}
-
-function readDefaultSecretApiKey(raw: string | undefined): string | undefined {
-  if (!raw) return undefined;
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    logCrawlSecretConfigError("value is not valid JSON; trying legacy fallback");
-    return undefined;
-  }
-
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    logCrawlSecretConfigError("expected a JSON object; trying legacy fallback");
-    return undefined;
-  }
-
-  const value = (parsed as Record<string, unknown>).default;
-  if (typeof value !== "string" || !value.trim()) {
-    logCrawlSecretConfigError("default key is unavailable; trying legacy fallback");
-    return undefined;
-  }
-  return value.trim();
-}
-
-function requireCrawlServiceApiKey(): string {
-  const key =
-    readDefaultSecretApiKey(process.env.SUPABASE_SECRET_KEYS) ??
-    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+/**
+ * IPI-1348: every Edge Function call uses the same server-only backend key,
+ * sent on `apikey`. A modern `sb_secret_*` key is not a JWT, so it must never
+ * travel as `Authorization: Bearer`.
+ */
+function requireBackendSecretKey(): string {
+  const key = getBackendSecretKey();
   if (!key) {
-    throw new Error("Supabase backend API key unavailable for crawl start");
+    throw new Error("Supabase backend API key unavailable");
   }
   return key;
 }
@@ -272,7 +237,7 @@ const startCrawl = createStep({
   outputSchema: startCrawlOutputSchema,
   execute: async ({ inputData, runId }) => {
     const { brandId, brandUrl, actorId } = inputData;
-    const key = requireCrawlServiceApiKey();
+    const key = requireBackendSecretKey();
     const url = edgeFnUrl("start-brand-crawl");
 
     let res: Response;
@@ -283,7 +248,17 @@ const startCrawl = createStep({
           "Content-Type": "application/json",
           apikey: key,
         },
-        body: JSON.stringify({ brandId, url: brandUrl, actorId, workflowId: runId }),
+        // One crawl per workflow run: without this, start-brand-crawl keys the
+        // crawl on brand + URL, so a retry or re-analysis would reuse an old
+        // (possibly dead or already finished) crawl and wait forever for a
+        // webhook that never comes. Retries of this same step stay idempotent.
+        body: JSON.stringify({
+          brandId,
+          url: brandUrl,
+          actorId,
+          workflowId: runId,
+          idempotencyKey: `workflow-${runId}`,
+        }),
         signal: AbortSignal.timeout(30_000),
       });
     } catch (err) {
@@ -345,10 +320,10 @@ const extractProfile = createStep({
   id: "extractProfile",
   inputSchema: extractProfileInputSchema,
   outputSchema: extractProfileOutputSchema,
-  execute: async ({ inputData }) => {
+  execute: async ({ inputData, runId }) => {
     const { crawlId, brandId } = inputData;
     const sb = await requireServiceRoleClient();
-    const { key } = requireServiceRoleCredentials();
+    const key = requireBackendSecretKey();
 
     const { data: brand, error: brandError } = await sb
       .from("brands")
@@ -367,7 +342,8 @@ const extractProfile = createStep({
       throw await failAnalysis(brandId, "Failed to mark analysis running", statusError.message);
     }
 
-    const correlationId = `BI-${crypto.randomUUID()}`;
+    // Stable per workflow run, so every retry of this step shares one trace id.
+    const correlationId = `BI-${runId}`;
     const url = edgeFnUrl("brand-intelligence");
 
     let res: Response;
@@ -376,7 +352,7 @@ const extractProfile = createStep({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
+          apikey: key,
           "x-request-id": correlationId,
         },
         body: JSON.stringify({

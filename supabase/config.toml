@@ -393,6 +393,17 @@ deno_version = 2
 [functions.start-brand-crawl]
 verify_jwt = false
 
+# IPI-1348: called with the modern opaque sb_secret_* key on `apikey`, which
+# is not a JWT. The handler authenticates it (resolveCaller) and rejects user
+# sessions, so platform JWT verification must stay off.
+[functions.brand-intelligence]
+verify_jwt = false
+
+# Firecrawl calls this with an HMAC signature, not a Supabase JWT. Declared
+# here so a plain CLI deploy cannot switch JWT verification back on.
+[functions.firecrawl-webhook]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
