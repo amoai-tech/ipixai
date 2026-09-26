@@ -52,7 +52,7 @@ describe("skill registry contract", () => {
       if (entry.claude_exposed) expect(realpathSync(claudePath)).toBe(realpathSync(resolve(agentsRoot, name)));
 
       for (const delegate of entry.delegates_to) {
-        const known = delegate in registry.skills || existsSync(resolve(claudeRoot, delegate, "SKILL.md"));
+        const known = Object.hasOwn(registry.skills, delegate) || existsSync(resolve(claudeRoot, delegate, "SKILL.md"));
         expect(known, `${name} delegates_to unknown skill ${delegate}`).toBe(true);
       }
     }
@@ -91,6 +91,12 @@ describe("skill registry contract", () => {
     expect(selectSkillForPrompt("please write a user story about checkout", registry)).toBe("requirements");
     expect(selectSkillForPrompt("please write a user storyboard", registry)).toBeUndefined();
     expect(selectSkillForPrompt("plan a multi-file refactoring", registry)).toBeUndefined();
+  });
+
+  it("rejects inherited Object.prototype names as unknown delegates", () => {
+    const malformed = structuredClone(registry) as Registry;
+    malformed.skills.requirements.delegates_to = ["constructor"];
+    expect(validateRegistry(malformed)).toContain("requirements: unknown delegate constructor");
   });
 
   it("rejects aliases claimed by different owners", () => {

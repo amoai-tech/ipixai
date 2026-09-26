@@ -104,7 +104,7 @@ export function validateRegistry(registry = loadRegistry()) {
     }
 
     for (const delegate of entry.delegates_to ?? []) {
-      if (!(delegate in registry.skills) && !claudeOnly.has(delegate)) errors.push(`${name}: unknown delegate ${delegate}`);
+      if (!Object.hasOwn(registry.skills, delegate) && !claudeOnly.has(delegate)) errors.push(`${name}: unknown delegate ${delegate}`);
     }
     for (const replaced of Array.isArray(entry.replaces) ? entry.replaces : []) {
       if (pathEntryExists(resolve(agentsRoot, replaced)) || pathEntryExists(resolve(claudeRoot, replaced))) errors.push(`${name}: replaced skill still exists: ${replaced}`);
