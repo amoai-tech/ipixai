@@ -414,6 +414,28 @@ describe("Playwright E2E harness hardening", () => {
     expect(healer).toContain("Never run `chromium-ai-smoke`");
   });
 
+  it("keeps Preview bypass origin-scoped for the agent config through its setup dependency", () => {
+    const agentProject = agentPlaywrightConfig.projects?.find(
+      (project) => project.name === "playwright-agent",
+    );
+    const setupProject = agentPlaywrightConfig.projects?.find(
+      (project) => project.name === "setup",
+    );
+
+    expect(agentPlaywrightConfig.use?.extraHTTPHeaders).toBeUndefined();
+    expect(agentProject?.use?.extraHTTPHeaders).toBeUndefined();
+    expect(agentProject?.dependencies).toEqual(["setup"]);
+    expect(setupProject).toBeDefined();
+
+    const authSetup = readFileSync(
+      path.resolve(process.cwd(), "e2e/auth.setup.ts"),
+      "utf8",
+    );
+    expect(authSetup).toContain("previewBypassHeaders(");
+    expect(authSetup).toContain("establishAndProveVercelBypass({");
+    expect(authSetup).toContain("deploymentOrigin: new URL(baseURL).origin");
+  });
+
   it("keeps the Playwright agent project out of the default Playwright config", () => {
     expect(playwrightConfig.projects?.some((project) => project.name === "playwright-agent")).toBe(false);
 
