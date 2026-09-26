@@ -91,6 +91,22 @@ describe("Playwright E2E harness hardening", () => {
     }
   });
 
+  it("pins the repo-local Playwright CLI to the skill-supported 0.1.21 release", () => {
+    const pkg = JSON.parse(readFileSync(path.resolve(process.cwd(), "package.json"), "utf8"));
+    expect(pkg.devDependencies["@playwright/cli"]).toBe("0.1.21");
+  });
+
+  it("provides a Chromium-only CLI attach debug command", () => {
+    const pkg = JSON.parse(readFileSync(path.resolve(process.cwd(), "package.json"), "utf8"));
+    const script = pkg.scripts["e2e:debug:cli"] as string | undefined;
+    expect(script).toContain("PLAYWRIGHT_HTML_OPEN=never");
+    expect(script).toContain("PLAYWRIGHT_BROWSERS_PATH=0");
+    expect(script).toContain("--project=chromium");
+    expect(script).toContain("--debug=cli");
+    expect(script).not.toContain("--project=mobile-chromium");
+    expect(script).not.toContain("chromium-ai-smoke");
+  });
+
   it("runs the required e2e job against a production build with the seed-route opt-in wired end to end", () => {
     const read = (file: string) => readFileSync(path.resolve(process.cwd(), file), "utf8");
     const ci = read(".github/workflows/ci.yml");
