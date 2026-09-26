@@ -11,14 +11,39 @@ import type { Page, Request } from "@playwright/test";
  * `--prebuilt` production attempt. That is provider-owned noise, not an
  * application defect.
  *
- * Filtering is by exact path segment, never a blanket "ignore 404s" rule,
- * which would hide real application 404s.
+ * Filtering requires both conditions, never a blanket "ignore 404s" rule,
+ * which would hide real application 404s:
+ *
+ * 1. the request path is a provider-owned root path — matched on the parsed
+ *    `pathname` with `startsWith`, so an application route or query value that
+ *    merely contains the text (for example
+ *    `/api/proxy?resource=/_vercel/insights/script.js`) is still reported;
+ * 2. the console message is the browser's own failed-subresource message for a
+ *    404 — so a runtime error, CSP violation, or explicit `console.error`
+ *    raised by that script is still reported.
  */
 const PROVIDER_OWNED_RESOURCE_PATHS = ["/_vercel/insights/", "/_vercel/speed-insights/"];
 
-export function isProviderOwnedResource(url: string | undefined | null): boolean {
+/** The browser's own console message for a subresource that failed to load. */
+const FAILED_RESOURCE_NOT_FOUND =
+  /^Failed to load resource: the server responded with a status of 404\b/;
+
+export function isProviderOwnedResourcePath(url: string | undefined | null): boolean {
   if (!url) return false;
-  return PROVIDER_OWNED_RESOURCE_PATHS.some((path) => url.includes(path));
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    return false;
+  }
+  return PROVIDER_OWNED_RESOURCE_PATHS.some((path) => pathname.startsWith(path));
+}
+
+export function isProviderOwnedMissingResource(
+  url: string | undefined | null,
+  message: string,
+): boolean {
+  return isProviderOwnedResourcePath(url) && FAILED_RESOURCE_NOT_FOUND.test(message);
 }
 
 /**
@@ -39,7 +64,7 @@ export function collectBrowserProblems(page: Page, expected: RegExp[] = []) {
   page.on("console", (message) => {
     if (message.type() !== "error") return;
     const location = message.location();
-    if (isProviderOwnedResource(location.url)) return;
+    if (isProviderOwnedMissingResource(location.url, message.text())) return;
     record(
       `console.error: ${message.text()}${location.url ? ` (${location.url})` : ""}`,
     );
