@@ -37,7 +37,9 @@ Reference the file in the body as `![alt](./settings-after.png)` to place it inl
 
 ## From CI
 
-Attach the screenshots and videos Playwright Test already saves under `test-results` (`screenshot: 'only-on-failure'`, `video: 'retain-on-failure'`) with the same command:
+Only publish CI artifacts that are intentionally safe to expose in the pull request. In iPix, keep artifacts from authenticated hosted QA sessions runner-local: screenshots/videos can contain tenant, account, customer, or session data, and traces/reports/storage state can contain even more sensitive context. Use synthetic or explicitly sanitized evidence instead.
+
+For a non-sensitive run, attach the screenshots and videos Playwright Test already saves under `test-results` (`screenshot: 'only-on-failure'`, `video: 'retain-on-failure'`) with the same command:
 
 ```yaml
 permissions:
