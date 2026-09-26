@@ -208,7 +208,7 @@ test.describe("planner journey (authenticated) @Sc4711801", () => {
     // stored history until Vercel rejected it, so measure the actual browser
     // body rather than estimating it.
     await expect(textarea).toBeEditable({ timeout: NAV_TIMEOUT_MS });
-    const followUpMarker = `follow-up-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const followUpMarker = `follow-up-${randomUUID()}`;
     await textarea.fill(`Reply with only this token, nothing else: ${followUpMarker}`);
     const followUpRun = page.waitForRequest(isRun);
     const followUpResponse = page.waitForResponse((response) => isRun(response.request()));
