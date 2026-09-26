@@ -203,7 +203,7 @@ describe("startBrandAnalysis", () => {
     expect(mocks.start).toHaveBeenCalledTimes(1);
     // ...and hands the still-pending run to after(), exactly once.
     expect(mocks.after).toHaveBeenCalledTimes(1);
-    const kept = mocks.after.mock.calls[0][0] as Promise<unknown>;
+    const kept = (mocks.after.mock.calls[0][0] as () => Promise<unknown>)();
     let settled = false;
     void kept.then(() => { settled = true; });
     await Promise.resolve();
@@ -231,7 +231,7 @@ describe("startBrandAnalysis", () => {
     mocks.orgMembers.mockResolvedValue({ data: [{ org_id: ORG_ID }], error: null });
 
     await startBrandAnalysis.execute!({ brandId: BRAND_ID }, ctx);
-    await (mocks.after.mock.calls[0][0] as Promise<unknown>);
+    await (mocks.after.mock.calls[0][0] as () => Promise<unknown>)();
 
     expect(errorSpy).toHaveBeenCalledWith("[brand-intelligence] workflow run failed", failure);
     errorSpy.mockRestore();
@@ -243,7 +243,7 @@ describe("startBrandAnalysis", () => {
     mocks.orgMembers.mockResolvedValue({ data: [{ org_id: ORG_ID }], error: null });
 
     await startBrandAnalysis.execute!({ brandId: BRAND_ID }, ctx);
-    await (mocks.after.mock.calls[0][0] as Promise<unknown>);
+    await (mocks.after.mock.calls[0][0] as () => Promise<unknown>)();
 
     expect(errorSpy).not.toHaveBeenCalled();
     errorSpy.mockRestore();
@@ -255,7 +255,7 @@ describe("startBrandAnalysis", () => {
     mocks.orgMembers.mockResolvedValue({ data: [{ org_id: ORG_ID }], error: null });
 
     await startBrandAnalysis.execute!({ brandId: BRAND_ID }, ctx);
-    await (mocks.after.mock.calls[0][0] as Promise<unknown>);
+    await (mocks.after.mock.calls[0][0] as () => Promise<unknown>)();
 
     expect(errorSpy).toHaveBeenCalledWith(
       "[brand-intelligence] workflow run failed",

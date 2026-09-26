@@ -96,7 +96,7 @@ function keepAlive(task: Promise<unknown>): void {
       console.error("[brand-intelligence] workflow run failed", error);
     });
   try {
-    after(settled);
+    after(() => settled);
   } catch {
     void settled;
   }
