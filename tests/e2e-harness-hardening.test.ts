@@ -67,14 +67,41 @@ describe("Playwright E2E harness hardening", () => {
     expect(() => previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", "")).toThrow(
       /VERCEL_AUTOMATION_BYPASS_SECRET is required/,
     );
+    // A whitespace-only secret is truthy, so it must still fail closed here
+    // rather than be sent and fail later at Vercel's SSO boundary.
+    expect(() => previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", "   ")).toThrow(
+      /VERCEL_AUTOMATION_BYPASS_SECRET is required/,
+    );
 
     expect(previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", "the-secret")).toEqual({
       "x-vercel-protection-bypass": "the-secret",
       "x-vercel-set-bypass-cookie": "true",
     });
+    // A padded secret is trimmed before it is sent.
+    expect(previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", "  padded\n")).toEqual({
+      "x-vercel-protection-bypass": "padded",
+      "x-vercel-set-bypass-cookie": "true",
+    });
   });
 
-  it("wires the bypass secret and Preview URL into the exact-SHA journey run", () => {
+  it("never sets a context-wide extraHTTPHeaders for the bypass", () => {
+    const config = readFileSync(path.resolve(process.cwd(), "playwright.config.ts"), "utf8");
+    // Playwright's extraHTTPHeaders is global to the browser context: the bypass
+    // secret would be attached to cross-origin calls to Supabase and Cloudinary,
+    // leaking it and forcing a CORS preflight those services need not allow.
+    // The bypass is established as a host-scoped cookie in e2e/auth.setup.ts.
+    expect(config).not.toContain("extraHTTPHeaders:");
+    expect(config).toContain("previewBypassHeaders(baseURL, process.env.VERCEL_AUTOMATION_BYPASS_SECRET)");
+
+    const authSetup = readFileSync(path.resolve(process.cwd(), "e2e/auth.setup.ts"), "utf8");
+    expect(authSetup).toContain("previewBypassHeaders(");
+    expect(authSetup).toContain("setup.beforeEach(");
+    // One request carries the headers; the cookie Vercel sets carries the rest.
+    expect(authSetup).toContain("page.request.get(\"/\", { headers })");
+    expect(authSetup).toContain("vercel.com/sso");
+  });
+
+  it("keeps the exact-SHA Preview workflow's journey run wired to the deployed artifact", () => {
     const source = readFileSync(
       path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"),
       "utf8",

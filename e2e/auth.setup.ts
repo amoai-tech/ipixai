@@ -2,6 +2,7 @@ import { rm } from "node:fs/promises";
 import path from "node:path";
 import { test as setup } from "@playwright/test";
 
+import { previewBypassHeaders } from "../playwright.config";
 import { signInAsE2ETestOperator, signInWithCredentials } from "./support/login";
 
 /**
@@ -23,6 +24,34 @@ setup.use({ trace: "off", screenshot: "off" });
 // wider budget scoped to this one setup test instead of masking slow tests
 // across the whole suite.
 setup.setTimeout(60_000);
+
+/**
+ * IPI-1344 · E2E-PREVIEW-BYPASS-001 — clear Vercel Deployment Protection before
+ * any sign-in, or `/login` is served as Vercel's SSO screen.
+ *
+ * The bypass is sent on exactly ONE request, as per-request headers. Vercel
+ * answers by setting its bypass cookie, and because that cookie is host-scoped
+ * the browser sends it only to the deployment — never to Supabase or Cloudinary
+ * the way a context-wide `extraHTTPHeaders` would. Each setup test runs in its
+ * own context, and every session is persisted into the storageState files the
+ * other projects reuse, so the cookie reaches all of them for free.
+ */
+setup.beforeEach(async ({ page, baseURL }) => {
+  const headers = previewBypassHeaders(
+    baseURL ?? "",
+    process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+  );
+  if (!headers) return; // local run — nothing to bypass
+
+  const response = await page.request.get("/", { headers });
+  // A rejected secret still answers 200 (with Vercel's SSO page), so check where
+  // the request actually landed rather than only its status.
+  if (response.status() >= 400 || response.url().includes("vercel.com/sso")) {
+    throw new Error(
+      `Vercel Deployment Protection bypass failed (HTTP ${response.status()} at ${response.url()}) — check that VERCEL_AUTOMATION_BYPASS_SECRET matches the project's current automation bypass secret.`,
+    );
+  }
+});
 
 setup("authenticate as the E2E test operator", async ({ page }) => {
   await signInAsE2ETestOperator(page);
