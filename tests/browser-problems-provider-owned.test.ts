@@ -11,15 +11,20 @@ import {
  * exact-SHA `--prebuilt` Preview logs a 404 console error for a resource the
  * platform does not serve.
  *
- * Only that exact condition is filtered: the browser's own failed-subresource
- * 404 message for a provider-owned root path. Every application path and every
- * other console error raised by those scripts must still be reported.
+ * Only that exact condition is filtered: Chromium's own failed-subresource 404
+ * message for a provider-owned root path. Every application path and every
+ * other console error raised by that script must still be reported.
+ *
+ * The measured message (real Chromium against the prebuilt Preview on
+ * 2026-09-26) is `Failed to load resource: the server responded with a status
+ * of 404 ()`; the trailing parentheses carry the server's status text and are
+ * empty for a bare 404.
  */
-const NOT_FOUND =
+const MEASURED_NOT_FOUND =
   "Failed to load resource: the server responded with a status of 404 ()";
 
 describe("isProviderOwnedResourcePath", () => {
-  it("recognises the Vercel insights and speed-insights resources", () => {
+  it("recognises the one Vercel resource this app actually loads", () => {
     expect(
       isProviderOwnedResourcePath(
         "https://ipixai-8g76naer5-amoco.vercel.app/_vercel/insights/script.js",
@@ -30,9 +35,16 @@ describe("isProviderOwnedResourcePath", () => {
         "https://ipixai-8g76naer5-amoco.vercel.app/_vercel/insights/view",
       ),
     ).toBe(true);
+  });
+
+  it("only filters paths this app mounts, so an unmounted provider path still reports", () => {
+    // `@vercel/speed-insights` is not installed or mounted (only
+    // `@vercel/analytics` is), so its path is deliberately absent from the
+    // allowlist. Adopting that package later must fail loudly here and add its
+    // path deliberately, instead of silently filtering failures nobody wired.
     expect(
       isProviderOwnedResourcePath("https://www.ipix.co/_vercel/speed-insights/script.js"),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("still reports application resources, including application 404s", () => {
@@ -50,7 +62,9 @@ describe("isProviderOwnedResourcePath", () => {
     ).toBe(false);
     // An application route that carries the provider path as a query value.
     expect(
-      isProviderOwnedResourcePath("https://www.ipix.co/api/proxy?resource=/_vercel/insights/script.js"),
+      isProviderOwnedResourcePath(
+        "https://www.ipix.co/api/proxy?resource=/_vercel/insights/script.js",
+      ),
     ).toBe(false);
     // An application route that carries the provider path in the fragment.
     expect(
@@ -62,11 +76,22 @@ describe("isProviderOwnedResourcePath", () => {
 });
 
 describe("isProviderOwnedMissingResource", () => {
-  it("filters the browser's failed-resource 404 for a provider-owned path", () => {
+  it("filters Chromium's failed-resource 404 for a provider-owned path", () => {
     expect(
       isProviderOwnedMissingResource(
         "https://ipixai-8g76naer5-amoco.vercel.app/_vercel/insights/script.js",
-        NOT_FOUND,
+        MEASURED_NOT_FOUND,
+      ),
+    ).toBe(true);
+  });
+
+  it("accepts the message without Chromium's trailing status text", () => {
+    // Chromium appends the server's status text in parentheses, empty for a
+    // bare 404. The match must not depend on that suffix being present.
+    expect(
+      isProviderOwnedMissingResource(
+        "https://ipixai-8g76naer5-amoco.vercel.app/_vercel/insights/script.js",
+        "Failed to load resource: the server responded with a status of 404",
       ),
     ).toBe(true);
   });
@@ -89,8 +114,8 @@ describe("isProviderOwnedMissingResource", () => {
 
   it("does not filter an application 404", () => {
     expect(
-      isProviderOwnedMissingResource("https://www.ipix.co/api/planner/threads", NOT_FOUND),
+      isProviderOwnedMissingResource("https://www.ipix.co/api/planner/threads", MEASURED_NOT_FOUND),
     ).toBe(false);
-    expect(isProviderOwnedMissingResource(undefined, NOT_FOUND)).toBe(false);
+    expect(isProviderOwnedMissingResource(undefined, MEASURED_NOT_FOUND)).toBe(false);
   });
 });

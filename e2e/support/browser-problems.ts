@@ -18,13 +18,27 @@ import type { Page, Request } from "@playwright/test";
  *    `pathname` with `startsWith`, so an application route or query value that
  *    merely contains the text (for example
  *    `/api/proxy?resource=/_vercel/insights/script.js`) is still reported;
- * 2. the console message is the browser's own failed-subresource message for a
+ * 2. the console message is Chromium's own failed-subresource message for a
  *    404 — so a runtime error, CSP violation, or explicit `console.error`
  *    raised by that script is still reported.
+ *
+ * Only resources this app actually mounts are listed: adding a path here
+ * silently filters that resource's failures, so it must be added deliberately
+ * together with the package that mounts it (`@vercel/analytics` is the only
+ * Vercel-owned resource this app loads today).
  */
-const PROVIDER_OWNED_RESOURCE_PATHS = ["/_vercel/insights/", "/_vercel/speed-insights/"];
+const PROVIDER_OWNED_RESOURCE_PATHS = ["/_vercel/insights/"];
 
-/** The browser's own console message for a subresource that failed to load. */
+/**
+ * Chromium's own console message for a subresource that failed to load.
+ *
+ * This is a browser string, not a standardized API, so it is matched narrowly
+ * and was verified against the real browser: measured on the `--prebuilt`
+ * Preview as `Failed to load resource: the server responded with a status of
+ * 404 ()`. Chromium appends the server's status text in parentheses (empty for
+ * a bare 404), so `\b` after the status code accepts both that measured form
+ * and a message without it.
+ */
 const FAILED_RESOURCE_NOT_FOUND =
   /^Failed to load resource: the server responded with a status of 404\b/;
 
