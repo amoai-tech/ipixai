@@ -68,10 +68,12 @@ test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
     // longer on a cold one). Clicking while the button is still Stop sends a
     // second Stop instead of R2's run, and the journey then waits out its
     // timeout for a /run that was never sent.
+    // `toBeHidden` passes when the Stop icon is unmounted *or* merely not
+    // visible, so it holds whichever way CopilotKit swaps the affordance.
     await expect(
       sendOrStop.locator("svg.lucide-square"),
       "R1 must return to send-ready before the next message is sent",
-    ).toHaveCount(0, { timeout: NAV_TIMEOUT_MS });
+    ).toBeHidden({ timeout: NAV_TIMEOUT_MS });
     await textarea.fill(
       `List 8 one-line shot ideas for a linen dress collection. After the list, end with the exact line ${marker}`,
     );
