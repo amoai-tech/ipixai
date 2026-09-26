@@ -1,15 +1,15 @@
 import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
-import dotenv from "dotenv";
+import dotenvx from "@dotenvx/dotenvx";
 
 // E2E credentials and overrides live in .env.test (gitignored, see .env.example).
-dotenv.config({ path: path.resolve(__dirname, ".env.test") });
+dotenvx.config({ path: path.resolve(__dirname, ".env.test"), quiet: true, ignore: ["MISSING_ENV_FILE"] });
 // NEXT_PUBLIC_SUPABASE_URL / PUBLISHABLE_KEY for direct read-only REST calls
 // from spec files (e.g. tenant-isolation.spec.ts's org-identity check) — the
 // webServer's spawned Next process reads .env on its own, but the Playwright
 // test runner process does not; load it here too. No-ops harmlessly when
 // .env doesn't exist (CI supplies these as real job env vars instead).
-dotenv.config({ path: path.resolve(__dirname, ".env") });
+dotenvx.config({ path: path.resolve(__dirname, ".env"), quiet: true, ignore: ["MISSING_ENV_FILE"] });
 
 const hasExplicitBaseURL = Boolean(process.env.E2E_BASE_URL);
 const baseURL = process.env.E2E_BASE_URL || "http://localhost:3015";

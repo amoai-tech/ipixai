@@ -1,0 +1,53 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+
+const root = process.cwd();
+const read = (file: string) => readFileSync(join(root, file), "utf8");
+const pkg = JSON.parse(read("package.json")) as {
+  scripts?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+};
+
+describe("Dotenvx local secrets contract", () => {
+  it("pins Dotenvx and retires the plain dotenv loader", () => {
+    expect(pkg.devDependencies?.["@dotenvx/dotenvx"]).toBe("2.30.0");
+    expect(pkg.devDependencies?.dotenv).toBeUndefined();
+  });
+
+  it("injects local app secrets through Dotenvx", () => {
+    expect(pkg.scripts?.["dev:ui"]).toMatch(/^dotenvx run --convention=nextjs -- /);
+    expect(pkg.scripts?.["dev:agent"]).toMatch(/^dotenvx run --convention=nextjs -- /);
+    expect(pkg.scripts?.channel).toMatch(/^dotenvx run --convention=nextjs -- /);
+    expect(pkg.scripts?.["dev:e2e"]).toMatch(/^dotenvx run --convention=nextjs -- /);
+    expect(pkg.scripts?.["start:e2e"]).toMatch(/^dotenvx run --convention=nextjs -- /);
+    expect(pkg.scripts?.build).toMatch(/^dotenvx run --convention=nextjs -- /);
+    expect(pkg.scripts?.start).toBe("next start");
+  });
+
+  it("loads Playwright env files through Dotenvx so encryption remains readable", () => {
+    for (const file of ["playwright.config.ts", "playwright.production.config.ts"]) {
+      const source = read(file);
+      expect(source).toContain('from "@dotenvx/dotenvx"');
+      expect(source).not.toContain('from "dotenv"');
+    }
+  });
+
+  it("launches coding agents with a separate least-privilege env file", () => {
+    expect(pkg.scripts?.["agent:claude"]).toBe(
+      "dotenvx run -f .env.agent --strict --redact -- claude",
+    );
+    expect(pkg.scripts?.["agent:codex"]).toBe(
+      "dotenvx run -f .env.agent --strict --redact -- codex",
+    );
+    expect(read(".gitignore")).toContain("!.env.agent.example");
+    expect(read(".env.agent.example")).not.toMatch(/^[A-Z0-9_]+=.+$/m);
+  });
+
+  it("documents Dotenvx as local truth without replacing deployment secret stores", () => {
+    const agents = read("AGENTS.md");
+    expect(agents).toContain("Dotenvx is the canonical local secret-injection path");
+    expect(agents).toContain("Production/deployment secrets remain provider-managed");
+    expect(agents).not.toContain("Infisical is the canonical secret-injection path");
+  });
+});

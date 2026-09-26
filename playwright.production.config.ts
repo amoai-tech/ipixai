@@ -1,9 +1,9 @@
 import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
-import dotenv from "dotenv";
+import dotenvx from "@dotenvx/dotenvx";
 
 const envTestPath = path.resolve(__dirname, ".env.test");
-const environment = dotenv.config({ path: envTestPath });
+const environment = dotenvx.config({ path: envTestPath, quiet: true });
 const qaEmail = environment.parsed?.E2E_TEST_EMAIL;
 const qaPassword = environment.parsed?.E2E_TEST_PASSWORD;
 
