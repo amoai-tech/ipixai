@@ -331,6 +331,24 @@ describe("Playwright E2E harness hardening", () => {
     expect(planner).toContain("human-approved setup");
   });
 
+  it("keeps generated Playwright tests inside the agent-only directory", () => {
+    const generator = readFileSync(
+      path.resolve(process.cwd(), ".claude/agents/playwright-test-generator.md"),
+      "utf8",
+    );
+    expect(generator).toContain("Write generated Playwright tests only under `e2e/agents/**`");
+    expect(generator).not.toContain("Write generated Playwright tests only under `e2e/**`");
+  });
+
+  it("fails before generation on unsupported Windows hosts", () => {
+    const initializer = readFileSync(
+      path.resolve(process.cwd(), "scripts/init-playwright-test-agents.mjs"),
+      "utf8",
+    );
+    expect(initializer).toContain('process.platform === "win32"');
+    expect(initializer).toContain("unsupported on Windows");
+  });
+
   it("fails closed when generated Playwright agent output drifts", () => {
     const initializer = readFileSync(
       path.resolve(process.cwd(), "scripts/init-playwright-test-agents.mjs"),

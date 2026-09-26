@@ -14,6 +14,10 @@ const seedPath = path.join(root, "e2e", "agents", "seed.spec.ts");
 const specsReadmePath = path.join(root, "specs", "README.md");
 const managedPaths = [plannerPath, generatorPath, healerPath, mcpPath, seedPath, specsReadmePath];
 
+if (process.platform === "win32") {
+  throw new Error("Playwright Test Agent initialization is unsupported on Windows; use the repository's POSIX/Linux development environment.");
+}
+
 async function snapshotManagedFiles() {
   const snapshots = new Map();
   for (const file of managedPaths) {
@@ -62,7 +66,7 @@ const plannerGuardrails = `
 const generatorGuardrails = `
 ## iPix project contract
 - Always invoke \`generator_setup_page\` with project \`playwright-agent\` and seed file \`e2e/agents/seed.spec.ts\`.
-- Write generated Playwright tests only under \`e2e/**\`.
+- Write generated Playwright tests only under \`e2e/agents/**\`.
 - Never modify application/product code or weaken expected behavior to make a generated test pass.
 - Do not publish, pay, delete, or perform other consequential application actions unless a human explicitly approved that exact synthetic test action.
 `;
