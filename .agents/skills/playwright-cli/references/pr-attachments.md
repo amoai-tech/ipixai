@@ -65,4 +65,6 @@ steps:
       fi
 ```
 
+This `GITHUB_TOKEN` example assumes a same-repository pull request (or another trusted run with write permission). For a `pull_request` event from a fork, GitHub normally downgrades `GITHUB_TOKEN` to read-only even when the workflow requests `pull-requests: write`, so the comment/attachment step can fail. Do not work around that by executing untrusted fork code with a privileged token; if fork attachments are required, use a separate trusted workflow or explicitly authorized credential that does not run the fork's code.
+
 For a polished walkthrough of a new feature, record a hero script as described in [video-recording.md](video-recording.md) and attach the resulting WebM the same way.
