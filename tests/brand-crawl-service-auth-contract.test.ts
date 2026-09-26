@@ -23,12 +23,11 @@ describe("Brand crawl service authentication contract", () => {
     expect(workflowSource.slice(start, end)).toContain("apikey: key");
   });
 
-  it.each(["start-brand-crawl", "brand-intelligence", "firecrawl-webhook"])(
-    "disables platform JWT verification for %s (the handler authenticates)",
-    (fn) => {
-      expect(configSource).toMatch(
-        new RegExp(`\\[functions\\.${fn}\\][\\s\\S]*?verify_jwt\\s*=\\s*false`),
-      );
-    },
-  );
+  it.each([
+    ["start-brand-crawl", /\[functions\.start-brand-crawl\][\s\S]*?verify_jwt\s*=\s*false/],
+    ["brand-intelligence", /\[functions\.brand-intelligence\][\s\S]*?verify_jwt\s*=\s*false/],
+    ["firecrawl-webhook", /\[functions\.firecrawl-webhook\][\s\S]*?verify_jwt\s*=\s*false/],
+  ])("disables platform JWT verification for %s (the handler authenticates)", (_fn, pattern) => {
+    expect(configSource).toMatch(pattern);
+  });
 });
