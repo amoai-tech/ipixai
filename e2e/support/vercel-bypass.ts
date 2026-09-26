@@ -47,12 +47,17 @@ function originOf(url: string): string {
 /**
  * Adds the bypass headers to requests for the deployment origin only, so the
  * secret is never sent to a third-party origin.
+ *
+ * The handler's parameter is annotated on the inner function rather than on a
+ * named return type: a function *type* expression names a parameter that has
+ * no body to use it, which Codacy reports as "'route' is defined but never
+ * used" (the repo defines no ESLint config, so Codacy's defaults are the gate).
  */
 export function scopedBypassRoute(
   deploymentOrigin: string,
   headers: Record<string, string>,
-): (route: Route) => Promise<void> {
-  return async (route) => {
+) {
+  return async (route: Route): Promise<void> => {
     const request = route.request();
     if (originOf(request.url()) !== deploymentOrigin) {
       await route.continue();
