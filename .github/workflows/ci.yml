@@ -736,6 +736,11 @@ jobs:
           psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/tests/security/ipi1093-brand-db-write-boundary.sql
 
+          # IPI-1348 · BRAND-INTEL-PROD-002 — stale crawl_running recovery
+          # through the existing expire_stale_brand_analysis() cron function.
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/ipi1348-expire-stale-brand-crawl.sql
+
           # IPI-1093 · BRAND-INTEL-001 (external audit finding) — the
           # queued-crawl claim in start-brand-crawl/handler.ts needs two
           # genuinely concurrent database sessions to prove, which the

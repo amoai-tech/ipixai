@@ -1,6 +1,7 @@
 import { createTool } from "@mastra/core/tools";
 import { MASTRA_AUTH_TOKEN_KEY, type RequestContext } from "@mastra/core/request-context";
 import { createClient } from "@supabase/supabase-js";
+import { after } from "next/server";
 import { z } from "zod";
 import { requestToken } from "@/lib/request-token";
 import { getPublicSupabaseConfig } from "@/lib/supabase/env";
@@ -71,6 +72,22 @@ function requireSupabaseConfig() {
   return config;
 }
 
+/**
+ * Keep a background promise alive past the response on Vercel via Next's
+ * after(). Outside a Next request scope (the standalone Mastra server, unit
+ * tests) after() throws, and the promise simply runs detached as before.
+ */
+function keepAlive(task: Promise<unknown>): void {
+  const settled = task.catch((error: unknown) => {
+    console.error("[brand-intelligence] workflow run failed", error);
+  });
+  try {
+    after(settled);
+  } catch {
+    void settled;
+  }
+}
+
 export const StartBrandAnalysisInputSchema = z.object({
   brandId: z.string().uuid(),
 });
@@ -109,13 +126,19 @@ export const startBrandAnalysis = createTool({
     const { getMastra } = await import("@/mastra/runtime");
     const workflow = getMastra().getWorkflow("brand-intelligence");
     const run = await workflow.createRun();
-    const { runId } = await run.startAsync({
-      inputData: { brandId: inputData.brandId, actorId: operator.userId },
-      requestContext: workflowContext,
-    });
+    // IPI-1348: startAsync() detaches the run, and Vercel can freeze the
+    // function as soon as the response is sent — runs were left "running" at
+    // validateBrand/startCrawl for hours. Keep the real start() promise alive
+    // with after() until the run reaches its durable waitForCrawl suspend.
+    keepAlive(
+      run.start({
+        inputData: { brandId: inputData.brandId, actorId: operator.userId },
+        requestContext: workflowContext,
+      }),
+    );
 
     return {
-      runId,
+      runId: run.runId,
       message:
         "Brand analysis started. The crawl typically takes 2–5 minutes. A draft will appear on the brand page when ready for your review.",
     };

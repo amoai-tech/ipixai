@@ -9,7 +9,8 @@ const mocks = vi.hoisted(() => ({
   crawlLinkMaybeSingle: vi.fn(),
   priorDecisionMaybeSingle: vi.fn(),
   createClient: vi.fn(),
-  startAsync: vi.fn(),
+  start: vi.fn(),
+  after: vi.fn(),
   resume: vi.fn(),
   createRun: vi.fn(),
   getWorkflow: vi.fn(),
@@ -20,6 +21,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/request-token", () => ({
   requestToken: { getStore: mocks.getStore },
 }));
+
+vi.mock("next/server", () => ({ after: mocks.after }));
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: mocks.createClient,
@@ -104,7 +107,8 @@ function mockWorkflow() {
     getWorkflowRunById: mocks.getWorkflowRunById,
   });
   mocks.createRun.mockResolvedValue({
-    startAsync: mocks.startAsync,
+    runId: RUN_ID,
+    start: mocks.start,
     resume: mocks.resume,
   });
 }
@@ -141,30 +145,30 @@ describe("startBrandAnalysis", () => {
   const ORG_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
   it("HTTP path: reuses Mastra server auth's authenticated RequestContext", async () => {
-    mocks.startAsync.mockResolvedValue({ runId: RUN_ID });
+    mocks.start.mockResolvedValue({ status: "suspended" });
     const requestContext = new RequestContext();
     const verifiedUser = { id: "op-1", orgId: ORG_ID, resourceId: `org:${ORG_ID}::user:op-1` };
     requestContext.set(MASTRA_USER_KEY, verifiedUser);
 
     const result = await startBrandAnalysis.execute!({ brandId: BRAND_ID }, { ...ctx, requestContext });
 
-    expect(mocks.startAsync).toHaveBeenCalledWith(
+    expect(mocks.start).toHaveBeenCalledWith(
       expect.objectContaining({ inputData: { brandId: BRAND_ID, actorId: "op-1" } }),
     );
-    const started = mocks.startAsync.mock.calls[0][0] as { requestContext: RequestContext };
+    const started = mocks.start.mock.calls[0][0] as { requestContext: RequestContext };
     expect(started.requestContext.get(MASTRA_USER_KEY)).toEqual(verifiedUser);
     expect(result).toMatchObject({ runId: RUN_ID });
   });
 
   it("server action path: builds a trusted RequestContext from the verified session token", async () => {
-    mocks.startAsync.mockResolvedValue({ runId: RUN_ID });
+    mocks.start.mockResolvedValue({ status: "suspended" });
     mocks.orgMembers.mockResolvedValue({ data: [{ org_id: ORG_ID }], error: null });
 
     const result = await startBrandAnalysis.execute!({ brandId: BRAND_ID }, ctx);
 
     expect(mocks.getUser).toHaveBeenCalledWith("tok");
     expect(mocks.orgMembers).toHaveBeenCalledWith("user_id", "op-1");
-    const started = mocks.startAsync.mock.calls[0][0] as {
+    const started = mocks.start.mock.calls[0][0] as {
       inputData: Record<string, unknown>;
       requestContext: RequestContext;
     };
@@ -184,7 +188,55 @@ describe("startBrandAnalysis", () => {
     await expect(startBrandAnalysis.execute!({ brandId: BRAND_ID }, ctx)).rejects.toThrow(
       "Could not verify the operator's session and organization",
     );
-    expect(mocks.startAsync).not.toHaveBeenCalled();
+    expect(mocks.start).not.toHaveBeenCalled();
+  });
+
+  it("keeps the real start() promise alive with after() instead of detaching it", async () => {
+    let finish!: () => void;
+    mocks.start.mockReturnValue(new Promise<void>((resolve) => { finish = resolve; }));
+    mocks.orgMembers.mockResolvedValue({ data: [{ org_id: ORG_ID }], error: null });
+
+    const result = await startBrandAnalysis.execute!({ brandId: BRAND_ID }, ctx);
+
+    // The tool answers with the run id before the run finishes...
+    expect(result).toMatchObject({ runId: RUN_ID });
+    expect(mocks.start).toHaveBeenCalledTimes(1);
+    // ...and hands the still-pending run to after(), exactly once.
+    expect(mocks.after).toHaveBeenCalledTimes(1);
+    const kept = mocks.after.mock.calls[0][0] as Promise<unknown>;
+    let settled = false;
+    void kept.then(() => { settled = true; });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    finish();
+    await kept;
+    expect(settled).toBe(true);
+  });
+
+  it("still starts the run when after() is unavailable (no Next request scope)", async () => {
+    mocks.after.mockImplementation(() => { throw new Error("after() outside request scope"); });
+    mocks.start.mockResolvedValue({ status: "suspended" });
+    mocks.orgMembers.mockResolvedValue({ data: [{ org_id: ORG_ID }], error: null });
+
+    const result = await startBrandAnalysis.execute!({ brandId: BRAND_ID }, ctx);
+
+    expect(result).toMatchObject({ runId: RUN_ID });
+    expect(mocks.start).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs, rather than leaks, a run that rejects in the background", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.start.mockRejectedValue(new Error("boom"));
+    mocks.orgMembers.mockResolvedValue({ data: [{ org_id: ORG_ID }], error: null });
+
+    await startBrandAnalysis.execute!({ brandId: BRAND_ID }, ctx);
+    await (mocks.after.mock.calls[0][0] as Promise<unknown>);
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[brand-intelligence] workflow run failed",
+      expect.any(Error),
+    );
+    errorSpy.mockRestore();
   });
 
   it.each([
@@ -196,7 +248,7 @@ describe("startBrandAnalysis", () => {
     await expect(startBrandAnalysis.execute!({ brandId: BRAND_ID }, ctx)).rejects.toThrow(
       "Could not verify the operator's session and organization",
     );
-    expect(mocks.startAsync).not.toHaveBeenCalled();
+    expect(mocks.start).not.toHaveBeenCalled();
   });
 
   it("throws when no access token is available in the request context (unauthenticated denied)", async () => {
@@ -205,7 +257,7 @@ describe("startBrandAnalysis", () => {
     await expect(
       startBrandAnalysis.execute!({ brandId: BRAND_ID }, ctx),
     ).rejects.toThrow("Access token not available in request context");
-    expect(mocks.startAsync).not.toHaveBeenCalled();
+    expect(mocks.start).not.toHaveBeenCalled();
   });
 });
 
