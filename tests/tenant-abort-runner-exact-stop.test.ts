@@ -12,6 +12,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 let releaseMemory: () => void = () => {};
 let memoryGate: Promise<void> = Promise.resolve();
+let memoryAvailable = true;
+/** Replaced per test to hold or fail Mastra thread setup. */
+let threadSetup: () => Promise<void> = async () => {};
 
 vi.mock("@/mastra/thread-persistence", () => ({
   splitRunThreadIds: (resourceId: string, threadId: string) => ({
@@ -20,9 +23,9 @@ vi.mock("@/mastra/thread-persistence", () => ({
   }),
   getPlannerMemory: async () => {
     await memoryGate;
-    return {};
+    return memoryAvailable ? {} : null;
   },
-  ensureMastraThread: async () => {},
+  ensureMastraThread: () => threadSetup(),
   recallPlannerChatMessages: async () => [],
 }));
 
@@ -74,6 +77,8 @@ const nextThread = () => `thread-${++threadSeq}`;
 
 afterEach(() => {
   releaseMemory();
+  memoryAvailable = true;
+  threadSetup = async () => {};
   vi.restoreAllMocks();
 });
 
@@ -135,6 +140,36 @@ describe("IPI-1290 TenantAbortRunner exact-run Stop", () => {
       expect.objectContaining({ type: EventType.RUN_STARTED, threadId, runId: "R1" }),
       expect.objectContaining({ type: EventType.RUN_FINISHED, threadId, runId: "R1" }),
     ]);
+  });
+
+  it("a run stopped while starting still ends as stopped if thread setup then fails", async () => {
+    let failSetup: () => void = () => {};
+    threadSetup = () =>
+      new Promise<void>((_, reject) => (failSetup = () => reject(new Error("thread_setup_failed"))));
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+
+    const r1 = collect(
+      runner.run({ threadId, agent: wrapAbortRun(new SlowAgent()), input: input(threadId, "R1") }),
+    );
+    // Let memory resolve so the run is parked inside thread setup.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(await runner.stop({ threadId, runId: "R1" })).toBe(true);
+    failSetup();
+    await r1.done;
+
+    expect(r1.events.map((e) => e.type)).toEqual([EventType.RUN_STARTED, EventType.RUN_FINISHED]);
+  });
+
+  it("a run that was not stopped still errors when memory is unavailable", async () => {
+    memoryAvailable = false;
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+
+    const r1 = collect(
+      runner.run({ threadId, agent: wrapAbortRun(new SlowAgent()), input: input(threadId, "R1") }),
+    );
+    await expect(r1.done).rejects.toThrow("memory_unavailable");
   });
 
   it("a run whose client disconnected while starting ends silently", async () => {

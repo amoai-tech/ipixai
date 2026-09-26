@@ -158,6 +158,12 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
           .subscribe(subscriber);
         releasePending();
       })().catch((error) => {
+        // Setup failed after the user already stopped this run: end it as
+        // stopped, not as an error, so the browser can send the next message.
+        if (pending.stopRequested && !inner) {
+          endSkippedRun();
+          return;
+        }
         releasePending();
         if (!cancelled) subscriber.error(error);
       });
