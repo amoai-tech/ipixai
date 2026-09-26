@@ -89,8 +89,8 @@ const REMOTE_CONFIGS: { name: string; env: Partial<Record<(typeof REMOTE_ENV)[nu
     env: {
       CPK_INTELLIGENCE_API_KEY: "test-intelligence-key",
       MASTRA_BASE_URL: "http://mastra.test",
-      INTELLIGENCE_API_URL: "http://intelligence.test",
-      INTELLIGENCE_GATEWAY_WS_URL: "ws://intelligence.test",
+      INTELLIGENCE_API_URL: "https://intelligence.test",
+      INTELLIGENCE_GATEWAY_WS_URL: "wss://intelligence.test",
       COPILOTKIT_LICENSE_TOKEN: "test-license-token",
     },
   },
