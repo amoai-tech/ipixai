@@ -7,7 +7,7 @@
 The operator app at **www.ipix.co/app** uses CopilotKit for the right-hand AI chat. In production, two things must be true:
 
 1. **You are signed in** (Supabase session) — otherwise the runtime returns `401`.
-2. **The Mastra Postgres store is configured** (`MASTRA_DATABASE_URL`, or `DATABASE_URL`) — Planner conversations are durable there.
+2. **The Mastra Postgres store is configured** (`MASTRA_DATABASE_URL`, with `IPIX_MASTRA_HOSTED=1` so a missing URL fails closed instead of silently using in-memory storage) — Planner conversations are durable there.
 
 > **IPI-1329 · MASTRA-INPROC-001 (2026-09-26):** `/api/copilotkit` always runs the Production
 > Planner **in the same iPix/Vercel process** (`createLocalAgents(resourceId)` →
@@ -49,7 +49,8 @@ The operator app at **www.ipix.co/app** uses CopilotKit for the right-hand AI ch
 
 | Variable | Required | What it does |
 |----------|----------|--------------|
-| `MASTRA_DATABASE_URL` / `DATABASE_URL` | Yes | Mastra Postgres storage (schema `mastra`) — durable Planner threads/messages |
+| `MASTRA_DATABASE_URL` | Yes | Mastra Postgres storage (schema `mastra`) — durable Planner threads/messages. `src/mastra/pg-store.ts` reads only this name; `DATABASE_URL` does **not** configure Planner storage. |
+| `IPIX_MASTRA_HOSTED` | Yes (`1`) | Refuses the in-memory fallback when `MASTRA_DATABASE_URL` is missing, so conversations can't silently stop persisting |
 | `CPK_INTELLIGENCE_API_KEY` / `COPILOTKIT_API_KEY` | No — ignored | Not read by the Product route since IPI-1329. Leave unset. |
 | `MASTRA_BASE_URL` | No — ignored by Product | Only read by legacy remote-Mastra helpers kept until IPI-1334. Leave unset in Production. |
 | `COPILOTKIT_LICENSE_TOKEN` | No | Offline/self-hosted-only credential — do not set; a stale/wrong-format value here is what caused `Invalid CopilotKit license token`. |
