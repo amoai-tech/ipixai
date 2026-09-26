@@ -1,87 +1,105 @@
+<!-- GENERATED FILE — DO NOT EDIT. Run `npm run skills:index` after changing `.agents/skills/registry.json`. -->
 # iPix skills
 
-Canonical repository skill source tree: `.agents/skills/`. `.claude/skills/` is the Claude discovery/compatibility layer: shared skills should be symlinks to `.agents/skills/<skill>`, not duplicate directories. Cursor may load `.cursor/skills` through the Claude discovery layer.
+Canonical reusable/cross-agent skills live in `.agents/skills/`. `.claude/skills/` is the Claude discovery/compatibility layer; `claude_exposed: true` means the Claude entry must be a symlink to the canonical skill.
 
-**One-real-copy rule:** every skill has exactly one real directory. Prefer `.agents/skills/<skill>/` for reusable/cross-agent skills; expose it to Claude with `.claude/skills/<skill> -> ../../.agents/skills/<skill>`. Existing iPix/Claude-only skills may remain under `.claude/skills/` until migrated, but never keep a second copied directory in `.agents/skills/`.
+Source of truth: `.agents/skills/registry.json`.
 
-AI runtime SSOT: `docs/copilotkit-mastra/README.md`. Cursor rules: `.cursor/rules/`.
-Machine-readable ownership/consolidation registry: `.agents/skills/registry.json`. CI validates canonical paths and removed aliases.
+## Canonical skills
 
----
+| Skill | Summary | Owner | Type | Modes | Claude | Delegates to | Do not use for |
+|---|---|---|---|---|---|---|---|
+| `automate-manual-test-cases` | Convert approved manual test cases into maintainable automated tests. | qa | workflow | `manual-to-automation` | no | `diagnosing-bugs`, `qa-test-code-coverage`, `testomatio` | writing product requirements; debugging unrelated application behavior |
+| `brainstorming` | Explore intent, constraints, and design before creative implementation work. | planning | methodology | `design-discovery` | yes | `requirements`, `writing-plans` | executing an already-approved implementation plan |
+| `code-review` | Review changed code against repository standards and the requested specification. | engineering-quality | review | `standards`, `spec`, `pr-agent` | yes | `receiving-code-review`, `diagnosing-bugs` | writing implementation plans; automatic merge or approval |
+| `codebase-design` | Design or simplify module seams, interfaces, dependencies, and test surfaces. | architecture | workflow | `module-design`, `seam-design` | yes | `domain-modeling`, `writing-plans`, `refactor-plan` | routine small edits with no architectural decision |
+| `diagnosing-bugs` | Diagnose hard runtime, performance, and automated-test failures with a tight feedback loop. | engineering | workflow | `general`, `automated-test` | yes | `tdd`, `playwright-cli` | feature planning; requirements discovery |
+| `dispatching-parallel-agents` | Parallelize independent tasks that do not share mutable state or sequencing dependencies. | execution | methodology | `parallel-dispatch` | yes | `subagent-driven-development` | shared mutable state; sequential dependencies |
+| `domain-modeling` | Clarify iPix terminology, domain ownership, CONTEXT files, and architecture decisions. | architecture | workflow | `glossary`, `ownership`, `adr` | yes | `codebase-design`, `requirements` | routine implementation with no domain ambiguity |
+| `explain` | Explain iPix code, errors, PRs, configs, and technical concepts in plain English. | developer-experience | utility | `plain-language` | yes | — | making code changes; deciding product requirements |
+| `explorbot` | Run, configure, debug, and plan autonomous Explorbot web testing. | qa-browser | workflow | `fundamentals`, `setup`, `plan`, `explore` | yes | `playwright-cli`, `qa-write-test-cases` | deterministic browser merge gates; static-content-only testing |
+| `improve-test-cases` | Improve existing manual test cases for clarity, structure, and TMS readiness. | qa | workflow | `manual-test-improvement` | no | `automate-manual-test-cases`, `testomatio` | writing product requirements; creating automation from scratch |
+| `lean` | Audit repository and development-loop speed, context waste, worktrees, and CI feedback time. | developer-experience | audit | `repo-performance-audit` | yes | `refactor-plan` | single-task implementation planning |
+| `playwright-cli` | Drive deterministic browser steps and inspect web behavior with Playwright CLI. | qa-browser | utility | `browser-automation`, `deterministic-steps` | yes | `diagnosing-bugs` | autonomous exploratory testing |
+| `prima` | Use Prima for higher-level behavioral browser work above Playwright CLI. | qa-browser | workflow | `behavioral-browser` | no | `playwright-cli` | autonomous exploratory testing; browser-free unit tests |
+| `qa-automation-test-consolidation` | Find redundant automated tests and consolidation or parameterization opportunities. | qa | review | `dedupe`, `parameterize` | no | `qa-test-code-coverage`, `automate-manual-test-cases` | writing requirements; fixing a specific failing test |
+| `qa-data-seeder` | Prepare scoped test data for regular, edge, and negative feature scenarios. | qa | workflow | `seed-test-data` | no | `qa-write-test-cases` | production data changes |
+| `qa-explain-behavior` | Explain implemented product behavior, rules, flows, and edge cases from QA evidence. | qa | utility | `behavior-analysis` | no | `qa-write-test-cases`, `qa-review` | authoring product requirements; implementing product code |
+| `qa-lead-strategy-advisor` | Assess QA maturity and propose a high-level quality and automation strategy. | qa | advisor | `strategy`, `maturity` | no | `testing-workflow`, `qa-review` | a single tactical testing task |
+| `qa-pr-analysis` | Compare PR intent with its actual code diff and identify scope mismatches. | qa | review | `intent`, `diff`, `combined` | yes | `qa-review`, `code-review` | requirements authoring; implementation |
+| `qa-review` | Review features, implementations, or PRs for QA risk, edge cases, and negative flows. | qa | review | `feature`, `implementation`, `pull-request` | yes | `requirements`, `qa-explain-behavior`, `qa-write-test-cases` | editing production code; rewriting requirements unless defects are found |
+| `qa-split-testing-levels-pyramid` | Place test scenarios at the cheapest sufficient unit, integration, or end-to-end level. | qa | workflow | `test-pyramid` | no | `qa-write-test-cases`, `automate-manual-test-cases`, `qa-test-code-coverage` | writing product requirements |
+| `qa-test-code-coverage` | Map manual and automated tests to source files for test-to-code coverage visibility. | qa | workflow | `coverage-map` | no | `qa-write-test-cases`, `setup-ci-automation` | product requirements; runtime performance profiling |
+| `qa-write-test-cases` | Create test cases, scenarios, checklists, and test plans from approved behavior. | qa | workflow | `test-cases`, `checklists`, `test-plan` | no | `improve-test-cases`, `qa-split-testing-levels-pyramid`, `automate-manual-test-cases` | product requirements authoring |
+| `receiving-code-review` | Validate code-review feedback before applying it. | engineering-quality | methodology | `review-feedback` | yes | `diagnosing-bugs`, `code-review` | blindly applying reviewer suggestions |
+| `refactor-plan` | Plan structural migrations where compatibility, sequencing, caller migration, or rollback matters. | planning | workflow | `migration`, `refactor` | yes | `writing-plans`, `resolving-merge-conflicts` | ordinary feature plans with no migration risk |
+| `requesting-code-review` | Request focused review when implementation is complete or before merge. | engineering-quality | methodology | `review-request` | yes | `code-review` | self-approving or automatically merging code |
+| `requirements` | Define or review Epics, user stories, acceptance criteria, and testable requirements. | product-planning | workflow | `epic`, `user-story`, `qa-review` | yes | `to-spec`, `tasks`, `writing-plans` | no-interview conversation synthesis; implementation planning after requirements are accepted |
+| `research` | Investigate questions against high-trust primary sources and capture evidence in the repo. | research | workflow | `primary-source-research` | yes | `requirements`, `writing-plans` | implementation that does not require external evidence |
+| `resolving-merge-conflicts` | Resolve merge or rebase conflicts by intent with high-risk verification. | engineering | workflow | `merge`, `rebase` | yes | `code-review`, `diagnosing-bugs` | unrelated refactoring while resolving conflicts |
+| `setup-ci-automation` | Inspect existing CI and add or modify automated QA workflows. | qa | integration | `ci-discovery`, `qa-workflow-setup` | no | `testomatio`, `qa-test-code-coverage` | debugging a single existing CI failure |
+| `subagent-driven-development` | Execute an implementation plan with independent tasks and staged review. | execution | methodology | `plan-execution` | yes | `dispatching-parallel-agents`, `requesting-code-review` | unclear requirements; tightly coupled work that cannot be isolated |
+| `tdd` | Implement features and bug fixes with red-green-refactor discipline. | engineering | methodology | `red-green-refactor` | yes | `diagnosing-bugs`, `requesting-code-review` | documentation-only edits; generated artifacts |
+| `testing-workflow` | Route the end-to-end QA lifecycle to the correct specialized testing skill. | qa | router | `test-lifecycle` | no | `requirements`, `qa-explain-behavior`, `qa-lead-strategy-advisor`, `qa-write-test-cases`, `improve-test-cases`, `qa-split-testing-levels-pyramid`, `automate-manual-test-cases`, `qa-test-code-coverage`, `qa-automation-test-consolidation`, `diagnosing-bugs`, `testomatio`, `setup-ci-automation` | high-level QA strategy; non-QA feature implementation |
+| `testomatio` | Own Testomat.io reporting, sync, MCP, run, sprint-report, and PR-testing workflows. | qa-integration | integration | `reporting`, `sync`, `mcp`, `runs`, `pr-testing` | yes | `qa-test-code-coverage`, `setup-ci-automation`, `diagnosing-bugs` | generic test design; non-Testomat.io CI |
+| `to-spec` | Turn the current conversation into a specification without another discovery interview. | product-planning | workflow | `conversation-to-spec` | yes | `tasks`, `writing-plans` | interactive requirements discovery; implementation execution |
+| `writing-plans` | Convert accepted requirements or a specification into an executable implementation plan. | planning | workflow | `implementation-plan` | yes | `refactor-plan`, `subagent-driven-development` | requirements discovery; structural migration plans where compatibility or rollback is load-bearing |
 
-## Copied
+## Consolidated / removed entry points
 
-| Skill | Why |
-|-------|-----|
-| `mastra` | Agents / Memory / workflows — **2.1.0-ipix.1** overlay on [mastra-ai/skills](https://github.com/mastra-ai/skills) 2.1.0 (`src/mastra`, split `dev:agent`/`dev:ui`, `mastra api`) |
-| `copilotkit` | Starter chat, AG-UI, Mastra wiring |
-| `ipix-supabase` | Same project `nvdlhrodvevgwdsneplk`; RLS/RPC/CLI refs — **no prod writes** |
-| `fashion-production` | Planner / shoot domain language |
-| `nextjs-developer` | App Router in `src/app` · **:3000** |
-| `shadcn` | UI components |
-| `vercel-react-best-practices` | Perf |
-| `linear` | IPI issues |
-| `tasks` | **Primary iPix task skill** — task setup/execution, fastest-path analysis mode, agent prompts, pre-commit, testing, PR review, user journeys, CI, migration reuse, and post-merge proof |
-| `task-verifier` | **Adversarial independent evidence gate** — Quick narrow checks, Standard task/PR review, automatic Adversarial escalation for high-risk work |
-| `brainstorming` | Selected `obra/superpowers` methodology skill — design/intent exploration before creative implementation work |
-| `writing-plans` | Selected `obra/superpowers` methodology skill — convert an approved design/spec into executable implementation steps |
-| `subagent-driven-development` | Selected `obra/superpowers` methodology skill — execute independent plan tasks with fresh subagents and staged review |
-| `dispatching-parallel-agents` | Selected `obra/superpowers` methodology skill — parallelize genuinely independent work |
-| `receiving-code-review` | Selected `obra/superpowers` methodology skill — verify review feedback before applying it |
-| `requesting-code-review` | Selected `obra/superpowers` methodology skill — request focused review before the iPix PR/Done gates |
-| `lean` | Velocity audit |
-| `worktrees` | Isolated branches |
-| `refactor-plan` | Multi-file refactors |
-| `mermaid-diagrams` | Diagrams |
-| `ipix-wireframe` | Lo-fi UI |
-| `cloudinary` | Canonical iPix Cloudinary skill → embedded official docs/Next/React/transformation/MCP refs + Node refs |
-| `graphify` | Official `graphify install` 0.9.48 — query `graphify-out/` |
-| `domain-modeling` | Domain language / `CONTEXT.md` / ADR discipline; adapted from Matt Pocock skills |
-| `codebase-design` | Deep-module, seam, interface, and test-surface design; adapted from Matt Pocock skills |
-| `resolving-merge-conflicts` | Intent-based merge/rebase conflict resolution with iPix high-risk verification |
-
-## Consolidated shared skills
-
-These are local canonical skills under `.agents/skills/` built by combining overlapping upstream Testomat.io skills. Their source provenance is recorded in each skill's metadata; the superseded upstream entry points are intentionally removed from `skills-lock.json`.
-
-| Skill | Consolidates |
+| Removed entry point | Canonical owner |
 |---|---|
-| `qa-review` | `qa-thinking` + `qa-review-pr` |
-| `qa-pr-analysis` | `qa-pr-requirements-analyzer` + `pull-request-diff-analyzer` |
-| `explorbot` | `explorbot-fundamentals` + `explorbot-setup` + `explorbot-plan` |
-| `testomatio` | reporter setup + sprint reporting + test-case sync + MCP + run CLI + change-aware PR testing |
-| `requirements` | `epic-requirements-specification` + `write-user-story` + `qa-requirement-reviewer` as Epic, user-story, and QA-review modes |
-| `diagnosing-bugs` | General bug diagnosis + former `debug-fix-failed-flaky-autotests` as automated-test mode/reference |
+| `cloudinary-review` | `cloudinary` |
+| `copilotkit-review` | `copilotkit` |
+| `debug-fix-failed-flaky-autotests` | `diagnosing-bugs` |
+| `epic-requirements-specification` | `requirements` |
+| `explorbot-fundamentals` | `explorbot` |
+| `explorbot-plan` | `explorbot` |
+| `explorbot-setup` | `explorbot` |
+| `ipix-task-lifecycle` | `tasks` |
+| `nextjs-review` | `nextjs-developer` |
+| `pr-agent-code-review` | `code-review` |
+| `pr-workflow` | `tasks` |
+| `pull-request-diff-analyzer` | `qa-pr-analysis` |
+| `qa-e2e-tests-reporting` | `testomatio` |
+| `qa-pr-requirements-analyzer` | `qa-pr-analysis` |
+| `qa-requirement-reviewer` | `requirements` |
+| `qa-review-pr` | `qa-review` |
+| `qa-sprint-report-by-testomatio` | `testomatio` |
+| `qa-thinking` | `qa-review` |
+| `run-tests-with-testomatio-reporter` | `testomatio` |
+| `setup-change-aware-pr-testing` | `testomatio` |
+| `supabase-review` | `ipix-supabase` |
+| `sync-test-cases-with-tms` | `testomatio` |
+| `testomatio-mcp` | `testomatio` |
+| `write-user-story` | `requirements` |
 
-Official Cloudinary upstream packs are embedded under `.claude/skills/cloudinary/references/official/` and are not separate triggerable skills. Refresh snapshots into a temporary directory, then sync only the needed embedded references so the iPix security overlay remains authoritative.
+## Claude-only / iPix-specific discovery skills
 
-## Not copied (on purpose)
+These remain real directories under `.claude/skills/` and are outside the canonical `.agents` registry until explicitly migrated.
 
-| Skill | Why |
-|-------|-----|
-| `cloudflare-ipix` | No Workers/OpenNext in iPixai |
-| `cloudflare-workflow` | Same |
-| `cloudflare-workers-testing` | Same |
-| `gemini` | Starter is OpenAI until a provider ticket |
-| `graphify` (old iPix copy) | Replaced by official Graphify-Labs install |
-| `pr-agent` | Old `lumina-studio` CI / Bedrock job |
-| `design-to-production` | DESIGN V2 / old operator HTML parity |
+- `ci-review`
+- `cloudinary`
+- `copilotkit`
+- `fashion-production`
+- `graphify`
+- `ipix-supabase`
+- `ipix-wireframe`
+- `linear`
+- `mastra`
+- `mermaid-diagrams`
+- `nextjs-developer`
+- `pr`
+- `shadcn`
+- `task-verifier`
+- `tasks`
+- `vercel-react-best-practices`
+- `worktrees`
 
-Also not copied from the wider old catalog: `mercur`, `amazon-bedrock`, `ipix` router, `react-patterns`, `nextjs-16`, `frontend-design`, archive/*.
+## Governance
 
-## Path fixes applied
-
-- Mastra: `src/mastra/`, `projectPath` = git toplevel, no Gemini/CF `getMastra()` contract
-- Next: port 3000, `src/app/`
-- Supabase: preview-first, do not `cd /home/sk/ipix` from this repo
-- CopilotKit: `ipix-production.md` is old-app notes
-- Task execution, fastest-path analysis, and PR lifecycle: `tasks` is the single canonical owner
-- Requirements planning: `requirements` owns Epic/story/acceptance-criteria definition and QA requirements review; `to-spec` owns conversation → spec; `tasks` owns executable Linear tasks; `writing-plans` owns implementation plans
-
-## External skill provenance
-
-The three Matt Pocock-derived engineering skills above were copied from `mattpocock/skills` commit `3cca18b368ae95cdbdebbff572ccafa662551015` and then given small iPix-specific safety/source-of-truth overlays.
-
-## Superpowers methodology subset
-
-The six Superpowers methodology skills above were vendored from [`obra/superpowers`](https://github.com/obra/superpowers) commit `b36e0829c6d0140e93cfef2ca599b1b07d4a7797` under the upstream MIT license (`SUPERPOWERS_LICENSE.txt`). Only dependency references that would otherwise require unvendored Superpowers skills were adapted to existing iPix owners: `worktrees` for workspace isolation and `tasks` for inline execution / branch finishing / PR-post-merge handling. iPix `tasks`, `task-verifier`, `worktrees`, `pr`, Graphify, and domain skills remain authoritative for repository-specific behavior.
+- One real directory per skill.
+- Add or remove canonical skills by updating the registry and the filesystem together.
+- `npm run skills:registry:check` validates inventory, delegates, aliases, and Claude symlinks.
+- `npm run skills:index:check` fails when this generated index is stale.
+- `tests/skill-reference-contract.test.ts` validates canonical skill handoffs/reference files and repository skill paths.
