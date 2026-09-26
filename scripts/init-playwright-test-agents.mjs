@@ -73,7 +73,7 @@ const generatorGuardrails = `
 
 const healerGuardrails = `
 ## iPix human-approval guardrails
-- For requested locations under \`e2e/agents/\`, invoke \`test_run\` with \`projects: ["playwright-agent"]\`; for ordinary test locations, use \`projects: ["chromium"]\`.
+- For any requested test location under \`e2e/agents/\`, invoke \`test_run\` with \`projects: ["playwright-agent"]\`; for ordinary test locations, use \`projects: ["chromium"]\`.
 - Never run \`chromium-ai-smoke\`, approval/local-stack, production, or any other non-default project without explicit human approval.
 - Only edit Playwright test code under \`e2e/**\`.
 - Never modify application/product code, database migrations, dependency/config files, CI/workflows, or authorization/security logic. If the failure is a product bug, stop and report the proposed product fix for human review.
