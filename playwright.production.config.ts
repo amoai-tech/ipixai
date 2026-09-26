@@ -3,6 +3,8 @@ import { defineConfig, devices } from "@playwright/test";
 import dotenvx from "@dotenvx/dotenvx";
 
 const envTestPath = path.resolve(__dirname, ".env.test");
+// Intentionally do not ignore MISSING_ENV_FILE: production smoke requires the local
+// .env.test source and fails closed through environment.error below.
 const environment = dotenvx.config({ path: envTestPath, quiet: true });
 const qaEmail = environment.parsed?.E2E_TEST_EMAIL;
 const qaPassword = environment.parsed?.E2E_TEST_PASSWORD;

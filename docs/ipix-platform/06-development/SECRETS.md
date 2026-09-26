@@ -27,6 +27,12 @@ flowchart LR
 | `.env.example` | Documentation | Names/examples only; tracked. |
 | `.env.keys` | Dotenvx private keys | Local only, mode 600, never commit. |
 
+### Private-key guard
+
+- `npm run secrets:check` runs automatically before `npm test`; it fails if `.env.keys*` is tracked, `.env.keys` is not ignored, or a local `.env.keys` is not mode `0600` on POSIX. It never reads or prints key contents.
+- Run `npm run secrets:protect` once per developer machine to install Dotenvx's own Git staging protection. This complements `.gitignore` by rejecting protected env/private-key files even when someone attempts a forced add.
+- CI can prove repository tracking/ignore state, but it cannot prove permissions of a developer-only file that is intentionally absent from the checkout. The local guard covers that part when the file exists.
+
 ## Legacy `prod.env` classification
 
 This table is names-only. No value from the legacy file is authoritative merely because it exists there.

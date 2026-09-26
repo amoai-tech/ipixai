@@ -39,6 +39,25 @@ describe("Dotenvx local secrets contract", () => {
     expect(source).not.toContain('path.resolve(__dirname, ".env")');
   });
 
+  it("surfaces missing local Playwright env files outside CI while CI stays file-optional", () => {
+    const source = read("playwright.config.ts");
+    expect(source).toContain(
+      'const missingEnvIgnore = process.env.CI ? ["MISSING_ENV_FILE"] : undefined;',
+    );
+    expect(source.match(/ignore: missingEnvIgnore/g)).toHaveLength(2);
+
+    const productionSource = read("playwright.production.config.ts");
+    expect(productionSource).toContain("Intentionally do not ignore MISSING_ENV_FILE");
+    expect(productionSource).not.toContain('ignore: ["MISSING_ENV_FILE"]');
+  });
+
+  it("automates Dotenvx private-key staging and local permission checks", () => {
+    expect(pkg.scripts?.["secrets:protect"]).toBe("dotenvx protect");
+    expect(pkg.scripts?.["secrets:check"]).toBe("node scripts/check-local-secrets.mjs");
+    expect(pkg.scripts?.pretest).toBe("npm run secrets:check");
+    expect(read("scripts/check-local-secrets.mjs")).toContain(".env.keys");
+  });
+
   it("launches coding agents with a separate least-privilege env file", () => {
     expect(pkg.scripts?.["agent:claude"]).toBe(
       "dotenvx run -f .env.agent --strict --redact -- claude",
