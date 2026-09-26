@@ -90,8 +90,11 @@ export function previewBypassHeaders(
   };
 }
 
-// Evaluated at config load purely to fail closed before any test runs.
-previewBypassHeaders(baseURL, process.env.VERCEL_AUTOMATION_BYPASS_SECRET);
+// Keep config loading credential-independent so collection-only commands such as
+// `playwright test --list` can inspect a Preview-targeted suite without a
+// deployment secret. The setup project calls `previewBypassHeaders()` before
+// the first browser sign-in, so real Preview execution still fails closed at
+// the authentication boundary when the bypass secret is absent.
 
 export default defineConfig({
   testDir: "./e2e",
