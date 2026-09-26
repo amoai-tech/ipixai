@@ -4,6 +4,7 @@ import { test as setup } from "@playwright/test";
 
 import { previewBypassHeaders } from "../playwright.config";
 import { signInAsE2ETestOperator, signInWithCredentials } from "./support/login";
+import { establishAndProveVercelBypass } from "./support/vercel-bypass";
 
 /**
  * https://playwright.dev/docs/auth — project-dependency auth setup.
@@ -29,17 +30,13 @@ setup.setTimeout(60_000);
  * IPI-1344 · E2E-PREVIEW-BYPASS-001 — clear Vercel Deployment Protection before
  * any sign-in, or `/login` is served as Vercel's SSO screen.
  *
- * The bypass header is attached only to requests whose origin is the deployment
- * itself. Playwright's context-wide `extraHTTPHeaders` would instead attach it
- * to every request the browser makes — measured: cross-origin `fetch`, `<img>`
- * and `<script>` all received it — leaking the deployment-protection secret to
- * Supabase and Cloudinary and forcing a CORS preflight those services need not
- * allow. A scoped route keeps the secret on the origin that owns it.
- *
- * This also asks Vercel to set its bypass cookie (`x-vercel-set-bypass-cookie`),
- * so the one navigation below is enough: the cookie is host-scoped, and every
- * setup test persists its context into the storageState files the other
- * projects reuse, so they never need the header at all.
+ * `establishAndProveVercelBypass` does three things, and the third is the one
+ * that matters: it sends the bypass header only to the deployment origin (a
+ * context-wide `extraHTTPHeaders` would leak the secret to Supabase and
+ * Cloudinary — see the module), lets Vercel store its bypass cookie, then
+ * removes the bypass route and re-requests. Only the stored cookie can grant
+ * access on that replay, which is what the other projects need: they carry
+ * only storageState and never re-send the header.
  */
 setup.beforeEach(async ({ page, context, baseURL }) => {
   const headers = previewBypassHeaders(
@@ -48,23 +45,12 @@ setup.beforeEach(async ({ page, context, baseURL }) => {
   );
   if (!headers) return; // local run — nothing to bypass
 
-  const deploymentOrigin = new URL(baseURL ?? "").origin;
-  await context.route("**/*", (route) => {
-    const request = route.request();
-    if (new URL(request.url()).origin !== deploymentOrigin) return route.continue();
-    return route.continue({ headers: { ...request.headers(), ...headers } });
+  await establishAndProveVercelBypass({
+    context,
+    page,
+    deploymentOrigin: new URL(baseURL ?? "").origin,
+    headers,
   });
-
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-
-  // The later projects only carry storageState, so they depend entirely on this
-  // cookie. Fail loudly here rather than letting them die on an SSO screen.
-  const issued = (await context.cookies()).some((cookie) => cookie.name === "_vercel_jwt");
-  if (!issued) {
-    throw new Error(
-      `Vercel Deployment Protection did not issue a bypass cookie for ${deploymentOrigin} (landed on ${page.url()}). Check that VERCEL_AUTOMATION_BYPASS_SECRET is an active "Protection Bypass for Automation" secret for this project.`,
-    );
-  }
 });
 
 setup("authenticate as the E2E test operator", async ({ page }) => {

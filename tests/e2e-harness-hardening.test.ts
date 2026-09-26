@@ -8,6 +8,10 @@ vi.mock("../e2e/support/context", () => ({
 }));
 
 import { SIGN_IN_TIMEOUT_MS, signInWithCredentials } from "../e2e/support/login";
+import {
+  establishAndProveVercelBypass,
+  scopedBypassRoute,
+} from "../e2e/support/vercel-bypass";
 import { isAllowedE2EBaseUrl, previewBypassHeaders } from "../playwright.config";
 import { E2E_WEBSERVER_MARKER, plannerSeedRoutesEnabled } from "../src/lib/planner/seed-routes";
 
@@ -91,19 +95,27 @@ describe("Playwright E2E harness hardening", () => {
     // leaking it and forcing a CORS preflight those services need not allow.
     // Measured against the installed Playwright, cross-origin fetch/img/script
     // requests all received the header. The bypass is scoped to the deployment
-    // origin in e2e/auth.setup.ts instead.
+    // origin in e2e/support/vercel-bypass.ts instead.
     expect(config).not.toContain("extraHTTPHeaders:");
     expect(config).toContain("previewBypassHeaders(baseURL, process.env.VERCEL_AUTOMATION_BYPASS_SECRET)");
 
     const authSetup = readFileSync(path.resolve(process.cwd(), "e2e/auth.setup.ts"), "utf8");
     expect(authSetup).toContain("previewBypassHeaders(");
     expect(authSetup).toContain("setup.beforeEach(");
+    expect(authSetup).toContain("establishAndProveVercelBypass(");
+
+    const bypass = readFileSync(
+      path.resolve(process.cwd(), "e2e/support/vercel-bypass.ts"),
+      "utf8",
+    );
     // The header is added only on the deployment origin...
-    expect(authSetup).toContain("context.route(");
-    expect(authSetup).toContain("new URL(request.url()).origin !== deploymentOrigin");
-    // ...and the cookie Vercel issues is asserted, because the other projects
-    // carry only storageState and would otherwise die on an SSO screen.
-    expect(authSetup).toContain("_vercel_jwt");
+    expect(bypass).toContain("context.route(");
+    expect(bypass).toContain("originOf(request.url()) !== deploymentOrigin");
+    // ...the route is removed before the replay...
+    expect(bypass).toContain("context.unroute(");
+    // ...and Vercel's internal cookie name is deliberately NOT what proves it.
+    expect(bypass).not.toContain("_vercel_jwt");
+    expect(authSetup).not.toContain("_vercel_jwt");
   });
 
   it("keeps the exact-SHA Preview workflow's journey run wired to the deployed artifact", () => {
@@ -308,4 +320,150 @@ describe("Playwright E2E harness hardening", () => {
     expect(source).not.toContain('getByTestId("compose-shoot-plan-card")');
   });
 
+});
+
+// IPI-1344 · E2E-PREVIEW-BYPASS-001 — the bypass is only useful if the cookie
+// Vercel stores keeps working once the header is gone, because every project
+// after `setup` carries storageState and never re-sends the header. Asserting a
+// named cookie existed was the previous weakness: it passed even when Vercel
+// rejected the cookie on the next request. These prove the replay instead.
+const PREVIEW_ORIGIN = "https://ipixai-abc123-amoco.vercel.app";
+const BYPASS_HEADERS = {
+  "x-vercel-protection-bypass": "the-secret",
+  "x-vercel-set-bypass-cookie": "true",
+};
+const IPIX_TITLE = "iPix — AI-Powered Content Studio for Fashion Brands";
+
+function cookieJar(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    name: `cookie-${index}`,
+    value: "irrelevant",
+    domain: "ipixai-abc123-amoco.vercel.app",
+    path: "/",
+    expires: -1,
+    httpOnly: true,
+    secure: true,
+    sameSite: "Lax" as const,
+  }));
+}
+
+function fakeRoute(url: string, headers: Record<string, string> = {}) {
+  const continueFn = vi.fn(async () => undefined);
+  return {
+    route: {
+      request: () => ({ url: () => url, headers: () => headers }),
+      continue: continueFn,
+    },
+    continueFn,
+  };
+}
+
+function bypassHarness(options: {
+  cookiesBefore?: number;
+  cookiesAfter?: number;
+  replayUrl?: string;
+  replayTitle?: string;
+}) {
+  const calls: string[] = [];
+  const context = {
+    route: vi.fn(async () => {
+      calls.push("route");
+    }),
+    unroute: vi.fn(async () => {
+      calls.push("unroute");
+    }),
+    cookies: vi
+      .fn()
+      .mockResolvedValueOnce(cookieJar(options.cookiesBefore ?? 0))
+      .mockResolvedValueOnce(cookieJar(options.cookiesAfter ?? 1)),
+  };
+  const page = {
+    goto: vi.fn(async () => {
+      calls.push("goto");
+      return null;
+    }),
+    url: vi.fn(() => options.replayUrl ?? `${PREVIEW_ORIGIN}/`),
+    title: vi.fn(async () => options.replayTitle ?? IPIX_TITLE),
+  };
+  const run = () =>
+    establishAndProveVercelBypass({
+      context: context as never,
+      page: page as never,
+      deploymentOrigin: PREVIEW_ORIGIN,
+      headers: BYPASS_HEADERS,
+    });
+  // `calls` is appended live, so read it after awaiting `run()`.
+  return { context, page, run, calls };
+}
+
+describe("Vercel Deployment Protection bypass proof", () => {
+  it("sends the bypass secret only to the deployment origin", async () => {
+    const handler = scopedBypassRoute(PREVIEW_ORIGIN, BYPASS_HEADERS);
+
+    const sameOrigin = fakeRoute(`${PREVIEW_ORIGIN}/login`, { accept: "text/html" });
+    await handler(sameOrigin.route as never);
+    expect(sameOrigin.continueFn).toHaveBeenCalledWith({
+      headers: { accept: "text/html", ...BYPASS_HEADERS },
+    });
+
+    // Supabase and Cloudinary calls must never carry the deployment secret.
+    const crossOrigin = fakeRoute("https://project.supabase.co/auth/v1/token");
+    await handler(crossOrigin.route as never);
+    expect(crossOrigin.continueFn).toHaveBeenCalledWith();
+
+    // An unparseable URL is treated as cross-origin rather than leaking.
+    const opaque = fakeRoute("about:blank");
+    await handler(opaque.route as never);
+    expect(opaque.continueFn).toHaveBeenCalledWith();
+  });
+
+  it("removes the bypass route before replaying, and passes when the cookie still works", async () => {
+    const harness = bypassHarness({ cookiesBefore: 0, cookiesAfter: 1 });
+    await harness.run();
+
+    // The replay must happen with the header already gone — that ordering is
+    // the whole proof, so assert the sequence rather than just the call count.
+    expect(harness.calls).toEqual(["route", "goto", "unroute", "goto"]);
+    expect(harness.context.unroute).toHaveBeenCalledWith("**/*", expect.any(Function));
+    expect(harness.context.cookies).toHaveBeenCalledWith(PREVIEW_ORIGIN);
+  });
+
+  it("fails closed when Vercel stores no bypass cookie", async () => {
+    const harness = bypassHarness({ cookiesBefore: 0, cookiesAfter: 0 });
+    await expect(harness.run()).rejects.toThrow("stored no bypass cookie");
+    // No replay: a cookie-less second request would only prove the SSO screen.
+    expect(harness.calls).toEqual(["route", "goto", "unroute"]);
+  });
+
+  it("fails when the stored cookie alone does not reach iPix", async () => {
+    const harness = bypassHarness({
+      cookiesBefore: 0,
+      cookiesAfter: 1,
+      replayUrl: `https://vercel.com/login?next=%2Fsso-api%3Furl%3D${encodeURIComponent(PREVIEW_ORIGIN)}`,
+      replayTitle: "Login – Vercel",
+    });
+    await expect(harness.run()).rejects.toThrow("did not grant access");
+  });
+
+  it("fails when the deployment origin serves Vercel's interstitial instead of iPix", async () => {
+    // Same origin, wrong document — the origin check alone is not enough.
+    const harness = bypassHarness({
+      cookiesBefore: 0,
+      cookiesAfter: 1,
+      replayUrl: `${PREVIEW_ORIGIN}/`,
+      replayTitle: "Authentication Required – Vercel",
+    });
+    await expect(harness.run()).rejects.toThrow("did not grant access");
+  });
+
+  it("accepts any cookie Vercel chooses to store, not a hard-coded name", async () => {
+    // Vercel is free to rename its internal cookie; the proof is behavioural.
+    const harness = bypassHarness({ cookiesBefore: 0, cookiesAfter: 1 });
+    await expect(harness.run()).resolves.toBeUndefined();
+    const source = readFileSync(
+      path.resolve(process.cwd(), "e2e/support/vercel-bypass.ts"),
+      "utf8",
+    );
+    expect(source).not.toContain("_vercel_jwt");
+  });
 });
