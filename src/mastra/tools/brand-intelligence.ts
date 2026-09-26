@@ -78,9 +78,23 @@ function requireSupabaseConfig() {
  * tests) after() throws, and the promise simply runs detached as before.
  */
 function keepAlive(task: Promise<unknown>): void {
-  const settled = task.catch((error: unknown) => {
-    console.error("[brand-intelligence] workflow run failed", error);
-  });
+  const settled = task
+    .then((result: unknown) => {
+      // run.start() usually reports a failed run by resolving, not rejecting.
+      if (
+        result !== null &&
+        typeof result === "object" &&
+        (result as { status?: unknown }).status === "failed"
+      ) {
+        console.error(
+          "[brand-intelligence] workflow run failed",
+          (result as { error?: unknown }).error ?? result,
+        );
+      }
+    })
+    .catch((error: unknown) => {
+      console.error("[brand-intelligence] workflow run failed", error);
+    });
   try {
     after(settled);
   } catch {

@@ -224,6 +224,31 @@ describe("startBrandAnalysis", () => {
     expect(mocks.start).toHaveBeenCalledTimes(1);
   });
 
+  it("logs a run that resolves with status failed", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const failure = new Error("Failed to start brand crawl: Authorization required");
+    mocks.start.mockResolvedValue({ status: "failed", error: failure });
+    mocks.orgMembers.mockResolvedValue({ data: [{ org_id: ORG_ID }], error: null });
+
+    await startBrandAnalysis.execute!({ brandId: BRAND_ID }, ctx);
+    await (mocks.after.mock.calls[0][0] as Promise<unknown>);
+
+    expect(errorSpy).toHaveBeenCalledWith("[brand-intelligence] workflow run failed", failure);
+    errorSpy.mockRestore();
+  });
+
+  it("does not log a run that suspends normally", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.start.mockResolvedValue({ status: "suspended" });
+    mocks.orgMembers.mockResolvedValue({ data: [{ org_id: ORG_ID }], error: null });
+
+    await startBrandAnalysis.execute!({ brandId: BRAND_ID }, ctx);
+    await (mocks.after.mock.calls[0][0] as Promise<unknown>);
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
   it("logs, rather than leaks, a run that rejects in the background", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     mocks.start.mockRejectedValue(new Error("boom"));
