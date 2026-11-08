@@ -6,7 +6,7 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Security
 
-- security(deps): patch the next/og RCE and clear all critical advisories; next 16.4.5, dompurify 3.4.17, proxy-addr 2.0.8, shell-quote 1.12.0, undici 6.29.1/8.12.4 by consumer, @fastify/busboy 3.2.5; npm audit critical 5 -> 0, high 49 -> 46 (IPI-1291, #322)
+- security(deps): patch the next/og RCE and clear all critical advisories; next 16.4.5, dompurify 3.4.17, proxy-addr 2.0.8, shell-quote 1.12.0, undici 6.29.1/8.12.4 by consumer, @fastify/busboy 3.2.5; npm audit critical 5 -> 0, high 49 -> 46 (IPI-1421, #322)
 
 ### Added
 
