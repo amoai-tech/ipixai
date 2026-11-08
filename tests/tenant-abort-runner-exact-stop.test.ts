@@ -733,4 +733,26 @@ describe("IPI-1389 CopilotKit 1.85 authenticated runner ownership", () => {
     expect(slow.finished).toBe(true);
     expect(running.events.map((event) => event.type)).toContain(EventType.RUN_FINISHED);
   });
+
+  it("matches a server-side Stop only to a run started without an owner", async () => {
+    let release!: () => void;
+    memoryGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const slow = new SlowAgent();
+    const running = collect(
+      runner.run({
+        threadId,
+        agent: wrapAbortRun(slow),
+        input: input(threadId, "SRV-R1"),
+      }),
+    );
+
+    expect(await runner.stop({ threadId, runId: "SRV-R1", ownerId: FOREIGN })).toBe(false);
+    expect(await runner.stop({ threadId, runId: "SRV-R1" })).toBe(true);
+    release();
+    await running.done;
+  });
 });

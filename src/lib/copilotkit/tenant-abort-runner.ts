@@ -1,4 +1,4 @@
-import { InMemoryAgentRunner, ɵresolveThreadOwner } from "@copilotkit/runtime/v2";
+import { InMemoryAgentRunner } from "@copilotkit/runtime/v2";
 import { EventType, randomUUID } from "@ag-ui/client";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable } from "rxjs";
@@ -53,8 +53,14 @@ export function attachRunnerAbort(agents: Record<string, AbstractAgent>) {
  */
 type PendingRun = {
   runId: string | undefined;
-  /** Resolved owner that started this run; a Stop must name the same owner. */
-  owner: string;
+  /**
+   * The `ownerId` the run was started with, kept verbatim. A Stop must carry
+   * the same value: an absent ownerId matches only another absent ownerId
+   * (server-side calls), never an identified operator. Using the raw value
+   * avoids depending on CopilotKit's internal owner resolver, which carries no
+   * semver guarantee.
+   */
+  owner: string | undefined;
   stopRequested: boolean;
 };
 const pendingRuns = new Map<string, Set<PendingRun>>();
@@ -102,7 +108,7 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
     };
     const pending: PendingRun = {
       runId: request.input?.runId,
-      owner: ɵresolveThreadOwner(request.ownerId),
+      owner: request.ownerId,
       stopRequested: false,
     };
     const threadPending = pendingRuns.get(runnerThreadId) ?? new Set<PendingRun>();
@@ -228,10 +234,11 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
 
   private async stopLocal(request: Parameters<InMemoryAgentRunner["stop"]>[0]) {
     const runnerThreadId = this.scope(request.threadId);
-    // A Stop without ownerId acts as the server owner, matching the runtime's
-    // own resolution. A foreign owner must not mark another owner's startup
-    // run as stopped, even when it names the exact runId.
-    const owner = ɵresolveThreadOwner(request.ownerId);
+    // Compare the raw ownerId the run was started with. A Stop without an
+    // ownerId matches only a run that also started without one, so a foreign
+    // operator cannot mark another owner's startup run as stopped even when it
+    // names the exact runId.
+    const owner = request.ownerId;
     let stopsPending = false;
     for (const pending of pendingRuns.get(runnerThreadId) ?? []) {
       if (pending.owner !== owner) continue;
