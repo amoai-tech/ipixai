@@ -9,7 +9,7 @@ tags: mastra, mdeai, concierge, sse, tools, deployment
 
 # Legacy MDE Concierge — historical reference only
 
-> **NOT FOR IPIX:** This page describes a different product (MDE rentals/events, `ai_runs` and the legacy `my-mastra-app`). Never use it as the default Production Planner, tenant model, CopilotKit transport, or API contract. In iPix use `../tools.md`, `../workflows.md`, `../memory.md` and the canonical CopilotKit skill. Preserve solely for explicit migration comparison.
+> **NOT FOR IPIX:** This page describes a different product (MDE rentals/events, `ai_runs` and the legacy `my-mastra-app`). Never use it as the default Production Planner, tenant model, CopilotKit transport, or API contract. In iPix use the canonical Mastra skill's `references/tools.md`, `references/workflows.md` and `references/memory.md`, plus the canonical CopilotKit skill. Preserve solely for explicit migration comparison.
 
 ## Agent structure (don't change without a plan)
 

@@ -48,7 +48,9 @@ describe("IPI-1419 — Mastra 1.82 reference migration safety", () => {
     expect(workspace).toContain("server-side authenticated actor");
     expect(workspace).toContain("requireApproval: async () => true");
     expect(workspace).not.toContain("readOnly: role !== 'admin'");
-    expect(workspace).toContain("resolveWorkspaceRootForAuthenticatedActor");
+    expect(workspace).toContain("createWorkspaceForAuthenticatedRequest(request: Request)");
+    expect(workspace).toContain("requireAuthorizedWorkspaceRoot(request)");
+    expect(workspace).not.toContain("const authorizedWorkspaceRoot = await");
   });
 
   it("distinguishes MCP schemas and optional observability features", () => {

@@ -182,19 +182,20 @@ The agent receives the `execute_command` tool.
 Pass a resolver function to `filesystem` to return a different filesystem per request. This is useful for multi-tenant applications or multi-role agents where each request needs a different storage root or different permissions.
 
 ```typescript
-// In iPix, authorize a workspace root from the signed-in server
-// session BEFORE constructing this Workspace; never use a client role or path.
-const authorizedWorkspaceRoot = await resolveWorkspaceRootForAuthenticatedActor()
-// Application-owned server authorization function; NOT a Mastra API.
-const workspace = new Workspace({
-  filesystem: () => new LocalFilesystem({
-    basePath: authorizedWorkspaceRoot,
-    readOnly: true, // deny writes until a separate server approval gate exists
-  }),
-})
+// Illustrative request-scoped factory: this application helper is NOT a Mastra API.
+// It must authenticate the request, verify org/workspace ownership, and throw on denial.
+async function createWorkspaceForAuthenticatedRequest(request: Request) {
+  const authorizedRoot = await requireAuthorizedWorkspaceRoot(request)
+  return new Workspace({
+    filesystem: () => new LocalFilesystem({
+      basePath: authorizedRoot,
+      readOnly: true, // deny writes until a separate server approval gate exists
+    }),
+  })
+}
 ```
 
-**iPix note:** The replacement above is an illustrative fail-closed resolver, not a ready-to-run application function. Implement `resolveWorkspaceRootForAuthenticatedActor()` with the signed-in session and database-authorized workspace ownership before any filesystem access. Do not capture one tenant's root in a global Workspace reused across tenants: either supply request-scoped **server-verified** resolution or reject the request. [Official dynamic filesystem](https://mastra.ai/docs/workspace/filesystem) documents the callback, not iPix authorization.
+**iPix note:** This is illustrative, **not a ready-to-run application function**. Implement `requireAuthorizedWorkspaceRoot(request)` with the server-derived identity, database-authorized organization/workspace ownership and a canonical allowlisted root before creating a **request-scoped** Workspace. Reject missing/unauthorized requests. Never capture one tenant's root in a global Workspace shared across tenants, derive a writable path from a browser-supplied role, or treat RequestContext as permission. [Official dynamic filesystem](https://mastra.ai/docs/workspace/filesystem) documents the callback, not iPix authorization.
 
 ### Which pattern should I use?
 
