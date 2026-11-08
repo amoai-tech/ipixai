@@ -390,7 +390,7 @@ export class PlannerRunControl {
     const waiter = settleAfter<ConnectAck | null>(this.timeoutMs, null);
     const buffered: Array<{ runId: string; seq: number; event: BaseEvent }> = [];
     const listeners = new Set<(event: BaseEvent) => void>();
-    let lastDeliveredSeq = -1;
+    const lastDeliveredSeq = { value: -1 };
     let activeRunId: string | undefined;
     let closed = false;
     const off = bus.onMessage((message) => {
@@ -406,13 +406,13 @@ export class PlannerRunControl {
       if (message.kind !== "event") return;
       if (message.replayFor !== undefined && message.replayFor !== requestId) return;
       if (activeRunId && message.runId !== activeRunId) return;
-      if (message.seq <= lastDeliveredSeq) return;
+      if (message.seq <= lastDeliveredSeq.value) return;
       if (listeners.size === 0) {
         buffered.push({ runId: message.runId, seq: message.seq, event: message.event });
         return;
       }
       if (message.runId === activeRunId) {
-        lastDeliveredSeq = message.seq;
+        lastDeliveredSeq.value = message.seq;
         for (const listener of listeners) listener(message.event);
       }
     });
@@ -427,7 +427,7 @@ export class PlannerRunControl {
       }
       activeRunId = ack.runId;
       return this.remoteConnection(bus, off, ack, buffered, listeners,
-        () => lastDeliveredSeq, (seq) => { lastDeliveredSeq = seq; },
+        lastDeliveredSeq,
         () => closed, (value) => { closed = value; },
       );
     } catch (error) {
@@ -444,8 +444,7 @@ export class PlannerRunControl {
     ack: ConnectAck,
     buffered: Array<{ runId: string; seq: number; event: BaseEvent }>,
     listeners: Set<(event: BaseEvent) => void>,
-    getLastDeliveredSeq: () => number,
-    setLastDeliveredSeq: (seq: number) => void,
+    lastDeliveredSeq: { value: number },
     isClosed: () => boolean,
     setClosed: (value: boolean) => void,
   ): PlannerRemoteRunConnection {
@@ -461,8 +460,8 @@ export class PlannerRunControl {
           .filter((item) => item.runId === ack.runId)
           .sort((a, b) => a.seq - b.seq);
         for (const item of pending) {
-          if (item.seq <= getLastDeliveredSeq()) continue;
-          setLastDeliveredSeq(item.seq);
+          if (item.seq <= lastDeliveredSeq.value) continue;
+          lastDeliveredSeq.value = item.seq;
           handler(item.event);
         }
         return () => listeners.delete(handler);
