@@ -9,7 +9,12 @@ import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { InMemoryAgentRunner } from "@copilotkit/runtime/v2";
 import { Observable } from "rxjs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PlannerRunControl } from "@/lib/copilotkit/planner-run-control";
+import {
+  PlannerRunControl,
+  type OpenPlannerRunControlBus,
+  type PlannerRunControlBus,
+  type PlannerRunControlMessage,
+} from "@/lib/copilotkit/planner-run-control";
 
 let releaseMemory: () => void = () => {};
 let memoryGate: Promise<void> = Promise.resolve();
@@ -118,6 +123,35 @@ function collect(observable: Observable<BaseEvent>) {
 const RESOURCE = "org-a:user-a";
 let threadSeq = 0;
 const nextThread = () => `thread-${++threadSeq}`;
+
+function controlNetwork(): OpenPlannerRunControlBus {
+  type Peer = PlannerRunControlBus & { deliver(message: PlannerRunControlMessage): void };
+  const topics = new Map<string, Set<Peer>>();
+  return async (threadId) => {
+    const handlers = new Set<(message: PlannerRunControlMessage) => void>();
+    const peers = topics.get(threadId) ?? new Set<Peer>();
+    let peer!: Peer;
+    peer = {
+      async send(message) {
+        for (const other of peers) if (other !== peer) other.deliver(message);
+      },
+      onMessage(handler) {
+        handlers.add(handler);
+        return () => handlers.delete(handler);
+      },
+      async close() {
+        handlers.clear();
+        peers.delete(peer);
+      },
+      deliver(message) {
+        for (const handler of handlers) handler(message);
+      },
+    };
+    peers.add(peer);
+    topics.set(threadId, peers);
+    return peer;
+  };
+}
 
 afterEach(() => {
   releaseMemory();
@@ -398,7 +432,7 @@ describe("IPI-1290 TenantAbortRunner exact-run Stop", () => {
     expect(await runner.isRunning({ threadId: "remote-thread" })).toBe(true);
     expect(await runner.stop({ threadId: "remote-thread", runId: "R1" })).toBe(true);
     expect(remote.isRunning).toHaveBeenCalledWith("remote-thread");
-    expect(remote.stop).toHaveBeenCalledWith("remote-thread", "R1");
+    expect(remote.stop).toHaveBeenCalledWith("remote-thread", "R1", undefined);
   });
 
   it("relays new live events from a remote owner instead of falling back to durable history", async () => {
@@ -442,7 +476,7 @@ describe("IPI-1290 TenantAbortRunner exact-run Stop", () => {
     );
     await run.done;
 
-    expect(own).toHaveBeenCalledWith(threadId, "R1", expect.any(Function));
+    expect(own).toHaveBeenCalledWith(threadId, "R1", expect.any(Function), undefined);
     expect(publish.mock.calls.map(([event]) => event.type)).toEqual(
       expect.arrayContaining([EventType.RUN_STARTED, EventType.RUN_FINISHED]),
     );
@@ -576,9 +610,8 @@ describe("IPI-1389 CopilotKit 1.85 authenticated runner ownership", () => {
       .mockReturnValue([]);
 
     runner.getThreadMessages(threadId, scope);
-    // getThreadState deliberately reads the parent's event list directly, so
-    // the scoped identity must reach getThreadEvents (not the parent state
-    // method, which would re-enter the overridden getThreadEvents).
+    // The inherited getThreadState calls this.getThreadEvents(), so the
+    // existing override scopes once and preserves CopilotKit's compaction.
     runner.getThreadState(threadId, scope);
 
     expect(messages).toHaveBeenCalledWith(`${RESOURCE}::${threadId}`, scope);
@@ -730,6 +763,39 @@ describe("IPI-1389 CopilotKit 1.85 authenticated runner ownership", () => {
     expect(await runner.stop({ threadId, runId: "OWN-R9", ownerId: FOREIGN })).toBe(false);
     release();
     await running.done;
+    expect(slow.finished).toBe(true);
+    expect(running.events.map((event) => event.type)).toContain(EventType.RUN_FINISHED);
+  });
+
+  it("rejects cross-instance foreign Stop during startup before the thread is claimed", async () => {
+    let release!: () => void;
+    memoryGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const threadId = nextThread();
+    const openBus = controlNetwork();
+    const ownerControl = new PlannerRunControl(openBus, { instanceId: "host-A", timeoutMs: 350 });
+    const controllerControl = new PlannerRunControl(openBus, { instanceId: "host-B", timeoutMs: 350 });
+    const ownerRunner = new TenantAbortRunner(RESOURCE, new AbortController().signal, ownerControl);
+    const controllerRunner = new TenantAbortRunner(RESOURCE, new AbortController().signal, controllerControl);
+    const slow = new SlowAgent();
+    const running = collect(
+      ownerRunner.run({
+        threadId,
+        agent: wrapAbortRun(slow),
+        input: input(threadId, "OWN-R10"),
+        ownerId: OWNER,
+      }),
+    );
+
+    // Owner broadcasts its run before super.run can claim the thread.
+    await vi.waitFor(async () => {
+      expect(await controllerControl.isRunning(threadId)).toBe(true);
+    });
+    expect(await controllerRunner.stop({ threadId, runId: "OWN-R10", ownerId: FOREIGN })).toBe(false);
+    release();
+    await running.done;
+    expect(slow.runs).toBe(1);
     expect(slow.finished).toBe(true);
     expect(running.events.map((event) => event.type)).toContain(EventType.RUN_FINISHED);
   });

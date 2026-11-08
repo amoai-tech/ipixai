@@ -205,6 +205,44 @@ describe("PlannerRunControl", () => {
     await handle.close();
   });
 
+  it("rejects foreign-owner and ownerless Stop on a remote claimed run", async () => {
+    const wire = network();
+    const stopLocal = vi.fn(async () => true);
+    const owner = new PlannerRunControl(wire.openBus, { instanceId: "A", timeoutMs: 100 });
+    const controller = new PlannerRunControl(wire.openBus, { instanceId: "B", timeoutMs: 100 });
+    const handle = await owner.own("thread-owned", "R1", stopLocal, "operator-A");
+
+    expect(await controller.stop("thread-owned", "R1", "operator-B")).toMatchObject({ stopped: false });
+    expect(await controller.stop("thread-owned", "R1")).toMatchObject({ stopped: false });
+    expect(stopLocal).not.toHaveBeenCalled();
+    // A denied request must not poison the successful Stop's idempotency cache.
+    expect(await controller.stop("thread-owned", "R1", "operator-A")).toMatchObject({ stopped: true });
+    expect(stopLocal).toHaveBeenCalledExactlyOnceWith("R1");
+
+    await handle.close();
+  });
+
+  it("denies an identified owner from stopping a server-owned remote run", async () => {
+    const wire = network();
+    const stopLocal = vi.fn(async () => true);
+    const owner = new PlannerRunControl(wire.openBus, { instanceId: "A", timeoutMs: 100 });
+    const controller = new PlannerRunControl(wire.openBus, { instanceId: "B", timeoutMs: 100 });
+    const handle = await owner.own("thread-server", "R2", stopLocal);
+
+    expect(await controller.stop("thread-server", "R2", "operator-A")).toMatchObject({ stopped: false });
+    expect(stopLocal).not.toHaveBeenCalled();
+    expect(await controller.stop("thread-server", "R2")).toMatchObject({ stopped: true });
+    expect(stopLocal).toHaveBeenCalledExactlyOnceWith("R2");
+
+    await handle.close();
+  });
+
+  it("rejects invalid requesting owner identities at the bus boundary", () => {
+    expect(isPlannerRunControlMessage({ kind: "stop", requestId: "id", runId: "R1", ownerId: "" })).toBe(false);
+    expect(isPlannerRunControlMessage({ kind: "stop", requestId: "id", runId: "R1", ownerId: 4 })).toBe(false);
+    expect(isPlannerRunControlMessage({ kind: "stop", requestId: "id", runId: "R1", ownerId: "operator-A" })).toBe(true);
+  });
+
   it("ignores a non-owner Stop acknowledgement when two runs overlap on one thread", async () => {
     const wire = network();
     const stopR1 = vi.fn(async () => true);

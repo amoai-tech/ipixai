@@ -6,7 +6,7 @@ export type PlannerRunControlMessage =
   | { kind: "probe_ack"; requestId: string; runId: string; ownerInstanceId: string }
   | { kind: "connect"; requestId: string }
   | { kind: "connect_ack"; requestId: string; runId: string; ownerInstanceId: string }
-  | { kind: "stop"; requestId: string; runId: string }
+  | { kind: "stop"; requestId: string; runId: string; ownerId?: string }
   | { kind: "stop_ack"; requestId: string; runId: string; stopped: boolean; ownerInstanceId: string }
   | { kind: "event"; runId: string; seq: number; event: BaseEvent; replayFor?: string };
 
@@ -30,7 +30,8 @@ export function isPlannerRunControlMessage(value: unknown): value is PlannerRunC
   if (kind === "probe_ack" || kind === "connect_ack") {
     return boundedString(message.requestId, 128) && boundedString(message.runId) && boundedString(message.ownerInstanceId, 128);
   }
-  if (kind === "stop") return boundedString(message.requestId, 128) && boundedString(message.runId);
+  if (kind === "stop") return boundedString(message.requestId, 128) && boundedString(message.runId) &&
+    (message.ownerId === undefined || boundedString(message.ownerId));
   if (kind === "stop_ack") {
     return boundedString(message.requestId, 128) && boundedString(message.runId) && typeof message.stopped === "boolean" && boundedString(message.ownerInstanceId, 128);
   }
@@ -160,6 +161,7 @@ export class PlannerRunControl {
     threadId: string,
     runId: string,
     stopLocal: (runId: string) => Promise<boolean>,
+    ownerId?: string,
   ): Promise<PlannerRunOwnerHandle> {
     const bus = await this.openBus(threadId);
     // One stop operation per run, regardless of the controller's request ID.
@@ -249,6 +251,19 @@ export class PlannerRunControl {
         }
         if (message.kind === "stop") {
           if (message.runId !== runId) return;
+          // The bus topic is tenant-scoped, but an exact runId alone must not
+          // grant Stop to a different owner on another runtime instance.
+          // Absent ownerId is the server owner, never a wildcard.
+          if (message.ownerId !== ownerId) {
+            await enqueue({
+              kind: "stop_ack",
+              requestId: message.requestId,
+              runId,
+              stopped: false,
+              ownerInstanceId: this.instanceId,
+            });
+            return;
+          }
           if (!stopResult) {
             stopResult = stopLocal(runId).then(
               (stopped) => {
@@ -377,9 +392,9 @@ export class PlannerRunControl {
     return (await this.probe(threadId)) !== null;
   }
 
-  async stop(threadId: string, runId: string): Promise<StopAck | null> {
+  async stop(threadId: string, runId: string, ownerId?: string): Promise<StopAck | null> {
     const requestId = randomUUID();
-    return this.request(threadId, { kind: "stop", requestId, runId }, (message): message is StopAck =>
+    return this.request(threadId, { kind: "stop", requestId, runId, ...(ownerId !== undefined ? { ownerId } : {}) }, (message): message is StopAck =>
       message.kind === "stop_ack" && message.requestId === requestId && message.runId === runId,
     );
   }

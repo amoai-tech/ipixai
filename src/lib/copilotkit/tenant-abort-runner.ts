@@ -131,6 +131,7 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
                   // InMemoryAgentRunner refuses a Stop whose ownerId differs.
                   ...(request.ownerId !== undefined ? { ownerId: request.ownerId } : {}),
                 }),
+                request.ownerId,
               )
               .catch((error) => {
                 console.warn("[planner-run-control] owner_open_failed", {
@@ -261,7 +262,7 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
     if (await this.stopLocal(request)) return true;
     if (!this.runControl || request.runId === undefined) return false;
     try {
-      const remote = await this.runControl.stop(request.threadId, request.runId);
+      const remote = await this.runControl.stop(request.threadId, request.runId, request.ownerId);
       if (remote?.stopped) {
         console.info("[planner-run-control] remote_stop_succeeded", {
           controllerInstanceId: plannerRuntimeInstanceId,
@@ -442,26 +443,6 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
     scope?: Parameters<InMemoryAgentRunner["getThreadEvents"]>[1],
   ) {
     return super.getThreadEvents(this.scope(threadId), scope);
-  }
-
-  override getThreadState(
-    threadId: string,
-    scope?: Parameters<InMemoryAgentRunner["getThreadState"]>[1],
-  ) {
-    // The parent derives state by calling `this.getThreadEvents()`, which would
-    // re-enter the override above and prefix the already-scoped id a second
-    // time — every state read would be null. Read the parent's event list
-    // directly and apply the parent's own "last STATE_SNAPSHOT" rule.
-    const events = super.getThreadEvents(this.scope(threadId), scope);
-    for (let i = events.length - 1; i >= 0; i -= 1) {
-      const event = events[i];
-      if (event.type !== EventType.STATE_SNAPSHOT) continue;
-      const snapshot = (event as { snapshot?: unknown }).snapshot;
-      return snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)
-        ? { ...(snapshot as Record<string, unknown>) }
-        : null;
-    }
-    return null;
   }
 
   override listThreads(scope?: Parameters<InMemoryAgentRunner["listThreads"]>[0]) {
