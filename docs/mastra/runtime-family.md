@@ -6,11 +6,11 @@ This file records the currently installed compatibility family. `package.json` a
 
 | Package | Version |
 |---|---:|
-| `@copilotkit/runtime` | 1.73.3 |
-| `@copilotkit/react-core` | 1.73.3 |
-| `@copilotkit/channels` | 0.11.0 |
-| `@ag-ui/client` | 0.0.59 |
-| `@ag-ui/mastra` | 1.1.4 |
+| `@copilotkit/runtime` | 1.85.0 |
+| `@copilotkit/react-core` | 1.85.0 |
+| `@copilotkit/channels` | 0.12.0 |
+| `@ag-ui/client` | 1.0.2 |
+| `@ag-ui/mastra` | 2.0.2 |
 | `@mastra/core` | 1.71.0 |
 | `@mastra/memory` | 1.32.1 |
 | `@mastra/pg` | 1.27.1 |

@@ -1,5 +1,5 @@
 /**
- * IPI-1290 · COPILOTKIT-UPGRADE-001: with CopilotKit 1.73.3 the /stop body
+ * IPI-1290 · COPILOTKIT-UPGRADE-001: with CopilotKit 1.85.0 the /stop body
  * carries `{ runId }`. TenantAbortRunner must forward that exact runId and
  * must never let a stale Stop(R1) cancel a newer run R2 — neither while R2
  * is still starting (pending) nor once it is active.

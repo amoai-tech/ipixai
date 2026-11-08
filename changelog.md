@@ -4,6 +4,10 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- IPI-1389 · COPILOTKIT-UPGRADE-001 — Upgraded the CopilotKit/AG-UI half of the Planner runtime to `@copilotkit/runtime`/`@copilotkit/react-core` `1.85.0`, `@copilotkit/channels` `0.12.0`, `@ag-ui/client`/`@ag-ui/core`/`@ag-ui/encoder`/`@ag-ui/proto` `1.0.2`, and `@ag-ui/mastra` `2.0.2`, with Mastra deliberately held at `1.71.0` for this task. AG-UI is pinned to `1.0.2` because `@copilotkit/runtime@1.85.0` depends on exactly that version; `1.0.4` would install a second copy. The four `@ag-ui/*` `overrides` moved in the same commit — leaving them at `0.0.59` makes `npm install` fail with `EOVERRIDE`. `@ag-ui/core` is now a declared dependency because the tests import it directly. Runtime pin tests, the canonical `docs/mastra/runtime-family.md` table and the CopilotKit skill references were updated to match; `npm test` (1917 passed, 3 skipped), `tsc --noEmit` and `next build` are green. No Mastra package, database schema, migration or deployment changed.
+
 ### Added
 
 - IPI-1294 / PR #258 — Standardized Linear workflow governance with mandatory four-template routing, documented exception and outage-handoff paths, clear `todo.md`/changelog ownership, and regression tests for the governance contract.

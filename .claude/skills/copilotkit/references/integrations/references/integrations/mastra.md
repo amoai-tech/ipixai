@@ -14,15 +14,15 @@ For version-sensitive decisions:
 
 Do not copy dependency pins, demo auth, in-memory storage, or demo agent names from an upstream example into iPix.
 
-## Current installed iPix family — verified 2026-09-28
+## Current installed iPix family — verified 2026-11-08
 
 | Package | iPix pin |
 | --- | ---: |
-| `@copilotkit/runtime` | `1.73.3` |
-| `@copilotkit/react-core` | `1.73.3` |
-| `@copilotkit/channels` | `0.11.0` |
-| `@ag-ui/client` | `0.0.59` |
-| `@ag-ui/mastra` | `1.1.4` |
+| `@copilotkit/runtime` | `1.85.0` |
+| `@copilotkit/react-core` | `1.85.0` |
+| `@copilotkit/channels` | `0.12.0` |
+| `@ag-ui/client` | `1.0.2` |
+| `@ag-ui/mastra` | `2.0.2` |
 | `@mastra/core` | `1.71.0` |
 | `@mastra/memory` | `1.32.1` |
 | `@mastra/pg` | `1.27.1` |
@@ -95,7 +95,7 @@ export const DELETE = handler;
 
 This snippet intentionally omits auth-hook implementation detail and the `requestToken.run(...)` bearer propagation wrapper; the real route is authority. Do not replace it with demo identity or browser-owned org/thread values.
 
-**Endpoint API note:** installed `@copilotkit/runtime 1.73.3` marks `createCopilotEndpoint` as a deprecated alias of `createCopilotHonoHandler`. The current iPix route still imports the alias, so do not copy that alias into new code. Runtime cleanup should be a separate reviewed code change; this skill-sync task changes guidance only.
+**Endpoint API note:** installed `@copilotkit/runtime 1.85.0` marks `createCopilotEndpoint` as a deprecated alias of `createCopilotHonoHandler`. The current iPix route still imports the alias, so do not copy that alias into new code. Runtime cleanup should be a separate reviewed code change; this skill-sync task changes guidance only.
 
 ## Official CopilotKit reference — ADAPT, never copy wholesale
 
@@ -110,9 +110,9 @@ Pinned upstream baseline used for this audit:
 
 Refetch upstream before a future implementation; the pinned SHA is evidence for this audit, not permanent API authority.
 
-## HITL / interrupts — verified against installed `@ag-ui/mastra 1.1.4`
+## HITL / interrupts — verified against installed `@ag-ui/mastra 2.0.2`
 
-Do **not** use the old blanket rule “Mastra interrupts are unsupported.” Installed `@ag-ui/mastra 1.1.4` handles Mastra `tool-call-suspended` events, emits a structured AG-UI interrupt outcome, and resumes through the adapter's `resumeStream()` path.
+Do **not** use the old blanket rule “Mastra interrupts are unsupported.” Installed `@ag-ui/mastra 2.0.2` handles Mastra `tool-call-suspended` events, emits a structured AG-UI interrupt outcome, and resumes through the adapter's `resumeStream()` path.
 
 Choose the mechanism by backend contract:
 
@@ -136,7 +136,7 @@ Current maintained upstream proof:
 - frontend `useInterrupt`: https://github.com/CopilotKit/CopilotKit/blob/c14e2270f2dc2b63589d0e84110ef174b2853f91/showcase/integrations/mastra/src/app/demos/gen-ui-interrupt/page.tsx
 - live hook docs: https://docs.copilotkit.ai/reference/v2/hooks/useInterrupt
 
-The current CopilotKit docs contain an older conflicting Mastra page that still says interrupts are unsupported. For iPix `@ag-ui/mastra 1.1.4`, installed source/types plus the maintained upstream example above outrank that stale page.
+The current CopilotKit docs contain an older conflicting Mastra page that still says interrupts are unsupported. For iPix `@ag-ui/mastra 2.0.2`, installed source/types plus the maintained upstream example above outrank that stale page.
 
 ### Frontend-tool HITL → `useHumanInTheLoop`
 
