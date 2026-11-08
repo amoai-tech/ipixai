@@ -102,6 +102,36 @@ describe("Playwright E2E harness hardening", () => {
     expect(authSetup).toContain("process.env.VERCEL_AUTOMATION_BYPASS_SECRET");
   });
 
+  it("re-establishes Vercel protection bypass only for the clean login journey", () => {
+    const journey = readFileSync(
+      path.resolve(process.cwd(), "e2e/login-journey.spec.ts"),
+      "utf8",
+    );
+    // Login is the one deliberate test with no saved auth or bypass cookies.
+    // Without a fresh, deployment-scoped bypass, Playwright sees Vercel SSO
+    // instead of iPix's Sign in button. Never fix via extraHTTPHeaders.
+    const cleanStart = journey.indexOf('test.describe("clean login journey"');
+    const dashboardStart = journey.indexOf(
+      'test.describe("dashboard navigation',
+    );
+    expect(cleanStart).toBeGreaterThan(-1);
+    expect(dashboardStart).toBeGreaterThan(cleanStart);
+
+    const cleanBlock = journey.slice(cleanStart, dashboardStart);
+    expect(cleanBlock).toContain("storageState: { cookies: [], origins: [] }");
+    expect(cleanBlock).toContain("previewBypassHeaders(");
+    expect(cleanBlock).toContain("establishAndProveVercelBypass({");
+    expect(cleanBlock).toContain("deploymentOrigin: new URL(baseURL).origin");
+    expect(cleanBlock).toContain('test("critical journey: login succeeds');
+
+    // The dashboard journey reuses auth.setup's storageState, which already
+    // carries the bypass cookie. Re-establishing it there can throw when Vercel
+    // refreshes an existing cookie without adding a new one.
+    expect(journey.slice(dashboardStart)).not.toContain(
+      "establishAndProveVercelBypass",
+    );
+  });
+
   it("never sets a context-wide extraHTTPHeaders for the bypass", () => {
     const config = readFileSync(path.resolve(process.cwd(), "playwright.config.ts"), "utf8");
     // Playwright's extraHTTPHeaders is global to the browser context: the bypass
