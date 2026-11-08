@@ -19,7 +19,7 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Changed
 
-- IPI-1091 / PR #316 — Changed the manual Vercel production workflow to **stage without changing customer domains**, verify the exact candidate and run existing QA before a separately approved promotion. Added executable stale-SHA and strict inspect-URL/metadata guards, GitHub's required owner-review approval for paid AI QA and durable Planner threads (Production environment, main-only, admin bypass disabled, without prohibited manual-workflow inputs), an explicit required Vercel inspection credential, clearer pre-QA alias reporting, and `docs/production-release.md` for the release/rollback procedure. This does **not** complete the still-blocked integrated Shoot approval/save/reopen journey.
+- IPI-1091 / PR #316 — Changed the manual Vercel production workflow to **stage without changing customer domains**, verify the exact candidate and run existing QA before a separately approved promotion. Added executable stale-SHA and strict inspect-URL/metadata guards, GitHub's required owner-review approval for paid AI QA and durable Planner threads (Production environment, main-only, admin bypass disabled, without prohibited manual-workflow inputs), an explicit required Vercel inspection credential, read-only live GitHub environment-protection drift checks before any paid staging and in the existing six-hour governance workflow, clearer pre-QA alias reporting, and `docs/production-release.md` for the release/rollback procedure. This does **not** complete the still-blocked integrated Shoot approval/save/reopen journey.
 
 ### Deprecated
 

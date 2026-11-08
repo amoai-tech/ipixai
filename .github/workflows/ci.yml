@@ -1006,6 +1006,15 @@ jobs:
           fi
           echo "deploy=true" >> "$GITHUB_OUTPUT"
 
+      # Reference — REFERENCE ONLY:
+      # https://docs.github.com/en/rest/deployments/environments
+      # Public read-only API; no privileged token or user-supplied configuration.
+      # The GitHub environment approval occurs before any steps. This extra
+      # fail-closed check detects removed reviewers/branch rules before paid QA.
+      - name: Verify required Production environment reviewers
+        if: steps.latest.outputs.deploy == 'true'
+        run: node scripts/check-production-environment.mjs
+
       - name: Require Vercel deployment credential
         id: credentials
         if: steps.latest.outputs.deploy == 'true'
@@ -1014,7 +1023,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           if [ -z "$VERCEL_TOKEN" ]; then
-            echo "::error::VERCEL_ACTIONS_PRODUCTION_ENABLED is true but VERCEL_TOKEN is missing."
+            echo "::error title=Missing VERCEL_TOKEN::Repository or Production environment secret VERCEL_TOKEN is unavailable. Verify GitHub Actions Settings > Secrets and variables > Actions and Production environment."
             exit 1
           fi
           echo "configured=true" >> "$GITHUB_OUTPUT"
@@ -1104,6 +1113,10 @@ jobs:
           LIVE_BEFORE: ${{ steps.live-before.outputs.url }}
         run: |
           set -euo pipefail
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error title=Missing VERCEL_TOKEN::Staged deployment inspection cannot run without the GitHub Actions VERCEL_TOKEN secret. Verify the repository or Production environment secret mapping."
+            exit 1
+          fi
           vercel inspect "$DEPLOYMENT_URL" --json > /tmp/ipix-staged.json
           vercel inspect https://www.ipix.co --json > /tmp/ipix-live-after.json
           node --input-type=module -e '
