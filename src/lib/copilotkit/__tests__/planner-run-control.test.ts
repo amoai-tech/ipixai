@@ -57,6 +57,47 @@ describe("PlannerRunControl", () => {
     expect(isPlannerRunControlMessage({ ...sample, seq: 0 })).toBe(true);
   });
 
+  it("authorizes cross-instance probe and replay by exact owner, including server-only runs", async () => {
+    const wire = network();
+    const owner = new PlannerRunControl(wire.openBus, { instanceId: "A", timeoutMs: 60 });
+    const controller = new PlannerRunControl(wire.openBus, { instanceId: "B", timeoutMs: 60 });
+    const handle = await owner.own("thread-private", "R1", async () => true, "operator-A");
+    await handle.publish({ type: EventType.TEXT_MESSAGE_START, messageId: "private", role: "assistant" } as BaseEvent);
+
+    expect(await controller.probe("thread-private", "operator-B")).toBeNull();
+    expect(await controller.isRunning("thread-private", "operator-B")).toBe(false);
+    expect(await controller.connect("thread-private", "operator-B")).toBeNull();
+    expect(await controller.probe("thread-private")).toBeNull();
+    expect(await controller.connect("thread-private")).toBeNull();
+
+    expect(await controller.isRunning("thread-private", "operator-A")).toBe(true);
+    const connection = await controller.connect("thread-private", "operator-A");
+    expect(connection).toMatchObject({ runId: "R1", ownerInstanceId: "A" });
+    const events: BaseEvent[] = [];
+    connection?.onEvent((event) => events.push(event));
+    expect(events.map((event) => event.type)).toEqual([EventType.TEXT_MESSAGE_START]);
+    await connection?.close();
+    await handle.close();
+
+    const serverHandle = await owner.own("thread-server-owned", "R2", async () => true);
+    expect(await controller.isRunning("thread-server-owned", "operator-A")).toBe(false);
+    expect(await controller.connect("thread-server-owned", "operator-A")).toBeNull();
+    expect(await controller.isRunning("thread-server-owned")).toBe(true);
+    const serverConnection = await controller.connect("thread-server-owned");
+    expect(serverConnection).toMatchObject({ runId: "R2", ownerInstanceId: "A" });
+    await serverConnection?.close();
+    await serverHandle.close();
+  });
+
+  it("rejects malformed probe and connect owner identities at the bus boundary", () => {
+    for (const kind of ["probe", "connect"] as const) {
+      expect(isPlannerRunControlMessage({ kind, requestId: "id", ownerId: 4 })).toBe(false);
+      expect(isPlannerRunControlMessage({ kind, requestId: "id", ownerId: "" })).toBe(false);
+      expect(isPlannerRunControlMessage({ kind, requestId: "id", ownerId: "operator-A" })).toBe(true);
+      expect(isPlannerRunControlMessage({ kind, requestId: "id" })).toBe(true);
+    }
+  });
+
   it("probes a run owned by another runtime and relays new live events", async () => {
     const wire = network();
     const owner = new PlannerRunControl(wire.openBus, { instanceId: "A", timeoutMs: 100 });

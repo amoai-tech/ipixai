@@ -348,7 +348,7 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
 
         if (this.runControl) {
           try {
-            const remote = await this.runControl.connect(request.threadId);
+            const remote = await this.runControl.connect(request.threadId, request.ownerId);
             if (cancelled) {
               await remote?.close();
               return;
@@ -412,7 +412,7 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
     if (await super.isRunning({ threadId: this.scope(request.threadId), ownerId: request.ownerId })) return true;
     if (!this.runControl) return false;
     try {
-      return await this.runControl.isRunning(request.threadId);
+      return await this.runControl.isRunning(request.threadId, request.ownerId);
     } catch (error) {
       console.warn("[planner-run-control] remote_probe_failed", {
         error: error instanceof Error ? error.message : String(error),

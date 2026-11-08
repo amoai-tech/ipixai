@@ -431,7 +431,7 @@ describe("IPI-1290 TenantAbortRunner exact-run Stop", () => {
 
     expect(await runner.isRunning({ threadId: "remote-thread" })).toBe(true);
     expect(await runner.stop({ threadId: "remote-thread", runId: "R1" })).toBe(true);
-    expect(remote.isRunning).toHaveBeenCalledWith("remote-thread");
+    expect(remote.isRunning).toHaveBeenCalledWith("remote-thread", undefined);
     expect(remote.stop).toHaveBeenCalledWith("remote-thread", "R1", undefined);
   });
 
@@ -459,8 +459,26 @@ describe("IPI-1290 TenantAbortRunner exact-run Stop", () => {
       EventType.RUN_STARTED,
       EventType.RUN_FINISHED,
     ]);
-    expect(remote.connect).toHaveBeenCalledWith("remote-thread");
+    expect(remote.connect).toHaveBeenCalledWith("remote-thread", undefined);
     expect(close).toHaveBeenCalled();
+  });
+
+  it("forwards the authenticated owner to remote running checks and connects", async () => {
+    const OWNER = "operator-a";
+    const remote = {
+      isRunning: vi.fn(async () => true),
+      connect: vi.fn(async () => null),
+    } as unknown as PlannerRunControl;
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal, remote);
+    const threadId = nextThread();
+
+    expect(await runner.isRunning({ threadId, ownerId: OWNER })).toBe(true);
+    expect(remote.isRunning).toHaveBeenCalledWith(threadId, OWNER);
+
+    const connected = collect(runner.connect({ threadId, ownerId: OWNER }));
+    await connected.done;
+    expect(connected.events).toEqual([]);
+    expect(remote.connect).toHaveBeenCalledWith(threadId, OWNER);
   });
 
   it("registers the local owner before the model runs and publishes live events for remote listeners", async () => {
@@ -790,8 +808,12 @@ describe("IPI-1389 CopilotKit 1.85 authenticated runner ownership", () => {
 
     // Owner broadcasts its run before super.run can claim the thread.
     await vi.waitFor(async () => {
-      expect(await controllerControl.isRunning(threadId)).toBe(true);
+      expect(await controllerControl.isRunning(threadId, OWNER)).toBe(true);
     });
+    expect(await controllerControl.isRunning(threadId, FOREIGN)).toBe(false);
+    expect(await controllerRunner.isRunning({ threadId, ownerId: FOREIGN })).toBe(false);
+    expect(await controllerRunner.isRunning({ threadId })).toBe(false);
+    expect(await controllerRunner.isRunning({ threadId, ownerId: OWNER })).toBe(true);
     // The starting owner instance must reject the same foreign Stop locally,
     // even before its parent runner has claimed the thread.
     expect(await ownerRunner.stop({ threadId, runId: "OWN-R10", ownerId: FOREIGN })).toBe(false);
