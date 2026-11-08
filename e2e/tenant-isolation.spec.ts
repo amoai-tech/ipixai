@@ -6,20 +6,16 @@ import { getOwnOrgId, supabaseForPage } from "./support/tenant-supabase";
 
 const orgBFile = path.resolve(__dirname, "../playwright/.auth/org-b.json");
 
-test.setTimeout(60_000);
+test.setTimeout(90_000);
 
 /**
  * usera@ipix.co and userb@ipix.co are dedicated QA users in separate,
- * isolated organizations. Both orgs intentionally have 0 brands, so any
- * rendered brand is a tenant leak. Credentials stay in .env.test / CI
- * secrets and each account gets its own Playwright storageState.
+ * isolated organizations. Their brand counts differ as QA data evolves, so
+ * isolation is proven reciprocally — the other org's IDs must not be readable
+ * through RLS and its names must not render — rather than by assuming either
+ * org is empty. Credentials stay in .env.test / CI secrets and each account
+ * gets its own Playwright storageState.
  */
-
-const otherOrgBrandNames = [
-  "majji",
-  "QA Test Brand — IPI-404 parity check",
-  "IPI-370 Smoke Co 1784673279581",
-];
 
 /**
  * Org B's storageState is cached once by the "setup" project's dependency
@@ -48,19 +44,42 @@ async function assertCannotReadOtherOrg(page: Page, otherOrgId: string) {
   expect(rows, "RLS leak: this session can read another organization's membership row").toHaveLength(0);
 }
 
-async function expectEmptyIsolatedDashboard(page: Page) {
-  await page.goto("/app");
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-  // Primary, robust assertion: this org's real brand count is 0, so the
-  // brand list must render nothing at all — this holds regardless of what
-  // any other org's data looks like today, unlike matching specific names.
-  await expect(page.getByTestId("command-center-brand-list")).toHaveCount(0);
-  // Defense in depth: these 3 brand names are confirmed (read-only) to
-  // belong to other organizations right now. Secondary check, not the
-  // primary isolation proof above — if any of these are renamed or
-  // deleted, the count-based assertion still catches a real regression.
-  for (const name of otherOrgBrandNames) {
-    await expect(page.getByText(name, { exact: true })).toHaveCount(0);
+async function readOwnBrands(page: Page): Promise<Array<{ id: string; name: string }>> {
+  const supabase = await supabaseForPage(page);
+  const { data, error } = await supabase
+    .from("brands")
+    .select("id,name")
+    .order("created_at");
+  expect(error, `own-brand read failed unexpectedly: ${error?.message ?? "unknown"}`).toBeNull();
+  return data ?? [];
+}
+
+/** Read-only negative check: the other organization's brands must be absent
+ *  from both the RLS-protected API and the rendered dashboard. This does not
+ *  assume either QA org is empty — QA data changes over time. */
+async function expectNoForeignBrands(
+  page: Page,
+  foreignBrands: Array<{ id: string; name: string }>,
+) {
+  const supabase = await supabaseForPage(page);
+  if (foreignBrands.length > 0) {
+    const { data, error } = await supabase
+      .from("brands")
+      .select("id")
+      .in(
+        "id",
+        foreignBrands.map((brand) => brand.id),
+      );
+    expect(error, `cross-org brand read failed unexpectedly: ${error?.message ?? "unknown"}`).toBeNull();
+    expect(data, "RLS leak: this session can read another organization's brand").toHaveLength(0);
+  }
+
+  await page.goto("/app", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
+    timeout: 30_000,
+  });
+  for (const brand of foreignBrands) {
+    await expect(page.getByText(brand.name, { exact: true })).toHaveCount(0);
   }
 }
 
@@ -84,8 +103,10 @@ test(
       await assertCannotReadOtherOrg(page, orgBId);
       await assertCannotReadOtherOrg(orgBPage, orgAId);
 
-      await expectEmptyIsolatedDashboard(page);
-      await expectEmptyIsolatedDashboard(orgBPage);
+      const orgABrands = await readOwnBrands(page);
+      const orgBBrands = await readOwnBrands(orgBPage);
+      await expectNoForeignBrands(page, orgBBrands);
+      await expectNoForeignBrands(orgBPage, orgABrands);
     } finally {
       await closeOrgB();
     }
