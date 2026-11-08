@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
 import { describe, expect, it, vi } from "vitest";
@@ -8,28 +7,22 @@ const workflow = () => parseYaml(readFileSync(".github/workflows/ci.yml", "utf8"
 const steps = () => workflow().jobs["vercel-production"].steps as Array<{ name: string; run?: string; if?: string }>;
 
 describe("IPI-1091 staged Production release safeguards", () => {
-  it("requires paid model + persistent QA thread consent BEFORE building and staging", () => {
-    const confirmation = workflow().on.workflow_dispatch.inputs.approve_paid_qa;
-    expect(confirmation).toMatchObject({ type: "boolean", default: false, required: true });
-    expect(confirmation.description).toMatch(/paid.*AI/i);
-    expect(confirmation.description).toMatch(/persist.*QA.*thread/i);
+  it("documents paid AI and persistent QA consent before dispatch without forbidden inputs", () => {
+    // Repo policy forbids workflow_dispatch inputs on CI; permission is a
+    // separately recorded human gate before the manual release.
+    expect(workflow().on.workflow_dispatch).toBeNull();
     const releaseSteps = steps();
-    const consent = releaseSteps.findIndex(s => s.name === "Require consent for paid Production-backed QA");
-    const build = releaseSteps.findIndex(s => s.name === "Build exact SHA for Production");
     const stage = releaseSteps.findIndex(s => s.name === "Stage exact latest SHA without assigning customer domains");
-    expect(consent).toBeGreaterThanOrEqual(0);
-    expect(consent).toBeLessThan(build);
-    expect(consent).toBeLessThan(stage);
-    const consentScript = releaseSteps[consent].run ?? "";
-    expect(consentScript).toContain("exit 1");
-    const denied = spawnSync("bash", ["-c", consentScript], { encoding: "utf8", env: { ...process.env, APPROVE_PAID_QA: "false" } });
-    expect(denied.status).toBe(1);
-    expect(denied.stdout).toContain("consent required");
-    const approved = spawnSync("bash", ["-c", consentScript], { encoding: "utf8", env: { ...process.env, APPROVE_PAID_QA: "true" } });
-    expect(approved.status).toBe(0);
-    const guideBeforeDispatch = readFileSync("docs/production-release.md", "utf8").split("Use GitHub **Actions → CI → Run workflow")[0];
+    const qa = releaseSteps.findIndex(s => s.name.startsWith("Run staged Planner Stop"));
+    expect(stage).toBeGreaterThanOrEqual(0);
+    expect(qa).toBeGreaterThan(stage);
+    const guideBeforeDispatch = readFileSync("docs/production-release.md", "utf8")
+      .split("Use GitHub **Actions → CI → Run workflow")[0];
     expect(guideBeforeDispatch).toMatch(/paid.*AI/i);
     expect(guideBeforeDispatch).toMatch(/persist.*QA.*thread/i);
+    expect(guideBeforeDispatch).toContain("record explicit approval in IPI-1091");
+    expect(guideBeforeDispatch).toContain("do not dispatch");
+    expect(guideBeforeDispatch).toContain("BOTH costs and persistent QA thread writes");
   });
 
   it("passes correct deployment metadata with the exact Vercel API request", async () => {

@@ -36,7 +36,8 @@ export function inspectedDeploymentHost(value) {
  * owns network access. No success signal is emitted until every check passes.
  */
 export async function verifyStagedProduction({
-  staged, live, deploymentUrl, liveBefore, projectId, orgId, sha, token,
+  staged, live, deploymentUrl, liveBefore, projectId, orgId, sha,
+  token = process.env.VERCEL_TOKEN,
   fetchImpl = globalThis.fetch,
 }) {
   const host = new URL(deploymentUrl).hostname;

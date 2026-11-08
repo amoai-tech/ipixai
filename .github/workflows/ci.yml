@@ -2,12 +2,6 @@ name: CI
 
 on:
   workflow_dispatch:
-    inputs:
-      approve_paid_qa:
-        description: "I authorize paid AI calls and persistent QA Planner threads on the Production-configured backend"
-        type: boolean
-        required: true
-        default: false
   push:
     branches: [main]
   pull_request:
@@ -918,6 +912,11 @@ jobs:
   #   'false'                 -> deliberately skip the deploy; the run warns.
   #   unset / anything else   -> this job FAILS with ::error.
   #
+  # BEFORE manual dispatch, obtain and record IPI-1091 operator authorization
+  # for both paid AI QA model calls and persistent QA Planner threads on the
+  # Production-configured backend (docs/production-release.md). The CI security
+  # policy prohibits workflow_dispatch inputs, so this is a human gate.
+  #
   # The switch is validated INSIDE the job, never in the job-level `if:`. A
   # job-level condition reports conclusion=skipped, which is not a failure — so
   # an unset variable would silently release nothing. IPI-1238 sets
@@ -970,21 +969,6 @@ jobs:
               exit 1
               ;;
           esac
-
-      # A manual release with Production settings runs real paid AI QA and
-      # persists QA threads. Block before Vercel pull/build/staging unless the
-      # person dispatching the run explicitly approved BOTH effects.
-      - name: Require consent for paid Production-backed QA
-        if: steps.release.outputs.enabled == 'true'
-        shell: bash
-        env:
-          APPROVE_PAID_QA: ${{ inputs.approve_paid_qa }}
-        run: |
-          set -euo pipefail
-          if [ "$APPROVE_PAID_QA" != 'true' ]; then
-            echo "::error title=Production QA consent required::This release runs paid AI model requests and persists QA Planner threads in the Production-configured backend. Start a NEW workflow dispatch on main and explicitly approve both effects before staging."
-            exit 1
-          fi
 
       - name: Checkout exact CI-tested SHA
         if: steps.release.outputs.enabled == 'true'
@@ -1128,7 +1112,6 @@ jobs:
               projectId: process.env.VERCEL_PROJECT_ID,
               orgId: process.env.VERCEL_ORG_ID,
               sha: process.env.TESTED_SHA,
-              token: process.env.VERCEL_TOKEN,
             });
             console.log("Verified staged SHA; www.ipix.co still serves " + liveHost);
           '
