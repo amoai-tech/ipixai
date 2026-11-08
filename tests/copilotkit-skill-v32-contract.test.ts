@@ -71,4 +71,66 @@ describe("IPI-1420 — official CopilotKit v3.2 lookup with iPix overlay", () =>
       expect(existsSync(new URL(path, root)), path).toBe(true);
     }
   });
+
+  it("routes native catalogs, surfaces, and AG-UI/A2UI inside the single CopilotKit skill", () => {
+    const entry = read("SKILL.md");
+    for (const ref of [
+      "references/generative-ui/catalogs-and-standard.md",
+      "references/generative-ui/surfaces.md",
+      "references/generative-ui/a2ui-and-dynamic-schema.md",
+    ]) {
+      expect(entry).toContain(ref);
+      expect(existsSync(new URL(ref, root)), ref).toBe(true);
+    }
+    expect(entry).toContain("catalogs");
+    expect(entry).toContain("surfaces");
+    expect(entry).toContain("dynamic schema");
+  });
+
+  it("maps official catalogs + standard UI sources to trusted read-only iPix data", () => {
+    const guide = read("references/generative-ui/catalogs-and-standard.md");
+    for (const url of [
+      "https://docs.copilotkit.ai/generative-ui/components/catalogs",
+      "https://docs.copilotkit.ai/generative-ui/components/standard-catalog",
+    ]) expect(guide).toContain(url);
+    for (const phrase of [
+      "createGenerativeUI",
+      "standardUI",
+      "IPI-1387",
+      "experimental",
+      "Org A/B",
+      "server DTO",
+    ]) expect(guide.toLowerCase()).toContain(phrase.toLowerCase());
+    expect(guide).toContain("Do not copy");
+  });
+
+  it("preserves single provider, named surface fallback and safe user action boundaries", () => {
+    const guide = read("references/generative-ui/surfaces.md");
+    expect(guide).toContain("https://docs.copilotkit.ai/generative-ui/components/surfaces");
+    expect(guide).toContain("GenerativeUISurface");
+    expect(guide).toContain("fallback");
+    expect(guide).toContain("components");
+    expect(guide).toContain("server revalidation");
+    expect(guide).toContain("No new provider");
+    expect(guide).toContain("Org A/B");
+  });
+
+  it("separates A2UI 1.0 native catalog from legacy v0.9 and defers dynamic schema", () => {
+    const guide = read("references/generative-ui/a2ui-and-dynamic-schema.md");
+    for (const url of [
+      "https://www.copilotkit.ai/ag-ui-and-a2ui",
+      "https://docs.copilotkit.ai/generative-ui/a2ui",
+      "https://docs.copilotkit.ai/generative-ui/a2ui/dynamic-schema",
+      "https://docs.copilotkit.ai/generative-ui/components/from-a2ui",
+    ]) expect(guide).toContain(url);
+    expect(guide).toContain("A2UI v0.9");
+    expect(guide).toContain("A2UI 1.0");
+    expect(guide).toContain("DEFER");
+    expect(guide).toContain("createGenerativeUI");
+    expect(guide).toContain("createCatalog");
+    const legacy = read("references/a2ui-renderer.md");
+    expect(legacy).toContain("HISTORICAL A2UI v0.9");
+    expect(read("references/generative-ui.md")).toContain("IPI-1386");
+  });
+
 });

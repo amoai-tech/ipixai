@@ -3,7 +3,7 @@ name: copilotkit
 description: >
   Use for CopilotKit v2 or AG-UI tasks in iPix: authenticated Production Copilot,
   Mastra integrations, chat UI, useAgent, useFrontendTool, useHumanInTheLoop,
-  threads, streaming, Stop/replay, generative UI, A2UI, channels, voice,
+  threads, streaming, Stop/replay, generative UI, catalogs, standardUI, surfaces, dynamic schema, A2UI, channels, voice,
   attachments, debugging, upgrades and /api/copilotkit/info failures.
   Look up current docs and installed source first. Do not use for unrelated
   Supabase-only tasks, pure styling or Linear-only administration.
@@ -51,7 +51,10 @@ Optional `explore-docs` / `explore-code` browse an index. A repository `.mcp.jso
 | Chat UI, frontend tools, HITL | [Develop](references/develop/develop.md) |
 | External framework alternatives | [Integrations](references/integrations/integrations.md) |
 | AG-UI protocol and SSE events | [AG-UI](references/agui/agui.md) |
-| Controlled generative UI and A2UI | [Generative UI](references/generative-ui.md) / [A2UI](references/a2ui-renderer.md) |
+| Pick the safest Generative UI approach | [iPix decision guide](references/generative-ui.md) |
+| Typed custom components or reuse the standard catalog | [Catalogs + Standard UI](references/generative-ui/catalogs-and-standard.md) |
+| Show generated results inside a named page region | [Surfaces](references/generative-ui/surfaces.md) |
+| AG-UI transport, A2UI 1.0, legacy v0.9, dynamic schema | [AG-UI + A2UI boundary](references/generative-ui/a2ui-and-dynamic-schema.md) / [legacy A2UI v0.9 notes](references/a2ui-renderer.md) |
 | Optional channels, inspector, hosted Intelligence | [Channels](references/channels.md) / [Inspector](references/inspector.md) / [Intelligence](references/intelligence.md) |
 | Errors, agent discovery, frontend tool failures, reconnect | [Debug](references/debug/debug.md) |
 | v1 migration, package upgrade and source contracts | [Upgrade](references/upgrade/upgrade.md) / [iPix conventions](references/upgrade/ipix-v2-conventions.md) |
