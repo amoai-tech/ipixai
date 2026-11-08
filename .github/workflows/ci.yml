@@ -1101,7 +1101,11 @@ jobs:
             const staged = JSON.parse(readFileSync("/tmp/ipix-staged.json", "utf8"));
             const live = JSON.parse(readFileSync("/tmp/ipix-live-after.json", "utf8"));
             const host = new URL(process.env.DEPLOYMENT_URL).hostname;
-            if (staged.url !== host || !staged.id || staged.target !== "production" ||
+            // Vercel CLI 59.25.4 inspect --json returns a bare hostname;
+            // accept a full https URL as well if a future CLI changes shape.
+            const inspectedHost = typeof staged.url === "string" && staged.url.startsWith("https://")
+              ? new URL(staged.url).hostname : staged.url;
+            if (inspectedHost !== host || !staged.id || staged.target !== "production" ||
                 staged.readyState !== "READY") {
               throw new Error("Staged artifact is not a ready Production deployment");
             }

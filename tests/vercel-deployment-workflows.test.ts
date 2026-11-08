@@ -181,6 +181,11 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(release).toContain('DEPLOYMENT_URL="$deployment_url"');
     expect(release).toContain("TESTED_SHA: ${{ github.sha }}");
     expect(release).toContain('vercel inspect "$DEPLOYMENT_URL" --json');
+    // Vercel CLI currently returns a bare hostname, but future releases may
+    // emit a full https URL. A bare new URL(staged.url) would break today.
+    expect(release).toContain('staged.url.startsWith("https://")');
+    expect(release).toContain("new URL(staged.url).hostname : staged.url");
+    expect(release).toContain("inspectedHost !== host");
     expect(release).toContain("vercel inspect https://www.ipix.co --json");
     expect(release).toContain("Production alias changed during staging");
 
