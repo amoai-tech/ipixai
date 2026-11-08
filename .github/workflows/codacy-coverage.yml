@@ -39,8 +39,8 @@ jobs:
           CODACY_REPORTER_SHA256: "15c5f052207d27b8501ab5d5910c68c206ea70b0157ee1725132780530580875"
         run: |
           REPORTER="$RUNNER_TEMP/codacy-coverage-reporter"
-          curl -fsSL \
-            "https://github.com/codacy/codacy-coverage-reporter/releases/download/${CODACY_REPORTER_VERSION}/codacy-coverage-reporter-linux" \
+          curl -fsSL --retry 3 --retry-max-time 180 --max-time 90 --remove-on-error \
+            "https://artifacts.codacy.com/bin/codacy-coverage-reporter/${CODACY_REPORTER_VERSION}/codacy-coverage-reporter-linux" \
             -o "$REPORTER"
           echo "${CODACY_REPORTER_SHA256}  ${REPORTER}" | sha256sum -c -
           chmod 0755 "$REPORTER"

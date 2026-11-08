@@ -73,6 +73,16 @@ describe("Codacy coverage workflow contract", () => {
     expect(workflow).toContain("sha256sum -c -");
   });
 
+  it("downloads the pinned Codacy reporter from its verified vendor artifact host with bounded retries", () => {
+    expect(workflow).toContain(
+      "https://artifacts.codacy.com/bin/codacy-coverage-reporter/${CODACY_REPORTER_VERSION}/codacy-coverage-reporter-linux",
+    );
+    expect(workflow).toContain(
+      "curl -fsSL --retry 3 --retry-max-time 180 --max-time 90 --remove-on-error",
+    );
+    expect(workflow).not.toContain("github.com/codacy/codacy-coverage-reporter/releases/download/");
+  });
+
   it("keeps AI provider keys empty during coverage", () => {
     expect(workflow).toContain('GOOGLE_GENERATIVE_AI_API_KEY: ""');
     expect(workflow).toContain('GEMINI_API_KEY: ""');
