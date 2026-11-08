@@ -288,6 +288,39 @@ describe("PlannerRunControl", () => {
     await handle.close();
   });
 
+  it("does not ACK a reconnect when a concurrent live broadcast fails during replay", async () => {
+    const wire = network();
+    let signalReplay: () => void = () => {};
+    const replayStarted = new Promise<void>((resolve) => { signalReplay = resolve; });
+    const owner = new PlannerRunControl(async (threadId) => {
+      const bus = await wire.openBus(threadId);
+      return {
+        ...bus,
+        async send(message: PlannerRunControlMessage) {
+          if (message.kind === "event" && message.replayFor) {
+            signalReplay();
+            await sleep(20);
+          } else if (message.kind === "event") {
+            throw new Error("live_event_disconnected");
+          }
+          return bus.send(message);
+        },
+      };
+    }, { instanceId: "A", timeoutMs: 100 });
+    const controller = new PlannerRunControl(wire.openBus, { instanceId: "B", timeoutMs: 100 });
+    const handle = await owner.own("thread-racing-send", "R1", async () => true);
+    await handle.publish({ type: EventType.TEXT_MESSAGE_START, messageId: "m1", role: "assistant" } as BaseEvent);
+
+    const pendingConnection = controller.connect("thread-racing-send");
+    await replayStarted;
+    const pendingLive = handle.publish({
+      type: EventType.TEXT_MESSAGE_CONTENT, messageId: "m1", delta: "lost",
+    } as BaseEvent).catch((error: unknown) => error);
+    expect(await pendingConnection).toBeNull();
+    expect(await pendingLive).toBeInstanceOf(Error);
+    await handle.close();
+  });
+
   it("rejects remote replay when one event would exceed the bounded replay memory budget", async () => {
     const wire = network();
     const log = vi.fn();

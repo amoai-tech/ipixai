@@ -183,6 +183,13 @@ export class PlannerRunControl {
       // ORIGINAL rejected promise to the awaiting caller. Never turn a failed
       // replay send into a successful connect acknowledgement.
       sendQueue = send.catch((error) => {
+        if (message.kind === "event") {
+          // A missed live event can corrupt a later reconnect too. Never ACK
+          // a partial AG-UI transcript after any owner event send fails.
+          replayAvailable = false;
+          replayBuffer.length = 0;
+          replayBytes = 0;
+        }
         this.log("owner_send_failed", {
           kind: message.kind,
           error: error instanceof Error ? error.message : String(error),
@@ -226,6 +233,14 @@ export class PlannerRunControl {
             connectRequests.set(message.requestId, entry);
           }
           await entry.replayDelivery;
+          // A live event can be queued while replay sends are in flight.
+          // Wait for everything already queued before accepting the controller:
+          // otherwise a failed live event could be followed by a valid ACK.
+          await sendQueue;
+          if (!replayAvailable) {
+            this.log("owner_connect_replay_unavailable", { runId });
+            return;
+          }
           await enqueue({ kind: "connect_ack", requestId: message.requestId, runId, ownerInstanceId: this.instanceId });
           return;
         }
