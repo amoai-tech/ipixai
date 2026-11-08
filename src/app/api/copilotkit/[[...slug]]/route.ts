@@ -67,22 +67,13 @@ async function handleCopilot(request: Request) {
 // documented Vercel Fluid Compute default, rather than reducing it.
 export const maxDuration = 300;
 
-// IPI-1210 · COPILOT-TIMEOUT-001 — a prior fix here set maxDuration=60,
-// theorizing composeShootPlan's multi-tool turns exceeded the platform
-// default. That was wrong and has been reverted. Vercel's documented
-// default for every plan with Fluid Compute — the platform default for
-// new projects, not independently re-verified against this specific
-// project's dashboard setting — is 300s:
-// https://vercel.com/docs/functions/configuring-functions/duration#duration-limits.
-// So the 60s override, at minimum, didn't add headroom over the documented
-// platform default; it cut it by 80%. It also didn't fix the live
-// "no response" symptom either way — Supabase query logs during a failed
-// live attempt showed zero reads against shot_type_references, proving
-// the failure happens before composeShootPlan's tool chain even starts,
-// nowhere near a duration ceiling. Root cause is tracked separately in
-// IPI-1211 · COPILOT-INTELLIGENCE-RELIABILITY-001. Leave this route on
-// the platform default; only add an explicit maxDuration here again if a
-// measured p95/p99 Planner turn is shown to actually need more than 300s.
+// IPI-1210 history: the old 60s maxDuration experiment reduced the
+// documented Vercel Fluid Compute default of 300s and did not fix the
+// composeShootPlan "no response" symptom (IPI-1211). IPI-1117 now pins
+// 300s for a DIFFERENT reason: a refreshed JWT must remain valid for the
+// entire run. The SSR Proxy ensures at least 360s JWT lifetime at entry.
+// This is not a claim that longer Planner turns improve reliability.
+// https://vercel.com/docs/functions/configuring-functions/duration#duration-limits
 
 export const GET = handleCopilot;
 export const POST = handleCopilot;
