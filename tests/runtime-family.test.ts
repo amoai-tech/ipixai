@@ -127,6 +127,29 @@ describe("IPI-1042 runtime family", () => {
     }
   });
 
+  it("rejects nested duplicate copies of the exact AG-UI family in the lockfile", () => {
+    const lock = JSON.parse(
+      readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"),
+    ) as { packages: Record<string, { version?: string }> };
+    for (const pkg of ["@ag-ui/client", "@ag-ui/core", "@ag-ui/encoder", "@ag-ui/proto"]) {
+      const copies = Object.entries(lock.packages).filter(
+        ([path]) => path === `node_modules/${pkg}` || path.endsWith(`/node_modules/${pkg}`),
+      );
+      expect(copies, `duplicate or missing copies of ${pkg}`).toHaveLength(1);
+      expect(copies[0]?.[1].version).toBe("1.0.2");
+    }
+  });
+
+  it("keeps the CopilotKit–Mastra overview pointed at the canonical pin table", () => {
+    const overview = readFileSync(
+      new URL("../docs/copilotkit-mastra/README.md", import.meta.url),
+      "utf8",
+    );
+    expect(overview).toContain("[Runtime compatibility family](../mastra/runtime-family.md)");
+    expect(overview).not.toMatch(/\|\s*`@(?:copilotkit|ag-ui|mastra)\/[^\n]+\|/);
+    expect(overview).toMatch(/in-process/);
+  });
+
   it("can import PostgresStore from @mastra/pg@1.27.1", async () => {
     const mod = await import("@mastra/pg");
     expect(typeof mod.PostgresStore).toBe("function");
