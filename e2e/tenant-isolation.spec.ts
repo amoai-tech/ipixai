@@ -85,13 +85,20 @@ function snapshotKey(brands: BrandSnapshot[]): string {
     .join("|");
 }
 
-async function readDashboardBrandNames(page: Page): Promise<string[]> {
+async function readDashboardBrandNames(page: Page, hasOwnBrands: boolean): Promise<string[]> {
   await page.goto("/app", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 30_000,
   });
   const list = page.getByTestId("command-center-brand-list");
-  if ((await list.count()) === 0) return [];
+  if (!hasOwnBrands) {
+    await expect(page.getByRole("heading", { name: "No brands yet" })).toBeVisible();
+    await expect(list).toHaveCount(0);
+    return [];
+  }
+  // An absent list when this account has brands is a dashboard failure, not
+  // evidence that no foreign brands were rendered.
+  await expect(list, "dashboard hid the permitted brand cards").toBeVisible();
   return (await list.locator("li").allInnerTexts())
     .map((name) => name.trim())
     .filter(Boolean);
@@ -124,7 +131,7 @@ async function expectNoForeignBrands(
   // Scoped to the rendered brand cards, and compared with this session's own
   // names. A foreign brand with a unique name is therefore caught without a
   // whole-page `getByText` that could match unrelated copy.
-  const renderedNames = await readDashboardBrandNames(page);
+  const renderedNames = await readDashboardBrandNames(page, ownBrands.length > 0);
   const ownNames = new Set(ownBrands.map((brand) => brand.name));
   expect(
     renderedNames.filter((name) => !ownNames.has(name)),
@@ -154,10 +161,15 @@ test(
 
       const orgABrands = await readOwnBrands(page);
       const orgBBrands = await readOwnBrands(orgBPage);
-      // A brand-level direction can only be exercised when the other org has
-      // at least one brand. Local CI seeds both QA orgs empty; staging has
-      // brands on Org A. Never claim a bidirectional brand proof in the empty
-      // case — record the partial scope and keep the membership RLS proof.
+      // Without any foreign brand IDs, a green test would certify only
+      // memberships and silently skip the brand-level security boundary.
+      expect(
+        orgABrands.length + orgBBrands.length,
+        "Neither QA organization has brands: cannot prove brand-level isolation",
+      ).toBeGreaterThan(0);
+
+      // A one-sided fixture proves brand isolation only toward the populated
+      // organization. Keep that useful read-only proof, but label it partial.
       if (orgABrands.length === 0 || orgBBrands.length === 0) {
         test.info().annotations.push({
           type: "partial-brand-proof",
