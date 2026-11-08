@@ -26,6 +26,11 @@ sources:
   - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/core/runtime.ts"
 ---
 
+> **HISTORICAL A2UI v0.9 — not the new native Components and Surfaces engine.**
+> The `@copilotkit/a2ui-renderer` / `createCatalog` / `a2ui={{ catalog }}` API examples below are for A2UI v0.9. CopilotKit's experimental A2UI 1.0 target uses `createGenerativeUI`, `standardUI`, and `GenerativeUISurface` via `@copilotkit/react-core/v2/generative-ui`. Do **not** mix these contracts or replace iPix's one authenticated provider/runtime. For IPI-1387 use [AG-UI + A2UI 1.0 boundary](generative-ui/a2ui-and-dynamic-schema.md), [catalogs](generative-ui/catalogs-and-standard.md), and [surfaces](generative-ui/surfaces.md), then verify installed 1.85 types.
+>
+> Official migration: https://docs.copilotkit.ai/generative-ui/components/from-a2ui
+
 Builds on [`react-core/react-core.md`](react-core/react-core.md) (provider) and
 [`runtime/runtime.md`](runtime/runtime.md) (CopilotRuntime). Read those first if unfamiliar.
 

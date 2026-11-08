@@ -1,20 +1,16 @@
 ---
 name: mastra
-description: "Mastra framework for iPixai: docs lookup, agents, workflows, tools, memory, streaming, PostgresStore, Studio/API, MCP, observability, evals, and Lumina→iPix adaptation. Use whenever editing src/mastra/**, pinning @mastra/* versions, changing agents/tools/workflows/memory/storage/HITL/abort/RequestContext/observability behavior, or verifying Mastra APIs. Always verify installed source/types first; use official Mastra MCP/docs for current concepts and migrations. In this repo use npm run dev:agent and npm run dev:ui separately — never combined npm run dev."
+description: "Use for iPix Mastra implementation, debugging, architecture, PR review, and upgrades: Production Planner, agents, tools, workflows, HITL suspend/resume, Postgres memory, RequestContext, streaming/abort, MCP, evals/traces, and CopilotKit/AG-UI integration. Trigger on Mastra issues even when the affected code is outside src/mastra/. Verify installed @mastra/* types before current vendor docs; preserve server authorization, RLS, and exact human approvals. Run dev:agent and dev:ui separately."
 license: Apache-2.0
 metadata:
   author: Mastra
-  version: "2.2.0-ipix.6"
-  basedOn: mastra-ai/skills 2.2.0 @ f79b794df9201b671b6602c6fc8ac0ad95478750 + iPix overlay
+  version: "2.5.0-ipix.2"
+  basedOn: mastra-ai/skills 2.5.0 @ 3020257c173e40f3a49ae6a67d46557fa771e0d4 + iPix overlay
   repository: https://github.com/mastra-ai/skills
   title: Mastra framework guide
   impact: HIGH
   impactDescription: Agent/workflow/memory correctness, tenant safety, HITL, runtime reliability, privacy
   tags: mastra, agents, workflows, tools, memory, hitl, streaming, mcp, evals, request-context
-  paths:
-    - "src/mastra/**"
-    - "docs/mastra/**"
-    - "**/*mastra*"
 ---
 
 # Mastra Framework Guide
@@ -22,6 +18,8 @@ metadata:
 ## How to use this skill
 
 This is the **one canonical Mastra skill for iPix**. Use it for implementation, debugging, upgrades, and PR review; do not create a second `mastra-review` skill that duplicates this guidance.
+
+**Discovery:** Claude Code uses the top-level `description` to find this skill. Do not add a restrictive top-level `paths` filter: Mastra failures can originate in Next.js CopilotKit routes, installed packages, or workflow callers outside `src/mastra/`. Fields under `metadata` do not control Claude Code activation.
 
 ### Mode selection
 
@@ -57,6 +55,17 @@ package upgrade            → migration-guide.md
 ```
 
 One reference should not impersonate another: workflow docs explain HOW; testing gates define WHAT must pass; journey docs prove the operator outcome across systems.
+
+## Official Mastra 2.5.0 alignment — scoped, not wholesale
+
+**Provenance:** [official Mastra skill @ 3020257c173e40f3a49ae6a67d46557fa771e0d4](https://github.com/mastra-ai/skills/blob/3020257c173e40f3a49ae6a67d46557fa771e0d4/skills/mastra/SKILL.md). This is a reviewed **iPix overlay**, not a copy of upstream's entire skill pack. Keep exactly one Mastra skill; leave the separate iPix security, CopilotKit, and verification owners intact.
+
+- **Native before custom:** first check whether the installed Mastra version already solves the job through an agent, tool, workflow, memory/storage feature, or existing CLI. See [core concepts](references/core-concepts.md) and installed source/types; a feature on current upstream is not proof it exists in iPix's pinned version.
+- **Tracing:** the installed `mastra` CLI was verified to expose `api trace query`, **not** `api span query`, `api trace aggregate`, or `api span aggregate`. After any package update, rerun `npx --no-install mastra api trace --help` and `npx --no-install mastra api --help` and check the target's observability capabilities. See [trace-query.md](references/trace-query.md) and the [official advanced-query contract](https://mastra.ai/reference/observability/tracing/advanced-queries).
+- **Trace filters are version-sensitive:** installed `@mastra/core@1.71.0` types and `@mastra/client-js@1.50.0` bundled docs include related `spans.some`, `scores.some`, and `feedback.some` filters; the newer official advanced-query page now documents trace/span predicates without the score/feedback examples. **Do not delete supported installed semantics or claim any predicate works against an unverified target.** Check the installed route/schema, configured store, capability flags, and authenticated target before querying production data.
+- **Optional vendor platforms:** Mastra Platform deployment and Factory operations described upstream are **not** iPix's Vercel/Node runtime. Do not run `mastra deploy`, install Factory, or migrate hosting unless a separate approved task requires it.
+- **External feedback/privacy:** upstream's optional bug-report skill describes automatic HTTP submission. iPix does **not** enable automatic external reports. Prepare a sanitized candidate, then require explicit human approval and an authorized submission path. Never transmit source code, tenant/customer data, secrets, trace payloads, or private URLs.
+- **Current dev contract stays:** `npm run dev:agent` and `npm run dev:ui` are separate; never substitute the upstream's combined `npm run dev`. No unreviewed `npx skills add` or `npm update` against this customized skill.
 
 ## Core rule — verify exact installed behavior
 
