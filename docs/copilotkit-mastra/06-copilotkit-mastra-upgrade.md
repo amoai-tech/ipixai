@@ -541,6 +541,7 @@ Unknowns: no Linear read; no hosted DB read (used migration-built schema + packa
 **Prepared (IPI-1389)**
 - Branch `ai/ipi-1389-copilotkit-185`, commit `dcd3ac8`, pushed. 12 files: manifest + lockfile, pin tests, canonical family table, CopilotKit/Mastra skill references, changelog, two stale comments.
 - `npx tsc --noEmit` exit 0; **`npm test` 1917 passed / 3 skipped / 0 failed**; `next build` exit 0; lockfile has exactly **one** `@ag-ui/client` and **one** `@copilotkit/runtime` copy; Mastra packages unchanged at `1.71.0` / `1.32.1` / `1.27.1` / `1.50.0` / CLI `1.31.3`.
+- **Real-browser journey passed** on the upgraded branch (`chromium-ai-smoke`, local `:3015`, real model calls): R1 streams → Stop → R2 starts → late Stop(R1) → R2 completes → page reload restores history exactly once → only the newest turn is forwarded → zero console errors, page errors or 5xx. This is the behavioural check for CopilotKit 1.83+ thread ownership: the post-reload `POST /api/copilotkit/agent/default/connect` succeeded under `ownerId` enforcement.
 - Not merged, not deployed. Merge still waits on IPI-1041.
 
 **Blocked in this session**
@@ -624,6 +625,16 @@ npx tsc --noEmit                               → exit 0
 npm run build                                  → exit 0 (Next.js production build)
 lockfile copies                                → @ag-ui/client 1, @copilotkit/runtime 1
 Mastra unchanged                               → core 1.71.0, memory 1.32.1, pg 1.27.1, CLI 1.31.3
+```
+
+**A.7 Real-browser Stop/reload proof (local `:3015`, upgraded branch)**
+```
+npx playwright test --project=chromium-ai-smoke --grep "Stop ends only its own run"
+  ✓ setup: E2E operator / Org B / Shoots QA (3 sign-ins)
+  ✓ Stop ends only its own run; a late Stop(R1) leaves R2 running to completion
+  → 4 passed (46.2s)
+dev server: /app 200, /api/planner/threads 200, /api/copilotkit/info 200,
+            POST /agent/default/connect 200, POST /agent/default/run 200
 ```
 
 ---
