@@ -20,6 +20,7 @@ function sessionClient(input: {
   renewedExp?: number;
   renewedSub?: string;
   refreshError?: boolean;
+  omitRefreshCookieWrite?: boolean;
 }) {
   const getClaims = vi.fn()
     .mockResolvedValueOnce({ data: { claims: { sub: USER, exp: input.exp } }, error: null })
@@ -34,9 +35,11 @@ function sessionClient(input: {
   ) => {
     refreshSession.mockImplementation(async () => {
       if (input.refreshError) return { data: { session: null }, error: new Error("auth unavailable") };
-      config.cookies.setAll([
-        { name: "sb-ipix-auth", value: "new-session-for-test", options: { path: "/" } },
-      ], { "Cache-Control": "private, no-store" });
+      if (!input.omitRefreshCookieWrite) {
+        config.cookies.setAll([
+          { name: "sb-ipix-auth", value: "new-session-for-test", options: { path: "/" } },
+        ], { "Cache-Control": "private, no-store" });
+      }
       return { data: { session: { access_token: "new-token-for-test" } }, error: null };
     });
     return { auth: { getClaims, refreshSession } };
@@ -65,6 +68,14 @@ describe("IPI-1117: Planner tokens must outlive the bounded Vercel invocation", 
     expect(auth.getClaims).toHaveBeenCalledTimes(2);
     expect(response.cookies.get("sb-ipix-auth")?.value).toBe("new-session-for-test");
     expect(response.headers.get("cache-control")).toContain("no-store");
+  });
+
+  it("does not start a Planner run if fresh claims were returned without browser cookie propagation", async () => {
+    const auth = sessionClient({ exp: NOW + 80, renewedExp: NOW + 3600, omitRefreshCookieWrite: true });
+    const response = await updateSession(new NextRequest("https://www.ipix.co/api/copilotkit"));
+    expect(auth.refreshSession).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(401);
+    expect(response.cookies.get("sb-ipix-auth")).toBeUndefined();
   });
 
   it("fails closed when a near-expiry credential cannot be refreshed", async () => {

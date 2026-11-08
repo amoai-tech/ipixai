@@ -333,6 +333,10 @@ describe("PlannerRunControl", () => {
 
     expect(await controller.connect("thread-replay-failure")).toBeNull();
     expect(log).toHaveBeenCalledWith("owner_send_failed", expect.objectContaining({ kind: "event" }));
+    expect(log).toHaveBeenCalledWith("owner_control_message_failed", expect.objectContaining({ kind: "connect" }));
+    // A second request is denied without a partial replay or false success.
+    expect(await controller.connect("thread-replay-failure")).toBeNull();
+    expect(log).toHaveBeenCalledWith("owner_connect_replay_unavailable", { runId: "R1" });
     await handle.close();
   });
 

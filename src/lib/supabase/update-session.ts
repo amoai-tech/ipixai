@@ -6,6 +6,8 @@ import type { Database } from "@/lib/supabase/database.types";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
+  let refreshingPlannerSession = false;
+  let refreshedCookiesWritten = false;
   const config = getPublicSupabaseConfig();
   if (!config) return supabaseResponse;
 
@@ -15,6 +17,12 @@ export async function updateSession(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet, headers) {
+        // Claims alone cannot prove the browser received a rotated session.
+        // The streaming Planner route must start with matching request and
+        // response cookies so its Realtime JWT is valid for the whole run.
+        if (refreshingPlannerSession && cookiesToSet.length > 0) {
+          refreshedCookiesWritten = true;
+        }
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         supabaseResponse = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) =>
@@ -41,10 +49,17 @@ export async function updateSession(request: NextRequest) {
     if (original.exp - now < requiredLifetimeSeconds) {
       // The Proxy (not a streaming Route Handler) owns refresh-token rotation:
       // its existing setAll writes both the request and response cookies.
-      const { data, error } = await supabase.auth.refreshSession();
+      refreshingPlannerSession = true;
+      let data: Awaited<ReturnType<typeof supabase.auth.refreshSession>>["data"];
+      let error: Awaited<ReturnType<typeof supabase.auth.refreshSession>>["error"];
+      try {
+        ({ data, error } = await supabase.auth.refreshSession());
+      } finally {
+        refreshingPlannerSession = false;
+      }
       const renewed = !error && data.session ? await supabase.auth.getClaims() : null;
       if (
-        error || !data.session || renewed?.error ||
+        error || !data.session || !refreshedCookiesWritten || renewed?.error ||
         !renewed?.data?.claims ||
         renewed?.data?.claims?.sub !== original.sub ||
         (renewed?.data?.claims?.exp ?? 0) - Math.floor(Date.now() / 1000) < requiredLifetimeSeconds
