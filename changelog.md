@@ -4,11 +4,13 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ## [Unreleased]
 
-### Changed
+### Security
 
-- change(copilotkit): upgrade the Planner to CopilotKit 1.85 / AG-UI 1.0.2 and enforce owner-scoped Stop, reconnect and thread reads (IPI-1389, #319)
+- security(deps): patch the next/og RCE and clear all critical advisories; next 16.4.5, dompurify 3.4.17, proxy-addr 2.0.8, shell-quote 1.12.0, undici 6.29.1/8.12.4 by consumer, @fastify/busboy 3.2.5; npm audit critical 5 -> 0, high 49 -> 46 (IPI-1421, #322)
 
 ### Added
+
+- IPI-1420 · COPILOTKIT-SKILL-002 — Adapted the official CopilotKit v3.2.0 live-doc/source lookup skill in one iPix-owned entry, preserved Planner tenant/HITL boundaries, updated upstream skill inventory, corrected outdated v1 migration package advice and clarified four MCP corpora plus optional CLI safety. Added three focused load-on-demand guides for native catalogs/standardUI, page surfaces and AG-UI/A2UI 1.0 vs legacy dynamic-schema v0.9. No runtime/dependency/deployment changes.
 
 - IPI-1294 / PR #258 — Standardized Linear workflow governance with mandatory four-template routing, documented exception and outage-handoff paths, clear `todo.md`/changelog ownership, and regression tests for the governance contract.
 - IPI-1050 · MEM-001 — Proved Planner conversation continuity is durable rather than process-local: prior normal message history reaches the next same-thread model call after a real process restart, a thread-only fact does not leak into another thread of the same resource, and the fact arrives as message history rather than resource-scoped Working Memory. Adds `tests/mem-001-message-history.test.ts`, `scripts/mem-001-restart-proof.mjs`, and the `mem-001-restart-history` CI gate wired into the Production release dependencies.
@@ -23,6 +25,9 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Changed
 
+- change(copilotkit): upgrade the Planner to CopilotKit 1.85 / AG-UI 1.0.2 and enforce owner-scoped Stop, reconnect and thread reads (IPI-1389, #319)
+- IPI-1418 · Claude skill authoring audit — Applied official Claude Code and Anthropic skill-creator guidance: focused Mastra invocation description, removed inert `metadata.paths`, documented existing evaluation fixtures versus actual baseline proof, refreshed unsafe/unpinned MCP and stale Planner tool-count examples; preserved auth, approval, privacy and vendor boundaries.
+- IPI-1418 · MASTRA-SKILL-001 — Reconciled the canonical iPix Mastra Claude skill with official Mastra skills v2.5.0 (pinned upstream SHA), preserved installed score/feedback predicates with required target/store checks, and documented that the installed Mastra CLI supports trace queries but not new span-query/aggregation commands. Also corrected older core-concepts and full-guide references that called the weather agent the default and incorrectly claimed local missing-DB behavior always aborts. Preserved the separate iPix security/HITL, Vercel hosting, development scripts, and privacy rules; extended the existing skill contract test.
 - IPI-1091 / PR #316 — Changed the manual Vercel production workflow to **stage without changing customer domains**, verify the exact candidate and run existing QA before a separately approved promotion. Added executable stale-SHA and strict inspect-URL/metadata guards, GitHub's required owner-review approval for paid AI QA and durable Planner threads (Production environment, main-only, admin bypass disabled, without prohibited manual-workflow inputs), an explicit required Vercel inspection credential, read-only live GitHub environment-protection drift checks before any paid staging and in the existing six-hour governance workflow, clearer pre-QA alias reporting, and `docs/production-release.md` for the release/rollback procedure. This does **not** complete the still-blocked integrated Shoot approval/save/reopen journey.
 - IPI-1419 · MASTRA-DOCS-002 — Quarantined MDE-only Concierge/vector assumptions, labeled historical CopilotKit v2 and standalone Mastra starter examples, made Workspace execution fail closed in guidance, documented actual MCP connector schemas and Mastra 1.82 upgrade gates, and guarded optional Platform trace intelligence, labeled historical supervisor/browser/v0 examples, and fixed a broken skill-creator link. No runtime/package/database changes.
 

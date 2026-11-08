@@ -13,6 +13,16 @@ Use this file as the **routing table** for the Mastra skill.
 
 Do not read the whole reference directory. Pick the smallest owner set for the current problem.
 
+## Claude Code discoverability and skill evaluation
+
+- **Trigger:** Claude Code uses top-level `description` for discovery. `metadata.paths` is inert; a top-level `paths` filter would exclude Mastra questions from Next.js routes or package upgrades, so this skill deliberately has neither.
+- **Progressive disclosure:** Load this `SKILL.md` once, then only task-relevant references. Keep the main file under 500 lines and add a contents list to long references.
+- **Static proof:** Run `claude plugin validate .claude/skills` and `claude plugin validate .agents/skills`, plus frontmatter, link/index and trigger-fixture tests. The Claude validator treats an individual skill path as a plugin manifest and may skip symlink entries at the parent level; validate the two skill-root directories rather than `.claude/skills/mastra`.
+- **Behavioral proof:** Existing `evals/trigger-eval.json` tests both relevant and near-miss prompts; `evals/evals.json` describes quality cases. Static tests do not prove actual Claude invocation. Use [Anthropic's fresh-session baseline comparison](https://code.claude.com/docs/en/skills#evaluate-and-iterate-on-a-skill) before claiming improved selection accuracy.
+- **Permission safety:** `allowed-tools` in Claude Code frontmatter can grant tool permissions for a turn. Do not add it to this general guidance skill or bypass iPix server authorization, approval, or human merge controls.
+
+**References — ADAPT:** [Official Claude Code skills](https://code.claude.com/docs/en/skills) → top-level frontmatter and reference loading; [Anthropic skill-creator](https://github.com/anthropics/claude-plugins-official/blob/main/plugins/skill-creator/skills/skill-creator/SKILL.md) → with-skill versus baseline evals; [official Mastra skill](https://github.com/mastra-ai/skills/tree/main/skills/mastra) → framework conventions, **not** platform deployment or automatic external feedback. Community [frontmatter inventory](https://github.com/shanraisshan/claude-code-best-practice/blob/main/best-practice/claude-skills.md) is background only; verify against official docs and installed CLI.
+
 ## Ownership model
 
 ```text
@@ -48,6 +58,10 @@ Use one primary owner and add a second reference only when the task crosses boun
 | Implement Stop/AbortSignal propagation | [`streaming.md`](streaming.md) | stream-close assertion alone |
 | Auth/tenant/RequestContext boundary | [`supabase-auth.md`](supabase-auth.md) | memory/resource IDs as authority |
 | Package-family upgrade | [`migration-guide.md`](migration-guide.md) | `latest` docs or ad-hoc npm update |
+
+## Official 2.5.0 compatibility checkpoint
+
+Review the pinned [upstream Mastra skill](https://github.com/mastra-ai/skills/blob/3020257c173e40f3a49ae6a67d46557fa771e0d4/skills/mastra/SKILL.md) through this iPix ownership index; do **not** bulk-install a second Mastra skill. The local `mastra` CLI supports trace querying but not upstream's newer span-query/aggregate commands at the audited version. The [trace-query reference](trace-query.md) gates those capabilities and preserves the **installed-version** score/feedback query contract with target-support checks; do not assume the latest public reference describes older installed SDKs. Upstream Platform/Factory and automatic external bug reporting remain optional vendor features, not iPix defaults. For SDK implementation, the installed TypeScript types and exact local runtime win.
 
 ## Core implementation references
 

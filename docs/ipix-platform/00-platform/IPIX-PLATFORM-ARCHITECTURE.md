@@ -28,7 +28,7 @@ It does **not** define domain schemas, redesign the current runtime, or authoriz
 
 | Layer | Current implementation | Verified owner / role | Evidence |
 | --- | --- | --- | --- |
-| Web application | Next.js `16.3.5`, React `19.2.1` | Routes, server actions, operator workspace | `package.json` |
+| Web application | Next.js `16.4.5`, React `19.2.1` | Routes, server actions, operator workspace | `package.json` |
 | AI interaction | CopilotKit `1.68.1`, AG-UI/Mastra bridge | Chat, UI tools, rendered AI state, runtime endpoint | `src/app/api/copilotkit/[[...slug]]/route.ts` |
 | AI orchestration | Mastra core `1.63.2` | Agents, tools, workflows, memory, run lifecycle | `src/mastra/**` |
 | AI runtime persistence | `@mastra/pg 1.22.2`, `@mastra/memory 1.28.1` | Mastra threads/messages/workflow state only | `src/mastra/pg-store.ts`; live `mastra` schema |

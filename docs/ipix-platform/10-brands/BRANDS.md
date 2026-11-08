@@ -91,16 +91,7 @@ Main implementation:
 
 ### 1.5 Current package baseline
 
-| Package | iPix version |
-| --- | --- |
-| Next.js | `16.3.5` |
-| `@copilotkit/runtime` | `1.68.1` |
-| `@copilotkit/react-core` | `1.68.1` |
-| `@copilotkit/channels` | `0.9.0` |
-| `@mastra/core` | `1.63.2` |
-| `@mastra/pg` | `1.22.2` |
-| `@supabase/supabase-js` | `2.112.4` |
-| `cloudinary` | `^2.11.0` |
+The one maintained version table is [Runtime compatibility family](../../mastra/runtime-family.md). It follows `package.json` and `package-lock.json`, so this document deliberately restates no version.
 
 **Rule:** a GitHub example may use newer APIs. We adapt the pattern only after checking it against the versions iPix actually has installed and the [IPI-1290 · Safely upgrade CopilotKit to 1.73.0 + Channels 0.10.0](https://linear.app/amo100/issue/IPI-1290/ipi-1290-safely-upgrade-copilotkit-to-1730-channels-0100) upgrade target.
 

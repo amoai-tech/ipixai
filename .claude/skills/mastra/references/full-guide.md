@@ -23,13 +23,13 @@ Never trust training-data API shapes — Mastra APIs change between versions.
 |------|--------|
 | Location | `src/mastra/` only (not old iPix `app/src/mastra/`) |
 | Export | `export const mastra` from `src/mastra/index.ts` |
-| Storage | PostgresStore, `schemaName: "mastra"`, `disableInit: true`. Missing `MASTRA_DATABASE_URL` must abort (no in-memory LibSQL). LibSQL only if a task marks the env as disposable preview |
-| Models | Starter pin until a provider ticket — run [`model-selection.md`](./model-selection.md) before new ids |
-| Agent IDs | **Current:** `weather-agent` (`default`). **Target:** `production-planner` (+ `default` alias) per convert plan — do not assume the target is registered |
+| Storage | Hosted Mastra uses guarded Postgres storage (`schemaName: "mastra"`, `disableInit: true`) and fails closed for missing/unapproved URL. Local development may warn and use in-memory storage; never treat that as durable proof. Source: `src/mastra/pg-store.ts` |
+| Models | Current Planner model belongs to `src/mastra/agents/production-planner.ts` (currently OpenAI); verify installed provider and model route before any change. See [`model-selection.md`](./model-selection.md) |
+| Agent IDs | **Current:** `src/mastra/runtime.ts` registers `default: getProductionPlannerAgent()`; the agent ID is `production-planner`. Weather references belong to old starter examples, not active product routing. |
 | CopilotKit | In-process `getLocalAgents({ mastra, resourceId })` — `resourceId` = `org:{orgId}::user:{userId}` |
 | Dev | `npm run dev:agent` (`:4111`) and `npm run dev:ui` (`:3000`) — never combined `npm run dev` |
 
-Full iPix block: [SKILL.md § iPix-specific wiring](../SKILL.md).
+Full iPix contract: [the canonical Mastra skill](../SKILL.md) and `src/mastra/runtime.ts`; this overview must not override installed implementation.
 
 ---
 
