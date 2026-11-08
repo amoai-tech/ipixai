@@ -18,6 +18,10 @@ const traceQueryReference = readFileSync(
   new URL("../.claude/skills/mastra/references/trace-query.md", import.meta.url),
   "utf8",
 );
+const mastraCoreConcepts = readFileSync(
+  new URL("../.claude/skills/mastra/references/core-concepts.md", import.meta.url),
+  "utf8",
+);
 
 describe("IPI-1213 PR-Agent review skills contract", () => {
   it("keeps deterministic review-skill ownership local while the shared core orchestrates it", () => {
@@ -47,6 +51,27 @@ describe("IPI-1213 PR-Agent review skills contract", () => {
     expect(mastraSkill).toContain("one canonical Mastra skill for iPix");
     expect(mastraSkill).toContain("PR review");
     expect(mastraSkill).toContain("references/trace-query.md");
+  });
+
+
+  it("routes the official Mastra skill refresh through iPix compatibility and privacy gates", () => {
+    expect(mastraSkill).toContain('version: "2.5.0-ipix.1"');
+    expect(mastraSkill).toContain("3020257c173e40f3a49ae6a67d46557fa771e0d4");
+    expect(mastraSkill).toContain("explicit human approval");
+    expect(mastraSkill).toContain("npm run dev:agent");
+    expect(mastraSkill).toContain("npm run dev:ui");
+    expect(mastraSkill).toContain("server verified");
+    expect(traceQueryReference).toContain("https://mastra.ai/reference/observability/tracing/advanced-queries");
+    expect(traceQueryReference).toContain("does not expose");
+    expect(traceQueryReference).toContain("spanQuery");
+    expect(traceQueryReference).toContain("traceAggregate");
+    expect(traceQueryReference).not.toContain('"scores":{');
+    expect(traceQueryReference).not.toContain('"feedback":{');
+    expect(traceQueryReference).not.toContain("scores.some");
+    expect(mastraCoreConcepts).toContain("default: getProductionPlannerAgent()");
+    expect(mastraCoreConcepts).toContain("IPIX_MASTRA_HOSTED");
+    expect(mastraCoreConcepts).toContain("warned in-memory storage");
+    expect(mastraCoreConcepts).not.toContain("starter `weather-agent`");
   });
 
   it("keeps canonical CopilotKit review guidance anchored to v2 invariants", () => {

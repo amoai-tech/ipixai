@@ -4,8 +4,8 @@ description: "Mastra framework for iPixai: docs lookup, agents, workflows, tools
 license: Apache-2.0
 metadata:
   author: Mastra
-  version: "2.2.0-ipix.6"
-  basedOn: mastra-ai/skills 2.2.0 @ f79b794df9201b671b6602c6fc8ac0ad95478750 + iPix overlay
+  version: "2.5.0-ipix.1"
+  basedOn: mastra-ai/skills 2.5.0 @ 3020257c173e40f3a49ae6a67d46557fa771e0d4 + iPix overlay
   repository: https://github.com/mastra-ai/skills
   title: Mastra framework guide
   impact: HIGH
@@ -57,6 +57,17 @@ package upgrade            → migration-guide.md
 ```
 
 One reference should not impersonate another: workflow docs explain HOW; testing gates define WHAT must pass; journey docs prove the operator outcome across systems.
+
+## Official Mastra 2.5.0 alignment — scoped, not wholesale
+
+**Provenance:** [official Mastra skill @ 3020257c173e40f3a49ae6a67d46557fa771e0d4](https://github.com/mastra-ai/skills/blob/3020257c173e40f3a49ae6a67d46557fa771e0d4/skills/mastra/SKILL.md). This is a reviewed **iPix overlay**, not a copy of upstream's entire skill pack. Keep exactly one Mastra skill; leave the separate iPix security, CopilotKit, and verification owners intact.
+
+- **Native before custom:** first check whether the installed Mastra version already solves the job through an agent, tool, workflow, memory/storage feature, or existing CLI. See [core concepts](references/core-concepts.md) and installed source/types; a feature on current upstream is not proof it exists in iPix's pinned version.
+- **Tracing:** the installed `mastra` CLI was verified to expose `api trace query`, **not** `api span query`, `api trace aggregate`, or `api span aggregate`. After any package update, rerun `npx --no-install mastra api trace --help` and `npx --no-install mastra api --help` and check the target's observability capabilities. See [trace-query.md](references/trace-query.md) and the [official advanced-query contract](https://mastra.ai/reference/observability/tracing/advanced-queries).
+- **Trace filters:** the official advanced trace query contract supports root and related **span** predicates; do not invent score or feedback relation filters. For evaluations and feedback, use the verified scorer/feedback APIs instead.
+- **Optional vendor platforms:** Mastra Platform deployment and Factory operations described upstream are **not** iPix's Vercel/Node runtime. Do not run `mastra deploy`, install Factory, or migrate hosting unless a separate approved task requires it.
+- **External feedback/privacy:** upstream's optional bug-report skill describes automatic HTTP submission. iPix does **not** enable automatic external reports. Prepare a sanitized candidate, then require explicit human approval and an authorized submission path. Never transmit source code, tenant/customer data, secrets, trace payloads, or private URLs.
+- **Current dev contract stays:** `npm run dev:agent` and `npm run dev:ui` are separate; never substitute the upstream's combined `npm run dev`. No unreviewed `npx skills add` or `npm update` against this customized skill.
 
 ## Core rule — verify exact installed behavior
 

@@ -5,12 +5,12 @@ parent: mastra
 impact: HIGH
 impactDescription: Agent-readable inspect/call loop against Studio/API
 tags: mastra, cli, api, studio
-source: https://github.com/mastra-ai/skills/blob/f79b794df9201b671b6602c6fc8ac0ad95478750/skills/mastra/references/mastra-api.md
+source: https://github.com/mastra-ai/skills/blob/3020257c173e40f3a49ae6a67d46557fa771e0d4/skills/mastra/references/mastra-api.md
 ---
 
 # Mastra API CLI Reference
 
-Upstream: [mastra-ai/skills `mastra-api.md` @ f79b794](https://github.com/mastra-ai/skills/blob/f79b794df9201b671b6602c6fc8ac0ad95478750/skills/mastra/references/mastra-api.md) (skill 2.2.0). Official CLI: [`mastra api`](https://mastra.ai/reference/cli/mastra.md). Develop loop: [Develop](https://mastra.ai/docs/getting-started/develop.md).
+Reviewed against [official `mastra-api.md` @ 3020257c173e40f3a49ae6a67d46557fa771e0d4](https://github.com/mastra-ai/skills/blob/3020257c173e40f3a49ae6a67d46557fa771e0d4/skills/mastra/references/mastra-api.md) (skill 2.5.0), with iPix-only CLI and hosting rules retained. Official CLI: [`mastra api`](https://mastra.ai/reference/cli/mastra.md). Develop loop: [Develop](https://mastra.ai/docs/getting-started/develop.md).
 
 ## iPixai — how the local server is started
 
@@ -247,4 +247,4 @@ curl -fsS "$MASTRA_URL/api/system/api-schema" \
 
 ## Advanced trace query
 
-Use `trace query` instead of `trace list` when selection requires recursive predicates, metadata filters, or conditions over related spans, scores, or feedback. First confirm the repo-pinned CLI exposes the command with `npx --no-install mastra api trace query --help` and `--schema`. Preserve opaque pagination cursors unchanged. See [`trace-query.md`](trace-query.md).
+Use `trace query` instead of `trace list` when selection requires recursive predicates, metadata filters, or conditions over related **spans**. First confirm the repo-pinned CLI exposes the command with `npx --no-install mastra api trace query --help` and `--schema`, then verify server/storage capabilities. The current installed CLI does **not** provide `span query` or aggregate commands; do not copy new upstream examples into executable advice without updating and certifying that family. Preserve opaque pagination cursors unchanged. See [`trace-query.md`](trace-query.md).

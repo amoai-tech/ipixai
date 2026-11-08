@@ -49,6 +49,10 @@ Use one primary owner and add a second reference only when the task crosses boun
 | Auth/tenant/RequestContext boundary | [`supabase-auth.md`](supabase-auth.md) | memory/resource IDs as authority |
 | Package-family upgrade | [`migration-guide.md`](migration-guide.md) | `latest` docs or ad-hoc npm update |
 
+## Official 2.5.0 compatibility checkpoint
+
+Review the pinned [upstream Mastra skill](https://github.com/mastra-ai/skills/blob/3020257c173e40f3a49ae6a67d46557fa771e0d4/skills/mastra/SKILL.md) through this iPix ownership index; do **not** bulk-install a second Mastra skill. The local `mastra` CLI supports trace querying but not upstream's newer span-query/aggregate commands at the audited version. The [trace-query reference](trace-query.md) gates those capabilities and removes a stale score-related trace filter example. Upstream Platform/Factory and automatic external bug reporting remain optional vendor features, not iPix defaults. For SDK implementation, the installed TypeScript types and exact local runtime win.
+
 ## Core implementation references
 
 | File | Load when |
