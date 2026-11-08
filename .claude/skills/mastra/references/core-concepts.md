@@ -5,14 +5,18 @@ parent: mastra
 impact: HIGH
 impactDescription: Pick the right Mastra primitive before coding
 tags: mastra, agents, workflows, agent-controller, skills, tools, memory, storage
-source: https://github.com/mastra-ai/skills/blob/e43c0af58bcd982b21fb0037a4275830d0f2552c/skills/mastra/references/core-concepts.md
+source: https://github.com/mastra-ai/skills/blob/3020257c173e40f3a49ae6a67d46557fa771e0d4/skills/mastra/references/core-concepts.md
 ---
 
 # Core Concepts Reference
 
-Upstream base: [mastra-ai/skills `core-concepts.md` @ e43c0af](https://github.com/mastra-ai/skills/blob/e43c0af58bcd982b21fb0037a4275830d0f2552c/skills/mastra/references/core-concepts.md) (skill 2.1.0), with iPix additions for current installed primitives.
+Adapted from [official `core-concepts.md` @ 3020257c173e40f3a49ae6a67d46557fa771e0d4](https://github.com/mastra-ai/skills/blob/3020257c173e40f3a49ae6a67d46557fa771e0d4/skills/mastra/references/core-concepts.md) (skill 2.5.0), retaining iPix-specific primitive and security boundaries.
 
 Use this when deciding which Mastra primitive to use or when explaining the high-level shape of a Mastra application.
+
+## Discover native capabilities first
+
+Before adding a custom service or new agent, check whether the **installed** Mastra version already supports the required agent, tool, workflow, memory, or storage primitive. Inspect embedded docs where actually packaged, then installed types/source; use current upstream docs for ideas only after verifying compatibility. Prefer one existing iPix capability over a new orchestration stack.
 
 ## Agents vs workflows vs AgentController
 
@@ -32,9 +36,9 @@ AgentController: Interactive control layer around long-running agent work with s
 
 ## iPixai
 
-- **Current registry:** starter `weather-agent` (`default` → that agent). **Conversion-plan target:** Production Planner (`production-planner`, plus `default` alias) — not registered until the convert plan lands it.
-- Tools stay **compute-only** until HITL RPCs; domain writes go through SECURITY DEFINER RPCs + user JWT.
-- Storage on the real path is **PostgresStore** (`schemaName: "mastra"`, `disableInit: true`). Missing `MASTRA_DATABASE_URL` must **abort startup** — do not construct in-memory LibSQLStore. LibSQL is allowed only when a task marks the env as disposable preview. The current starter still warns-and-falls-back; do not copy that into production.
+- **Current registry:** `src/mastra/runtime.ts` registers `default: getProductionPlannerAgent()`. `src/app/api/copilotkit/[[...slug]]/route.ts` creates tenant-scoped local agents from verified server identity. Weather-related example code still exists in `src/mastra/tools/`, but **is not the current default product agent**.
+- **Tools/domain authority:** read and computation tools may return proposals. Consequential writes use exact-artifact human approval, authenticated server/domain authorization and an idempotent apply path; do not infer write access from an agent, `RequestContext`, or browser-supplied organization ID.
+- **Storage:** `src/mastra/pg-store.ts` uses approved Postgres storage for hosted durable operation and fails closed when `IPIX_MASTRA_HOSTED` requires a missing/unapproved database. Local development **may use warned in-memory storage** when `MASTRA_DATABASE_URL` is absent; that state does not survive restart and is not a hosted durability proof. Check current storage guards before modifying the behavior.
 
 
 ## Skill
