@@ -22,6 +22,10 @@ const mastraCoreConcepts = readFileSync(
   new URL("../.claude/skills/mastra/references/core-concepts.md", import.meta.url),
   "utf8",
 );
+const mastraFullGuide = readFileSync(
+  new URL("../.claude/skills/mastra/references/full-guide.md", import.meta.url),
+  "utf8",
+);
 
 describe("IPI-1213 PR-Agent review skills contract", () => {
   it("keeps deterministic review-skill ownership local while the shared core orchestrates it", () => {
@@ -65,9 +69,12 @@ describe("IPI-1213 PR-Agent review skills contract", () => {
     expect(traceQueryReference).toContain("does not expose");
     expect(traceQueryReference).toContain("spanQuery");
     expect(traceQueryReference).toContain("traceAggregate");
-    expect(traceQueryReference).not.toContain('"scores":{');
-    expect(traceQueryReference).not.toContain('"feedback":{');
-    expect(traceQueryReference).not.toContain("scores.some");
+    expect(traceQueryReference).toContain("scores.some");
+    expect(traceQueryReference).toContain("feedback.some");
+    expect(traceQueryReference).toContain("not a successful live query");
+    expect(mastraFullGuide).toContain("default: getProductionPlannerAgent()");
+    expect(mastraFullGuide).toContain("Local development may warn and use in-memory storage");
+    expect(mastraFullGuide).not.toContain("**Current:** `weather-agent`");
     expect(mastraCoreConcepts).toContain("default: getProductionPlannerAgent()");
     expect(mastraCoreConcepts).toContain("IPIX_MASTRA_HOSTED");
     expect(mastraCoreConcepts).toContain("warned in-memory storage");

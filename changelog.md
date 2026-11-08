@@ -19,7 +19,7 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Changed
 
-- IPI-1418 · MASTRA-SKILL-001 — Reconciled the canonical iPix Mastra Claude skill with official Mastra skills v2.5.0 (pinned upstream SHA), corrected trace-query guidance that offered unsupported related score/feedback filters, and documented that the installed Mastra CLI supports trace queries but not new span-query/aggregation commands. Also corrected an older core-concepts reference that still called the weather agent the default and incorrectly claimed local missing-DB behavior always aborts. Preserved the separate iPix security/HITL, Vercel hosting, development scripts, and privacy rules; extended the existing skill contract test.
+- IPI-1418 · MASTRA-SKILL-001 — Reconciled the canonical iPix Mastra Claude skill with official Mastra skills v2.5.0 (pinned upstream SHA), preserved installed score/feedback predicates with required target/store checks, and documented that the installed Mastra CLI supports trace queries but not new span-query/aggregation commands. Also corrected older core-concepts and full-guide references that called the weather agent the default and incorrectly claimed local missing-DB behavior always aborts. Preserved the separate iPix security/HITL, Vercel hosting, development scripts, and privacy rules; extended the existing skill contract test.
 
 ### Deprecated
 

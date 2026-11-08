@@ -1,6 +1,6 @@
 # Advanced Trace Query Reference
 
-Use `mastra api trace query` when a normal trace list cannot express the required filters: recursive boolean predicates, related **span** conditions, metadata filters, ordering, or opaque cursor pagination. The current official query contract does not list related score or feedback predicate collections.
+Use `mastra api trace query` when a normal trace list cannot express the required filters: recursive boolean predicates, related span conditions, metadata filters, ordering, or opaque cursor pagination. On the **installed iPix core/client SDK family**, related score and feedback filters are also documented; the newer official reference no longer presents those collections. Verify the installed server/store before choosing any version-specific filter.
 
 For broad questions about recurring agent behavior or health, start with supported `trace list`/metrics and, **only if Mastra Platform Trace Intelligence is configured**, [`trace-intelligence.md`](trace-intelligence.md). Use advanced trace queries for exact traces matching explicit conditions, then inspect the returned traces for evidence.
 
@@ -47,6 +47,28 @@ npx --no-install mastra api trace query \
   | jq '{traces: .data.traces, next: .data.page.next}'
 ```
 
+## Version-specific score and feedback predicates
+
+The installed `@mastra/core@1.71.0` type `traceQueryPredicateScopeSchema` still enumerates `trace`, `spans`, `scores`, and `feedback`. The installed `@mastra/client-js@1.50.0` documentation at `node_modules/@mastra/client-js/dist/docs/references/reference-observability-tracing-trace-query.md` shows `scores.some` and `feedback.some` in `queryTraces()`, while the [newer official reference](https://mastra.ai/reference/observability/tracing/advanced-queries) emphasizes root and span predicates. This is a **version difference**, not proof that score filters are intrinsically invalid.
+
+For a target that actually supports related-score queries, the documented structure is:
+
+```json
+{
+  "timeRange": { "from": "2026-08-01T00:00:00.000Z", "to": "2026-08-08T00:00:00.000Z" },
+  "where": { "scores": { "some": {
+    "op": "and",
+    "args": [
+      { "op": "eq", "left": { "path": "scorerId" }, "right": { "literal": "factuality" } },
+      { "op": "lt", "left": { "path": "score" }, "right": { "literal": 0.6 } }
+    ]
+  } } },
+  "page": { "limit": 25 }
+}
+```
+
+`feedback.some` follows the same related-record idea (see the installed client documentation for accepted fields). Keep every condition that must describe one score or feedback row inside a **single** `some` clause. **Do not send this example automatically:** timestamps are historical placeholders and the selected target's observability data, permissions, store capabilities, and filters must be verified. The installed SDK/type evidence is not a successful live query.
+
 ## Pagination
 
 The query response remains nested under `data` so the pagination cursor is preserved:
@@ -74,10 +96,10 @@ A cursor is bound to the accepted query and ordering. Do not change the time ran
 - Compose predicates with `and`, `or`, and `not`.
 - Use `some` when one related record must satisfy the complete nested predicate.
 - Use `none` when no related record may satisfy the complete nested predicate. Traces with no related records also match `none`.
-- Related span clauses correlate records by trace. Separate `spans.some` clauses may match different spans; group conditions into one clause when they must match the same span.
+- Related `spans.some` clauses correlate records by trace; separate clauses can match different spans. The installed family additionally documents `scores.some` and `feedback.some`. Group conditions within a single related clause when they must match the same record, and verify the target supports each relation.
 - String comparisons are exact and case-sensitive unless the canonical documentation states otherwise.
 - The root `timeRange` filters the selected root span's start time; it does not independently constrain related-record timestamps.
-- Query results are lightweight and do not embed matching spans. Fetch trace or span details after selecting candidates.
+- Query results are lightweight and do not embed related matching spans or score/feedback rows. Fetch authorized trace/span details or the corresponding scorer/feedback records after selecting candidates.
 
 ## Newer official observability operations — gated, not the installed iPix default
 
