@@ -1,11 +1,10 @@
 ---
 title: CopilotKit + Mastra (separate server)
-description: Load for Mastra standalone server + Next.js CopilotKit integration. NOT mdeapp Pattern 1 — use copilotkit-integrations mastra.md for mdeapp.
+description: Optional separate-server CopilotKit/Mastra tutorial only. Not the current iPix in-process CopilotKit v2 implementation.
 parent: mastra
 impact: MEDIUM
 impactDescription: Split-stack CopilotKit guide
 tags: mastra, copilotkit, integration
-mdeapp: not-default-use-integrations-ref
 ---
 
 # Using CopilotKit
@@ -20,6 +19,8 @@ mdeapp: not-default-use-integrations-ref
 ## iPix warning
 
 This page documents a **separate Mastra server** pattern and is **not the default iPix architecture**. For iPix use the local CopilotKit skill plus the current in-process `MastraAgent.getLocalAgents({ mastra, resourceId })` runtime. Load this page only when a task explicitly evaluates a separate server.
+
+**Upgrade gate:** IPI-1389 changes CopilotKit/AG-UI first, then IPI-1385 changes Mastra to stable 1.82. The `/chat` endpoint, weatherAgent, `create-mastra@latest` and standalone provider shown below are **new-project examples, not runnable steps inside iPix**. Don't replace `src/app/api/copilotkit/[[...slug]]/route.ts` or introduce a second provider; verify exact installed versions/types before considering a separate-server architecture.
 
 
 [CopilotKit](https://www.copilotkit.ai/) provides React components to quickly integrate customizable AI copilots into your application. Combined with Mastra, you can build sophisticated AI apps featuring bidirectional state synchronization and interactive UIs.

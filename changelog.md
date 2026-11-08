@@ -21,6 +21,9 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Changed
 
+- IPI-1091 / PR #316 — Changed the manual Vercel production workflow to **stage without changing customer domains**, verify the exact candidate and run existing QA before a separately approved promotion. Added executable stale-SHA and strict inspect-URL/metadata guards, GitHub's required owner-review approval for paid AI QA and durable Planner threads (Production environment, main-only, admin bypass disabled, without prohibited manual-workflow inputs), an explicit required Vercel inspection credential, read-only live GitHub environment-protection drift checks before any paid staging and in the existing six-hour governance workflow, clearer pre-QA alias reporting, and `docs/production-release.md` for the release/rollback procedure. This does **not** complete the still-blocked integrated Shoot approval/save/reopen journey.
+- IPI-1419 · MASTRA-DOCS-002 — Quarantined MDE-only Concierge/vector assumptions, labeled historical CopilotKit v2 and standalone Mastra starter examples, made Workspace execution fail closed in guidance, documented actual MCP connector schemas and Mastra 1.82 upgrade gates, and guarded optional Platform trace intelligence, labeled historical supervisor/browser/v0 examples, and fixed a broken skill-creator link. No runtime/package/database changes.
+
 ### Deprecated
 
 ### Removed

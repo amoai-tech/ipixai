@@ -1,6 +1,6 @@
 ---
 title: Mastra examples v0 — Supatabs index
-description: Load for runnable Mastra v0 examples and Supatabs-style tables.
+description: Historical Mastra v0 example index only; not an executable iPix 1.71 or target 1.82 upgrade recipe.
 parent: mastra
 impact: HIGH
 impactDescription: Runnable example URLs from mastra.ai/examples/v0 (not in mastraDocs MCP)
@@ -8,6 +8,8 @@ tags: mastra, examples, whatsapp, working-memory, supervisor
 ---
 
 # Mastra examples v0 — Supatabs index
+
+> **Historical / reference-only:** v0 examples and MDE-specific notes below are not validated against iPix's installed Mastra 1.71 family or its stable 1.82 upgrade target. Use official version-tagged Mastra docs/installed types before adapting code; preserve the current authenticated CopilotKit v2 and Production Planner architecture. Do not copy model/provider keys, MDE product assumptions or standalone server setup into iPix.
 
 **Fetch note:** `examples/v0/*` paths are **not** in the `mastraDocs` MCP tree. Use HTTP (browser), Firecrawl, or `curl -L` on the URLs below — **`.md` suffix returns 404**.
 
@@ -76,7 +78,7 @@ Full index: [`browser.md`](browser.md)
 
 ---
 
-## mdeai pointers
+## Legacy MDE pointers — not iPix paths
 
 | Artifact | Path |
 | --- | --- |

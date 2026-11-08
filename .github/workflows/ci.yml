@@ -901,15 +901,22 @@ jobs:
   # Every merge to main still runs the full CI suite above, but creates NO
   # Production deployment. Deploying on push is what made deployment storage grow
   # once per merge (17 merges -> 17 Production artifacts); releasing is now an
-  # intentional act, not a side effect of merging.
+  # intentional act, not a side effect of merging. The release job stages
+  # a Production build but never promotes it; the live alias stays unchanged.
   #
   # RELEASE SWITCH: `VERCEL_ACTIONS_PRODUCTION_ENABLED`
   # (repository variable: Settings -> Secrets and variables -> Actions ->
   # Variables).
   #
-  #   'true'                  -> deploy the dispatched main SHA to Production.
+  #   'true'                  -> stage the dispatched main SHA without live domains.
   #   'false'                 -> deliberately skip the deploy; the run warns.
   #   unset / anything else   -> this job FAILS with ::error.
+  #
+  # BEFORE manual dispatch, obtain and record IPI-1091 operator authorization
+  # for both paid AI QA model calls and persistent QA Planner threads on the
+  # Production-configured backend (docs/production-release.md). The CI security
+  # policy prohibits workflow_dispatch inputs, so this approval is enforced
+  # through GitHub's protected Production environment and its named reviewers.
   #
   # The switch is validated INSIDE the job, never in the job-level `if:`. A
   # job-level condition reports conclusion=skipped, which is not a failure — so
@@ -935,7 +942,11 @@ jobs:
       github.event_name == 'workflow_dispatch' &&
       github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # GitHub's required-reviewer protection applies BEFORE this job starts.
+    # Never remove: QA makes paid calls and persists real QA Planner threads.
+    # Reference: https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments
+    environment: Production
+    timeout-minutes: 45
     permissions:
       contents: read
     concurrency:
@@ -990,11 +1001,19 @@ jobs:
           git fetch --no-tags origin main
           latest_sha="$(git rev-parse origin/main)"
           if [ "$TESTED_SHA" != "$latest_sha" ]; then
-            echo "deploy=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping stale CI SHA $TESTED_SHA; latest main is $latest_sha"
-            exit 0
+            echo "::error title=Stale Production SHA::Requested $TESTED_SHA, but main is now $latest_sha. No candidate staged. Start a NEW run: GitHub Actions > CI > Run workflow > Branch: main. Do not rerun this outdated run."
+            exit 1
           fi
           echo "deploy=true" >> "$GITHUB_OUTPUT"
+
+      # Reference — REFERENCE ONLY:
+      # https://docs.github.com/en/rest/deployments/environments
+      # Public read-only API; no privileged token or user-supplied configuration.
+      # The GitHub environment approval occurs before any steps. This extra
+      # fail-closed check detects removed reviewers/branch rules before paid QA.
+      - name: Verify required Production environment reviewers
+        if: steps.latest.outputs.deploy == 'true'
+        run: node scripts/check-production-environment.mjs
 
       - name: Require Vercel deployment credential
         id: credentials
@@ -1004,7 +1023,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           if [ -z "$VERCEL_TOKEN" ]; then
-            echo "::error::VERCEL_ACTIONS_PRODUCTION_ENABLED is true but VERCEL_TOKEN is missing."
+            echo "::error title=Missing VERCEL_TOKEN::Repository or Production environment secret VERCEL_TOKEN is unavailable. Verify GitHub Actions Settings > Secrets and variables > Actions and Production environment."
             exit 1
           fi
           echo "configured=true" >> "$GITHUB_OUTPUT"
@@ -1019,7 +1038,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+        run: vercel pull --yes --environment=production
 
       - name: Build exact SHA for Production
         if: steps.latest.outputs.deploy == 'true' && steps.credentials.outputs.configured == 'true'
@@ -1027,9 +1046,31 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-        run: vercel build --prod --token="$VERCEL_TOKEN"
+        run: vercel build --prod
 
-      - name: Deploy exact latest SHA to Production
+      # Preserve the previous live deployment for alias-drift detection/rollback.
+      - name: Capture current Production deployment before staging
+        id: live-before
+        if: steps.latest.outputs.deploy == 'true' && steps.credentials.outputs.configured == 'true'
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          vercel inspect https://www.ipix.co --json > /tmp/ipix-live-before.json
+          node -e '
+            const fs = require("node:fs");
+            const live = JSON.parse(fs.readFileSync("/tmp/ipix-live-before.json", "utf8"));
+            if (!live.url || live.target !== "production" || live.readyState !== "READY") {
+              throw new Error("Cannot identify current healthy Production rollback target");
+            }
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, "url=" + live.url + "\n");
+            console.log("Existing live deployment: " + live.url);
+          '
+
+      # Reference: https://vercel.com/docs/cli/deploy#skip-domain
+      - name: Stage exact latest SHA without assigning customer domains
+        id: stage
         if: steps.latest.outputs.deploy == 'true' && steps.credentials.outputs.configured == 'true'
         shell: bash
         env:
@@ -1042,10 +1083,116 @@ jobs:
           git fetch --no-tags origin main
           latest_sha="$(git rev-parse origin/main)"
           if [ "$TESTED_SHA" != "$latest_sha" ]; then
-            echo "Skipping deploy: tested SHA $TESTED_SHA is no longer latest main ($latest_sha)."
-            exit 0
+            echo "::error title=Stale Production SHA::Build $TESTED_SHA is outdated; latest main is $latest_sha. No candidate staged. Start a NEW run: GitHub Actions > CI > Run workflow > Branch: main. Do not rerun this outdated run."
+            exit 1
           fi
-          vercel deploy --prebuilt --prod \
+          deployment_url="$(vercel deploy --prebuilt --prod --skip-domain \
             --meta githubCommitSha="$TESTED_SHA" \
-            --meta githubCommitRef=main \
-            --token="$VERCEL_TOKEN"
+            --meta githubCommitRef=main)"
+          DEPLOYMENT_URL="$deployment_url" node -e '
+            const u = new URL(process.env.DEPLOYMENT_URL);
+            if (u.protocol !== "https:" || u.origin !== process.env.DEPLOYMENT_URL ||
+                !/^ipixai-[a-z0-9-]+-amoco\.vercel\.app$/i.test(u.hostname)) {
+              throw new Error("Staged URL does not belong to this iPix Vercel project");
+            }
+          '
+          echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+          echo "Staged (not promoted): $deployment_url"
+
+      # Reference: https://vercel.com/docs/rest-api
+      # The CLI JSON omits git SHA; verify it via Vercel's read-only API.
+      - name: Inspect staged Production candidate and unchanged live alias
+        if: steps.stage.outputs.url != ''
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          TESTED_SHA: ${{ github.sha }}
+          DEPLOYMENT_URL: ${{ steps.stage.outputs.url }}
+          LIVE_BEFORE: ${{ steps.live-before.outputs.url }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error title=Missing VERCEL_TOKEN::Staged deployment inspection cannot run without the GitHub Actions VERCEL_TOKEN secret. Verify the repository or Production environment secret mapping."
+            exit 1
+          fi
+          vercel inspect "$DEPLOYMENT_URL" --json > /tmp/ipix-staged.json
+          vercel inspect https://www.ipix.co --json > /tmp/ipix-live-after.json
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            import { verifyStagedProduction } from "./scripts/vercel-inspect-host.mjs";
+            const liveHost = await verifyStagedProduction({
+              staged: JSON.parse(readFileSync("/tmp/ipix-staged.json", "utf8")),
+              live: JSON.parse(readFileSync("/tmp/ipix-live-after.json", "utf8")),
+              deploymentUrl: process.env.DEPLOYMENT_URL,
+              liveBefore: process.env.LIVE_BEFORE,
+              projectId: process.env.VERCEL_PROJECT_ID,
+              orgId: process.env.VERCEL_ORG_ID,
+              sha: process.env.TESTED_SHA,
+            }, process.env.VERCEL_TOKEN);
+            console.log("Verified staged SHA; www.ipix.co still serves " + liveHost);
+          '
+
+      # Reference: https://playwright.dev/docs/ci
+      # Reuse playwright.config.ts + auth.setup.ts + the origin-scoped
+      # Vercel protection bypass in e2e/support/vercel-bypass.ts.
+      # NEVER send the bypass secret as context-wide extraHTTPHeaders.
+      - name: Install dependencies for staged QA
+        if: steps.stage.outputs.url != ''
+        run: npm ci
+
+      - name: Install Chromium for staged QA
+        if: steps.stage.outputs.url != ''
+        run: PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium
+
+      - name: Run staged authenticated QA for login and tenant isolation
+        if: steps.stage.outputs.url != ''
+        env:
+          E2E_BASE_URL: ${{ steps.stage.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          E2E_TEST_EMAIL_ORG_B: ${{ secrets.E2E_TEST_EMAIL_ORG_B }}
+          E2E_TEST_PASSWORD_ORG_B: ${{ secrets.E2E_TEST_PASSWORD_ORG_B }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          COPILOTKIT_TELEMETRY_DISABLED: "true"
+          PLAYWRIGHT_HTML_OPEN: "never"
+        run: |
+          set -euo pipefail
+          PLAYWRIGHT_BROWSERS_PATH=0 npx playwright test \
+            --project=chromium --retries=0 --reporter=line \
+            e2e/login-journey.spec.ts e2e/tenant-isolation.spec.ts
+
+      # These specs make paid AI calls and only persist dedicated QA threads.
+      # Provider quotas, Stop failures, or cross-org leaks fail this release.
+      - name: Run staged Planner Stop and thread isolation against real AI
+        if: steps.stage.outputs.url != ''
+        env:
+          E2E_BASE_URL: ${{ steps.stage.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          E2E_TEST_EMAIL_ORG_B: ${{ secrets.E2E_TEST_EMAIL_ORG_B }}
+          E2E_TEST_PASSWORD_ORG_B: ${{ secrets.E2E_TEST_PASSWORD_ORG_B }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          COPILOTKIT_TELEMETRY_DISABLED: "true"
+          PLAYWRIGHT_HTML_OPEN: "never"
+        run: |
+          set -euo pipefail
+          PLAYWRIGHT_BROWSERS_PATH=0 npx playwright test \
+            --project=chromium-ai-smoke --retries=0 --reporter=line \
+            e2e/planner-stop-journey.spec.ts e2e/planner-thread-isolation.spec.ts
+
+      # IPI-1091 still requires approval -> exact save -> readback ->
+      # Org B denial. Never promote automatically on partial smoke proof.
+      - name: Report staged candidate without promotion
+        if: steps.stage.outputs.url != ''
+        env:
+          DEPLOYMENT_URL: ${{ steps.stage.outputs.url }}
+          TESTED_SHA: ${{ github.sha }}
+        run: |
+          echo "::notice title=STAGED ONLY::$DEPLOYMENT_URL at $TESTED_SHA; www.ipix.co was unchanged when inspected BEFORE QA. Re-check the live alias immediately before any human-approved promotion. IPI-1091 approval/save/reopen gates remain."
