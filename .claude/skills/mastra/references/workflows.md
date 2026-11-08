@@ -56,7 +56,7 @@ Do not trade immutability for snapshot size: the approved hash/revision must sti
 
 ## CopilotKit bridge choice for HITL — installed adapter truth
 
-Verified 2026-09-28 against installed `@ag-ui/mastra 1.1.4` and CopilotKit React `1.73.3`:
+Verified 2026-11-08 against installed `@ag-ui/mastra 2.0.2` and CopilotKit React `1.85.0`:
 
 - Mastra **tool** `suspend()` can surface through the adapter as `tool-call-suspended`; the bridge emits a structured AG-UI interrupt and resumes with `resumeStream(... resumeData ...)`. Use CopilotKit `useInterrupt` when the backend contract is this native Mastra suspend checkpoint.
 - Use CopilotKit `useHumanInTheLoop` when the contract is a frontend interactive tool whose call waits for the user's response. It is not a replacement for durable workflow state.

@@ -57,6 +57,47 @@ describe("PlannerRunControl", () => {
     expect(isPlannerRunControlMessage({ ...sample, seq: 0 })).toBe(true);
   });
 
+  it("authorizes cross-instance probe and replay by exact owner, including server-only runs", async () => {
+    const wire = network();
+    const owner = new PlannerRunControl(wire.openBus, { instanceId: "A", timeoutMs: 60 });
+    const controller = new PlannerRunControl(wire.openBus, { instanceId: "B", timeoutMs: 60 });
+    const handle = await owner.own("thread-private", "R1", async () => true, "operator-A");
+    await handle.publish({ type: EventType.TEXT_MESSAGE_START, messageId: "private", role: "assistant" } as BaseEvent);
+
+    expect(await controller.probe("thread-private", "operator-B")).toBeNull();
+    expect(await controller.isRunning("thread-private", "operator-B")).toBe(false);
+    expect(await controller.connect("thread-private", "operator-B")).toBeNull();
+    expect(await controller.probe("thread-private")).toBeNull();
+    expect(await controller.connect("thread-private")).toBeNull();
+
+    expect(await controller.isRunning("thread-private", "operator-A")).toBe(true);
+    const connection = await controller.connect("thread-private", "operator-A");
+    expect(connection).toMatchObject({ runId: "R1", ownerInstanceId: "A" });
+    const events: BaseEvent[] = [];
+    connection?.onEvent((event) => events.push(event));
+    expect(events.map((event) => event.type)).toEqual([EventType.TEXT_MESSAGE_START]);
+    await connection?.close();
+    await handle.close();
+
+    const serverHandle = await owner.own("thread-server-owned", "R2", async () => true);
+    expect(await controller.isRunning("thread-server-owned", "operator-A")).toBe(false);
+    expect(await controller.connect("thread-server-owned", "operator-A")).toBeNull();
+    expect(await controller.isRunning("thread-server-owned")).toBe(true);
+    const serverConnection = await controller.connect("thread-server-owned");
+    expect(serverConnection).toMatchObject({ runId: "R2", ownerInstanceId: "A" });
+    await serverConnection?.close();
+    await serverHandle.close();
+  });
+
+  it("rejects malformed probe and connect owner identities at the bus boundary", () => {
+    for (const kind of ["probe", "connect"] as const) {
+      expect(isPlannerRunControlMessage({ kind, requestId: "id", ownerId: 4 })).toBe(false);
+      expect(isPlannerRunControlMessage({ kind, requestId: "id", ownerId: "" })).toBe(false);
+      expect(isPlannerRunControlMessage({ kind, requestId: "id", ownerId: "operator-A" })).toBe(true);
+      expect(isPlannerRunControlMessage({ kind, requestId: "id" })).toBe(true);
+    }
+  });
+
   it("probes a run owned by another runtime and relays new live events", async () => {
     const wire = network();
     const owner = new PlannerRunControl(wire.openBus, { instanceId: "A", timeoutMs: 100 });
@@ -203,6 +244,44 @@ describe("PlannerRunControl", () => {
     expect(stopLocal).toHaveBeenCalledWith("R2");
 
     await handle.close();
+  });
+
+  it("rejects foreign-owner and ownerless Stop on a remote claimed run", async () => {
+    const wire = network();
+    const stopLocal = vi.fn(async () => true);
+    const owner = new PlannerRunControl(wire.openBus, { instanceId: "A", timeoutMs: 100 });
+    const controller = new PlannerRunControl(wire.openBus, { instanceId: "B", timeoutMs: 100 });
+    const handle = await owner.own("thread-owned", "R1", stopLocal, "operator-A");
+
+    expect(await controller.stop("thread-owned", "R1", "operator-B")).toMatchObject({ stopped: false });
+    expect(await controller.stop("thread-owned", "R1")).toMatchObject({ stopped: false });
+    expect(stopLocal).not.toHaveBeenCalled();
+    // A denied request must not poison the successful Stop's idempotency cache.
+    expect(await controller.stop("thread-owned", "R1", "operator-A")).toMatchObject({ stopped: true });
+    expect(stopLocal).toHaveBeenCalledExactlyOnceWith("R1");
+
+    await handle.close();
+  });
+
+  it("denies an identified owner from stopping a server-owned remote run", async () => {
+    const wire = network();
+    const stopLocal = vi.fn(async () => true);
+    const owner = new PlannerRunControl(wire.openBus, { instanceId: "A", timeoutMs: 100 });
+    const controller = new PlannerRunControl(wire.openBus, { instanceId: "B", timeoutMs: 100 });
+    const handle = await owner.own("thread-server", "R2", stopLocal);
+
+    expect(await controller.stop("thread-server", "R2", "operator-A")).toMatchObject({ stopped: false });
+    expect(stopLocal).not.toHaveBeenCalled();
+    expect(await controller.stop("thread-server", "R2")).toMatchObject({ stopped: true });
+    expect(stopLocal).toHaveBeenCalledExactlyOnceWith("R2");
+
+    await handle.close();
+  });
+
+  it("rejects invalid requesting owner identities at the bus boundary", () => {
+    expect(isPlannerRunControlMessage({ kind: "stop", requestId: "id", runId: "R1", ownerId: "" })).toBe(false);
+    expect(isPlannerRunControlMessage({ kind: "stop", requestId: "id", runId: "R1", ownerId: 4 })).toBe(false);
+    expect(isPlannerRunControlMessage({ kind: "stop", requestId: "id", runId: "R1", ownerId: "operator-A" })).toBe(true);
   });
 
   it("ignores a non-owner Stop acknowledgement when two runs overlap on one thread", async () => {

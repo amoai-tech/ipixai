@@ -380,7 +380,9 @@ describe("iPix engineering skill contracts", () => {
     expect(guidance).toContain("tool-call-suspended");
     expect(guidance).toContain("useInterrupt");
     expect(guidance).toContain("useHumanInTheLoop");
-    expect(guidance).toContain("@ag-ui/mastra 1.1.4");
+    expect(guidance).toContain("@ag-ui/mastra 2.0.2");
+    expect(copilotMastra).not.toContain("@ag-ui/mastra 1.1.4");
+    expect(workflows).not.toContain("@ag-ui/mastra 1.1.4");
     expect(guidance).toMatch(/server[- ]revalidat/i);
     expect(guidance).toMatch(/persisted[\s\S]*snapshot|snapshot[\s\S]*persisted/i);
   });

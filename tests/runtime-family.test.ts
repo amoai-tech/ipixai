@@ -98,8 +98,8 @@ describe("IPI-1042 runtime family", () => {
     expect(memory.version).toBe("1.32.1");
     expect(client.version).toBe("1.50.0");
     expect(cli.version).toBe("1.31.3");
-    expect(agui.version).toBe("1.1.4");
-    expect(copilot.version).toBe("1.73.3");
+    expect(agui.version).toBe("2.0.2");
+    expect(copilot.version).toBe("1.85.0");
 
     const peer = pg.peerDependencies?.["@mastra/core"];
     expect(peer).toBeTruthy();
@@ -107,7 +107,7 @@ describe("IPI-1042 runtime family", () => {
     expect(coreSatisfiesMastraPeer("1.63.0", peer ?? "")).toBe(false);
   });
 
-  it("pins one CopilotKit 1.73.3 / AG-UI 0.0.59 family (IPI-1290)", () => {
+  it("pins one CopilotKit 1.85.0 / AG-UI 1.0.2 family (IPI-1290)", () => {
     // Read manifests from disk: @copilotkit/channels does not export ./package.json.
     const version = (name: string) =>
       (
@@ -116,12 +116,38 @@ describe("IPI-1042 runtime family", () => {
         ) as { version: string }
       ).version;
 
-    expect(version("@copilotkit/runtime")).toBe("1.73.3");
-    expect(version("@copilotkit/react-core")).toBe("1.73.3");
-    expect(version("@copilotkit/channels")).toBe("0.11.0");
+    expect(version("@copilotkit/runtime")).toBe("1.85.0");
+    expect(version("@copilotkit/react-core")).toBe("1.85.0");
+    expect(version("@copilotkit/channels")).toBe("0.12.0");
+    // @copilotkit/runtime@1.85.0 pins @ag-ui/client and @ag-ui/core to exactly
+    // 1.0.2. A newer 1.0.x here would install a second AG-UI copy and could
+    // break AbstractAgent class identity, so the family is pinned, not floated.
     for (const pkg of ["@ag-ui/client", "@ag-ui/core", "@ag-ui/encoder", "@ag-ui/proto"]) {
-      expect(version(pkg)).toBe("0.0.59");
+      expect(version(pkg)).toBe("1.0.2");
     }
+  });
+
+  it("rejects nested duplicate copies of the exact AG-UI family in the lockfile", () => {
+    const lock = JSON.parse(
+      readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"),
+    ) as { packages: Record<string, { version?: string }> };
+    for (const pkg of ["@ag-ui/client", "@ag-ui/core", "@ag-ui/encoder", "@ag-ui/proto"]) {
+      const copies = Object.entries(lock.packages).filter(
+        ([path]) => path === `node_modules/${pkg}` || path.endsWith(`/node_modules/${pkg}`),
+      );
+      expect(copies, `duplicate or missing copies of ${pkg}`).toHaveLength(1);
+      expect(copies[0]?.[1].version).toBe("1.0.2");
+    }
+  });
+
+  it("keeps the CopilotKit–Mastra overview pointed at the canonical pin table", () => {
+    const overview = readFileSync(
+      new URL("../docs/copilotkit-mastra/README.md", import.meta.url),
+      "utf8",
+    );
+    expect(overview).toContain("[Runtime compatibility family](../mastra/runtime-family.md)");
+    expect(overview).not.toMatch(/\|\s*`@(?:copilotkit|ag-ui|mastra)\/[^\n]+\|/);
+    expect(overview).toMatch(/in-process/);
   });
 
   it("can import PostgresStore from @mastra/pg@1.27.1", async () => {

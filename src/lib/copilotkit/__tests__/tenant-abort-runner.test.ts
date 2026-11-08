@@ -167,7 +167,7 @@ describe("TenantAbortRunner.connect()", () => {
       runner.connect({ threadId: THREAD_ID }).pipe(toArray()),
     );
 
-    await vi.waitFor(() => expect(connect).toHaveBeenCalledWith(THREAD_ID));
+    await vi.waitFor(() => expect(connect).toHaveBeenCalledWith(THREAD_ID, undefined));
     await vi.waitFor(() => expect(getMemory).toHaveBeenCalledTimes(1));
     resolveRemote(null);
 

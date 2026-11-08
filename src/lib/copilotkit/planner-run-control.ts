@@ -2,11 +2,11 @@ import { randomUUID } from "node:crypto";
 import { EventType, type BaseEvent } from "@ag-ui/client";
 
 export type PlannerRunControlMessage =
-  | { kind: "probe"; requestId: string }
+  | { kind: "probe"; requestId: string; ownerId?: string }
   | { kind: "probe_ack"; requestId: string; runId: string; ownerInstanceId: string }
-  | { kind: "connect"; requestId: string }
+  | { kind: "connect"; requestId: string; ownerId?: string }
   | { kind: "connect_ack"; requestId: string; runId: string; ownerInstanceId: string }
-  | { kind: "stop"; requestId: string; runId: string }
+  | { kind: "stop"; requestId: string; runId: string; ownerId?: string }
   | { kind: "stop_ack"; requestId: string; runId: string; stopped: boolean; ownerInstanceId: string }
   | { kind: "event"; runId: string; seq: number; event: BaseEvent; replayFor?: string };
 
@@ -26,11 +26,13 @@ export function isPlannerRunControlMessage(value: unknown): value is PlannerRunC
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const message = value as Record<string, unknown>;
   const kind = message.kind;
-  if (kind === "probe" || kind === "connect") return boundedString(message.requestId, 128);
+  if (kind === "probe" || kind === "connect") return boundedString(message.requestId, 128) &&
+    (message.ownerId === undefined || boundedString(message.ownerId));
   if (kind === "probe_ack" || kind === "connect_ack") {
     return boundedString(message.requestId, 128) && boundedString(message.runId) && boundedString(message.ownerInstanceId, 128);
   }
-  if (kind === "stop") return boundedString(message.requestId, 128) && boundedString(message.runId);
+  if (kind === "stop") return boundedString(message.requestId, 128) && boundedString(message.runId) &&
+    (message.ownerId === undefined || boundedString(message.ownerId));
   if (kind === "stop_ack") {
     return boundedString(message.requestId, 128) && boundedString(message.runId) && typeof message.stopped === "boolean" && boundedString(message.ownerInstanceId, 128);
   }
@@ -160,6 +162,7 @@ export class PlannerRunControl {
     threadId: string,
     runId: string,
     stopLocal: (runId: string) => Promise<boolean>,
+    ownerId?: string,
   ): Promise<PlannerRunOwnerHandle> {
     const bus = await this.openBus(threadId);
     // One stop operation per run, regardless of the controller's request ID.
@@ -204,10 +207,14 @@ export class PlannerRunControl {
       const respond = async () => {
         if (closed) return;
         if (message.kind === "probe") {
+          if (message.ownerId !== ownerId) return;
           await enqueue({ kind: "probe_ack", requestId: message.requestId, runId, ownerInstanceId: this.instanceId });
           return;
         }
         if (message.kind === "connect") {
+          // Do not acknowledge or publish an active run to a different owner.
+          // Missing ownerId matches only a server-owned run.
+          if (message.ownerId !== ownerId) return;
           if (!replayAvailable) {
             this.log("owner_connect_replay_unavailable", { runId });
             return; // fail closed: controller times out; no partial AG-UI stream
@@ -249,6 +256,19 @@ export class PlannerRunControl {
         }
         if (message.kind === "stop") {
           if (message.runId !== runId) return;
+          // The bus topic is tenant-scoped, but an exact runId alone must not
+          // grant Stop to a different owner on another runtime instance.
+          // Absent ownerId is the server owner, never a wildcard.
+          if (message.ownerId !== ownerId) {
+            await enqueue({
+              kind: "stop_ack",
+              requestId: message.requestId,
+              runId,
+              stopped: false,
+              ownerInstanceId: this.instanceId,
+            });
+            return;
+          }
           if (!stopResult) {
             stopResult = stopLocal(runId).then(
               (stopped) => {
@@ -366,25 +386,25 @@ export class PlannerRunControl {
     }
   }
 
-  async probe(threadId: string): Promise<ProbeAck | null> {
+  async probe(threadId: string, ownerId?: string): Promise<ProbeAck | null> {
     const requestId = randomUUID();
-    return this.request(threadId, { kind: "probe", requestId }, (message): message is ProbeAck =>
+    return this.request(threadId, { kind: "probe", requestId, ownerId }, (message): message is ProbeAck =>
       message.kind === "probe_ack" && message.requestId === requestId,
     );
   }
 
-  async isRunning(threadId: string): Promise<boolean> {
-    return (await this.probe(threadId)) !== null;
+  async isRunning(threadId: string, ownerId?: string): Promise<boolean> {
+    return (await this.probe(threadId, ownerId)) !== null;
   }
 
-  async stop(threadId: string, runId: string): Promise<StopAck | null> {
+  async stop(threadId: string, runId: string, ownerId?: string): Promise<StopAck | null> {
     const requestId = randomUUID();
-    return this.request(threadId, { kind: "stop", requestId, runId }, (message): message is StopAck =>
+    return this.request(threadId, { kind: "stop", requestId, runId, ...(ownerId !== undefined ? { ownerId } : {}) }, (message): message is StopAck =>
       message.kind === "stop_ack" && message.requestId === requestId && message.runId === runId,
     );
   }
 
-  async connect(threadId: string): Promise<PlannerRemoteRunConnection | null> {
+  async connect(threadId: string, ownerId?: string): Promise<PlannerRemoteRunConnection | null> {
     const bus = await this.openBus(threadId);
     const requestId = randomUUID();
     const waiter = settleAfter<ConnectAck | null>(this.timeoutMs, null);
@@ -418,7 +438,7 @@ export class PlannerRunControl {
     });
 
     try {
-      await sendUntilSettled(bus, { kind: "connect", requestId }, waiter, this.timeoutMs);
+      await sendUntilSettled(bus, { kind: "connect", requestId, ownerId }, waiter, this.timeoutMs);
       const ack = await waiter.promise;
       if (!ack) {
         off();

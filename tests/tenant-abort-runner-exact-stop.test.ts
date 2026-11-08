@@ -1,5 +1,5 @@
 /**
- * IPI-1290 · COPILOTKIT-UPGRADE-001: with CopilotKit 1.73.3 the /stop body
+ * IPI-1290 · COPILOTKIT-UPGRADE-001: with CopilotKit 1.85.0 the /stop body
  * carries `{ runId }`. TenantAbortRunner must forward that exact runId and
  * must never let a stale Stop(R1) cancel a newer run R2 — neither while R2
  * is still starting (pending) nor once it is active.
@@ -9,7 +9,12 @@ import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { InMemoryAgentRunner } from "@copilotkit/runtime/v2";
 import { Observable } from "rxjs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PlannerRunControl } from "@/lib/copilotkit/planner-run-control";
+import {
+  PlannerRunControl,
+  type OpenPlannerRunControlBus,
+  type PlannerRunControlBus,
+  type PlannerRunControlMessage,
+} from "@/lib/copilotkit/planner-run-control";
 
 let releaseMemory: () => void = () => {};
 let memoryGate: Promise<void> = Promise.resolve();
@@ -64,6 +69,49 @@ function input(threadId: string, runId: string): RunAgentInput {
   return { threadId, runId, messages: [], tools: [], context: [], state: {}, forwardedProps: {} };
 }
 
+/** Emits one assistant message and a state snapshot so scoped reads have data. */
+class ChattyAgent extends AbstractAgent {
+  run(input: RunAgentInput): Observable<BaseEvent> {
+    return new Observable<BaseEvent>((subscriber) => {
+      subscriber.next({
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      } as BaseEvent);
+      subscriber.next({
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: "m-owner",
+        role: "assistant",
+      } as BaseEvent);
+      subscriber.next({
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "m-owner",
+        delta: "scoped history",
+      } as BaseEvent);
+      subscriber.next({
+        type: EventType.TEXT_MESSAGE_END,
+        messageId: "m-owner",
+      } as BaseEvent);
+      subscriber.next({
+        type: EventType.STATE_SNAPSHOT,
+        snapshot: { owner: input.runId },
+      } as BaseEvent);
+      // A delta gives the runtime a real state change to compact, so the
+      // stored event stream keeps a trailing STATE_SNAPSHOT.
+      subscriber.next({
+        type: EventType.STATE_DELTA,
+        delta: [{ op: "add", path: "/verified", value: true }],
+      } as BaseEvent);
+      subscriber.next({
+        type: EventType.RUN_FINISHED,
+        threadId: input.threadId,
+        runId: input.runId,
+      } as BaseEvent);
+      subscriber.complete();
+    });
+  }
+}
+
 function collect(observable: Observable<BaseEvent>) {
   const events: BaseEvent[] = [];
   const done = new Promise<void>((resolve, reject) => {
@@ -75,6 +123,35 @@ function collect(observable: Observable<BaseEvent>) {
 const RESOURCE = "org-a:user-a";
 let threadSeq = 0;
 const nextThread = () => `thread-${++threadSeq}`;
+
+function controlNetwork(): OpenPlannerRunControlBus {
+  type Peer = PlannerRunControlBus & { deliver(message: PlannerRunControlMessage): void };
+  const topics = new Map<string, Set<Peer>>();
+  return async (threadId) => {
+    const handlers = new Set<(message: PlannerRunControlMessage) => void>();
+    const peers = topics.get(threadId) ?? new Set<Peer>();
+    let peer!: Peer;
+    peer = {
+      async send(message) {
+        for (const other of peers) if (other !== peer) other.deliver(message);
+      },
+      onMessage(handler) {
+        handlers.add(handler);
+        return () => handlers.delete(handler);
+      },
+      async close() {
+        handlers.clear();
+        peers.delete(peer);
+      },
+      deliver(message) {
+        for (const handler of handlers) handler(message);
+      },
+    };
+    peers.add(peer);
+    topics.set(threadId, peers);
+    return peer;
+  };
+}
 
 afterEach(() => {
   releaseMemory();
@@ -354,8 +431,8 @@ describe("IPI-1290 TenantAbortRunner exact-run Stop", () => {
 
     expect(await runner.isRunning({ threadId: "remote-thread" })).toBe(true);
     expect(await runner.stop({ threadId: "remote-thread", runId: "R1" })).toBe(true);
-    expect(remote.isRunning).toHaveBeenCalledWith("remote-thread");
-    expect(remote.stop).toHaveBeenCalledWith("remote-thread", "R1");
+    expect(remote.isRunning).toHaveBeenCalledWith("remote-thread", undefined);
+    expect(remote.stop).toHaveBeenCalledWith("remote-thread", "R1", undefined);
   });
 
   it("relays new live events from a remote owner instead of falling back to durable history", async () => {
@@ -382,8 +459,26 @@ describe("IPI-1290 TenantAbortRunner exact-run Stop", () => {
       EventType.RUN_STARTED,
       EventType.RUN_FINISHED,
     ]);
-    expect(remote.connect).toHaveBeenCalledWith("remote-thread");
+    expect(remote.connect).toHaveBeenCalledWith("remote-thread", undefined);
     expect(close).toHaveBeenCalled();
+  });
+
+  it("forwards the authenticated owner to remote running checks and connects", async () => {
+    const OWNER = "operator-a";
+    const remote = {
+      isRunning: vi.fn(async () => true),
+      connect: vi.fn(async () => null),
+    } as unknown as PlannerRunControl;
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal, remote);
+    const threadId = nextThread();
+
+    expect(await runner.isRunning({ threadId, ownerId: OWNER })).toBe(true);
+    expect(remote.isRunning).toHaveBeenCalledWith(threadId, OWNER);
+
+    const connected = collect(runner.connect({ threadId, ownerId: OWNER }));
+    await connected.done;
+    expect(connected.events).toEqual([]);
+    expect(remote.connect).toHaveBeenCalledWith(threadId, OWNER);
   });
 
   it("registers the local owner before the model runs and publishes live events for remote listeners", async () => {
@@ -399,10 +494,357 @@ describe("IPI-1290 TenantAbortRunner exact-run Stop", () => {
     );
     await run.done;
 
-    expect(own).toHaveBeenCalledWith(threadId, "R1", expect.any(Function));
+    expect(own).toHaveBeenCalledWith(threadId, "R1", expect.any(Function), undefined);
     expect(publish.mock.calls.map(([event]) => event.type)).toEqual(
       expect.arrayContaining([EventType.RUN_STARTED, EventType.RUN_FINISHED]),
     );
     expect(close).toHaveBeenCalled();
+  });
+});
+
+describe("IPI-1389 CopilotKit 1.85 authenticated runner ownership", () => {
+  const OWNER = "operator-a";
+  const FOREIGN = "operator-b";
+
+  it("recognizes a running, authenticated thread under the same owner", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const agent = wrapAbortRun(new SlowAgent());
+    const running = collect(
+      runner.run({ threadId, agent, input: input(threadId, "OWN-R1"), ownerId: OWNER }),
+    );
+
+    await vi.waitFor(async () => {
+      expect(
+        await InMemoryAgentRunner.prototype.isRunning.call(runner, {
+          threadId: `${RESOURCE}::${threadId}`,
+          ownerId: OWNER,
+        }),
+      ).toBe(true);
+    });
+    expect(await runner.isRunning({ threadId, ownerId: OWNER })).toBe(true);
+    expect(await runner.isRunning({ threadId, ownerId: FOREIGN })).toBe(false);
+    await running.done;
+  });
+
+  it("keeps thread events and listing scoped to the authenticated owner", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const run = collect(
+      runner.run({
+        threadId,
+        agent: wrapAbortRun(new SlowAgent()),
+        input: input(threadId, "OWN-R2"),
+        ownerId: OWNER,
+      }),
+    );
+    await run.done;
+
+    const scopedRunner: InMemoryAgentRunner = runner;
+    expect(scopedRunner.getThreadEvents(threadId, { ownerId: OWNER }).length).toBeGreaterThan(0);
+    expect(scopedRunner.getThreadEvents(threadId, { ownerId: FOREIGN })).toEqual([]);
+    expect(scopedRunner.listThreads({ ownerId: OWNER }).map((thread) => thread.id)).toContain(
+      threadId,
+    );
+    expect(scopedRunner.listThreads({ ownerId: FOREIGN })).toEqual([]);
+  });
+
+  it("checks ownership for the resource-prefixed internal thread id", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const run = collect(
+      runner.run({
+        threadId,
+        agent: wrapAbortRun(new SlowAgent()),
+        input: input(threadId, "OWN-R3"),
+        ownerId: OWNER,
+      }),
+    );
+    await run.done;
+
+    expect(runner.isThreadAccessible(threadId, { ownerId: OWNER })).toBe(true);
+    expect(runner.isThreadAccessible(threadId, { ownerId: FOREIGN })).toBe(false);
+  });
+
+  it("refuses a foreign-owner connect and forwards ownerId on the owner path", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const running = collect(
+      runner.run({
+        threadId,
+        agent: wrapAbortRun(new SlowAgent()),
+        input: input(threadId, "OWN-R4"),
+        ownerId: OWNER,
+      }),
+    );
+    await vi.waitFor(async () => {
+      expect(await runner.isRunning({ threadId, ownerId: OWNER })).toBe(true);
+    });
+
+    const connectSpy = vi.spyOn(InMemoryAgentRunner.prototype, "connect");
+    const isRunningSpy = vi.spyOn(InMemoryAgentRunner.prototype, "isRunning");
+
+    // A foreign owner gets no replay and never reaches the parent connect().
+    const foreign = collect(runner.connect({ threadId, ownerId: FOREIGN }));
+    await foreign.done;
+    expect(foreign.events).toEqual([]);
+    expect(connectSpy).not.toHaveBeenCalled();
+
+    // The owner reaches connect() with the scoped id AND its ownerId, so the
+    // parent's own visibility check cannot silently fall back to the server
+    // owner (the review's fail-open concern).
+    const ownerSub = runner.connect({ threadId, ownerId: OWNER }).subscribe(() => {});
+    await vi.waitFor(() => {
+      expect(connectSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          threadId: `${RESOURCE}::${threadId}`,
+          ownerId: OWNER,
+        }),
+      );
+    });
+    expect(isRunningSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ threadId: `${RESOURCE}::${threadId}`, ownerId: OWNER }),
+    );
+
+    ownerSub.unsubscribe();
+    connectSpy.mockRestore();
+    isRunningSpy.mockRestore();
+    await running.done;
+  });
+
+  it("forwards the scoped thread identity to the owner-filtered read methods", () => {
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const threadId = nextThread();
+    const scope = { ownerId: OWNER };
+    const messages = vi
+      .spyOn(InMemoryAgentRunner.prototype, "getThreadMessages")
+      .mockReturnValue([]);
+    const events = vi
+      .spyOn(InMemoryAgentRunner.prototype, "getThreadEvents")
+      .mockReturnValue([]);
+
+    runner.getThreadMessages(threadId, scope);
+    // The inherited getThreadState calls this.getThreadEvents(), so the
+    // existing override scopes once and preserves CopilotKit's compaction.
+    runner.getThreadState(threadId, scope);
+
+    expect(messages).toHaveBeenCalledWith(`${RESOURCE}::${threadId}`, scope);
+    expect(events).toHaveBeenCalledWith(`${RESOURCE}::${threadId}`, scope);
+    messages.mockRestore();
+    events.mockRestore();
+  });
+
+  it("forwards the run owner when a remote Stop resolves through the owner callback", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    let stopFromOwner: ((remoteRunId: string) => Promise<boolean>) | undefined;
+    const own = vi.fn(
+      async (
+        _threadId: string,
+        _runId: string,
+        callback: (remoteRunId: string) => Promise<boolean>,
+      ) => {
+        stopFromOwner = callback;
+        return { publish: async () => {}, close: async () => {} };
+      },
+    );
+    const control = { own } as unknown as PlannerRunControl;
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal, control);
+    const run = collect(
+      runner.run({
+        threadId,
+        agent: wrapAbortRun(new SlowAgent()),
+        input: input(threadId, "OWN-R5"),
+        ownerId: OWNER,
+      }),
+    );
+    await vi.waitFor(() => expect(stopFromOwner).toBeTypeOf("function"));
+
+    const stopSpy = vi.spyOn(InMemoryAgentRunner.prototype, "stop").mockResolvedValue(true);
+    try {
+      await stopFromOwner?.("R-remote");
+
+      expect(stopSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ ownerId: OWNER, runId: "R-remote" }),
+      );
+    } finally {
+      stopSpy.mockRestore();
+    }
+    await run.done;
+  });
+
+  it("returns thread messages and state only to the owning identity", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const run = collect(
+      runner.run({
+        threadId,
+        agent: wrapAbortRun(new ChattyAgent()),
+        input: input(threadId, "OWN-R6"),
+        ownerId: OWNER,
+      }),
+    );
+    await run.done;
+
+    const scopedRunner: InMemoryAgentRunner = runner;
+    expect(scopedRunner.getThreadMessages(threadId, { ownerId: OWNER }).length).toBeGreaterThan(0);
+    expect(scopedRunner.getThreadMessages(threadId, { ownerId: FOREIGN })).toEqual([]);
+    expect(scopedRunner.getThreadState(threadId, { ownerId: OWNER })).toEqual(
+      expect.objectContaining({ owner: "OWN-R6" }),
+    );
+    expect(scopedRunner.getThreadState(threadId, { ownerId: FOREIGN })).toBeNull();
+  });
+
+  it("lets the owning identity reconnect to a live run and hides it from others", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const running = collect(
+      runner.run({
+        threadId,
+        agent: wrapAbortRun(new SlowAgent()),
+        input: input(threadId, "OWN-R7"),
+        ownerId: OWNER,
+      }),
+    );
+    await vi.waitFor(async () => {
+      expect(await runner.isRunning({ threadId, ownerId: OWNER })).toBe(true);
+    });
+
+    const ownerEvents: BaseEvent[] = [];
+    const ownerSub = runner.connect({ threadId, ownerId: OWNER }).subscribe((event) => {
+      ownerEvents.push(event);
+    });
+    const foreign = collect(runner.connect({ threadId, ownerId: FOREIGN }));
+    await foreign.done;
+    expect(foreign.events).toEqual([]);
+
+    await vi.waitFor(
+      () => {
+        expect(ownerEvents.some((event) => event.type === EventType.RUN_FINISHED)).toBe(true);
+      },
+      { timeout: 5_000 },
+    );
+    ownerSub.unsubscribe();
+    await running.done;
+  });
+
+  it("refuses a foreign-owner Stop for an active run", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const slow = new SlowAgent();
+    const agent = wrapAbortRun(slow);
+    const running = collect(
+      runner.run({
+        threadId,
+        agent,
+        input: input(threadId, "OWN-R8"),
+        ownerId: OWNER,
+      }),
+    );
+    await vi.waitFor(async () => {
+      expect(await runner.isRunning({ threadId, ownerId: OWNER })).toBe(true);
+    });
+
+    expect(await runner.stop({ threadId, runId: "OWN-R8", ownerId: FOREIGN })).toBe(false);
+    await running.done;
+    expect(slow.finished).toBe(true);
+    expect(running.events.map((event) => event.type)).toContain(EventType.RUN_FINISHED);
+  });
+
+  it("does not let a foreign owner stop a run during startup", async () => {
+    let release!: () => void;
+    memoryGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const slow = new SlowAgent();
+    const agent = wrapAbortRun(slow);
+    const running = collect(
+      runner.run({
+        threadId,
+        agent,
+        input: input(threadId, "OWN-R9"),
+        ownerId: OWNER,
+      }),
+    );
+
+    // The run is registered as pending but super.run() has not claimed the
+    // thread yet, so only the owner-scoped pending match can stop it.
+    expect(await runner.stop({ threadId, runId: "OWN-R9", ownerId: FOREIGN })).toBe(false);
+    release();
+    await running.done;
+    expect(slow.finished).toBe(true);
+    expect(running.events.map((event) => event.type)).toContain(EventType.RUN_FINISHED);
+  });
+
+  it("rejects cross-instance foreign Stop during startup before the thread is claimed", async () => {
+    let release!: () => void;
+    memoryGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const threadId = nextThread();
+    const openBus = controlNetwork();
+    const ownerControl = new PlannerRunControl(openBus, { instanceId: "host-A", timeoutMs: 350 });
+    const controllerControl = new PlannerRunControl(openBus, { instanceId: "host-B", timeoutMs: 350 });
+    const ownerRunner = new TenantAbortRunner(RESOURCE, new AbortController().signal, ownerControl);
+    const controllerRunner = new TenantAbortRunner(RESOURCE, new AbortController().signal, controllerControl);
+    const slow = new SlowAgent();
+    const running = collect(
+      ownerRunner.run({
+        threadId,
+        agent: wrapAbortRun(slow),
+        input: input(threadId, "OWN-R10"),
+        ownerId: OWNER,
+      }),
+    );
+
+    // Owner broadcasts its run before super.run can claim the thread.
+    await vi.waitFor(async () => {
+      expect(await controllerControl.isRunning(threadId, OWNER)).toBe(true);
+    });
+    expect(await controllerControl.isRunning(threadId, FOREIGN)).toBe(false);
+    expect(await controllerRunner.isRunning({ threadId, ownerId: FOREIGN })).toBe(false);
+    expect(await controllerRunner.isRunning({ threadId })).toBe(false);
+    expect(await controllerRunner.isRunning({ threadId, ownerId: OWNER })).toBe(true);
+    // The starting owner instance must reject the same foreign Stop locally,
+    // even before its parent runner has claimed the thread.
+    expect(await ownerRunner.stop({ threadId, runId: "OWN-R10", ownerId: FOREIGN })).toBe(false);
+    expect(await ownerRunner.stop({ threadId, runId: "OWN-R10" })).toBe(false);
+    expect(await controllerRunner.stop({ threadId, runId: "OWN-R10", ownerId: FOREIGN })).toBe(false);
+    release();
+    await running.done;
+    expect(slow.runs).toBe(1);
+    expect(slow.finished).toBe(true);
+    expect(running.events.map((event) => event.type)).toContain(EventType.RUN_FINISHED);
+  });
+
+  it("matches a server-side Stop only to a run started without an owner", async () => {
+    let release!: () => void;
+    memoryGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const slow = new SlowAgent();
+    const running = collect(
+      runner.run({
+        threadId,
+        agent: wrapAbortRun(slow),
+        input: input(threadId, "SRV-R1"),
+      }),
+    );
+
+    expect(await runner.stop({ threadId, runId: "SRV-R1", ownerId: FOREIGN })).toBe(false);
+    expect(await runner.stop({ threadId, runId: "SRV-R1" })).toBe(true);
+    release();
+    await running.done;
   });
 });

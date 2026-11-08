@@ -51,7 +51,18 @@ export function attachRunnerAbort(agents: Record<string, AbstractAgent>) {
  * it names, and each run removes only its own record, so overlapping or
  * cancelled starts can never erase or inherit another run's Stop.
  */
-type PendingRun = { runId: string | undefined; stopRequested: boolean };
+type PendingRun = {
+  runId: string | undefined;
+  /**
+   * The `ownerId` the run was started with, kept verbatim. A Stop must carry
+   * the same value: an absent ownerId matches only another absent ownerId
+   * (server-side calls), never an identified operator. Using the raw value
+   * avoids depending on CopilotKit's internal owner resolver, which carries no
+   * semver guarantee.
+   */
+  owner: string | undefined;
+  stopRequested: boolean;
+};
 const pendingRuns = new Map<string, Set<PendingRun>>();
 
 export class TenantAbortRunner extends InMemoryAgentRunner {
@@ -95,7 +106,11 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
       );
       return runAgent(runInput, subscribers);
     };
-    const pending: PendingRun = { runId: request.input?.runId, stopRequested: false };
+    const pending: PendingRun = {
+      runId: request.input?.runId,
+      owner: request.ownerId,
+      stopRequested: false,
+    };
     const threadPending = pendingRuns.get(runnerThreadId) ?? new Set<PendingRun>();
     threadPending.add(pending);
     pendingRuns.set(runnerThreadId, threadPending);
@@ -109,7 +124,14 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
         this.runControl && runId
           ? this.runControl
               .own(request.threadId, runId, (remoteRunId) =>
-                this.stopLocal({ threadId: request.threadId, runId: remoteRunId }),
+                this.stopLocal({
+                  threadId: request.threadId,
+                  runId: remoteRunId,
+                  // Preserve the identity that owns this run: the parent
+                  // InMemoryAgentRunner refuses a Stop whose ownerId differs.
+                  ...(request.ownerId !== undefined ? { ownerId: request.ownerId } : {}),
+                }),
+                request.ownerId,
               )
               .catch((error) => {
                 console.warn("[planner-run-control] owner_open_failed", {
@@ -213,8 +235,14 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
 
   private async stopLocal(request: Parameters<InMemoryAgentRunner["stop"]>[0]) {
     const runnerThreadId = this.scope(request.threadId);
+    // Compare the raw ownerId the run was started with. A Stop without an
+    // ownerId matches only a run that also started without one, so a foreign
+    // operator cannot mark another owner's startup run as stopped even when it
+    // names the exact runId.
+    const owner = request.ownerId;
     let stopsPending = false;
     for (const pending of pendingRuns.get(runnerThreadId) ?? []) {
+      if (pending.owner !== owner) continue;
       if (request.runId === undefined || request.runId === pending.runId) {
         pending.stopRequested = true;
         stopsPending = true;
@@ -225,10 +253,16 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
   }
 
   override async stop(request: Parameters<InMemoryAgentRunner["stop"]>[0]) {
+    if (
+      request.ownerId !== undefined &&
+      !this.isThreadAccessible(request.threadId, { ownerId: request.ownerId })
+    ) {
+      return false;
+    }
     if (await this.stopLocal(request)) return true;
     if (!this.runControl || request.runId === undefined) return false;
     try {
-      const remote = await this.runControl.stop(request.threadId, request.runId);
+      const remote = await this.runControl.stop(request.threadId, request.runId, request.ownerId);
       if (remote?.stopped) {
         console.info("[planner-run-control] remote_stop_succeeded", {
           controllerInstanceId: plannerRuntimeInstanceId,
@@ -271,8 +305,24 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
     return new Observable<BaseEvent>((subscriber) => {
       let cancelled = false;
       let inner: { unsubscribe: () => void } | undefined;
+
+      // Defence in depth for CopilotKit 1.85 owner-scoped runners: a connect
+      // that names an owner must never replay this thread's live events or
+      // durable history to a different identity. Server-side callers (channel
+      // hosts, CLI) pass no ownerId and keep the previous behaviour.
+      if (
+        request.ownerId !== undefined &&
+        !this.isThreadAccessible(request.threadId, { ownerId: request.ownerId })
+      ) {
+        cancelled = true;
+        subscriber.complete();
+        return () => {
+          cancelled = true;
+        };
+      }
+
       void (async () => {
-        const localRunning = await super.isRunning({ threadId: this.scope(request.threadId) });
+        const localRunning = await super.isRunning({ threadId: this.scope(request.threadId), ownerId: request.ownerId });
         if (cancelled) return;
         if (localRunning) {
           inner = super
@@ -298,7 +348,7 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
 
         if (this.runControl) {
           try {
-            const remote = await this.runControl.connect(request.threadId);
+            const remote = await this.runControl.connect(request.threadId, request.ownerId);
             if (cancelled) {
               await remote?.close();
               return;
@@ -359,10 +409,10 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
   }
 
   override async isRunning(request: Parameters<InMemoryAgentRunner["isRunning"]>[0]) {
-    if (await super.isRunning({ threadId: this.scope(request.threadId) })) return true;
+    if (await super.isRunning({ threadId: this.scope(request.threadId), ownerId: request.ownerId })) return true;
     if (!this.runControl) return false;
     try {
-      return await this.runControl.isRunning(request.threadId);
+      return await this.runControl.isRunning(request.threadId, request.ownerId);
     } catch (error) {
       console.warn("[planner-run-control] remote_probe_failed", {
         error: error instanceof Error ? error.message : String(error),
@@ -371,22 +421,34 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
     }
   }
 
-  override getThreadMessages(threadId: string) {
-    return super.getThreadMessages(this.scope(threadId));
+  // CopilotKit 1.85 checks the external thread id before calling run().
+  // The in-memory runner stores the resource-prefixed identity, so both
+  // ownership checks and read endpoints must consistently use that identity.
+  override isThreadAccessible(
+    threadId: string,
+    scope: Parameters<InMemoryAgentRunner["isThreadAccessible"]>[1],
+  ) {
+    return super.isThreadAccessible(this.scope(threadId), scope);
   }
 
-  override getThreadEvents(threadId: string) {
-    return super.getThreadEvents(this.scope(threadId));
+  override getThreadMessages(
+    threadId: string,
+    scope?: Parameters<InMemoryAgentRunner["getThreadMessages"]>[1],
+  ) {
+    return super.getThreadMessages(this.scope(threadId), scope);
   }
 
-  override getThreadState(threadId: string) {
-    return super.getThreadState(this.scope(threadId));
+  override getThreadEvents(
+    threadId: string,
+    scope?: Parameters<InMemoryAgentRunner["getThreadEvents"]>[1],
+  ) {
+    return super.getThreadEvents(this.scope(threadId), scope);
   }
 
-  override listThreads() {
+  override listThreads(scope?: Parameters<InMemoryAgentRunner["listThreads"]>[0]) {
     const prefix = splitRunThreadIds(this.resourceId, "").runnerThreadId;
     return super
-      .listThreads()
+      .listThreads(scope)
       .filter((thread) => thread.id.startsWith(prefix))
       .map((thread) => ({ ...thread, id: thread.id.slice(prefix.length) }));
   }

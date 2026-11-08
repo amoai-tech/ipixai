@@ -58,7 +58,7 @@ test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
     const r1Run = page.waitForRequest(isRun);
     await sendOrStop.click();
     await r1Run;
-    // CopilotKit 1.73.3 marks Stop mode only by swapping the arrow for a
+    // CopilotKit 1.85.0 marks Stop mode only by swapping the arrow for a
     // Square icon (no aria-label or data attribute), so assert that too.
     await expect(sendOrStop.locator("svg.lucide-square"), "R1 is running, so the button is Stop").toBeVisible({
       timeout: NAV_TIMEOUT_MS,
