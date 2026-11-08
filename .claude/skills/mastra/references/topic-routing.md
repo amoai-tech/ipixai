@@ -16,6 +16,7 @@ Use this file to jump from a **task or question** to the right **official URL ta
 1. **Canonical URL list** — [`links.md`](../links.md) (synced to [mastra.ai/llms.txt](https://mastra.ai/llms.txt)); regenerate that index when nav 404s.
 2. **Version-accurate APIs** — with packages installed, prefer [`embedded-docs.md`](embedded-docs.md) and `node_modules/@mastra/*/dist/docs/`.
 3. **Agent-friendly fetch** — append **`.md`** to `https://mastra.ai/docs/...` pages when pulling markdown for context.
+4. **Stable-upgrade target:** IPI-1384 → IPI-1389 (CopilotKit/AG-UI) → IPI-1385 (Mastra 1.82) → IPI-1386 (combined proof). A current web example is not proof the installed 1.71 API supports it. For actual supported packages, inspect `docs/mastra/runtime-family.md` and the lockfile first.
 
 ---
 
@@ -37,11 +38,11 @@ Use this file to jump from a **task or question** to the right **official URL ta
 | DAG steps, suspend/resume, errors, HITL | [Workflows](../links.md#workflows) · [Reference — workflows](../links.md#reference--workflows) | [`references/workflows.md`](workflows.md) · [`embedded-docs.md`](embedded-docs.md) → Workflow |
 | Message history, storage, recall | [Memory](../links.md#memory) · [Reference — memory](../links.md#reference--memory) | [`references/memory.md`](memory.md) · [`embedded-docs.md`](embedded-docs.md) → Memory |
 | Define tools (`createTool`, etc.) | [Tools](../links.md#tools-docs-section) | [`embedded-docs.md`](embedded-docs.md) → Tools |
-| Chunking, vectors, retrieval | [RAG](../links.md#rag) | — |
+| Chunking, vectors, retrieval | [RAG](../links.md#rag) | `rag-pgvector.md` is a generic reference only; verify iPix embedding dimension, vector indexes and org RLS against database truth before use |
 | HTTP server, client, routes, request context | [Server & client](../links.md#server-client) | [`supabase-auth.md`](supabase-auth.md) for Supabase auth |
 | Authentication, identity, FGA | [Auth & identity](../links.md#auth-identity) | [`supabase-auth.md`](supabase-auth.md); iPix tenant authority remains Supabase + RLS |
 | MCP, MCPClient, MCP apps, workspace skills | [MCP & workspaces](../links.md#mcp-workspaces) | [`workspace.md`](workspace.md), [`workspace-skills.md`](workspace-skills.md) |
-| Mastra docs MCP (`mastraDocs`, embedded search) | [`references/mcp-docs-lookup.md`](mcp-docs-lookup.md) | `mastraDocs`: `paths` + optional `queryKeywords` only. `projectPath` = this repo root **only** on tools that declare it |
+| Mastra docs MCP (connected tools differ) | [`references/mcp-docs-lookup.md`](mcp-docs-lookup.md) | Discover actual tool name/schema; ChatGPT Mastra Docs uses `search_mastra_knowledge_sources({ query })`, while other IDE MCPs may expose `mastraDocs` / embedded search. Never invent `projectPath`. |
 | SSE / streams, tool-call events, AG-UI | [Streaming](../links.md#streaming) · [Reference — streaming](../links.md#reference--streaming) | [`references/streaming.md`](streaming.md) |
 | Logs, traces, evals, datasets, CI | [Observability & evals](../links.md#observability-evals) | — |
 | Production / cloud | [Deployment](../links.md#deployment) | [`remote-docs.md`](remote-docs.md) |
