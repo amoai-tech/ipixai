@@ -6,6 +6,8 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Added
 
+- IPI-1419 · MASTRA-DOCS-002 — Quarantined MDE-only Concierge/vector assumptions, labeled historical CopilotKit v2 and standalone Mastra starter examples, made Workspace execution fail closed in guidance, documented actual MCP connector schemas and Mastra 1.82 upgrade gates, and guarded optional Platform trace intelligence, labeled historical supervisor/browser/v0 examples, and fixed a broken skill-creator link. No runtime/package/database changes.
+
 - IPI-1294 / PR #258 — Standardized Linear workflow governance with mandatory four-template routing, documented exception and outage-handoff paths, clear `todo.md`/changelog ownership, and regression tests for the governance contract.
 - IPI-1050 · MEM-001 — Proved Planner conversation continuity is durable rather than process-local: prior normal message history reaches the next same-thread model call after a real process restart, a thread-only fact does not leak into another thread of the same resource, and the fact arrives as message history rather than resource-scoped Working Memory. Adds `tests/mem-001-message-history.test.ts`, `scripts/mem-001-restart-proof.mjs`, and the `mem-001-restart-history` CI gate wired into the Production release dependencies.
 - PR #302 — Made human approval for the exact head SHA a mandatory merge gate. An agent may open, update, review and fully prepare a pull request but never merges one; merging requires explicit human approval for that same head, the pre-merge checklist reviewed against verified current-head evidence with no item silently unchecked, deleted or weakened, and the success criteria reviewed the same way. Green CI is the precondition for asking, not a substitute for approval.
@@ -25,7 +27,6 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Removed
 
-- IPI-1419 · MASTRA-DOCS-002 — Quarantined MDE-only Concierge/vector assumptions, labeled historical CopilotKit v2 and standalone Mastra starter examples, made Workspace execution fail closed in guidance, documented actual MCP connector schemas and Mastra 1.82 upgrade gates, and guarded optional Platform trace intelligence, labeled historical supervisor/browser/v0 examples, and fixed a broken skill-creator link. No runtime/package/database changes.
 
 ### Fixed
 
