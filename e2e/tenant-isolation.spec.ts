@@ -44,14 +44,48 @@ async function assertCannotReadOtherOrg(page: Page, otherOrgId: string) {
   expect(rows, "RLS leak: this session can read another organization's membership row").toHaveLength(0);
 }
 
-async function readOwnBrands(page: Page): Promise<Array<{ id: string; name: string }>> {
+const BRAND_PAGE_SIZE = 100;
+const BRAND_ID_BATCH_SIZE = 50;
+
+type BrandSnapshot = { id: string; name: string };
+
+async function readOwnBrands(page: Page): Promise<BrandSnapshot[]> {
   const supabase = await supabaseForPage(page);
-  const { data, error } = await supabase
-    .from("brands")
-    .select("id,name")
-    .order("created_at");
-  expect(error, `own-brand read failed unexpectedly: ${error?.message ?? "unknown"}`).toBeNull();
-  return data ?? [];
+  const brands: BrandSnapshot[] = [];
+  // PostgREST paginates; a single request silently truncates at the project
+  // row limit. Read every page so a newer brand cannot escape the proof.
+  for (let from = 0; from < BRAND_PAGE_SIZE * 10; from += BRAND_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("brands")
+      .select("id,name")
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + BRAND_PAGE_SIZE - 1);
+    expect(error, `own-brand read failed unexpectedly: ${error?.message ?? "unknown"}`).toBeNull();
+    const rows = (data ?? []) as BrandSnapshot[];
+    brands.push(...rows);
+    if (rows.length < BRAND_PAGE_SIZE) break;
+  }
+  return brands;
+}
+
+function snapshotKey(brands: BrandSnapshot[]): string {
+  return brands
+    .map((brand) => `${brand.id}:${brand.name}`)
+    .sort()
+    .join("|");
+}
+
+async function readDashboardBrandNames(page: Page): Promise<string[]> {
+  await page.goto("/app", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
+    timeout: 30_000,
+  });
+  const list = page.getByTestId("command-center-brand-list");
+  if ((await list.count()) === 0) return [];
+  return (await list.locator("li").allInnerTexts())
+    .map((name) => name.trim())
+    .filter(Boolean);
 }
 
 /** Read-only negative check: the other organization's brands must be absent
@@ -59,28 +93,34 @@ async function readOwnBrands(page: Page): Promise<Array<{ id: string; name: stri
  *  assume either QA org is empty — QA data changes over time. */
 async function expectNoForeignBrands(
   page: Page,
-  foreignBrands: Array<{ id: string; name: string }>,
+  foreignBrands: BrandSnapshot[],
+  ownBrands: BrandSnapshot[],
 ) {
   const supabase = await supabaseForPage(page);
-  if (foreignBrands.length > 0) {
+  // Bound each `.in()` filter so a large foreign list cannot exceed the
+  // PostgREST request budget; every batch must still return zero rows.
+  for (let index = 0; index < foreignBrands.length; index += BRAND_ID_BATCH_SIZE) {
+    const batch = foreignBrands.slice(index, index + BRAND_ID_BATCH_SIZE);
     const { data, error } = await supabase
       .from("brands")
       .select("id")
       .in(
         "id",
-        foreignBrands.map((brand) => brand.id),
+        batch.map((brand) => brand.id),
       );
     expect(error, `cross-org brand read failed unexpectedly: ${error?.message ?? "unknown"}`).toBeNull();
     expect(data, "RLS leak: this session can read another organization's brand").toHaveLength(0);
   }
 
-  await page.goto("/app", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
-    timeout: 30_000,
-  });
-  for (const brand of foreignBrands) {
-    await expect(page.getByText(brand.name, { exact: true })).toHaveCount(0);
-  }
+  // Scoped to the rendered brand cards, and compared with this session's own
+  // names. A foreign brand with a unique name is therefore caught without a
+  // whole-page `getByText` that could match unrelated copy.
+  const renderedNames = await readDashboardBrandNames(page);
+  const ownNames = new Set(ownBrands.map((brand) => brand.name));
+  expect(
+    renderedNames.filter((name) => !ownNames.has(name)),
+    "dashboard rendered a brand that is not in this session's own brand list",
+  ).toEqual([]);
 }
 
 // PR #52 (IPI-1066) merged — /app has the real "Dashboard" heading and
@@ -105,8 +145,26 @@ test(
 
       const orgABrands = await readOwnBrands(page);
       const orgBBrands = await readOwnBrands(orgBPage);
-      await expectNoForeignBrands(page, orgBBrands);
-      await expectNoForeignBrands(orgBPage, orgABrands);
+      expect(
+        orgABrands.length + orgBBrands.length,
+        "QA fixtures must include at least one brand so the cross-tenant brand proof is not vacuous",
+      ).toBeGreaterThan(0);
+
+      // If one side is empty, that direction has no brand row to leak; the
+      // nonempty side is still checked against the empty side's session, and
+      // the org_members RLS proof covers both directions. Requiring both sides
+      // to be nonempty would mean writing QA brands, which this proof must not do.
+      await expectNoForeignBrands(page, orgBBrands, orgABrands);
+      await expectNoForeignBrands(orgBPage, orgABrands, orgBBrands);
+
+      // A concurrent add/rename would make the snapshots stale. Fail closed
+      // rather than report a pass on data that changed mid-proof.
+      expect(snapshotKey(await readOwnBrands(page)), "Org A brand data changed during the isolation proof; rerun").toBe(
+        snapshotKey(orgABrands),
+      );
+      expect(snapshotKey(await readOwnBrands(orgBPage)), "Org B brand data changed during the isolation proof; rerun").toBe(
+        snapshotKey(orgBBrands),
+      );
     } finally {
       await closeOrgB();
     }
