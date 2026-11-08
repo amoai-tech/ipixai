@@ -1,6 +1,10 @@
-import { existsSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
+import { parse as parseYaml } from "yaml";
 import { describe, expect, it } from "vitest";
+import { inspectedDeploymentHost } from "../scripts/vercel-inspect-host.mjs";
 
 const root = process.cwd();
 const read = (file: string) => readFileSync(path.resolve(root, file), "utf8");
@@ -169,6 +173,130 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(source).toContain("vercel pull --yes --environment=production");
     expect(source).toContain("vercel build --prod");
     expect(source).toContain("vercel deploy --prebuilt --prod");
+  });
+
+  it("stages the exact Production artifact and never assigns customer domains before certification", () => {
+    const production = blockOf(workflowJobs(read(".github/workflows/ci.yml")), "vercel-production");
+    const release = production.join("\n");
+
+    expect(release).toContain("vercel deploy --prebuilt --prod --skip-domain");
+    expect(release).not.toMatch(/vercel\s+promote/);
+    expect(release).toContain("id: stage");
+    expect(release).toContain('DEPLOYMENT_URL="$deployment_url"');
+    expect(release).toContain("TESTED_SHA: ${{ github.sha }}");
+    expect(release).toContain('vercel inspect "$DEPLOYMENT_URL" --json');
+    // The same helper is used by CI and exercised with real values below.
+    expect(release).toContain('import { verifyStagedProduction } from "./scripts/vercel-inspect-host.mjs"');
+    expect(release).toContain("verifyStagedProduction({");
+    expect(release).toContain("process.env.VERCEL_TOKEN");
+    expect(release).toContain("vercel inspect https://www.ipix.co --json");
+    // Failure text lives in the same real helper used by CI, not in YAML.
+    expect(read("scripts/vercel-inspect-host.mjs")).toContain("Production alias changed during staging");
+
+    // No extra test framework: use the existing origin-scoped bypass and
+    // QA auth fixtures, bound to the exact staged URL returned by this run.
+    expect(release).toContain("E2E_BASE_URL: ${{ steps.stage.outputs.url }}");
+    expect(release).toContain(
+      "VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}",
+    );
+    expect(release).toContain("E2E_TEST_EMAIL_ORG_B: ${{ secrets.E2E_TEST_EMAIL_ORG_B }}");
+    expect(release).toContain("e2e/tenant-isolation.spec.ts");
+    expect(release).toContain("e2e/planner-thread-isolation.spec.ts");
+    expect(release).toContain("e2e/planner-stop-journey.spec.ts");
+    const stage = release.indexOf("id: stage");
+    const inspect = release.indexOf("Inspect staged Production candidate");
+    const smoke = release.indexOf("Run staged authenticated QA");
+    expect(stage).toBeGreaterThanOrEqual(0);
+    expect(inspect).toBeGreaterThan(stage);
+    expect(smoke).toBeGreaterThan(inspect);
+    expect(release).not.toMatch(/--prod\s*(?:\n|\r|$)\s*--meta/);
+  });
+
+  it("normalizes Vercel inspect hostnames without accepting unsafe URL shapes", () => {
+    const host = "ipixai-test123-amoco.vercel.app";
+    expect(inspectedDeploymentHost(host)).toBe(host);
+    expect(inspectedDeploymentHost("https://" + host)).toBe(host);
+
+    for (const unsafe of [
+      null,
+      {},
+      "",
+      "http://" + host,
+      "https://" + host + "/other",
+      "https://" + host + "?test=1",
+      "https://user@" + host,
+      "https://" + host + "#hash",
+      "https://another-project.example.com",
+    ]) {
+      expect(() => inspectedDeploymentHost(unsafe)).toThrow(/Vercel inspect url/);
+    }
+  });
+
+  it("executes both stale-SHA guards and prevents staging, without network access", () => {
+    const workflow = parseYaml(read(".github/workflows/ci.yml")) as {
+      jobs: { "vercel-production": { steps: Array<{ name: string; run?: string }> } };
+    };
+    const steps = workflow.jobs["vercel-production"].steps;
+    for (const name of [
+      "Refuse stale main SHA before build",
+      "Stage exact latest SHA without assigning customer domains",
+    ]) {
+      const script = steps.find((step) => step.name === name)?.run;
+      expect(script, name).toBeTruthy();
+
+      const directory = mkdtempSync(path.join(tmpdir(), "ipix-release-gate-"));
+      try {
+        const git = path.join(directory, "git");
+        const vercel = path.join(directory, "vercel");
+        const marker = path.join(directory, "vercel-was-called");
+        const output = path.join(directory, "github-output");
+        writeFileSync(git, [
+          "#!/usr/bin/env bash",
+          'case "$1" in',
+          "  fetch) exit 0 ;;",
+          '  rev-parse) printf "%s\\n" "$MOCK_MAIN_SHA"; exit 0 ;;',
+          "  *) exit 77 ;;",
+          "esac",
+        ].join("\n"));
+        writeFileSync(vercel, [
+          "#!/usr/bin/env bash",
+          'printf "called" > "$MOCK_VERCEL_MARKER"',
+          "exit 0",
+        ].join("\n"));
+        chmodSync(git, 0o700);
+        chmodSync(vercel, 0o700);
+
+        const result = spawnSync("bash", ["-c", script ?? ""], {
+          cwd: root,
+          encoding: "utf8",
+          timeout: 5000,
+          env: {
+            ...process.env,
+            PATH: directory + ":" + process.env.PATH,
+            TESTED_SHA: "1111111111111111111111111111111111111111",
+            MOCK_MAIN_SHA: "2222222222222222222222222222222222222222",
+            MOCK_VERCEL_MARKER: marker,
+            GITHUB_OUTPUT: output,
+          },
+        });
+        expect(result.status, name + " exited: " + result.stderr).toBe(1);
+        expect(result.stdout).toContain("::error");
+        expect(result.stdout).toContain("Run workflow");
+        expect(result.stdout).toContain("Branch: main");
+        expect(existsSync(marker), name + " must not call Vercel").toBe(false);
+        expect(existsSync(output), name + " must not publish success output").toBe(false);
+      } finally {
+        rmSync(directory, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it("fails a manually dispatched release if main moved instead of reporting a false green skip", () => {
+    const production = blockOf(workflowJobs(read(".github/workflows/ci.yml")), "vercel-production");
+    const source = production.join("\n");
+    expect(source).toContain("::error title=Stale Production SHA");
+    expect(source).not.toContain('echo "deploy=false" >> "$GITHUB_OUTPUT"');
+    expect(source).toContain("latest_sha");
   });
 
   it("keeps full CI on every merge but never deploys Production from a push", () => {
