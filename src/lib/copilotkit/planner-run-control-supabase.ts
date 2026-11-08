@@ -121,7 +121,7 @@ export function createPlannerRunControl(
     (threadId) => openSupabaseBus({ resourceId, threadId, accessToken, secret }),
     {
       log(message, details) {
-        console.warn(`[planner-run-control] ${message}`, details ?? {});
+        console.warn("[planner-run-control]", message, details ?? {});
       },
     },
   );

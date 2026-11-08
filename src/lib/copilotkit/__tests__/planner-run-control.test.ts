@@ -240,6 +240,142 @@ describe("PlannerRunControl", () => {
     await handle.close();
   });
 
+  it("deduplicates Stop for an exact run even across different controller request IDs", async () => {
+    const wire = network();
+    const stopLocal = vi.fn(async () => true);
+    const owner = new PlannerRunControl(wire.openBus, { instanceId: "A", timeoutMs: 100 });
+    const controller = new PlannerRunControl(wire.openBus, { instanceId: "B", timeoutMs: 100 });
+    const handle = await owner.own("thread-stop-once", "R1", stopLocal);
+
+    expect(await controller.stop("thread-stop-once", "R1")).toMatchObject({ stopped: true });
+    expect(await controller.stop("thread-stop-once", "R1")).toMatchObject({ stopped: true });
+    expect(stopLocal).toHaveBeenCalledTimes(1);
+    await handle.close();
+  });
+
+  it("allows a later exact-run Stop retry if the first attempt returned false", async () => {
+    const wire = network();
+    const stopLocal = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const owner = new PlannerRunControl(wire.openBus, { instanceId: "A", timeoutMs: 100 });
+    const controller = new PlannerRunControl(wire.openBus, { instanceId: "B", timeoutMs: 100 });
+    const handle = await owner.own("thread-stop-retry", "R1", stopLocal);
+
+    expect(await controller.stop("thread-stop-retry", "R1")).toMatchObject({ stopped: false });
+    expect(await controller.stop("thread-stop-retry", "R1")).toMatchObject({ stopped: true });
+    expect(stopLocal).toHaveBeenCalledTimes(2);
+    await handle.close();
+  });
+
+  it("does not ACK connect after an earlier replay broadcast fails", async () => {
+    const wire = network();
+    const log = vi.fn();
+    const owner = new PlannerRunControl(async (threadId) => {
+      const bus = await wire.openBus(threadId);
+      return {
+        ...bus,
+        async send(message: PlannerRunControlMessage) {
+          if (message.kind === "event" && message.replayFor) throw new Error("replay_network_failure");
+          return bus.send(message);
+        },
+      };
+    }, { instanceId: "A", timeoutMs: 80, log });
+    const controller = new PlannerRunControl(wire.openBus, { instanceId: "B", timeoutMs: 80 });
+    const handle = await owner.own("thread-replay-failure", "R1", async () => true);
+    await handle.publish({ type: EventType.TEXT_MESSAGE_START, messageId: "m1", role: "assistant" } as BaseEvent);
+
+    expect(await controller.connect("thread-replay-failure")).toBeNull();
+    expect(log).toHaveBeenCalledWith("owner_send_failed", expect.objectContaining({ kind: "event" }));
+    await handle.close();
+  });
+
+  it("rejects remote replay when one event would exceed the bounded replay memory budget", async () => {
+    const wire = network();
+    const log = vi.fn();
+    const owner = new PlannerRunControl(wire.openBus, { instanceId: "A", timeoutMs: 80, log });
+    const controller = new PlannerRunControl(wire.openBus, { instanceId: "B", timeoutMs: 80 });
+    const handle = await owner.own("thread-too-much-replay", "R1", async () => true);
+    await handle.publish({
+      type: EventType.TEXT_MESSAGE_CONTENT, messageId: "m1", delta: "x".repeat(2_100_000),
+    } as BaseEvent);
+
+    // Returning a partial stream would corrupt AG-UI state; explicit remote denial is safer.
+    expect(await controller.connect("thread-too-much-replay")).toBeNull();
+    expect(log).toHaveBeenCalledWith("owner_replay_limit_exceeded", expect.any(Object));
+    await handle.close();
+  });
+
+  it("bounds replay by event count while continuing to stream to existing controllers", async () => {
+    const wire = network();
+    const log = vi.fn();
+    const owner = new PlannerRunControl(wire.openBus, { instanceId: "A", timeoutMs: 80, log });
+    const controllerB = new PlannerRunControl(wire.openBus, { instanceId: "B", timeoutMs: 80 });
+    const controllerC = new PlannerRunControl(wire.openBus, { instanceId: "C", timeoutMs: 80 });
+    const handle = await owner.own("thread-replay-count", "R1", async () => true);
+    await handle.publish({ type: EventType.TEXT_MESSAGE_START, messageId: "m1", role: "assistant" } as BaseEvent);
+    const connectionB = await controllerB.connect("thread-replay-count");
+    expect(connectionB).not.toBeNull();
+    const eventsB: BaseEvent[] = [];
+    connectionB?.onEvent((event) => eventsB.push(event));
+
+    for (let i = 0; i < 2_050; i += 1) {
+      await handle.publish({
+        type: EventType.TEXT_MESSAGE_CONTENT, messageId: "m1", delta: "x",
+      } as BaseEvent);
+    }
+    expect(log).toHaveBeenCalledWith("owner_replay_limit_exceeded", expect.any(Object));
+    expect(await controllerC.connect("thread-replay-count")).toBeNull();
+    const priorCount = eventsB.length;
+    await handle.publish({
+      type: EventType.TEXT_MESSAGE_CONTENT, messageId: "m1", delta: "continued",
+    } as BaseEvent);
+    expect(eventsB).toHaveLength(priorCount + 1);
+    await connectionB?.close();
+    await handle.close();
+  });
+
+  it("reports failed live broadcasts and still cleans up the owner after terminal send fails", async () => {
+    const wire = network();
+    const log = vi.fn();
+    const owner = new PlannerRunControl(async (threadId) => {
+      const bus = await wire.openBus(threadId);
+      return {
+        ...bus,
+        async send(message: PlannerRunControlMessage) {
+          if (message.kind === "event" && !message.replayFor) throw new Error("broadcast_disconnected");
+          return bus.send(message);
+        },
+      };
+    }, { instanceId: "A", timeoutMs: 80, log });
+    const controller = new PlannerRunControl(wire.openBus, { instanceId: "B", timeoutMs: 80 });
+    const handle = await owner.own("thread-send-fail", "R1", async () => true);
+    const connection = await controller.connect("thread-send-fail");
+    expect(connection).not.toBeNull();
+
+    await expect(handle.publish({ type: EventType.TEXT_MESSAGE_CONTENT, messageId: "m1", delta: "x" } as BaseEvent))
+      .rejects.toThrow("broadcast_disconnected");
+    expect(log).toHaveBeenCalledWith("owner_send_failed", expect.objectContaining({ kind: "event" }));
+    await expect(handle.close()).resolves.toBeUndefined();
+    expect(wire.closed()).toBeGreaterThan(0);
+    await connection?.close();
+  });
+
+  it("bounds distinct reconnect requests per active run without interrupting the owner", async () => {
+    const wire = network();
+    const log = vi.fn();
+    const owner = new PlannerRunControl(wire.openBus, { instanceId: "A", timeoutMs: 30, log });
+    const controller = new PlannerRunControl(wire.openBus, { instanceId: "B", timeoutMs: 30 });
+    const handle = await owner.own("thread-request-count", "R1", async () => true);
+
+    for (let i = 0; i < 32; i += 1) {
+      const connection = await controller.connect("thread-request-count");
+      expect(connection?.runId).toBe("R1");
+      await connection?.close();
+    }
+    expect(await controller.connect("thread-request-count")).toBeNull();
+    expect(log).toHaveBeenCalledWith("owner_connect_limit_exceeded", { runId: "R1" });
+    await handle.close();
+  });
+
   it("times out safely when no owner exists and closes the temporary bus", async () => {
     const wire = network();
     const controller = new PlannerRunControl(wire.openBus, { instanceId: "B", timeoutMs: 10 });

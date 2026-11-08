@@ -49,6 +49,13 @@ export function isPlannerRunControlMessage(value: unknown): value is PlannerRunC
 export type PlannerRunControlLogger = (message: string, details?: Record<string, unknown>) => void;
 
 const DEFAULT_TIMEOUT_MS = 1_500;
+// Never retain an entire unbounded active-run AG-UI transcript in one Vercel process.
+// If the replay cap is reached, deny new remote connections rather than send a
+// partial transcript that could corrupt the controller's AG-UI state.
+const MAX_REPLAY_EVENTS = 2_048;
+const MAX_REPLAY_BYTES = 2_000_000;
+const MAX_RECENT_CONNECTS = 32;
+const CONNECT_RETRY_RETENTION_MS = 30_000;
 const RETRY_FRACTIONS = [0.05, 0.15, 0.3, 0.3] as const;
 export const plannerRuntimeInstanceId = randomUUID();
 export interface PlannerRunOwnerHandle {
@@ -153,9 +160,16 @@ export class PlannerRunControl {
     stopLocal: (runId: string) => Promise<boolean>,
   ): Promise<PlannerRunOwnerHandle> {
     const bus = await this.openBus(threadId);
-    const stopRequests = new Map<string, Promise<StopAck>>();
-    const connectRequests = new Set<string>();
+    // One stop operation per run, regardless of the controller's request ID.
+    let stopResult: Promise<boolean> | undefined;
+    // Keep only a bounded window of request IDs so repeated connect retries
+    // share the same replay delivery, including any failed delivery result.
+    const connectRequests = new Map<string, { startedAt: number; replayDelivery: Promise<void> }>();
     const replayBuffer: BaseEvent[] = [];
+    let replayBytes = 0;
+    let replayAvailable = true;
+    // Sticky by design: an active client can briefly disconnect and reconnect.
+    // Sending a few extra live broadcasts is safer than missing that transition.
     let remoteListener = false;
     let terminalPublished = false;
     let closed = false;
@@ -165,7 +179,15 @@ export class PlannerRunControl {
         if (closed) return;
         return bus.send(message);
       });
-      sendQueue = send.catch(() => undefined);
+      // Keep the queue usable after a failed send, but log it and return the
+      // ORIGINAL rejected promise to the awaiting caller. Never turn a failed
+      // replay send into a successful connect acknowledgement.
+      sendQueue = send.catch((error) => {
+        this.log("owner_send_failed", {
+          kind: message.kind,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
       return send;
     };
     const off = bus.onMessage((message) => {
@@ -176,33 +198,61 @@ export class PlannerRunControl {
           return;
         }
         if (message.kind === "connect") {
-          remoteListener = true;
-          const firstDelivery = !connectRequests.has(message.requestId);
-          connectRequests.add(message.requestId);
-          let response = Promise.resolve();
-          if (firstDelivery) {
-            for (const event of replayBuffer) {
-              response = enqueue({ kind: "event", runId, event, replayFor: message.requestId });
-            }
+          if (!replayAvailable) {
+            this.log("owner_connect_replay_unavailable", { runId });
+            return; // fail closed: controller times out; no partial AG-UI stream
           }
-          response = enqueue({ kind: "connect_ack", requestId: message.requestId, runId, ownerInstanceId: this.instanceId });
-          await response;
+          // Mark interest before replay starts so simultaneous live events are
+          // not lost while a new controller is catching up.
+          remoteListener = true;
+          const now = Date.now();
+          for (const [id, entry] of connectRequests) {
+            if (now - entry.startedAt > CONNECT_RETRY_RETENTION_MS) connectRequests.delete(id);
+          }
+          let entry = connectRequests.get(message.requestId);
+          if (!entry) {
+            if (connectRequests.size >= MAX_RECENT_CONNECTS) {
+              this.log("owner_connect_limit_exceeded", { runId });
+              return;
+            }
+            // Queue in FIFO order. Promise.all observes failures from EVERY
+            // replay send. Retry of the same request cannot ACK skipped replay.
+            const replayDelivery = Promise.all(
+              replayBuffer.map((event) =>
+                enqueue({ kind: "event", runId, event, replayFor: message.requestId }),
+              ),
+            ).then(() => undefined);
+            entry = { startedAt: now, replayDelivery };
+            connectRequests.set(message.requestId, entry);
+          }
+          await entry.replayDelivery;
+          await enqueue({ kind: "connect_ack", requestId: message.requestId, runId, ownerInstanceId: this.instanceId });
           return;
         }
         if (message.kind === "stop") {
           if (message.runId !== runId) return;
-          let response = stopRequests.get(message.requestId);
-          if (!response) {
-            response = stopLocal(message.runId).then((stopped) => ({
-              kind: "stop_ack" as const,
-              requestId: message.requestId,
-              runId: message.runId,
-              stopped,
-              ownerInstanceId: this.instanceId,
-            }));
-            stopRequests.set(message.requestId, response);
+          if (!stopResult) {
+            stopResult = stopLocal(runId).then(
+              (stopped) => {
+                // A false result is not a completed stop: a run may still be
+                // starting, so a subsequent exact-run request can try again.
+                if (!stopped) stopResult = undefined;
+                return stopped;
+              },
+              (error) => {
+                stopResult = undefined;
+                throw error;
+              },
+            );
           }
-          const ack = await response;
+          const stopped = await stopResult;
+          const ack: StopAck = {
+            kind: "stop_ack",
+            requestId: message.requestId,
+            runId,
+            stopped,
+            ownerInstanceId: this.instanceId,
+          };
           if (!closed) await enqueue(ack);
         }
       };
@@ -219,29 +269,59 @@ export class PlannerRunControl {
       if (event.type === EventType.RUN_FINISHED || event.type === EventType.RUN_ERROR) {
         terminalPublished = true;
       }
-      replayBuffer.push(event);
+      if (replayAvailable) {
+        let bytes = MAX_REPLAY_BYTES + 1;
+        try {
+          bytes = Buffer.byteLength(JSON.stringify(event), "utf8");
+        } catch {
+          // A non-serializable event cannot be safely replayed by Broadcast.
+        }
+        if (replayBuffer.length >= MAX_REPLAY_EVENTS || replayBytes + bytes > MAX_REPLAY_BYTES) {
+          replayAvailable = false;
+          replayBuffer.length = 0;
+          replayBytes = 0;
+          this.log("owner_replay_limit_exceeded", { runId });
+        } else {
+          replayBuffer.push(event);
+          replayBytes += bytes;
+        }
+      }
       if (remoteListener) await enqueue({ kind: "event", runId, event });
     };
 
+    let closePromise: Promise<void> | undefined;
     return {
       publish: publishEvent,
-      close: async (terminal) => {
-        if (closed) return;
-        if (terminal) {
-          await publishEvent(terminal);
-        } else if (remoteListener && !terminalPublished) {
-          await publishEvent({
-            type: EventType.RUN_ERROR,
-            message: "planner_run_owner_closed",
-          } as BaseEvent);
-        }
-        closed = true;
-        stopRequests.clear();
-        connectRequests.clear();
-        replayBuffer.length = 0;
-        off();
-        await sendQueue.catch(() => undefined);
-        await bus.close();
+      close: (terminal) => {
+        if (closed) return Promise.resolve();
+        if (closePromise) return closePromise;
+        closePromise = (async () => {
+          try {
+            if (terminal) {
+              await publishEvent(terminal);
+            } else if (remoteListener && !terminalPublished) {
+              await publishEvent({
+                type: EventType.RUN_ERROR,
+                message: "planner_run_owner_closed",
+              } as BaseEvent);
+            }
+          } catch (error) {
+            // Transport failure must not prevent releasing the subscription
+            // or retaining the in-memory replay indefinitely.
+            this.log("owner_terminal_send_failed", {
+              error: error instanceof Error ? error.message : String(error),
+            });
+          } finally {
+            closed = true;
+            connectRequests.clear();
+            replayBuffer.length = 0;
+            replayBytes = 0;
+            off();
+            await sendQueue;
+            await bus.close();
+          }
+        })();
+        return closePromise;
       },
     };
   }
