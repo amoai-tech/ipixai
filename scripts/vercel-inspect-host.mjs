@@ -29,3 +29,37 @@ export function inspectedDeploymentHost(value) {
   }
   return parsed.hostname;
 }
+
+/**
+ * Validate the exact staged Production deployment and the unchanged live alias.
+ * Both the workflow and synthetic tests use this function; only the caller
+ * owns network access. No success signal is emitted until every check passes.
+ */
+export async function verifyStagedProduction({
+  staged, live, deploymentUrl, liveBefore, projectId, orgId, sha, token,
+  fetchImpl = globalThis.fetch,
+}) {
+  const host = new URL(deploymentUrl).hostname;
+  const inspectedHost = inspectedDeploymentHost(staged?.url);
+  if (inspectedHost !== host || !staged?.id || staged.target !== "production" ||
+      staged.readyState !== "READY") {
+    throw new Error("Staged artifact is not a ready Production deployment");
+  }
+  const response = await fetchImpl(
+    "https://api.vercel.com/v13/deployments/" + encodeURIComponent(staged.id) +
+      "?teamId=" + encodeURIComponent(orgId),
+    { headers: { Authorization: "Bearer " + token } },
+  );
+  if (!response.ok) throw new Error("Deployment lookup returned HTTP " + response.status);
+  const actual = await response.json();
+  if (actual.projectId !== projectId ||
+      actual.meta?.githubCommitSha !== sha ||
+      actual.target !== "production") {
+    throw new Error("Staged artifact SHA/project differs from CI-tested release");
+  }
+  const liveHost = inspectedDeploymentHost(live?.url);
+  if (liveHost !== inspectedDeploymentHost(liveBefore) || liveHost === inspectedHost) {
+    throw new Error("Production alias changed during staging");
+  }
+  return liveHost;
+}

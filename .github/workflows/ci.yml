@@ -2,6 +2,12 @@ name: CI
 
 on:
   workflow_dispatch:
+    inputs:
+      approve_paid_qa:
+        description: "I authorize paid AI calls and persistent QA Planner threads on the Production-configured backend"
+        type: boolean
+        required: true
+        default: false
   push:
     branches: [main]
   pull_request:
@@ -965,6 +971,21 @@ jobs:
               ;;
           esac
 
+      # A manual release with Production settings runs real paid AI QA and
+      # persists QA threads. Block before Vercel pull/build/staging unless the
+      # person dispatching the run explicitly approved BOTH effects.
+      - name: Require consent for paid Production-backed QA
+        if: steps.release.outputs.enabled == 'true'
+        shell: bash
+        env:
+          APPROVE_PAID_QA: ${{ inputs.approve_paid_qa }}
+        run: |
+          set -euo pipefail
+          if [ "$APPROVE_PAID_QA" != 'true' ]; then
+            echo "::error title=Production QA consent required::This release runs paid AI model requests and persists QA Planner threads in the Production-configured backend. Start a NEW workflow dispatch on main and explicitly approve both effects before staging."
+            exit 1
+          fi
+
       - name: Checkout exact CI-tested SHA
         if: steps.release.outputs.enabled == 'true'
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -1098,33 +1119,18 @@ jobs:
           vercel inspect https://www.ipix.co --json > /tmp/ipix-live-after.json
           node --input-type=module -e '
             import { readFileSync } from "node:fs";
-            import { inspectedDeploymentHost } from "./scripts/vercel-inspect-host.mjs";
-            const staged = JSON.parse(readFileSync("/tmp/ipix-staged.json", "utf8"));
-            const live = JSON.parse(readFileSync("/tmp/ipix-live-after.json", "utf8"));
-            const host = new URL(process.env.DEPLOYMENT_URL).hostname;
-            // The pinned CLI may report a bare hostname; verify both canonical
-            // inspect URL shapes with the same testable, fail-closed helper.
-            const inspectedHost = inspectedDeploymentHost(staged.url);
-            if (inspectedHost !== host || !staged.id || staged.target !== "production" ||
-                staged.readyState !== "READY") {
-              throw new Error("Staged artifact is not a ready Production deployment");
-            }
-            const response = await fetch(
-              "https://api.vercel.com/v13/deployments/" + encodeURIComponent(staged.id) +
-                "?teamId=" + encodeURIComponent(process.env.VERCEL_ORG_ID),
-              { headers: { Authorization: "Bearer " + process.env.VERCEL_TOKEN } },
-            );
-            if (!response.ok) throw new Error("Deployment lookup returned HTTP " + response.status);
-            const actual = await response.json();
-            if (actual.projectId !== process.env.VERCEL_PROJECT_ID ||
-                actual.meta?.githubCommitSha !== process.env.TESTED_SHA ||
-                actual.target !== "production") {
-              throw new Error("Staged artifact SHA/project differs from CI-tested release");
-            }
-            if (live.url !== process.env.LIVE_BEFORE || live.url === staged.url) {
-              throw new Error("Production alias changed during staging");
-            }
-            console.log("Verified staged SHA; www.ipix.co still serves " + live.url);
+            import { verifyStagedProduction } from "./scripts/vercel-inspect-host.mjs";
+            const liveHost = await verifyStagedProduction({
+              staged: JSON.parse(readFileSync("/tmp/ipix-staged.json", "utf8")),
+              live: JSON.parse(readFileSync("/tmp/ipix-live-after.json", "utf8")),
+              deploymentUrl: process.env.DEPLOYMENT_URL,
+              liveBefore: process.env.LIVE_BEFORE,
+              projectId: process.env.VERCEL_PROJECT_ID,
+              orgId: process.env.VERCEL_ORG_ID,
+              sha: process.env.TESTED_SHA,
+              token: process.env.VERCEL_TOKEN,
+            });
+            console.log("Verified staged SHA; www.ipix.co still serves " + liveHost);
           '
 
       # Reference: https://playwright.dev/docs/ci

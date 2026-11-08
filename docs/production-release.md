@@ -22,7 +22,11 @@ flowchart TD
 
 **Destination:** `.github/workflows/ci.yml`, `vercel-production` job.
 
-**Reference — ADAPT:** https://vercel.com/docs/cli/deploy#skip-domain
+**Reference — ADAPT:** https://vercel.com/docs/cli/deploy#skip-domain — stage without assigning customer domains.
+
+**Reference — REFERENCE ONLY:** https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow — required manual-dispatch consent checkbox; do not rely on a default-checked value.
+
+**Consent required BEFORE dispatch:** Although the staged website is not promoted, its QA sends **paid AI model requests** and **persists QA Planner threads** in the **Production-configured backend**. These are actual charges and durable QA records, not a read-only preview. Before starting, the release operator must obtain and record explicit authorization for **both** costs and QA thread writes, use only approved QA identities, and check the GitHub Actions `approve_paid_qa` acknowledgment. Without that approval, **do not dispatch**; the release job will reject an unchecked acknowledgment before any Vercel staging.
 
 Use GitHub **Actions → CI → Run workflow → Branch: main**. The manual job confirms the tested SHA is still latest `main`, prepares a Production-configured build and runs `vercel deploy --prebuilt --prod --skip-domain`. It prints an exact staged URL, checks Vercel project/SHA/readiness, and verifies the live alias **before QA**. Never run a direct `--prod` release from a local checkout. If the SHA is stale, create a **new workflow dispatch** on latest main; rerunning the previous dispatch retains its outdated SHA.
 
@@ -54,7 +58,7 @@ Only after explicit human approval: in Vercel Deployments, choose the **staged P
 
 **Reference — ADAPT:** https://vercel.com/docs/deployments/promoting-a-deployment
 
-Immediately verify that `www.ipix.co` resolves to the **approved deployment and exact commit SHA**, then run guarded public/auth smoke. With approved test credentials and explicit consent to paid QA model calls, dispatch:
+Immediately verify that `www.ipix.co` resolves to the **approved deployment and exact commit SHA**, then run guarded public/auth smoke. **Before** dispatching the separate live certification, confirm that the prior recorded QA authorization also covers **paid AI calls and persistent QA Planner threads in live Production**; if not, obtain that additional approval first. With approved test credentials, dispatch:
 
 ```bash
 gh workflow run production-planner-cert.yml -R amoai-tech/ipixai --ref main \

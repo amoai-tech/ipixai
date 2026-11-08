@@ -186,10 +186,11 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(release).toContain("TESTED_SHA: ${{ github.sha }}");
     expect(release).toContain('vercel inspect "$DEPLOYMENT_URL" --json');
     // The same helper is used by CI and exercised with real values below.
-    expect(release).toContain('import { inspectedDeploymentHost } from "./scripts/vercel-inspect-host.mjs"');
-    expect(release).toContain("inspectedDeploymentHost(staged.url)");
+    expect(release).toContain('import { verifyStagedProduction } from "./scripts/vercel-inspect-host.mjs"');
+    expect(release).toContain("verifyStagedProduction({");
     expect(release).toContain("vercel inspect https://www.ipix.co --json");
-    expect(release).toContain("Production alias changed during staging");
+    // Failure text lives in the same real helper used by CI, not in YAML.
+    expect(read("scripts/vercel-inspect-host.mjs")).toContain("Production alias changed during staging");
 
     // No extra test framework: use the existing origin-scoped bypass and
     // QA auth fixtures, bound to the exact staged URL returned by this run.
