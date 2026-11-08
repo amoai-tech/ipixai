@@ -6,6 +6,8 @@ version: 1.0.0
 
 # CopilotKit Debugging Skill
 
+> **Current iPix:** Start with the real authenticated runtime and installed package family. [Official CLI](https://docs.copilotkit.ai/cli.md) `verify --expect-runtime oss --agent default` can help on a **permitted test runtime**, but `--round-trip` calls a model and persists a thread. Never run an unpinned CLI, cloud setup, or a production round trip automatically. CLI PASS does not prove tools, SSE ordering, HITL, persistence or cross-tenant safety; use [the canonical lookup and verification contract](../../SKILL.md).
+
 ## When to Use
 
 Invoke this skill when:
@@ -72,39 +74,13 @@ Use the reference documents to match symptoms to known issues:
 3. Confirm the SSE stream produces a complete event sequence (RunStarted through RunFinished)
 4. Check the browser console for any remaining structured errors
 
-## Using mcp-docs for Live Documentation Lookups
+## Current docs lookup (use only connected tools)
 
-During debugging, use the `copilotkit-docs` MCP server to look up the latest CopilotKit documentation. This server provides two tools: `search-docs` (search documentation) and `search-code` (search source code examples).
+Discover actual names/schemas first. There are **four** corpora: `search-docs` (product docs), `search-code` (library source), `search-ag-ui-docs` (protocol docs) and `search-ag-ui-code` (protocol SDK source). ChatGPT uses underscored names; `explore-docs` / `explore-code` may also be available.
 
-### MCP Setup
+A repo-local `.mcp.json` does **not** guarantee that every Claude, Codex or ChatGPT session has an MCP connection. When unavailable, use [CopilotKit docs `llms.txt`](https://docs.copilotkit.ai/llms.txt), focused `.md` pages, installed package types and [AG-UI docs](https://docs.ag-ui.com/llms.txt).
 
-**Claude Code:** The MCP server is auto-configured by the plugin's `.mcp.json` -- no manual setup needed. The agent can call the `search-docs` and `search-code` tools from the `copilotkit-docs` server directly.
-
-**Codex:** Add the following to your `.codex/config.toml`:
-
-```toml
-[mcp_servers.copilotkit-docs]
-type = "http"
-url = "https://mcp.copilotkit.ai/mcp"
-```
-
-### Tool Usage
-
-The `search-docs` and `search-code` tools are invoked as MCP tool calls (not CLI commands). Examples of what to search for during debugging:
-
-```
-search-docs("AGENT_NOT_FOUND")
-search-docs("CopilotRuntime configuration")
-search-docs("AG-UI protocol events")
-search-docs("troubleshooting common issues")
-search-docs("CORS configuration copilotkit")
-search-code("CopilotRuntime error handling")
-```
-
-The official troubleshooting docs are at:
-
-- `https://docs.copilotkit.ai/troubleshooting/common-issues`
-- `https://docs.copilotkit.ai/coagents/troubleshooting/common-issues`
+A signed-out request receiving `401` from `/api/copilotkit/info` can be correct tenant/auth behavior. Never use `login` or `project select` to make a self-hosted OSS runtime appear healthy.
 
 ## Key File Locations in the CopilotKit Codebase
 
