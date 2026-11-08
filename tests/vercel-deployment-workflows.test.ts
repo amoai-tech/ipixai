@@ -171,6 +171,38 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(source).toContain("vercel deploy --prebuilt --prod");
   });
 
+  it("stages the exact Production artifact and never assigns customer domains before certification", () => {
+    const production = blockOf(workflowJobs(read(".github/workflows/ci.yml")), "vercel-production");
+    const release = production.join("\n");
+
+    expect(release).toContain("vercel deploy --prebuilt --prod --skip-domain");
+    expect(release).not.toMatch(/vercel\s+promote/);
+    expect(release).toContain("id: stage");
+    expect(release).toContain('DEPLOYMENT_URL="$deployment_url"');
+    expect(release).toContain("TESTED_SHA: ${{ github.sha }}");
+    expect(release).toContain('vercel inspect "$DEPLOYMENT_URL" --json');
+    expect(release).toContain("vercel inspect https://www.ipix.co --json");
+    expect(release).toContain("Production alias changed during staging");
+
+    // No extra test framework: use the existing origin-scoped bypass and
+    // QA auth fixtures, bound to the exact staged URL returned by this run.
+    expect(release).toContain("E2E_BASE_URL: ${{ steps.stage.outputs.url }}");
+    expect(release).toContain(
+      "VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}",
+    );
+    expect(release).toContain("E2E_TEST_EMAIL_ORG_B: ${{ secrets.E2E_TEST_EMAIL_ORG_B }}");
+    expect(release).toContain("e2e/tenant-isolation.spec.ts");
+    expect(release).toContain("e2e/planner-thread-isolation.spec.ts");
+    expect(release).toContain("e2e/planner-stop-journey.spec.ts");
+    const stage = release.indexOf("id: stage");
+    const inspect = release.indexOf("Inspect staged Production candidate");
+    const smoke = release.indexOf("Run staged authenticated QA");
+    expect(stage).toBeGreaterThanOrEqual(0);
+    expect(inspect).toBeGreaterThan(stage);
+    expect(smoke).toBeGreaterThan(inspect);
+    expect(release).not.toMatch(/--prod\s*(?:\n|\r|$)\s*--meta/);
+  });
+
   it("keeps full CI on every merge but never deploys Production from a push", () => {
     const source = read(".github/workflows/ci.yml");
 
