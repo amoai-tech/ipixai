@@ -881,9 +881,28 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+      - id: setup_deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        continue-on-error: true # Exact-version fallback below must pass or CI fails.
         with:
           deno-version: "2.9.2"
+      # GitHub Releases sometimes returns HTTP 504 to the official setup
+      # action. Use the same release from Deno's CDN, with the SHA256
+      # published on denoland/deno's immutable v2.9.2 GitHub release.
+      - name: Install checksum-verified Deno from official CDN when setup fails
+        if: steps.setup_deno.outcome == 'failure'
+        run: |
+          DENO_ZIP="$RUNNER_TEMP/deno-v2.9.2-linux.zip"
+          DENO_DIR="$RUNNER_TEMP/deno-v2.9.2"
+          curl -fsSL --retry 3 --retry-max-time 180 --max-time 120 --remove-on-error \
+            "https://dl.deno.land/release/v2.9.2/deno-x86_64-unknown-linux-gnu.zip" -o "$DENO_ZIP"
+          echo "934d1bd5cb09eaed7f2e4a4fc58208d04a3c5c0fcde9f319d93d735265c67a4a  $DENO_ZIP" | sha256sum -c -
+          mkdir -p "$DENO_DIR"
+          unzip -q "$DENO_ZIP" -d "$DENO_DIR"
+          echo "$DENO_DIR" >> "$GITHUB_PATH"
+      - name: Require exact Deno 2.9.2
+        run: |
+          deno --version | grep -Eq '^deno 2[.]9[.]2 '
       - working-directory: supabase
         run: deno ci
       - working-directory: supabase
