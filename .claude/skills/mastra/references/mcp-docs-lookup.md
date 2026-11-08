@@ -33,6 +33,14 @@ Therefore:
 - use installed source/types for exact APIs when embedded docs are absent;
 - use remote `mastraDocs` for current conceptual documentation.
 
+## Discover the connected documentation tool before use
+
+These names are **environment-dependent**, not globally available Mastra APIs. First list the currently connected tool actions and read their exact argument schemas.
+
+- **ChatGPT Mastra Docs connector:** `search_mastra_knowledge_sources({ query: "one complete natural-language sentence" })` performs semantic docs/source lookup. This connector does **not** expose `mastraDocs`, `mastraMigration`, or `listMastraPackages` as interchangeable methods. Read returned URLs/chunks and confirm version.
+- **Other IDE/Claude MCP configurations:** `mastraDocs`, `searchMastraDocs`, `readMastraDocs`, `listMastraPackages` and `mastraMigration` may exist under a separately installed docs server. Use each **only if the connected tool discovery exposes it**, passing `projectPath` only when that tool's schema includes the field.
+- **Fallback:** current official docs https://mastra.ai/llms.txt, installed `node_modules/@mastra/*` source/types and pinned GitHub release/tag source. Do not treat an unavailable MCP tool as evidence the framework API is missing.
+
 ## Tool selection
 
 | Need | Preferred tool/source | Rule |
@@ -45,7 +53,7 @@ Therefore:
 | Breaking version transition | `mastraMigration` + release notes | compare source/target installed families |
 | Unclear bug/runtime edge | official GitHub matching version/issue | do not extrapolate from unrelated versions |
 
-Pass `projectPath` only when the tool schema declares it. Use the iPixai repo root, not an old `/home/sk/ipix/app` or mdeai path. `mastraDocs` uses document paths/query keywords and does not take `projectPath`.
+Pass `projectPath` only when the selected tool's actual schema declares it. If the tool is absent, use a verified fallback; never invent a connector call. In the ChatGPT Mastra Docs connector, use a single sentence in `query`; no `projectPath` parameter exists.
 
 ## High-value current paths
 
@@ -77,9 +85,9 @@ When a future standalone Mastra server path is considered, inspect current nativ
 
 Before changing a Mastra package family:
 
-1. record exact current installed family;
+1. record exact current installed family (IPI-1385 targets stable Core 1.82.0; runtime stays 1.71.0 until the gated upgrade);
 2. identify target family and reason;
-3. run `mastraMigration` / official migration docs;
+3. use `mastraMigration` **if connected**, otherwise official migration/release notes with version-tagged source;
 4. inspect installed/current source for changed APIs;
 5. search recent upstream issues for the exact affected feature;
 6. update the package family together as required;

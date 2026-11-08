@@ -9,6 +9,8 @@ tags: mastra, react, vite, ai-sdk-ui
 
 # Integrate Mastra in your React + Vite project
 
+> **New-project tutorial only.** The Vite, `/chat`, weather-agent, `npx mastra@latest init` and `npm run dev` commands below are not iPix migration commands. iPix uses Next.js and an authenticated CopilotKit v2 route; run `npm run dev:ui` and `npm run dev:agent` separately. IPI-1389 upgrades CopilotKit first; IPI-1385 upgrades the Mastra package family to stable 1.82. Verify target API/types before adapting any snippet.
+
 ## Contents
 
 - [Before you begin](#before-you-begin)

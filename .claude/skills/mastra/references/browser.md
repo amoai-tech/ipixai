@@ -1,6 +1,6 @@
 ---
 title: Mastra browser — docs + reference
-description: Load for AgentBrowser, BrowserViewer, or Stagehand automation. Phase 2+ for mdeapp product.
+description: Optional Mastra browser/AgentBrowser reference. Requires installed API, execution safety, and explicit iPix task.
 parent: mastra
 impact: HIGH
 impactDescription: Doc URLs and reference API for AgentBrowser, BrowserViewer, Stagehand
@@ -9,9 +9,9 @@ tags: mastra, browser, playwright, cdp, workspace
 
 # Mastra browser — docs & reference index
 
-**mdeai Phase 1:** production concierge does **not** assign a Mastra `browser` to `conciergeAgent`. Web extraction for events uses **Firecrawl** (`mde-firecrawl` skill) and Places API — not `@mastra/agent-browser`. Bookmark this index for **EVP event-ingest** experiments, Studio screencast demos, or Phase 2 workspace agents. **Do not** add browser packages to `mdeapp/` unless a task explicitly scopes it (Vercel serverless + screencast WS constraints).
+**iPix boundary:** This is an optional browser capability reference, not an existing Production Planner dependency. The MDE-specific concierge/Firecrawl/Places decisions below are legacy comparison notes only. Verify the installed Mastra browser/Workspace APIs, tenant security, sandbox isolation and Vercel deployment constraints before enabling browser tools in iPix; do not install packages or grant browser execution from this guide.
 
-**Lookup order:** [`mcp-docs-lookup.md`](mcp-docs-lookup.md) → **`mastraDocs`** paths below → [`links.md`](../links.md).
+**Lookup order:** [`mcp-docs-lookup.md`](mcp-docs-lookup.md) → discover the connected docs tool and its schema → [`links.md`](../links.md).
 
 ---
 
@@ -108,7 +108,7 @@ const browser = new AgentBrowser({
 
 ---
 
-## mdeai pointers
+## Legacy MDE pointers — not iPix paths
 
 | Need | Use instead (Phase 1) |
 | --- | --- |

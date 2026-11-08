@@ -182,18 +182,20 @@ The agent receives the `execute_command` tool.
 Pass a resolver function to `filesystem` to return a different filesystem per request. This is useful for multi-tenant applications or multi-role agents where each request needs a different storage root or different permissions.
 
 ```typescript
-const workspace = new Workspace({
-  filesystem: ({ requestContext }) => {
-    const role = requestContext.get('agent-role') || 'guest'
-    return new LocalFilesystem({
-      basePath: `/workspaces/${role}`,
-      readOnly: role !== 'admin',
-    })
-  },
-})
+// Illustrative request-scoped factory: this application helper is NOT a Mastra API.
+// It must authenticate the request, verify org/workspace ownership, and throw on denial.
+async function createWorkspaceForAuthenticatedRequest(request: Request) {
+  const authorizedRoot = await requireAuthorizedWorkspaceRoot(request)
+  return new Workspace({
+    filesystem: () => new LocalFilesystem({
+      basePath: authorizedRoot,
+      readOnly: true, // deny writes until a separate server approval gate exists
+    }),
+  })
+}
 ```
 
-One workspace instance serves all requests. The resolver runs at tool execution time, so each request gets its own filesystem. See [dynamic filesystem](https://mastra.ai/docs/workspace/filesystem) for details.
+**iPix note:** This is illustrative, **not a ready-to-run application function**. Implement `requireAuthorizedWorkspaceRoot(request)` with the server-derived identity, database-authorized organization/workspace ownership and a canonical allowlisted root before creating a **request-scoped** Workspace. Reject missing/unauthorized requests. Never capture one tenant's root in a global Workspace shared across tenants, derive a writable path from a browser-supplied role, or treat RequestContext as permission. [Official dynamic filesystem](https://mastra.ai/docs/workspace/filesystem) documents the callback, not iPix authorization.
 
 ### Which pattern should I use?
 
@@ -217,9 +219,9 @@ const workspace = new Workspace({
   filesystem: new LocalFilesystem({ basePath: './workspace' }),
   sandbox: new LocalSandbox({ workingDirectory: './workspace' }),
   tools: {
-    // Global defaults
+    // Generic demo tightened for iPix: enabled tools need approval.
     enabled: true,
-    requireApproval: false,
+    requireApproval: true,
 
     // Per-tool overrides
     [WORKSPACE_TOOLS.FILESYSTEM.WRITE_FILE]: {
@@ -230,7 +232,7 @@ const workspace = new Workspace({
       enabled: false,
     },
     [WORKSPACE_TOOLS.SANDBOX.EXECUTE_COMMAND]: {
-      requireApproval: true,
+      enabled: false, // separate reviewed server capability required
     },
   },
 })
@@ -250,22 +252,24 @@ const workspace = new Workspace({
 
 Tool options that accept functions receive a context object and return a boolean. This enables context-aware tool behavior.
 
+**iPix security contract:** The Mastra Workspace dynamic-tool configuration receives `requestContext` normalized to a plain object, so bracket notation is valid **for that particular API** ([official source: `toPlainRequestContext()`](https://github.com/mastra-ai/mastra/blob/6e8dfcb/packages/core/src/workspace/tools/tools.ts)). The previous sample used `requestContext['allowExecution']` as authorization, which could be forged if populated from browser/model input. Keep command execution disabled by default. A future implementation requires a server-side authenticated actor and workspace/tenant ownership check, a bounded approved capability and a real authorization test **before** enabling the tool. `RequestContext` alone is not permission; Mastra's human approval setting does not replace RLS or domain authorization. Resolve/canonicalize paths before any trusted path-based policy; fail closed on missing context.
+
+[Official Workspace tool configuration](https://mastra.ai/reference/workspace/workspace-class#tool-configuration) — **ADAPT** only after iPix version/type and server-authority checks; do not copy generic dynamic examples into an authorized production execution path.
+
 ```typescript
 const workspace = new Workspace({
   filesystem: new LocalFilesystem({ basePath: './workspace' }),
   tools: {
-    // Dynamic enabled: disable command execution unless explicitly allowed
+    // Deny commands until a server-verified authorization capability exists.
+    // No browser/model-controlled RequestContext flag can enable this tool.
     [WORKSPACE_TOOLS.SANDBOX.EXECUTE_COMMAND]: {
-      enabled: async ({ requestContext }) => {
-        return requestContext['allowExecution'] === 'true'
-      },
+      enabled: async () => false,
     },
 
-    // Dynamic requireApproval: only require approval for protected paths
+    // Approval on all writes: string-prefix path checks can miss traversal,
+    // symlinks, or alternate path spellings.
     [WORKSPACE_TOOLS.FILESYSTEM.WRITE_FILE]: {
-      requireApproval: async ({ args }) => {
-        return (args.path as string).startsWith('/protected')
-      },
+      requireApproval: async () => true,
       requireReadBeforeWrite: true,
     },
   },
