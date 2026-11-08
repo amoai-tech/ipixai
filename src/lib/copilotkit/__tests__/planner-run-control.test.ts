@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   PlannerRunControl,
+  isPlannerRunControlMessage,
   type OpenPlannerRunControlBus,
   type PlannerRunControlBus,
   type PlannerRunControlMessage,
@@ -48,6 +49,14 @@ function sleep(ms: number) {
 }
 
 describe("PlannerRunControl", () => {
+  it("rejects unsequenced or unsafe replay messages on the Realtime boundary", () => {
+    const sample = { kind: "event", runId: "R1", event: { type: EventType.TEXT_MESSAGE_START } };
+    expect(isPlannerRunControlMessage(sample)).toBe(false);
+    expect(isPlannerRunControlMessage({ ...sample, seq: -1 })).toBe(false);
+    expect(isPlannerRunControlMessage({ ...sample, seq: Number.MAX_SAFE_INTEGER + 1 })).toBe(false);
+    expect(isPlannerRunControlMessage({ ...sample, seq: 0 })).toBe(true);
+  });
+
   it("probes a run owned by another runtime and relays new live events", async () => {
     const wire = network();
     const owner = new PlannerRunControl(wire.openBus, { instanceId: "A", timeoutMs: 100 });
@@ -139,6 +148,45 @@ describe("PlannerRunControl", () => {
     expect(receivedC).toHaveLength(2);
 
     await Promise.all([connectionB?.close(), connectionC?.close()]);
+    await handle.close();
+  });
+
+  it("orders and deduplicates live events received before their replay in a second tab", async () => {
+    const wire = network();
+    const owner = new PlannerRunControl(wire.openBus, { instanceId: "A", timeoutMs: 100 });
+    const controllerB = new PlannerRunControl(wire.openBus, { instanceId: "B", timeoutMs: 100 });
+    const handle = await owner.own("thread-before-replay", "R1", async () => true);
+    await handle.publish({
+      type: EventType.TEXT_MESSAGE_START, messageId: "m1", role: "assistant",
+    } as BaseEvent);
+    const tabB = await controllerB.connect("thread-before-replay");
+    expect(tabB).not.toBeNull();
+
+    const controllerC = new PlannerRunControl(async (threadId) => {
+      const bus = await wire.openBus(threadId);
+      return {
+        ...bus,
+        async send(message: PlannerRunControlMessage) {
+          if (message.kind === "connect") {
+            // The new controller has already subscribed. A live event lands
+            // before the owner receives its request and replays that event.
+            await handle.publish({
+              type: EventType.TEXT_MESSAGE_CONTENT, messageId: "m1", delta: "once",
+            } as BaseEvent);
+          }
+          return bus.send(message);
+        },
+      };
+    }, { instanceId: "C", timeoutMs: 100 });
+    const tabC = await controllerC.connect("thread-before-replay");
+    expect(tabC).not.toBeNull();
+    const seen: BaseEvent[] = [];
+    tabC?.onEvent((event) => seen.push(event));
+    expect(seen.map((event) => event.type)).toEqual([
+      EventType.TEXT_MESSAGE_START, EventType.TEXT_MESSAGE_CONTENT,
+    ]);
+    expect(seen.filter((event) => event.type === EventType.TEXT_MESSAGE_CONTENT)).toHaveLength(1);
+    await Promise.all([tabB?.close(), tabC?.close()]);
     await handle.close();
   });
 

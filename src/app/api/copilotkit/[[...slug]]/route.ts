@@ -62,6 +62,11 @@ async function handleCopilot(request: Request) {
   return requestToken.run(accessToken ?? "", () => handle(app)(request));
 }
 
+// Bound the owner request to 300s so the Proxy can prove a refreshed JWT
+// outlives its Realtime channel by at least 60s (IPI-1117). This matches the
+// documented Vercel Fluid Compute default, rather than reducing it.
+export const maxDuration = 300;
+
 // IPI-1210 · COPILOT-TIMEOUT-001 — a prior fix here set maxDuration=60,
 // theorizing composeShootPlan's multi-tool turns exceeded the platform
 // default. That was wrong and has been reverted. Vercel's documented

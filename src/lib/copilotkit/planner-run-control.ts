@@ -8,7 +8,7 @@ export type PlannerRunControlMessage =
   | { kind: "connect_ack"; requestId: string; runId: string; ownerInstanceId: string }
   | { kind: "stop"; requestId: string; runId: string }
   | { kind: "stop_ack"; requestId: string; runId: string; stopped: boolean; ownerInstanceId: string }
-  | { kind: "event"; runId: string; event: BaseEvent; replayFor?: string };
+  | { kind: "event"; runId: string; seq: number; event: BaseEvent; replayFor?: string };
 
 export interface PlannerRunControlBus {
   send(message: PlannerRunControlMessage): Promise<void>;
@@ -37,6 +37,8 @@ export function isPlannerRunControlMessage(value: unknown): value is PlannerRunC
   if (kind === "event") {
     const event = message.event;
     return boundedString(message.runId) &&
+      typeof message.seq === "number" &&
+      Number.isSafeInteger(message.seq) && message.seq >= 0 &&
       (message.replayFor === undefined || boundedString(message.replayFor, 128)) &&
       !!event &&
       typeof event === "object" &&
@@ -165,7 +167,8 @@ export class PlannerRunControl {
     // Keep only a bounded window of request IDs so repeated connect retries
     // share the same replay delivery, including any failed delivery result.
     const connectRequests = new Map<string, { startedAt: number; replayDelivery: Promise<void> }>();
-    const replayBuffer: BaseEvent[] = [];
+    const replayBuffer: Array<{ seq: number; event: BaseEvent }> = [];
+    let nextEventSeq = 0;
     let replayBytes = 0;
     let replayAvailable = true;
     // Sticky by design: an active client can briefly disconnect and reconnect.
@@ -225,8 +228,8 @@ export class PlannerRunControl {
             // Queue in FIFO order. Promise.all observes failures from EVERY
             // replay send. Retry of the same request cannot ACK skipped replay.
             const replayDelivery = Promise.all(
-              replayBuffer.map((event) =>
-                enqueue({ kind: "event", runId, event, replayFor: message.requestId }),
+              replayBuffer.map(({ seq, event }) =>
+                enqueue({ kind: "event", runId, seq, event, replayFor: message.requestId }),
               ),
             ).then(() => undefined);
             entry = { startedAt: now, replayDelivery };
@@ -281,6 +284,8 @@ export class PlannerRunControl {
 
     const publishEvent = async (event: BaseEvent) => {
       if (closed) return;
+      const seq = nextEventSeq++;
+      if (!Number.isSafeInteger(seq)) throw new Error("planner_run_sequence_overflow");
       if (event.type === EventType.RUN_FINISHED || event.type === EventType.RUN_ERROR) {
         terminalPublished = true;
       }
@@ -297,11 +302,11 @@ export class PlannerRunControl {
           replayBytes = 0;
           this.log("owner_replay_limit_exceeded", { runId });
         } else {
-          replayBuffer.push(event);
+          replayBuffer.push({ seq, event });
           replayBytes += bytes;
         }
       }
-      if (remoteListener) await enqueue({ kind: "event", runId, event });
+      if (remoteListener) await enqueue({ kind: "event", runId, seq, event });
     };
 
     let closePromise: Promise<void> | undefined;
@@ -383,8 +388,9 @@ export class PlannerRunControl {
     const bus = await this.openBus(threadId);
     const requestId = randomUUID();
     const waiter = settleAfter<ConnectAck | null>(this.timeoutMs, null);
-    const buffered: Array<{ runId: string; event: BaseEvent }> = [];
+    const buffered: Array<{ runId: string; seq: number; event: BaseEvent }> = [];
     const listeners = new Set<(event: BaseEvent) => void>();
+    let lastDeliveredSeq = -1;
     let activeRunId: string | undefined;
     let closed = false;
     const off = bus.onMessage((message) => {
@@ -400,11 +406,13 @@ export class PlannerRunControl {
       if (message.kind !== "event") return;
       if (message.replayFor !== undefined && message.replayFor !== requestId) return;
       if (activeRunId && message.runId !== activeRunId) return;
+      if (message.seq <= lastDeliveredSeq) return;
       if (listeners.size === 0) {
-        buffered.push({ runId: message.runId, event: message.event });
+        buffered.push({ runId: message.runId, seq: message.seq, event: message.event });
         return;
       }
       if (message.runId === activeRunId) {
+        lastDeliveredSeq = message.seq;
         for (const listener of listeners) listener(message.event);
       }
     });
@@ -418,9 +426,10 @@ export class PlannerRunControl {
         return null;
       }
       activeRunId = ack.runId;
-      return this.remoteConnection(bus, off, ack, buffered, listeners, () => closed, (value) => {
-        closed = value;
-      });
+      return this.remoteConnection(bus, off, ack, buffered, listeners,
+        () => lastDeliveredSeq, (seq) => { lastDeliveredSeq = seq; },
+        () => closed, (value) => { closed = value; },
+      );
     } catch (error) {
       waiter.cancel();
       off();
@@ -433,8 +442,10 @@ export class PlannerRunControl {
     bus: PlannerRunControlBus,
     off: () => void,
     ack: ConnectAck,
-    buffered: Array<{ runId: string; event: BaseEvent }>,
+    buffered: Array<{ runId: string; seq: number; event: BaseEvent }>,
     listeners: Set<(event: BaseEvent) => void>,
+    getLastDeliveredSeq: () => number,
+    setLastDeliveredSeq: (seq: number) => void,
     isClosed: () => boolean,
     setClosed: (value: boolean) => void,
   ): PlannerRemoteRunConnection {
@@ -444,9 +455,15 @@ export class PlannerRunControl {
       onEvent(handler) {
         if (isClosed()) return () => {};
         listeners.add(handler);
-        const pending = buffered.splice(0, buffered.length);
+        // Live events can reach a newly joined tab before its own replay.
+        // Sort the initial snapshot and discard replay/live duplicates.
+        const pending = buffered.splice(0, buffered.length)
+          .filter((item) => item.runId === ack.runId)
+          .sort((a, b) => a.seq - b.seq);
         for (const item of pending) {
-          if (item.runId === ack.runId) handler(item.event);
+          if (item.seq <= getLastDeliveredSeq()) continue;
+          setLastDeliveredSeq(item.seq);
+          handler(item.event);
         }
         return () => listeners.delete(handler);
       },
