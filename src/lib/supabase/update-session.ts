@@ -6,6 +6,8 @@ import type { Database } from "@/lib/supabase/database.types";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
+  let refreshingPlannerSession = false;
+  let refreshedCookiesWritten = false;
   const config = getPublicSupabaseConfig();
   if (!config) return supabaseResponse;
 
@@ -15,6 +17,12 @@ export async function updateSession(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet, headers) {
+        // Claims alone cannot prove the browser received a rotated session.
+        // The streaming Planner route must start with matching request and
+        // response cookies so its Realtime JWT is valid for the whole run.
+        if (refreshingPlannerSession && cookiesToSet.length > 0) {
+          refreshedCookiesWritten = true;
+        }
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         supabaseResponse = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) =>
@@ -27,6 +35,41 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getClaims();
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+
+  // Planner requests stream for at most five minutes. Do not start a run with
+  // a JWT that can expire mid-stream: Realtime closes private channels after
+  // expiry, making cross-instance Stop/reconnect unavailable.
+  const pathname = request.nextUrl.pathname;
+  const isPlannerRoute = pathname === "/api/copilotkit" || pathname.startsWith("/api/copilotkit/");
+  const original = claimsData?.claims;
+  if (isPlannerRoute && !claimsError && original && typeof original.exp === "number") {
+    const now = Math.floor(Date.now() / 1000);
+    const requiredLifetimeSeconds = 360; // 300s route maxDuration + 60s margin
+    if (original.exp - now < requiredLifetimeSeconds) {
+      // The Proxy (not a streaming Route Handler) owns refresh-token rotation:
+      // its existing setAll writes both the request and response cookies.
+      refreshingPlannerSession = true;
+      let data: Awaited<ReturnType<typeof supabase.auth.refreshSession>>["data"];
+      let error: Awaited<ReturnType<typeof supabase.auth.refreshSession>>["error"];
+      try {
+        ({ data, error } = await supabase.auth.refreshSession());
+      } finally {
+        refreshingPlannerSession = false;
+      }
+      const renewed = !error && data.session ? await supabase.auth.getClaims() : null;
+      if (
+        error || !data.session || !refreshedCookiesWritten || renewed?.error ||
+        !renewed?.data?.claims ||
+        renewed?.data?.claims?.sub !== original.sub ||
+        (renewed?.data?.claims?.exp ?? 0) - Math.floor(Date.now() / 1000) < requiredLifetimeSeconds
+      ) {
+        return NextResponse.json(
+          { error: "planner_session_refresh_required" },
+          { status: 401, headers: { "Cache-Control": "private, no-store" } },
+        );
+      }
+    }
+  }
   return supabaseResponse;
 }
