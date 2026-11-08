@@ -306,7 +306,7 @@ describe("Playwright E2E harness hardening", () => {
     expect(extraction.status, extraction.stderr).toBe(0);
     const extracted = extraction.stdout.split("\n").filter(Boolean);
     expect(
-      extracted,
+      [...extracted].sort(),
       "the spec path pattern must extract every real spec path, including sub-directories and mixed case",
     ).toEqual([...specFiles].sort());
 
