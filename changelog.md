@@ -36,6 +36,7 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Fixed
 
+- IPI-1423 · CI-DENO-001 — Keep the pinned official Deno 2.9.2 setup action as the primary Edge CI installer, but add a SHA256-verified official Deno CDN fallback when GitHub Releases returns HTTP 504; require the exact version before running the existing Edge tests and typechecks. No runtime, database, or deployment change.
 - fix(planner): coordinate exact-run Stop across Vercel instances with private tenant-scoped Realtime, bounded and sequenced replay, transport failure handling, a terminal fallback on **controlled** owner close, and pre-run refresh of near-expiry JWTs via the existing SSR Proxy (IPI-1117, #310)
 - IPI-1368 · DOC-PINS-001 — Corrected two documents that pinned a runtime family the repository had left behind. `docs/prd.md` claimed Next.js `16.1.2`, CopilotKit `1.68.1` and `@mastra/core` `1.63.2`; `github/mastra/mastra-repos.md` claimed CopilotKit `1.68.1`, `@mastra/core` `1.41.0` and a `@mastra/pg@1.13.0` "planned pin". Both now point at `docs/mastra/runtime-family.md` and restate nothing, so there is one place where a runtime version is written down. A developer following either one would otherwise have written code against APIs the installed 1.73.3 / 1.71.0 family no longer has.
 - `docs/mastra/runtime-family.md` — corrected the pinned Mastra/CopilotKit family table, which still listed the pre-IPI-1332 versions (`@copilotkit/runtime` 1.68.1, `@mastra/core` 1.63.2, `@mastra/pg` 1.22.2) rather than the installed 1.73.3 / 1.71.0 / 1.27.1.
