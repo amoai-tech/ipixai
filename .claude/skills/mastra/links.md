@@ -51,9 +51,7 @@ Single bookmark page for `.claude/skills/mastra`. **Task → section mapping:** 
 
 ## Shared with Supatabs (curated quick index)
 
-Hand-picked doc URLs for Mastra + mdeai concierge work. **Deduped** — use section tables below for MCP, workspace, browser, server, deployment, RAG, evals, auth variants, workflow suspend/resume, etc.
-
-**mdeai Phase 1:** bookmark everything below for lookup; **do not implement** supervisor agents, A2A, ACP, or semantic recall in production chat unless a task explicitly opens Phase 2. Prefer working memory + SQL/hybrid retrieval (see [`references/mdeai-concierge.md`](references/mdeai-concierge.md)).
+**Historical MDE / Supatabs source index, not iPix architecture.** URLs are useful for general Mastra lookup, but this section's earlier rental concierge assumptions are not current iPix guidance. Use `references/README.md` and `references/topic-routing.md` to select the iPix owner; see the quarantined [legacy MDE concierge](references/legacy/mdeai-concierge.md) only for explicit migration comparison. Current source and installed packages override legacy examples.
 
 ### Agents
 
@@ -883,7 +881,7 @@ Index: https://mastra.ai/reference/memory/
 | Migration | [`references/migration-guide.md`](references/migration-guide.md) |
 | Model strings helper | [`scripts/provider-registry.mjs`](scripts/provider-registry.mjs) |
 | Skill rules | [`SKILL.md`](SKILL.md) |
-| **Edit or improve this skill** (structure, frontmatter, triggers, evals) | [`../skill-creator/SKILL.md`](../skill-creator/SKILL.md) |
+| **Edit or improve this skill** (structure, frontmatter, triggers, evals) | [official Anthropic skill-creator](https://github.com/anthropics/claude-plugins-official/blob/main/plugins/skill-creator/skills/skill-creator/SKILL.md) |
 
 ---
 

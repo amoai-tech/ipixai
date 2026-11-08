@@ -5,7 +5,6 @@ parent: mastra
 impact: MEDIUM
 impactDescription: PgVector store configuration
 tags: mastra, rag, pgvector, postgres
-mdeapp: phase2-defer
 ---
 
 # Storing embeddings in a vector database
@@ -19,11 +18,7 @@ mdeapp: phase2-defer
 - [Best practices](#best-practices)
 
 
-> **🚩 mdeai scope (read first — verified 2026-06-05).** This page is **generic Mastra RAG/vector docs**, kept for reference. For mdeai specifically:
-> - **Do NOT adopt `@mastra/rag` chunk/embed/retrieve for product search.** Restaurants/events/rentals/venues are **structured rows**, not documents — they're served by **Supabase pgvector RPC + Gemini embeddings** today, which is correct. See `tasks/mastra/plan/2-mastra-surface-gap-analysis.md` §5.
-> - The **only** place a Mastra `PgVector` store earns its keep is **semantic *memory* recall** → **AGT-08 (SAN-603, Phase 3)**. Not MVP.
-> - **Embeddings = Gemini, not OpenAI.** Use `gemini-embedding-001` → **768 dimensions** (not the `text-embedding-3-small`/1536 shown in examples below). No `gpt-*`/OpenAI in mdeai (CLAUDE.md hard rule).
-> - `@mastra/pg` is installed; `@mastra/rag` is **not** — keep it that way unless AGT-08 needs the store.
+> **iPix upgrade boundary (Mastra 1.82 target):** This is a generic PgVector example, not a verified brand-intelligence schema or embedding contract. Before adapting it, inspect the current iPix semantic-search owner, actual database vector dimensions/indexes/RLS, the selected embedding model and installed `@mastra/pg` API. Do not copy a dimension or provider from examples, or add `@mastra/rag` until an iPix task demonstrates the requirement. See the canonical `ipix-supabase` skill and [historical MDE decisions](legacy/mdeai-vector-decisions.md) only for contrast.
 
 After generating embeddings, you need to store them in a database that supports vector similarity search. Mastra provides a consistent interface for storing and querying embeddings across various vector databases.
 

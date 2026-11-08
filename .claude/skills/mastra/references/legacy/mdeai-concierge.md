@@ -1,15 +1,15 @@
 ---
-title: mdeAI Concierge — Mastra production patterns
-description: Load when editing my-mastra-app concierge agent, SSE transport, or ai_runs logging.
+title: LEGACY MDE ONLY — Concierge patterns (not iPix)
+description: Historical MDE app reference only; not iPix architecture or implementation guidance.
 parent: mastra
-impact: HIGH
+impact: LOW
 impactDescription: Concierge agent, SSE transport, tool naming, ai_runs logging, deployment
 tags: mastra, mdeai, concierge, sse, tools, deployment
 ---
 
-# mdeAI Concierge — Mastra production patterns
+# Legacy MDE Concierge — historical reference only
 
-> Load this when working on `my-mastra-app/` in the mdeAI repo.
+> **NOT FOR IPIX:** This page describes a different product (MDE rentals/events, `ai_runs` and the legacy `my-mastra-app`). Never use it as the default Production Planner, tenant model, CopilotKit transport, or API contract. In iPix use `../tools.md`, `../workflows.md`, `../memory.md` and the canonical CopilotKit skill. Preserve solely for explicit migration comparison.
 
 ## Agent structure (don't change without a plan)
 
