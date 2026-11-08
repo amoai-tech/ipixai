@@ -12,5 +12,9 @@
   {"query": "the dashboard card spacing is off on the plans page", "should_trigger": false},
   {"query": "our Supabase edge function for brand-intelligence returns a 500 after about 60 seconds", "should_trigger": false},
   {"query": "rename the /app/shoots page heading and tighten the empty-state copy", "should_trigger": false},
-  {"query": "add a Sentry breadcrumb when the marketing contact form is submitted", "should_trigger": false}
+  {"query": "add a Sentry breadcrumb when the marketing contact form is submitted", "should_trigger": false},
+  {"query": "Review /api/copilotkit shoot-review resume: can a Mastra workflow authorize a run using only the browser-supplied runId?", "should_trigger": true},
+  {"query": "Investigate why the Mastra Planner trace query supports score filters in installed types but not the newest public docs.", "should_trigger": true},
+  {"query": "Our CopilotKit v2 sidebar bubble needs a Tailwind padding change; no agent, model or Mastra runtime change.", "should_trigger": false},
+  {"query": "Use Claude Code skill-creator to improve a Cloudinary image-cropping skill description and its evaluation cases.", "should_trigger": false}
 ]

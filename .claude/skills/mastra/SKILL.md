@@ -1,20 +1,16 @@
 ---
 name: mastra
-description: "Mastra framework for iPixai: docs lookup, agents, workflows, tools, memory, streaming, PostgresStore, Studio/API, MCP, observability, evals, and Lumina→iPix adaptation. Use whenever editing src/mastra/**, pinning @mastra/* versions, changing agents/tools/workflows/memory/storage/HITL/abort/RequestContext/observability behavior, or verifying Mastra APIs. Always verify installed source/types first; use official Mastra MCP/docs for current concepts and migrations. In this repo use npm run dev:agent and npm run dev:ui separately — never combined npm run dev."
+description: "Use for iPix Mastra implementation, debugging, architecture, PR review, and upgrades: Production Planner, agents, tools, workflows, HITL suspend/resume, Postgres memory, RequestContext, streaming/abort, MCP, evals/traces, and CopilotKit/AG-UI integration. Trigger on Mastra issues even when the affected code is outside src/mastra/. Verify installed @mastra/* types before current vendor docs; preserve server authorization, RLS, and exact human approvals. Run dev:agent and dev:ui separately."
 license: Apache-2.0
 metadata:
   author: Mastra
-  version: "2.5.0-ipix.1"
+  version: "2.5.0-ipix.2"
   basedOn: mastra-ai/skills 2.5.0 @ 3020257c173e40f3a49ae6a67d46557fa771e0d4 + iPix overlay
   repository: https://github.com/mastra-ai/skills
   title: Mastra framework guide
   impact: HIGH
   impactDescription: Agent/workflow/memory correctness, tenant safety, HITL, runtime reliability, privacy
   tags: mastra, agents, workflows, tools, memory, hitl, streaming, mcp, evals, request-context
-  paths:
-    - "src/mastra/**"
-    - "docs/mastra/**"
-    - "**/*mastra*"
 ---
 
 # Mastra Framework Guide
@@ -22,6 +18,8 @@ metadata:
 ## How to use this skill
 
 This is the **one canonical Mastra skill for iPix**. Use it for implementation, debugging, upgrades, and PR review; do not create a second `mastra-review` skill that duplicates this guidance.
+
+**Discovery:** Claude Code uses the top-level `description` to find this skill. Do not add a restrictive top-level `paths` filter: Mastra failures can originate in Next.js CopilotKit routes, installed packages, or workflow callers outside `src/mastra/`. Fields under `metadata` do not control Claude Code activation.
 
 ### Mode selection
 
