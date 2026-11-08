@@ -21,12 +21,9 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Changed
 
-
-
 ### Deprecated
 
 ### Removed
-
 
 ### Fixed
 
