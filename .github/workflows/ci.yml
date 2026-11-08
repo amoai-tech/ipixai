@@ -991,9 +991,8 @@ jobs:
           git fetch --no-tags origin main
           latest_sha="$(git rev-parse origin/main)"
           if [ "$TESTED_SHA" != "$latest_sha" ]; then
-            echo "deploy=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping stale CI SHA $TESTED_SHA; latest main is $latest_sha"
-            exit 0
+            echo "::error title=Stale Production SHA::Manual release requested $TESTED_SHA but latest main is $latest_sha; no candidate will be staged."
+            exit 1
           fi
           echo "deploy=true" >> "$GITHUB_OUTPUT"
 

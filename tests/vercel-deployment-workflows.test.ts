@@ -203,6 +203,14 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(release).not.toMatch(/--prod\s*(?:\n|\r|$)\s*--meta/);
   });
 
+  it("fails a manually dispatched release if main moved instead of reporting a false green skip", () => {
+    const production = blockOf(workflowJobs(read(".github/workflows/ci.yml")), "vercel-production");
+    const source = production.join("\n");
+    expect(source).toContain("::error title=Stale Production SHA");
+    expect(source).not.toContain('echo "deploy=false" >> "$GITHUB_OUTPUT"');
+    expect(source).toContain("latest_sha");
+  });
+
   it("keeps full CI on every merge but never deploys Production from a push", () => {
     const source = read(".github/workflows/ci.yml");
 
