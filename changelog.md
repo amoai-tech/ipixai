@@ -19,6 +19,8 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Changed
 
+- IPI-1091 / PR #316 — Changed the manual Vercel production workflow to **stage without changing customer domains**, verify the exact candidate and run existing QA before a separately approved promotion. Added executable stale-SHA and strict inspect-URL guards, clearer pre-QA alias reporting, and `docs/production-release.md` for the release/rollback procedure. This does **not** complete the still-blocked integrated Shoot approval/save/reopen journey.
+
 ### Deprecated
 
 ### Removed
