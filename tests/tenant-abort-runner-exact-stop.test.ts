@@ -792,6 +792,10 @@ describe("IPI-1389 CopilotKit 1.85 authenticated runner ownership", () => {
     await vi.waitFor(async () => {
       expect(await controllerControl.isRunning(threadId)).toBe(true);
     });
+    // The starting owner instance must reject the same foreign Stop locally,
+    // even before its parent runner has claimed the thread.
+    expect(await ownerRunner.stop({ threadId, runId: "OWN-R10", ownerId: FOREIGN })).toBe(false);
+    expect(await ownerRunner.stop({ threadId, runId: "OWN-R10" })).toBe(false);
     expect(await controllerRunner.stop({ threadId, runId: "OWN-R10", ownerId: FOREIGN })).toBe(false);
     release();
     await running.done;
