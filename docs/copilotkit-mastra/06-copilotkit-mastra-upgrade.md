@@ -538,11 +538,20 @@ Unknowns: no Linear read; no hosted DB read (used migration-built schema + packa
 - Full target family: `tsc` 0; **86/86** targeted tests pass; full suite **1910 pass / 7 fail**, all version pins, docs tables, or the `js-yaml` removal.
 - Core-table column parity 1.71→1.82: **no drift**.
 
+**Prepared (IPI-1389)**
+- Branch `ai/ipi-1389-copilotkit-185`, commit `dcd3ac8`, pushed. 12 files: manifest + lockfile, pin tests, canonical family table, CopilotKit/Mastra skill references, changelog, two stale comments.
+- `npx tsc --noEmit` exit 0; **`npm test` 1917 passed / 3 skipped / 0 failed**; `next build` exit 0; lockfile has exactly **one** `@ag-ui/client` and **one** `@copilotkit/runtime` copy; Mastra packages unchanged at `1.71.0` / `1.32.1` / `1.27.1` / `1.50.0` / CLI `1.31.3`.
+- Not merged, not deployed. Merge still waits on IPI-1041.
+
+**Blocked in this session**
+- GitHub PR creation returns `422 must be a collaborator` for both GraphQL and REST, although branch push succeeds. Open the PR manually from the pushed branches.
+- `gh workflow run` returns `403 Must have admin rights to Repository`, so no remote CI run could be triggered for the branch. Local gates are recorded above; exact-head CI must still be run after the PR opens.
+- Linear read/write (no MCP/CLI/token) → task statuses above are *not* authoritative.
+
 **Changed**
-- This roadmap document only. No application code, no dependency change on `main`, no database change, no deployment.
+- Two branches: this roadmap document + README drift fix (`ai/ipi-1384-upgrade-roadmap`, `30f3183`), and the IPI-1389 dependency upgrade (`ai/ipi-1389-copilotkit-185`, `dcd3ac8`). No database change, no deployment, nothing on `main`.
 
 **Not performed**
-- Linear read/write (no access in this session) → task statuses above are *not* authoritative.
 - Hosted database inspection (read-only) — deliberately avoided production; schema conclusions come from migrations + package constants.
 - Browser/Playwright production run; Mastra CLI boot; Vercel promotion.
 
@@ -552,9 +561,9 @@ Unknowns: no Linear read; no hosted DB read (used migration-built schema + packa
 
 | # | Action | Owner/dependency | Pass/fail checkpoint |
 |---|---|---|---|
-| 1 | Open the IPI-1389 draft PR from a clean `origin/main` worktree with the exact six-package bump + overrides + pin/docs updates | no dependency to **prepare**; merge waits on #2 | typecheck 0, full suite green, build green, one AG-UI copy |
+| 1 | Open the PR for pushed branch `ai/ipi-1389-copilotkit-185` (commit `dcd3ac8`) — PR creation is blocked in this session by repo permissions | merge waits on #2 | exact-head CI green; one AG-UI copy; Mastra still 1.71 |
 | 2 | Finish IPI-1117: bounded cross-instance log assertion + disposable-account revocation | hosted QA credentials + approval | log shows `crossInstance:true`; revoked user denied |
-| 3 | Apply IPI-1247 brand binding (plan-time brand + `409` on mismatch) in a separate PR | parallel | new test proves B1 plan cannot stage under B2 |
+| 3 | Apply IPI-1247 brand binding (plan-time brand + `409` on mismatch) in a separate PR | parallel to #2 | new test proves B1 plan cannot stage under B2 |
 
 ---
 
@@ -606,6 +615,15 @@ react-core 1.85.0 exports                      → ./v2/generative-ui with Gener
 runtime 1.85 pins                              → @ag-ui/client 1.0.2, @ag-ui/core 1.0.2
 ownership marker                               → absent 1.82.0, present 1.83.0+
 adapter 2.0.2 peers                            → @copilotkit/runtime ^1.76.0, @ag-ui/* >=1.0.0
+```
+
+**A.6 IPI-1389 prepared branch (`ai/ipi-1389-copilotkit-185`, `dcd3ac8`)**
+```
+npm test                                       → 157 files, 1917 passed, 3 skipped, 0 failed
+npx tsc --noEmit                               → exit 0
+npm run build                                  → exit 0 (Next.js production build)
+lockfile copies                                → @ag-ui/client 1, @copilotkit/runtime 1
+Mastra unchanged                               → core 1.71.0, memory 1.32.1, pg 1.27.1, CLI 1.31.3
 ```
 
 ---
