@@ -64,6 +64,49 @@ function input(threadId: string, runId: string): RunAgentInput {
   return { threadId, runId, messages: [], tools: [], context: [], state: {}, forwardedProps: {} };
 }
 
+/** Emits one assistant message and a state snapshot so scoped reads have data. */
+class ChattyAgent extends AbstractAgent {
+  run(input: RunAgentInput): Observable<BaseEvent> {
+    return new Observable<BaseEvent>((subscriber) => {
+      subscriber.next({
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      } as BaseEvent);
+      subscriber.next({
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: "m-owner",
+        role: "assistant",
+      } as BaseEvent);
+      subscriber.next({
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "m-owner",
+        delta: "scoped history",
+      } as BaseEvent);
+      subscriber.next({
+        type: EventType.TEXT_MESSAGE_END,
+        messageId: "m-owner",
+      } as BaseEvent);
+      subscriber.next({
+        type: EventType.STATE_SNAPSHOT,
+        snapshot: { owner: input.runId },
+      } as BaseEvent);
+      // A delta gives the runtime a real state change to compact, so the
+      // stored event stream keeps a trailing STATE_SNAPSHOT.
+      subscriber.next({
+        type: EventType.STATE_DELTA,
+        delta: [{ op: "add", path: "/verified", value: true }],
+      } as BaseEvent);
+      subscriber.next({
+        type: EventType.RUN_FINISHED,
+        threadId: input.threadId,
+        runId: input.runId,
+      } as BaseEvent);
+      subscriber.complete();
+    });
+  }
+}
+
 function collect(observable: Observable<BaseEvent>) {
   const events: BaseEvent[] = [];
   const done = new Promise<void>((resolve, reject) => {
@@ -472,5 +515,167 @@ describe("IPI-1389 CopilotKit 1.85 authenticated runner ownership", () => {
 
     expect(runner.isThreadAccessible(threadId, { ownerId: OWNER })).toBe(true);
     expect(runner.isThreadAccessible(threadId, { ownerId: FOREIGN })).toBe(false);
+  });
+
+  it("refuses a foreign-owner connect and forwards ownerId on the owner path", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const running = collect(
+      runner.run({
+        threadId,
+        agent: wrapAbortRun(new SlowAgent()),
+        input: input(threadId, "OWN-R4"),
+        ownerId: OWNER,
+      }),
+    );
+    await vi.waitFor(async () => {
+      expect(await runner.isRunning({ threadId, ownerId: OWNER })).toBe(true);
+    });
+
+    const connectSpy = vi.spyOn(InMemoryAgentRunner.prototype, "connect");
+    const isRunningSpy = vi.spyOn(InMemoryAgentRunner.prototype, "isRunning");
+
+    // A foreign owner gets no replay and never reaches the parent connect().
+    const foreign = collect(runner.connect({ threadId, ownerId: FOREIGN }));
+    await foreign.done;
+    expect(foreign.events).toEqual([]);
+    expect(connectSpy).not.toHaveBeenCalled();
+
+    // The owner reaches connect() with the scoped id AND its ownerId, so the
+    // parent's own visibility check cannot silently fall back to the server
+    // owner (the review's fail-open concern).
+    const ownerSub = runner.connect({ threadId, ownerId: OWNER }).subscribe(() => {});
+    await vi.waitFor(() => {
+      expect(connectSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          threadId: `${RESOURCE}::${threadId}`,
+          ownerId: OWNER,
+        }),
+      );
+    });
+    expect(isRunningSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ threadId: `${RESOURCE}::${threadId}`, ownerId: OWNER }),
+    );
+
+    ownerSub.unsubscribe();
+    connectSpy.mockRestore();
+    isRunningSpy.mockRestore();
+    await running.done;
+  });
+
+  it("forwards the scoped thread identity to the owner-filtered read methods", () => {
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const threadId = nextThread();
+    const scope = { ownerId: OWNER };
+    const messages = vi
+      .spyOn(InMemoryAgentRunner.prototype, "getThreadMessages")
+      .mockReturnValue([]);
+    const events = vi
+      .spyOn(InMemoryAgentRunner.prototype, "getThreadEvents")
+      .mockReturnValue([]);
+
+    runner.getThreadMessages(threadId, scope);
+    // getThreadState deliberately reads the parent's event list directly, so
+    // the scoped identity must reach getThreadEvents (not the parent state
+    // method, which would re-enter the overridden getThreadEvents).
+    runner.getThreadState(threadId, scope);
+
+    expect(messages).toHaveBeenCalledWith(`${RESOURCE}::${threadId}`, scope);
+    expect(events).toHaveBeenCalledWith(`${RESOURCE}::${threadId}`, scope);
+    messages.mockRestore();
+    events.mockRestore();
+  });
+
+  it("forwards the run owner when a remote Stop resolves through the owner callback", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    let stopFromOwner: ((remoteRunId: string) => Promise<boolean>) | undefined;
+    const own = vi.fn(
+      async (
+        _threadId: string,
+        _runId: string,
+        callback: (remoteRunId: string) => Promise<boolean>,
+      ) => {
+        stopFromOwner = callback;
+        return { publish: async () => {}, close: async () => {} };
+      },
+    );
+    const control = { own } as unknown as PlannerRunControl;
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal, control);
+    const run = collect(
+      runner.run({
+        threadId,
+        agent: wrapAbortRun(new SlowAgent()),
+        input: input(threadId, "OWN-R5"),
+        ownerId: OWNER,
+      }),
+    );
+    await vi.waitFor(() => expect(stopFromOwner).toBeTypeOf("function"));
+
+    const stopSpy = vi.spyOn(InMemoryAgentRunner.prototype, "stop").mockResolvedValue(true);
+    await stopFromOwner?.("R-remote");
+
+    expect(stopSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: OWNER, runId: "R-remote" }),
+    );
+    await run.done;
+  });
+
+  it("returns thread messages and state only to the owning identity", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const run = collect(
+      runner.run({
+        threadId,
+        agent: wrapAbortRun(new ChattyAgent()),
+        input: input(threadId, "OWN-R6"),
+        ownerId: OWNER,
+      }),
+    );
+    await run.done;
+
+    const scopedRunner: InMemoryAgentRunner = runner;
+    expect(scopedRunner.getThreadMessages(threadId, { ownerId: OWNER }).length).toBeGreaterThan(0);
+    expect(scopedRunner.getThreadMessages(threadId, { ownerId: FOREIGN })).toEqual([]);
+    expect(scopedRunner.getThreadState(threadId, { ownerId: OWNER })).toEqual(
+      expect.objectContaining({ owner: "OWN-R6" }),
+    );
+    expect(scopedRunner.getThreadState(threadId, { ownerId: FOREIGN })).toBeNull();
+  });
+
+  it("lets the owning identity reconnect to a live run and hides it from others", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const running = collect(
+      runner.run({
+        threadId,
+        agent: wrapAbortRun(new SlowAgent()),
+        input: input(threadId, "OWN-R7"),
+        ownerId: OWNER,
+      }),
+    );
+    await vi.waitFor(async () => {
+      expect(await runner.isRunning({ threadId, ownerId: OWNER })).toBe(true);
+    });
+
+    const ownerEvents: BaseEvent[] = [];
+    const ownerSub = runner.connect({ threadId, ownerId: OWNER }).subscribe((event) => {
+      ownerEvents.push(event);
+    });
+    const foreign = collect(runner.connect({ threadId, ownerId: FOREIGN }));
+    await foreign.done;
+    expect(foreign.events).toEqual([]);
+
+    await vi.waitFor(
+      () => {
+        expect(ownerEvents.some((event) => event.type === EventType.RUN_FINISHED)).toBe(true);
+      },
+      { timeout: 5_000 },
+    );
+    ownerSub.unsubscribe();
+    await running.done;
   });
 });

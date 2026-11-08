@@ -109,7 +109,13 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
         this.runControl && runId
           ? this.runControl
               .own(request.threadId, runId, (remoteRunId) =>
-                this.stopLocal({ threadId: request.threadId, runId: remoteRunId }),
+                this.stopLocal({
+                  threadId: request.threadId,
+                  runId: remoteRunId,
+                  // Preserve the identity that owns this run: the parent
+                  // InMemoryAgentRunner refuses a Stop whose ownerId differs.
+                  ...(request.ownerId !== undefined ? { ownerId: request.ownerId } : {}),
+                }),
               )
               .catch((error) => {
                 console.warn("[planner-run-control] owner_open_failed", {
@@ -271,6 +277,22 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
     return new Observable<BaseEvent>((subscriber) => {
       let cancelled = false;
       let inner: { unsubscribe: () => void } | undefined;
+
+      // Defence in depth for CopilotKit 1.85 owner-scoped runners: a connect
+      // that names an owner must never replay this thread's live events or
+      // durable history to a different identity. Server-side callers (channel
+      // hosts, CLI) pass no ownerId and keep the previous behaviour.
+      if (
+        request.ownerId !== undefined &&
+        !this.isThreadAccessible(request.threadId, { ownerId: request.ownerId })
+      ) {
+        cancelled = true;
+        subscriber.complete();
+        return () => {
+          cancelled = true;
+        };
+      }
+
       void (async () => {
         const localRunning = await super.isRunning({ threadId: this.scope(request.threadId), ownerId: request.ownerId });
         if (cancelled) return;
@@ -399,7 +421,20 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
     threadId: string,
     scope?: Parameters<InMemoryAgentRunner["getThreadState"]>[1],
   ) {
-    return super.getThreadState(this.scope(threadId), scope);
+    // The parent derives state by calling `this.getThreadEvents()`, which would
+    // re-enter the override above and prefix the already-scoped id a second
+    // time — every state read would be null. Read the parent's event list
+    // directly and apply the parent's own "last STATE_SNAPSHOT" rule.
+    const events = super.getThreadEvents(this.scope(threadId), scope);
+    for (let i = events.length - 1; i >= 0; i -= 1) {
+      const event = events[i];
+      if (event.type !== EventType.STATE_SNAPSHOT) continue;
+      const snapshot = (event as { snapshot?: unknown }).snapshot;
+      return snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)
+        ? { ...(snapshot as Record<string, unknown>) }
+        : null;
+    }
+    return null;
   }
 
   override listThreads(scope?: Parameters<InMemoryAgentRunner["listThreads"]>[0]) {
