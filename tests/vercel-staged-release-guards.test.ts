@@ -2,6 +2,20 @@ import { readFileSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
 import { describe, expect, it, vi } from "vitest";
 import { verifyStagedProduction } from "../scripts/vercel-inspect-host.mjs";
+// In tests use a synthetic explicit credential; production always passes its
+// real secret as the separate required second argument.
+type InspectionFixture = {
+  staged: { id: string; url: string; target: string; readyState: string };
+  live: { url: string };
+  deploymentUrl: string;
+  liveBefore: string;
+  projectId: string;
+  orgId: string;
+  sha: string;
+  fetchImpl: typeof fetch;
+};
+const inspect = (args: InspectionFixture, credential = "test-token") =>
+  verifyStagedProduction(args, credential);
 
 const workflow = () => parseYaml(readFileSync(".github/workflows/ci.yml", "utf8"));
 const steps = () => workflow().jobs["vercel-production"].steps as Array<{ name: string; run?: string; if?: string }>;
@@ -11,6 +25,12 @@ describe("IPI-1091 staged Production release safeguards", () => {
     // Repo policy forbids workflow_dispatch inputs on CI; permission is a
     // separately recorded human gate before the manual release.
     expect(workflow().on.workflow_dispatch).toBeNull();
+    const releaseJob = workflow().jobs["vercel-production"];
+    // GitHub environment required reviewers approve before any runner starts,
+    // preventing unauthorised paid QA, secrets access and persisted QA threads.
+    expect(releaseJob.environment).toBe("Production");
+    expect(String(releaseJob.if)).toContain("github.event_name == 'workflow_dispatch'");
+
     const releaseSteps = steps();
     const stage = releaseSteps.findIndex(s => s.name === "Stage exact latest SHA without assigning customer domains");
     const qa = releaseSteps.findIndex(s => s.name.startsWith("Run staged Planner Stop"));
@@ -21,6 +41,10 @@ describe("IPI-1091 staged Production release safeguards", () => {
     expect(guideBeforeDispatch).toMatch(/paid.*AI/i);
     expect(guideBeforeDispatch).toMatch(/persist.*QA.*thread/i);
     expect(guideBeforeDispatch).toContain("record explicit approval in IPI-1091");
+    expect(guideBeforeDispatch).toContain("Required reviewers");
+    expect(guideBeforeDispatch).toContain("Approve and deploy");
+    expect(guideBeforeDispatch).toContain("before the job starts");
+
     expect(guideBeforeDispatch).toContain("do not dispatch");
     expect(guideBeforeDispatch).toContain("BOTH costs and persistent QA thread writes");
   });
@@ -34,9 +58,13 @@ describe("IPI-1091 staged Production release safeguards", () => {
       staged, live, deploymentUrl: "https://ipixai-qa-amoco.vercel.app",
       liveBefore: live.url, projectId: actual.projectId,
       orgId: "team_correct", sha: actual.meta.githubCommitSha,
-      token: "test-token", fetchImpl,
+      fetchImpl,
     };
-    await expect(verifyStagedProduction(args)).resolves.toBe(live.url);
+    await expect(inspect(args, "")).rejects.toThrow(/Vercel token.*required/i);
+    await expect(inspect(args, "   ")).rejects.toThrow(/Vercel token.*required/i);
+    await expect(verifyStagedProduction(args, undefined as unknown as string)).rejects.toThrow(/Vercel token.*required/i);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    await expect(inspect(args)).resolves.toBe(live.url);
     expect(fetchImpl).toHaveBeenCalledOnce();
     expect(fetchImpl).toHaveBeenCalledWith(
       "https://api.vercel.com/v13/deployments/dpl_qa?teamId=team_correct",
@@ -51,18 +79,18 @@ describe("IPI-1091 staged Production release safeguards", () => {
     const args = {
       staged, live, deploymentUrl: "https://ipixai-qa-amoco.vercel.app",
       liveBefore: live.url, projectId: actual.projectId,
-      orgId: "team_correct", sha: actual.meta.githubCommitSha, token: "test-token",
+      orgId: "team_correct", sha: actual.meta.githubCommitSha,
       fetchImpl: vi.fn(async () => new Response(JSON.stringify(actual))),
     };
-    await expect(verifyStagedProduction({ ...args, staged: { ...staged, readyState: "ERROR" } })).rejects.toThrow(/ready/i);
-    await expect(verifyStagedProduction({ ...args, staged: { ...staged, target: "preview" } })).rejects.toThrow(/ready/i);
-    await expect(verifyStagedProduction({ ...args, staged: { ...staged, url: "ipixai-wrong-amoco.vercel.app" } })).rejects.toThrow(/ready/i);
-    await expect(verifyStagedProduction({ ...args, fetchImpl: async () => new Response(null, { status: 403 }) })).rejects.toThrow(/403/);
-    await expect(verifyStagedProduction({ ...args, fetchImpl: async () => new Response(JSON.stringify({ ...actual, projectId: "prj_wrong" })) })).rejects.toThrow(/SHA\/project/);
-    await expect(verifyStagedProduction({ ...args, fetchImpl: async () => new Response(JSON.stringify({ ...actual, meta: { githubCommitSha: "b".repeat(40) } })) })).rejects.toThrow(/SHA\/project/);
-    await expect(verifyStagedProduction({ ...args, fetchImpl: async () => new Response(JSON.stringify({ ...actual, target: "preview" })) })).rejects.toThrow(/SHA\/project/);
-    await expect(verifyStagedProduction({ ...args, live: { url: "ipixai-drift-amoco.vercel.app" } })).rejects.toThrow(/alias changed/);
-    await expect(verifyStagedProduction({ ...args, live: { url: staged.url } })).rejects.toThrow(/alias changed/);
+    await expect(inspect({ ...args, staged: { ...staged, readyState: "ERROR" } })).rejects.toThrow(/ready/i);
+    await expect(inspect({ ...args, staged: { ...staged, target: "preview" } })).rejects.toThrow(/ready/i);
+    await expect(inspect({ ...args, staged: { ...staged, url: "ipixai-wrong-amoco.vercel.app" } })).rejects.toThrow(/ready/i);
+    await expect(inspect({ ...args, fetchImpl: async () => new Response(null, { status: 403 }) })).rejects.toThrow(/403/);
+    await expect(inspect({ ...args, fetchImpl: async () => new Response(JSON.stringify({ ...actual, projectId: "prj_wrong" })) })).rejects.toThrow(/SHA\/project/);
+    await expect(inspect({ ...args, fetchImpl: async () => new Response(JSON.stringify({ ...actual, meta: { githubCommitSha: "b".repeat(40) } })) })).rejects.toThrow(/SHA\/project/);
+    await expect(inspect({ ...args, fetchImpl: async () => new Response(JSON.stringify({ ...actual, target: "preview" })) })).rejects.toThrow(/SHA\/project/);
+    await expect(inspect({ ...args, live: { url: "ipixai-drift-amoco.vercel.app" } })).rejects.toThrow(/alias changed/);
+    await expect(inspect({ ...args, live: { url: staged.url } })).rejects.toThrow(/alias changed/);
   });
 
   it("requires the actual inspection to run before QA and the success notice", () => {

@@ -188,6 +188,7 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     // The same helper is used by CI and exercised with real values below.
     expect(release).toContain('import { verifyStagedProduction } from "./scripts/vercel-inspect-host.mjs"');
     expect(release).toContain("verifyStagedProduction({");
+    expect(release).toContain("process.env.VERCEL_TOKEN");
     expect(release).toContain("vercel inspect https://www.ipix.co --json");
     // Failure text lives in the same real helper used by CI, not in YAML.
     expect(read("scripts/vercel-inspect-host.mjs")).toContain("Production alias changed during staging");

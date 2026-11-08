@@ -915,7 +915,8 @@ jobs:
   # BEFORE manual dispatch, obtain and record IPI-1091 operator authorization
   # for both paid AI QA model calls and persistent QA Planner threads on the
   # Production-configured backend (docs/production-release.md). The CI security
-  # policy prohibits workflow_dispatch inputs, so this is a human gate.
+  # policy prohibits workflow_dispatch inputs, so this approval is enforced
+  # through GitHub's protected Production environment and its named reviewers.
   #
   # The switch is validated INSIDE the job, never in the job-level `if:`. A
   # job-level condition reports conclusion=skipped, which is not a failure — so
@@ -941,6 +942,10 @@ jobs:
       github.event_name == 'workflow_dispatch' &&
       github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # GitHub's required-reviewer protection applies BEFORE this job starts.
+    # Never remove: QA makes paid calls and persists real QA Planner threads.
+    # Reference: https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments
+    environment: Production
     timeout-minutes: 45
     permissions:
       contents: read
@@ -1112,7 +1117,7 @@ jobs:
               projectId: process.env.VERCEL_PROJECT_ID,
               orgId: process.env.VERCEL_ORG_ID,
               sha: process.env.TESTED_SHA,
-            });
+            }, process.env.VERCEL_TOKEN);
             console.log("Verified staged SHA; www.ipix.co still serves " + liveHost);
           '
 

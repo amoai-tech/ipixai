@@ -37,9 +37,12 @@ export function inspectedDeploymentHost(value) {
  */
 export async function verifyStagedProduction({
   staged, live, deploymentUrl, liveBefore, projectId, orgId, sha,
-  token = process.env.VERCEL_TOKEN,
   fetchImpl = globalThis.fetch,
-}) {
+}, token) {
+  // Secret dependency is explicit. Never send an undefined bearer credential.
+  if (typeof token !== "string" || !token.trim()) {
+    throw new Error("Vercel token is required for staged inspection");
+  }
   const host = new URL(deploymentUrl).hostname;
   const inspectedHost = inspectedDeploymentHost(staged?.url);
   if (inspectedHost !== host || !staged?.id || staged.target !== "production" ||
