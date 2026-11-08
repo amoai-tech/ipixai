@@ -6,6 +6,8 @@ version: 1.0.0
 
 # CopilotKit v1 to v2 Migration Skill
 
+> **Current iPix exception:** These are older migration examples, not a CopilotKit 1.85 package-upgrade recipe. iPix already uses `@copilotkit/runtime/v2` and `@copilotkit/react-core/v2`. Do **not** use the stale `@copilotkit/react` consolidation examples below to replace those installed imports. Verify the [official v2 migration guide](https://docs.copilotkit.ai/migrate/v2.md), installed source/types and [IPI-1389](https://linear.app/amo100/issue/IPI-1389) before changing dependencies.
+
 ## Live Documentation (MCP)
 
 This plugin includes an MCP server (`copilotkit-docs`) that provides `search-docs` and `search-code` tools for querying live CopilotKit documentation and source code. Useful for looking up current v2 API signatures during migration.
@@ -15,7 +17,7 @@ This plugin includes an MCP server (`copilotkit-docs`) that provides `search-doc
 
 ## Overview
 
-CopilotKit v2 is a ground-up rewrite built on the AG-UI protocol (`@ag-ui/client` / `@ag-ui/core`). Users continue to install and import `@copilotkit/*` packages -- the v2 changes are exposed through the same package names with updated APIs (new hook names, component names, runtime configuration). The `@copilotkit/*` namespace is an internal implementation detail that users never interact with.
+CopilotKit v2 is a ground-up rewrite built on the AG-UI protocol (`@ag-ui/client` / `@ag-ui/core`). Users continue to install and import `@copilotkit/*` packages -- the v2 changes are exposed through the same package names with updated APIs (new hook names, component names, runtime configuration). The `@copilotkit/*` packages remain public imports; use version-specific `/v2` subpaths and verify installed exports.
 
 ## Migration Workflow
 
@@ -57,14 +59,14 @@ Refer to `references/v1-to-v2-migration.md` for detailed before/after code examp
 
 ### 4. Update Package Dependencies
 
-The `@copilotkit/*` package names stay the same. Update to the latest v2 versions:
+The `@copilotkit/*` package names stay the same. Historical translation table below (not the current iPix package install plan). Keep the installed `@copilotkit/react-core/v2` and `@copilotkit/runtime/v2` surfaces:
 
 ```
-@copilotkit/react-core        -> @copilotkit/react (consolidated into one package)
-@copilotkit/react-ui           -> @copilotkit/react (consolidated into one package)
+@copilotkit/react-core        -> @copilotkit/react-core/v2 (installed v2 export)
+@copilotkit/react-ui           -> check current v2 UI exports; do not infer a @copilotkit/react replacement
 @copilotkit/react-textarea     -> removed (no v2 equivalent)
 @copilotkit/runtime            -> @copilotkit/runtime (same package, new agent-based API)
-@copilotkit/runtime-client-gql -> removed (replaced by AG-UI protocol, re-exported from @copilotkit/react)
+@copilotkit/runtime-client-gql -> legacy GraphQL client; v2 uses installed AG-UI packages
 @copilotkit/shared             -> @copilotkit/shared (same package)
 @copilotkit/sdk-js             -> @copilotkit/agent (new package for agent definitions)
 ```
