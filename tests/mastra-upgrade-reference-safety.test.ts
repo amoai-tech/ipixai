@@ -6,9 +6,9 @@ const read = (path: string) => readFileSync(new URL(path, root), "utf8");
 
 describe("IPI-1419 — Mastra 1.82 reference migration safety", () => {
   it("quarantines the unrelated MDE concierge while preserving its history", () => {
-    expect(existsSync(new URL("references/mdeai-concierge.md", root))).toBe(false);
-    expect(read("references/legacy/mdeai-concierge.md")).toContain("NOT FOR IPIX");
-    expect(read("links.md")).toContain("references/legacy/mdeai-concierge.md");
+    expect(read("references/mdeai-concierge.md")).toContain("LEGACY MDE ONLY");
+    expect(read("../../../docs/archive/mastra/mdeai-concierge.md")).toContain("NOT FOR IPIX");
+    expect(read("links.md")).toContain("docs/archive/mastra/mdeai-concierge.md");
     expect(read("references/topic-routing.md")).toContain("IPI-1385");
   });
 
@@ -38,7 +38,7 @@ describe("IPI-1419 — Mastra 1.82 reference migration safety", () => {
     expect(generic).toContain("ipix-supabase");
     expect(generic).not.toContain("**Embeddings = Gemini, not OpenAI.**");
     expect(generic).not.toContain("mdeai scope (read first");
-    expect(read("references/legacy/mdeai-vector-decisions.md")).toContain("MDE-only");
+    expect(read("../../../docs/archive/mastra/mdeai-vector-decisions.md")).toContain("MDE-only");
   });
 
   it("never grants workspace command execution through browser-controlled context", () => {

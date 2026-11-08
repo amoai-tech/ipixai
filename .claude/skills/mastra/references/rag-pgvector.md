@@ -18,7 +18,7 @@ tags: mastra, rag, pgvector, postgres
 - [Best practices](#best-practices)
 
 
-> **iPix upgrade boundary (Mastra 1.82 target):** This is a generic PgVector example, not a verified brand-intelligence schema or embedding contract. Before adapting it, inspect the current iPix semantic-search owner, actual database vector dimensions/indexes/RLS, the selected embedding model and installed `@mastra/pg` API. Do not copy a dimension or provider from examples, or add `@mastra/rag` until an iPix task demonstrates the requirement. See the canonical `ipix-supabase` skill and [historical MDE decisions](legacy/mdeai-vector-decisions.md) only for contrast.
+> **iPix upgrade boundary (Mastra 1.82 target):** This is a generic PgVector example, not a verified brand-intelligence schema or embedding contract. Before adapting it, inspect the current iPix semantic-search owner, actual database vector dimensions/indexes/RLS, the selected embedding model and installed `@mastra/pg` API. Do not copy a dimension or provider from examples, or add `@mastra/rag` until an iPix task demonstrates the requirement. See the canonical `ipix-supabase` skill and [historical MDE decisions](../../../../docs/archive/mastra/mdeai-vector-decisions.md) only for contrast.
 
 After generating embeddings, you need to store them in a database that supports vector similarity search. Mastra provides a consistent interface for storing and querying embeddings across various vector databases.
 

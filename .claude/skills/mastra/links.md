@@ -51,7 +51,7 @@ Single bookmark page for `.claude/skills/mastra`. **Task → section mapping:** 
 
 ## Shared with Supatabs (curated quick index)
 
-**Historical MDE / Supatabs source index, not iPix architecture.** URLs are useful for general Mastra lookup, but this section's earlier rental concierge assumptions are not current iPix guidance. Use `references/README.md` and `references/topic-routing.md` to select the iPix owner; see the quarantined [legacy MDE concierge](references/legacy/mdeai-concierge.md) only for explicit migration comparison. Current source and installed packages override legacy examples.
+**Historical MDE / Supatabs source index, not iPix architecture.** URLs are useful for general Mastra lookup, but this section's earlier rental concierge assumptions are not current iPix guidance. Use `references/README.md` and `references/topic-routing.md` to select the iPix owner; see the quarantined [legacy MDE concierge](../../../docs/archive/mastra/mdeai-concierge.md) only for explicit migration comparison. Current source and installed packages override legacy examples.
 
 ### Agents
 
