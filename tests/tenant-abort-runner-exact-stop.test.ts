@@ -406,3 +406,71 @@ describe("IPI-1290 TenantAbortRunner exact-run Stop", () => {
     expect(close).toHaveBeenCalled();
   });
 });
+
+describe("IPI-1389 CopilotKit 1.85 authenticated runner ownership", () => {
+  const OWNER = "operator-a";
+  const FOREIGN = "operator-b";
+
+  it("recognizes a running, authenticated thread under the same owner", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const agent = wrapAbortRun(new SlowAgent());
+    const running = collect(
+      runner.run({ threadId, agent, input: input(threadId, "OWN-R1"), ownerId: OWNER }),
+    );
+
+    await vi.waitFor(async () => {
+      expect(
+        await InMemoryAgentRunner.prototype.isRunning.call(runner, {
+          threadId: `${RESOURCE}::${threadId}`,
+          ownerId: OWNER,
+        }),
+      ).toBe(true);
+    });
+    expect(await runner.isRunning({ threadId, ownerId: OWNER })).toBe(true);
+    expect(await runner.isRunning({ threadId, ownerId: FOREIGN })).toBe(false);
+    await running.done;
+  });
+
+  it("keeps thread events and listing scoped to the authenticated owner", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const run = collect(
+      runner.run({
+        threadId,
+        agent: wrapAbortRun(new SlowAgent()),
+        input: input(threadId, "OWN-R2"),
+        ownerId: OWNER,
+      }),
+    );
+    await run.done;
+
+    const scopedRunner: InMemoryAgentRunner = runner;
+    expect(scopedRunner.getThreadEvents(threadId, { ownerId: OWNER }).length).toBeGreaterThan(0);
+    expect(scopedRunner.getThreadEvents(threadId, { ownerId: FOREIGN })).toEqual([]);
+    expect(scopedRunner.listThreads({ ownerId: OWNER }).map((thread) => thread.id)).toContain(
+      threadId,
+    );
+    expect(scopedRunner.listThreads({ ownerId: FOREIGN })).toEqual([]);
+  });
+
+  it("checks ownership for the resource-prefixed internal thread id", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const run = collect(
+      runner.run({
+        threadId,
+        agent: wrapAbortRun(new SlowAgent()),
+        input: input(threadId, "OWN-R3"),
+        ownerId: OWNER,
+      }),
+    );
+    await run.done;
+
+    expect(runner.isThreadAccessible(threadId, { ownerId: OWNER })).toBe(true);
+    expect(runner.isThreadAccessible(threadId, { ownerId: FOREIGN })).toBe(false);
+  });
+});

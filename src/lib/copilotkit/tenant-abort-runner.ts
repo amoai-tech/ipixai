@@ -272,7 +272,7 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
       let cancelled = false;
       let inner: { unsubscribe: () => void } | undefined;
       void (async () => {
-        const localRunning = await super.isRunning({ threadId: this.scope(request.threadId) });
+        const localRunning = await super.isRunning({ threadId: this.scope(request.threadId), ownerId: request.ownerId });
         if (cancelled) return;
         if (localRunning) {
           inner = super
@@ -359,7 +359,7 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
   }
 
   override async isRunning(request: Parameters<InMemoryAgentRunner["isRunning"]>[0]) {
-    if (await super.isRunning({ threadId: this.scope(request.threadId) })) return true;
+    if (await super.isRunning({ threadId: this.scope(request.threadId), ownerId: request.ownerId })) return true;
     if (!this.runControl) return false;
     try {
       return await this.runControl.isRunning(request.threadId);
@@ -371,22 +371,41 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
     }
   }
 
-  override getThreadMessages(threadId: string) {
-    return super.getThreadMessages(this.scope(threadId));
+  // CopilotKit 1.85 checks the external thread id before calling run().
+  // The in-memory runner stores the resource-prefixed identity, so both
+  // ownership checks and read endpoints must consistently use that identity.
+  override isThreadAccessible(
+    threadId: string,
+    scope: Parameters<InMemoryAgentRunner["isThreadAccessible"]>[1],
+  ) {
+    return super.isThreadAccessible(this.scope(threadId), scope);
   }
 
-  override getThreadEvents(threadId: string) {
-    return super.getThreadEvents(this.scope(threadId));
+  override getThreadMessages(
+    threadId: string,
+    scope?: Parameters<InMemoryAgentRunner["getThreadMessages"]>[1],
+  ) {
+    return super.getThreadMessages(this.scope(threadId), scope);
   }
 
-  override getThreadState(threadId: string) {
-    return super.getThreadState(this.scope(threadId));
+  override getThreadEvents(
+    threadId: string,
+    scope?: Parameters<InMemoryAgentRunner["getThreadEvents"]>[1],
+  ) {
+    return super.getThreadEvents(this.scope(threadId), scope);
   }
 
-  override listThreads() {
+  override getThreadState(
+    threadId: string,
+    scope?: Parameters<InMemoryAgentRunner["getThreadState"]>[1],
+  ) {
+    return super.getThreadState(this.scope(threadId), scope);
+  }
+
+  override listThreads(scope?: Parameters<InMemoryAgentRunner["listThreads"]>[0]) {
     const prefix = splitRunThreadIds(this.resourceId, "").runnerThreadId;
     return super
-      .listThreads()
+      .listThreads(scope)
       .filter((thread) => thread.id.startsWith(prefix))
       .map((thread) => ({ ...thread, id: thread.id.slice(prefix.length) }));
   }
