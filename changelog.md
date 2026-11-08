@@ -4,6 +4,10 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ## [Unreleased]
 
+### Security
+
+- security(deps): patch the next/og RCE and clear all critical advisories; next 16.4.5, dompurify 3.4.17, proxy-addr 2.0.8, shell-quote 1.12.0, undici 6.29.1/8.12.4 by consumer, @fastify/busboy 3.2.5; npm audit critical 5 -> 0, high 49 -> 46 (IPI-1421, #322)
+
 ### Added
 
 - IPI-1420 · COPILOTKIT-SKILL-002 — Adapted the official CopilotKit v3.2.0 live-doc/source lookup skill in one iPix-owned entry, preserved Planner tenant/HITL boundaries, updated upstream skill inventory, corrected outdated v1 migration package advice and clarified four MCP corpora plus optional CLI safety. Added three focused load-on-demand guides for native catalogs/standardUI, page surfaces and AG-UI/A2UI 1.0 vs legacy dynamic-schema v0.9. No runtime/dependency/deployment changes.
