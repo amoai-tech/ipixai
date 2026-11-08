@@ -21,5 +21,10 @@
   {"query": "mastra workflow in src/mastra/workflows needs a new step for shoot planning — no chat UI", "should_trigger": false},
   {"query": "infisical run -- npm run dev injects secrets but vite app on 8080 won't start", "should_trigger": false},
   {"query": "cloudinary f_auto q_auto transform for product hero images in the operator assets page", "should_trigger": false},
-  {"query": "explain what react server components are — general next.js question no operator chat", "should_trigger": false}
+  {"query": "explain what react server components are — general next.js question no operator chat", "should_trigger": false},
+  {"query": "Add image attachments and voice input to our authenticated CopilotKit operator sidebar", "should_trigger": true},
+  {"query": "CopilotKit verify says /api/copilotkit/info returned 401 on the signed-out browser", "should_trigger": true},
+  {"query": "Inspect AG-UI run events and CopilotKit durable threads after moving toward 1.85", "should_trigger": true},
+  {"query": "A Supabase SQL function for product categories needs a new index, no chat UI", "should_trigger": false},
+  {"query": "Optimize a Cloudinary thumbnail for the commerce product grid, no AI features", "should_trigger": false}
 ]

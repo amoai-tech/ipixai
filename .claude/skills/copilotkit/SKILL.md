@@ -1,162 +1,87 @@
 ---
 name: copilotkit
 description: >
-  CopilotKit v2 hub — operator chat runtime, AG-UI/SSE streaming, A2UI surfaces, Mastra/LangGraph
-  integrations, setup, develop, debug, upgrade, OSS contribute. Use whenever the user touches
-  CopilotKit, CopilotChat/CopilotSidebar/Popup, /api/copilotkit (including 401 on /info),
-  useAgent/useFrontendTool/useHumanInTheLoop, agent not found / agentId mismatch, frontend tools
-  not executing, SSE stuck after RunStarted, AG-UI, A2UI createSurface, license token /
-  publicLicenseKey, v1→v2 migration, or wiring Mastra agents in src/ — even if they never say
-  "CopilotKit". Load references/ on demand. iPix prod: references/ipix-production.md; debug:
-  references/debug/debug.md. Do NOT use for Supabase-only migrations/RLS, Mercur checkout,
-  shadcn-only UI tweaks, Gemini edge prompts, or Linear issue updates without CopilotKit code.
+  Use for CopilotKit v2 or AG-UI tasks in iPix: authenticated Production Copilot,
+  Mastra integrations, chat UI, useAgent, useFrontendTool, useHumanInTheLoop,
+  threads, streaming, Stop/replay, generative UI, A2UI, channels, voice,
+  attachments, debugging, upgrades and /api/copilotkit/info failures.
+  Look up current docs and installed source first. Do not use for unrelated
+  Supabase-only tasks, pure styling or Linear-only administration.
 metadata:
-  version: 2.2.1-ipix.2
+  version: "3.2.0-ipix.1"
+  basedOn: "CopilotKit/CopilotKit skills/copilotkit/SKILL.md v3.2.0 @ c7815d9ac96f48fb3a64ad8c18e176a870c81763"
   priority: 2
 ---
 
-# CopilotKit Skills Hub
+# CopilotKit — current docs + secure iPix runtime
 
-**iPixai:** this repo is the current CopilotKit + Mastra Product runtime (`src/app`, `src/mastra`, split `dev:ui` / `dev:agent`). Prefer `references/integrations/references/integrations/mastra.md` + `references/runtime/references/wiring-mastra.md`. `references/ipix-production.md` is the current iPix Production runbook; verify it against the task SHA and installed package source/types before changing runtime behavior.
+**Reference — ADAPT:** [Official CopilotKit coding skill v3.2.0](https://github.com/CopilotKit/CopilotKit/blob/c7815d9ac96f48fb3a64ad8c18e176a870c81763/skills/copilotkit/SKILL.md) → `skills/copilotkit/SKILL.md`. Use **look up current docs and source first**. Do not copy upstream hosted Intelligence setup, generic scaffolding, telemetry, or a second Mastra server into iPix.
 
-One consolidated CopilotKit plugin skill. **Load the matching `references/` file on demand** — do not
-paste reference bodies here. Each topic folder keeps its own `references/` sub-docs and `assets/`.
+## 1. Establish version and authorization truth
 
-> **Consolidation (v2.2.1-ipix.1):** former standalone skills `copilotkit-setup`, `copilotkit-develop`,
-> `copilotkit-integrations`, `copilotkit-agui`, `copilotkit-debug`, `copilotkit-upgrade`,
-> `copilotkit-self-update`, `copilotkit-contribute`, `a2ui-renderer`, `runtime`, and `react-core`
-> are now `references/` inside this skill. Behavior preserved; packaging only.
+1. Read the live Linear issue, `AGENTS.md`, clean `origin/main`, `package-lock.json`, installed `node_modules/@copilotkit/*` and `node_modules/@ag-ui/*` source/types, and the relevant runtime code/tests. A PR or current docs page is **not** proof its APIs are installed.
+2. At this skill's baseline, `main` has CopilotKit Runtime/React Core 1.73.3, Channels 0.11.0, AG-UI Client 0.0.59 and `@ag-ui/mastra` 1.1.4. Treat these as historical context only. [IPI-1389](https://linear.app/amo100/issue/IPI-1389) / [PR #319](https://github.com/amoai-tech/ipixai/pull/319) separately target CopilotKit 1.85 and AG-UI 1.0; verify the actual installed version after merging.
+3. iPix runs an authenticated in-process `src/app/api/copilotkit/[[...slug]]/route.ts` → server-owned `createLocalAgents(resourceId)` → `TenantAbortRunner` → existing Mastra/Postgres. Preserve one provider and agent ID `default`. Do not create a new `/chat` server, remote Mastra runtime, managed Intelligence fallback, or second thread store.
+4. v2 uses `@copilotkit/runtime/v2` and `@copilotkit/react-core/v2`. Package-root imports still expose deprecated v1 surfaces; check current installed signatures before making an API recommendation.
 
----
+## 2. Discover the current answer — do not assume MCP availability
 
-## Routing — load the reference that matches the task
+**Reference — REFERENCE ONLY:** [CopilotKit docs index](https://docs.copilotkit.ai/llms.txt) → [sitemap](https://docs.copilotkit.ai/sitemap.xml) → targeted `https://docs.copilotkit.ai/<path>.md`, e.g. [quickstart](https://docs.copilotkit.ai/quickstart.md), [Mastra](https://docs.copilotkit.ai/mastra/quickstart.md), [runtime](https://docs.copilotkit.ai/backend/copilot-runtime.md). Do not routinely load the multi-megabyte `llms-full.txt`.
 
-| User intent | Reference to load |
-|-------------|-------------------|
-| **iPix production:** license token, Vercel env, `/app/*` smoke, 401 on `/api/copilotkit/info` | [`references/ipix-production.md`](references/ipix-production.md) · Linear [IPI-127](https://linear.app/amo100/issue/IPI-127) |
-| Add CopilotKit to a project, first chat, runtime + provider, framework detection | [`references/setup/setup.md`](references/setup/setup.md) |
-| Build features: CopilotChat/Popup/Sidebar, frontend tools, context, HITL interrupts, chat customization | [`references/develop/develop.md`](references/develop/develop.md) |
-| Wire an external agent framework (Mastra, LangGraph, CrewAI, ADK, PydanticAI, LlamaIndex, Agno, Strands, MS Agent Framework, A2A) | [`references/integrations/integrations.md`](references/integrations/integrations.md) |
-| AG-UI protocol, custom backend agents, SSE transport, `HttpAgent`, event flow | [`references/agui/agui.md`](references/agui/agui.md) |
-| A2UI surfaces — `createSurface` / `updateComponents` / `updateDataModel`, CopilotRuntime `a2ui`, themes | [`references/a2ui-renderer.md`](references/a2ui-renderer.md) |
-| **Generative UI choice:** controlled React UI vs A2UI vs MCP Apps | [`references/generative-ui.md`](references/generative-ui.md) |
-| **Channels:** first setup vs managed Channel code vs self-hosted adapters | [`references/channels.md`](references/channels.md) |
-| **Inspector:** optional local runtime inspection; upstream contributor skills only when editing Inspector itself | [`references/inspector.md`](references/inspector.md) |
-| **Intelligence:** optional managed capability map; verify runtime/licensing/tenancy before adoption | [`references/intelligence.md`](references/intelligence.md) |
-| Debug runtime connectivity, streaming, tool execution, transcription, version mismatch, AG-UI event tracing | [`references/debug/debug.md`](references/debug/debug.md) |
-| Migrate CopilotKit v1 → v2 (imports, deprecated hooks, GraphQL→AG-UI runtime) | [`references/upgrade/upgrade.md`](references/upgrade/upgrade.md) |
-| Refresh/reinstall upstream CopilotKit agent skills (not app code) | [`references/self-update.md`](references/self-update.md) |
-| Contribute to the CopilotKit OSS monorepo (fork, branch, test, PR) | [`references/contribute/contribute.md`](references/contribute/contribute.md) |
-| **`@copilotkit/runtime`** — CopilotRuntime, AgentRunner, BuiltInAgent, server tools, Intelligence mode | [`references/runtime/runtime.md`](references/runtime/runtime.md) |
-| **`@copilotkit/react-core`** — provider, CopilotChat/Popup/Sidebar, useAgent/useThreads/useFrontendTool | [`references/react-core/react-core.md`](references/react-core/react-core.md) |
+If the CopilotKit Docs connector is **actually connected**, discover its tool names and schemas. Separate these four search corpora:
 
-### Related sibling skills (not folded in)
+| Corpus | Common MCP name (ChatGPT variant) |
+| --- | --- |
+| CopilotKit docs and APIs | `search-docs` (`search_docs`) |
+| CopilotKit package implementation | `search-code` (`search_code`) |
+| AG-UI protocol docs | `search-ag-ui-docs` (`search_ag_ui_docs`) |
+| AG-UI protocol SDK source | `search-ag-ui-code` (`search_ag_ui_code`) |
 
-| Task | Skill |
-|------|-------|
-| Mastra agents + workflows (iPix) | [`mastra`](../mastra/SKILL.md) |
-| Improve/validate this skill | [`skill-creator`](../skill-creator/SKILL.md) |
-| iPix AI runtime docs | [`docs/copilotkit-mastra/README.md`](../../../docs/copilotkit-mastra/README.md) |
+Optional `explore-docs` / `explore-code` browse an index. A repository `.mcp.json` **does not** guarantee that the tools are enabled in Claude/Codex/ChatGPT. If missing, fetch focused `.md` pages and use installed types, [official package source](https://github.com/CopilotKit/CopilotKit/tree/main/packages), or [AG-UI docs](https://docs.ag-ui.com/llms.txt).
 
----
+**Source order:** clean current iPix runtime and auth → installed versions/types → focused tests → official version-matched code/examples → current docs → legacy bundled references. Explain conflicts. For every external example: exact URL → file/function/section → COPY/ADAPT/MODEL/REFERENCE ONLY → use → do not copy → iPix destination → verification.
 
-## Routing decision tree
+## 3. Select one relevant reference (do not read all 97)
 
-```
-CopilotKit task
-  ├─ iPix prod / Vercel / license / 401?           → references/ipix-production.md
-  ├─ New project / first integration?              → references/setup/setup.md
-  ├─ Chat UI, frontend tools, context, interrupts? → references/develop/develop.md
-  ├─ External agent framework (Mastra, LangGraph…)?  → references/integrations/integrations.md
-  │     (+ references/runtime/runtime.md for deep server wiring)
-  ├─ Custom backend / AG-UI events / SSE?          → references/agui/agui.md
-  ├─ Agent emits A2UI createSurface/updateComponents? → references/a2ui-renderer.md
-  ├─ Need rich typed UI / choose GenUI strategy?        → references/generative-ui.md
-  ├─ Slack / Teams delivery?                            → references/channels.md
-  ├─ Threads / Agents / AG-UI runtime inspection?       → references/inspector.md
-  ├─ CopilotKit Intelligence capability/license area?   → references/intelligence.md
-  ├─ Something broken (stream, tools, connectivity)?  → references/debug/debug.md
-  ├─ Upgrading from v1?                            → references/upgrade/upgrade.md
-  ├─ Stale CopilotKit skill knowledge?             → references/self-update.md
-  ├─ PR to CopilotKit/CopilotKit?                  → references/contribute/contribute.md
-  ├─ Deep @copilotkit/runtime API?                 → references/runtime/runtime.md
-  └─ Deep @copilotkit/react-core hooks?             → references/react-core/react-core.md
-```
+| Task | Local owner |
+| --- | --- |
+| iPix auth, production license, Vercel, 401, persistent threads | [Production](references/ipix-production.md) |
+| In-process Mastra agent and default runtime | [Mastra](references/integrations/references/integrations/mastra.md) and [runtime wiring](references/runtime/references/wiring-mastra.md) |
+| New project starter, not iPix architecture | [Setup](references/setup/setup.md) |
+| Chat UI, frontend tools, HITL | [Develop](references/develop/develop.md) |
+| External framework alternatives | [Integrations](references/integrations/integrations.md) |
+| AG-UI protocol and SSE events | [AG-UI](references/agui/agui.md) |
+| Controlled generative UI and A2UI | [Generative UI](references/generative-ui.md) / [A2UI](references/a2ui-renderer.md) |
+| Optional channels, inspector, hosted Intelligence | [Channels](references/channels.md) / [Inspector](references/inspector.md) / [Intelligence](references/intelligence.md) |
+| Errors, agent discovery, frontend tool failures, reconnect | [Debug](references/debug/debug.md) |
+| v1 migration, package upgrade and source contracts | [Upgrade](references/upgrade/upgrade.md) / [iPix conventions](references/upgrade/ipix-v2-conventions.md) |
+| Frontend hooks/provider and backend runtime | [React Core](references/react-core/react-core.md) / [Runtime](references/runtime/runtime.md) |
+| Refresh upstream **skills**, not application packages | [Self-update](references/self-update.md) |
+| Contribute to upstream monorepo | [Contribute](references/contribute/contribute.md) |
 
-**iPix Operator Hub path:** `setup` → `integrations` (Mastra) → `develop` → `generative-ui` for typed business artifacts. Use `a2ui-renderer` only when a genuinely dynamic model-selected layout is required.
+Sibling `mastra` skill owns backend agents, workflows, persistent memory and HITL. Sibling `tasks` owns PR/Linear lifecycle. Keep **one canonical iPix CopilotKit skill** and the existing security overlay, not a duplicate upstream skill tree.
 
----
+## 4. Safe diagnostic boundary
 
-## Reference map (sub-docs to load deeper)
+**Reference — REFERENCE ONLY:** [Official CopilotKit CLI skill](https://github.com/CopilotKit/CopilotKit/blob/c7815d9ac96f48fb3a64ad8c18e176a870c81763/skills/copilotkit-cli/SKILL.md) → `verify`, `--expect-runtime oss`, `--agent`, `--round-trip`.
 
-| Topic | Entry guide | Deeper references |
-|-------|-------------|-------------------|
-| **setup** | `references/setup/setup.md` | `references/setup/references/{framework-detection,runtime-architecture,telemetry-setup}.md` · `references/setup/assets/*` |
-| **develop** | `references/develop/develop.md` | `references/develop/references/{api-surface,runtime-api,chat-customization}.md` |
-| **integrations** | `references/integrations/integrations.md` | `references/integrations/references/integrations/{mastra,langgraph,crewai,adk,...}.md` |
-| **agui** | `references/agui/agui.md` | `references/agui/references/{protocol-spec,client-sdk,building-agents,event-flow-diagrams}.md` |
-| **debug** | `references/debug/debug.md` | `references/debug/references/{quick-workflows,runtime-debugging,agent-debugging,error-patterns}.md` |
-| **upgrade** | `references/upgrade/upgrade.md` | `references/upgrade/references/{v1-to-v2-migration,breaking-changes,deprecation-map}.md` · `ipix-v2-conventions.md` |
-| **contribute** | `references/contribute/contribute.md` | `references/contribute/references/{contribution-guide,pr-guidelines,repo-structure,testing-guide}.md` |
-| **runtime** | `references/runtime/runtime.md` | `references/runtime/references/{setup-endpoint,built-in-agent,agent-runners,wiring-*,...}.md` |
-| **react-core** | `references/react-core/react-core.md` | `references/react-core/references/{provider-setup,chat-components,client-side-tools,...}.md` |
-| **a2ui-renderer** | `references/a2ui-renderer.md` | — (single file) |
-| **generative-ui** | `references/generative-ui.md` | Controlled GenUI is iPix default for stable artifacts |
-| **channels** | `references/channels.md` | Upstream live setup guide; later/external delivery |
-| **inspector** | `references/inspector.md` | Local debugging/observability only |
-| **intelligence** | `references/intelligence.md` | Licensed platform capability map; never domain truth |
-| **self-update** | `references/self-update.md` | — (single file) |
+- First confirm installed/selected CLI version, actual URL and an **authorized local test identity**. In iPix, signed-out `/api/copilotkit/info` intentionally returns `401`.
+- The optional *authorized-localhost-only* example is `npx copilotkit@latest verify --expect-runtime oss --agent default --round-trip --json --runtime-url http://localhost:3000/api/copilotkit`. It may install/execute an unpinned CLI, emit telemetry, incur a model call and persist a thread. **Do not run automatically, or against production**, in a skills-only task. Prefer approved pinned/isolated diagnostics.
+- `verify` checks some wiring, **not** AG-UI event order, tool correctness, tenant isolation, deployed tenant identity, exact Stop, HITL server revalidation or durable replay. Prove those separately.
+- Do not run `login`, `project select`, `init` or `onboard` to "fix" a self-hosted runtime; those are cloud/scaffold workflows, not required iPix dependencies.
 
-Each topic folder also carries a `sources.md` where upstream provenance is recorded.
+## 5. iPix security, approvals and proof
 
----
+**Humans decide; AI assists.** Browser-supplied `orgId`, `threadId`, `resourceId`, permission flags and model output are not authorization. Supabase Auth + server checks + RLS own tenant security. Bind HITL to the exact reviewed artifact, server-revalidate the approved action and execute idempotently. Never autonomously publish, pay or delete.
 
-## Source-of-truth order
+For changes to chat, Stop, streaming, frontend tools or HITL, inspect both installed CopilotKit v2 and `@ag-ui/mastra` APIs. Prove the affected signed-out denial, Org A/B isolation, `default` agent, Stop/reconnect, durable history and exact approval with targeted tests, typecheck and a real operator journey. **Static skill tests do not certify runtime 1.85 or actual Claude selection accuracy.**
 
-For iPix implementation decisions, use this order:
+## PR review guard — concrete v2 import regression
 
-```text
-installed package source/types
-→ current official CopilotKit example
-→ live CopilotKit docs/MCP
-→ bundled skill/reference text
-```
+**Browser-supplied IDs are not authorization.** Use installed package source/types and the real authenticated route to assess changed code; no speculative style-only blockers. If reviewing a PR that introduces a bare v1 package-root import in a v2 path, report:
 
-Do not follow stale `beta`/`latest` install advice from a bundled reference when the installed dependency family and maintained official example show a stable compatible family.
+- Fix: Restore the changed CopilotKit import to its `/v2` subpath.
+- Verification: Run the existing targeted CopilotKit route tests, then `npm run typecheck`.
+- Expected result: The route uses the `/v2` import and the targeted tests/typecheck pass.
 
-## Live documentation (MCP)
-
-This plugin bundles the `copilotkit-docs` MCP server (`search-docs`, `search-code`) for live
-CopilotKit docs and source lookups. See [`.mcp.json`](.mcp.json).
-
-- **Cursor / Claude Code:** MCP auto-configured when the plugin is installed.
-- **Codex / manual:** see [`references/debug/debug.md#mcp-setup`](references/debug/debug.md#mcp-setup).
-
-Use MCP alongside references when API signatures may have changed since the bundled docs were synced.
-
----
-
-## How to use this skill
-
-1. Identify the task from the routing table or decision tree above.
-2. Load **only** that topic's entry guide (`references/<topic>/...`).
-3. Load deeper sub-references **on demand** when the guide points to them — keep context lean.
-4. For framework wiring, also load [`references/runtime/runtime.md`](references/runtime/runtime.md) when server-side detail is needed.
-
----
-
-## iPix PR review invariants
-
-When this skill is loaded for PR review, review only changed behavior and verify version-sensitive claims against installed source/types before blocking.
-
-- Stay on `@copilotkit/runtime/v2` and `@copilotkit/react-core/v2` unless the change proves an intentional supported migration.
-- Preserve the authenticated `/api/copilotkit` runtime/transport contract and registered `agentId="default"`.
-- Thread, connect, stop, runner, and HITL behavior must remain tenant-scoped; **Browser-supplied IDs are not authorization**.
-- For cloning, abort/stop, streaming, interrupts, or HITL changes, verify both installed CopilotKit and `@ag-ui/mastra` source/types.
-- Require a concrete failure scenario; deterministic tests/CI outrank speculative AI review.
-- Prefer targeted CopilotKit route/component tests, then `npm run typecheck`; use broader proof only when the changed boundary requires it.
-
-For a changed v2 import finding, include exactly:
-- `Fix: Restore the changed CopilotKit import to its `/v2` subpath.`
-- `Verification: Run the existing targeted CopilotKit route tests, then `npm run typecheck`.`
-- `Expected result: The route uses the `/v2` import and the targeted tests/typecheck pass.`
+For auth, HITL, streaming and Stop changes, require risk-specific evidence before recommending merge.

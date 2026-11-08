@@ -1,20 +1,20 @@
 ---
 name: copilotkit-self-update
 description: Use when the user wants to update, refresh, diff, or reinstall the CopilotKit agent skills/knowledge. Not for upgrading application dependencies.
-version: 1.1.0-ipix
+version: 3.2.0-ipix.1
 user_invocable: true
 argument_hint: ""
 ---
 
 # Update CopilotKit Skills — iPix safe sync
 
-Current official install command:
+Official generic installer for new/disposable projects only:
 
 ```bash
 npx skills add CopilotKit/CopilotKit/skills -y
 ```
 
-Use the interactive form without `-y` when you need to inspect/select individual skills.
+For iPix, do not run a skill installer until a human approves how to preserve the existing overlays; selective diff and test is safer.
 
 ## iPix rule: never overwrite the consolidated hub
 
@@ -29,51 +29,32 @@ fresh upstream inventory
 → verify installed source/types and maintained examples
 → run skill routing checks
 ```
-## Full upstream inventory to check
+## Pinned official upstream skill inventory (2026-11-08)
 
-Do not hardcode only `runtime` and `react-core`. On every refresh, enumerate `CopilotKit/CopilotKit/skills/` and compare **all** directories. Current families include:
+**Reference — ADAPT:** [official CopilotKit skills at the pinned commit](https://github.com/CopilotKit/CopilotKit/tree/c7815d9ac96f48fb3a64ad8c18e176a870c81763/skills). Re-enumerate this upstream directory every time you refresh; do not assume a static list stays current.
 
-```text
-a2ui-renderer
-channels-setup
-copilotkit-agui
-copilotkit-channels
-copilotkit-contribute
-copilotkit-debug
-copilotkit-develop
-copilotkit-integrations
-copilotkit-self-update
-copilotkit-setup
-copilotkit-upgrade
-inspector-docs
-inspector-workbench
-intelligence-docs
-react-core
-runtime
-```
+| Official upstream folder | What iPix should reuse |
+| --- | --- |
+| `copilotkit` v3.2.0 | **ADAPT:** thin live-doc/source lookup into the canonical iPix skill |
+| `copilotkit-cli` | **REFERENCE ONLY:** optional authenticated OSS verifier, not an automatic command or another runtime |
+| `copilotkit-channels` / `channels-setup` / `setup-slack-channel` | **MODEL:** optional delivery workflow, under local `references/channels.md` |
+| `inspector-docs` / `inspector-workbench` | **REFERENCE ONLY:** local inspection, not a production dependency |
+| `intelligence-docs` / `intelligence-vocabulary` | **REFERENCE ONLY:** hosted Intelligence is not the iPix Planner runtime |
 
-New or removed upstream directories are a review event. Do not silently ignore them.
+The older upstream directories `copilotkit-setup`, `copilotkit-develop`, `copilotkit-integrations`, `copilotkit-upgrade`, `runtime` and `react-core` are **not** in the current official inventory. Their old iPix reference copies remain as historical guidance, subordinate to installed package types and current docs.
 
-## Consolidation map
+Do **not** run the official generic `npx skills add CopilotKit/CopilotKit/skills -y` command in this repository without explicit approval: it can overwrite the consolidated hub or create duplicate discoverable skills. Test an upstream installation in a disposable checkout only, then selectively adapt useful rules.
 
-| Upstream | Local hub destination |
-|---|---|
-| `copilotkit-setup` | `references/setup/` |
-| `copilotkit-develop` | `references/develop/` |
-| `copilotkit-integrations` | `references/integrations/` |
-| `copilotkit-agui` | `references/agui/` |
-| `copilotkit-debug` | `references/debug/` |
-| `copilotkit-upgrade` | `references/upgrade/` |
-| `runtime` | `references/runtime/` |
-| `react-core` | `references/react-core/` |
-| `a2ui-renderer` | `references/a2ui-renderer.md` |
-| `channels-setup` + `copilotkit-channels` | `references/channels.md` (routing summary; keep both upstream roles distinct) |
-| `inspector-docs` + `inspector-workbench` | `references/inspector.md` (optional iPix routing; upstream skills are contributor-focused) |
-| `intelligence-docs` | `references/intelligence.md` (capability boundary; upstream skill is contributor-focused) |
-| `copilotkit-self-update` | `references/self-update.md` |
-| `copilotkit-contribute` | `references/contribute/` |
+## Simplified update procedure
 
-Generative UI is not currently a standalone upstream skill directory. Keep `references/generative-ui.md` synchronized from the current CopilotKit Generative UI docs/showcase and installed hooks/types.
+1. Pin the current upstream SHA and enumerate its full skills tree.
+2. Compare `copilotkit` and `copilotkit-cli` with current iPix source and installed CopilotKit/AG-UI packages.
+3. Keep one iPix entry point; preserve server-derived tenancy, HITL, durable Planner and production runtime owners.
+4. Adapt only compatible docs/lookup guidance. Do not copy hosted Intelligence setup, unpinned CLI execution, another provider or sandbox-only auth.
+5. Update trigger and contract fixtures; verify link integrity, package version truth and current PR dependencies.
+6. Start a fresh coding-agent session after merging so updated skill discovery is loaded.
+
+This **skills-only** task does not complete [IPI-1389](https://linear.app/amo100/issue/IPI-1389), which changes application packages.
 
 ## Dependency/content conflict rule
 
