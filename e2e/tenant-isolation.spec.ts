@@ -85,7 +85,7 @@ function snapshotKey(brands: BrandSnapshot[]): string {
     .join("|");
 }
 
-async function readDashboardBrandNames(page: Page, hasOwnBrands: boolean): Promise<string[]> {
+async function readDashboardBrandIds(page: Page, hasOwnBrands: boolean): Promise<string[]> {
   await page.goto("/app", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 30_000,
@@ -99,9 +99,15 @@ async function readDashboardBrandNames(page: Page, hasOwnBrands: boolean): Promi
   // An absent list when this account has brands is a dashboard failure, not
   // evidence that no foreign brands were rendered.
   await expect(list, "dashboard hid the permitted brand cards").toBeVisible();
-  return (await list.locator("li").allInnerTexts())
-    .map((name) => name.trim())
-    .filter(Boolean);
+  // Check *every* card, including a card with the same name as an owned brand.
+  // Missing identity is a test failure, not an empty/authorized result.
+  const cards = list.locator("li");
+  await expect(cards.first()).toBeVisible();
+  const ids = await cards.evaluateAll((elements) =>
+    elements.map((element) => element.getAttribute("data-brand-id")),
+  );
+  expect(ids.every((id) => !!id), "dashboard brand card missing its ID").toBe(true);
+  return ids as string[];
 }
 
 /** Read-only negative check: the other organization's brands must be absent
@@ -128,14 +134,13 @@ async function expectNoForeignBrands(
     expect(data, "RLS leak: this session can read another organization's brand").toHaveLength(0);
   }
 
-  // Scoped to the rendered brand cards, and compared with this session's own
-  // names. A foreign brand with a unique name is therefore caught without a
-  // whole-page `getByText` that could match unrelated copy.
-  const renderedNames = await readDashboardBrandNames(page, ownBrands.length > 0);
-  const ownNames = new Set(ownBrands.map((brand) => brand.name));
+  // An identical brand name in two organizations is not identity. Compare
+  // exact UUIDs; a foreign card must fail even if its label looks permitted.
+  const renderedIds = await readDashboardBrandIds(page, ownBrands.length > 0);
+  const ownIds = new Set(ownBrands.map((brand) => brand.id));
   expect(
-    renderedNames.filter((name) => !ownNames.has(name)),
-    "dashboard rendered a brand that is not in this session's own brand list",
+    renderedIds.filter((id) => !ownIds.has(id)),
+    "dashboard rendered a brand ID outside this session's authorized brands",
   ).toEqual([]);
 }
 

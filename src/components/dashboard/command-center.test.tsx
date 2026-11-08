@@ -72,6 +72,26 @@ describe("CommandCenter", () => {
     expect(anchor?.getAttribute("href")).toBe("/app/brands");
   });
 
+  it("keeps brand identities distinct when brand names match", () => {
+    render(
+      <CommandCenter
+        brandsResult={{
+          ok: true,
+          brands: [
+            { id: "own-brand-id", name: "Shared Brand" },
+            { id: "foreign-brand-id", name: "Shared Brand" },
+          ],
+        }}
+        shootsResult={SHOOTS_EMPTY}
+      />,
+    );
+    const cards = screen.getByTestId("command-center-brand-list").querySelectorAll("li");
+    expect(Array.from(cards, (card) => card.getAttribute("data-brand-id"))).toEqual([
+      "own-brand-id",
+      "foreign-brand-id",
+    ]);
+  });
+
   it("shows the empty state with no shoots", () => {
     render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_EMPTY} />);
     expect(screen.getByText("No shoots yet")).toBeDefined();
