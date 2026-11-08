@@ -6,7 +6,7 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Security
 
-- IPI-1291 · DEPENDENCY-SECURITY-001 — Removed every critical advisory from the dependency tree. `next` moves from `16.3.5` to `16.4.5` (the `next/og` ImageResponse remote-code-execution advisory, and the Draft Mode cache leak), and `overrides` pin `dompurify` to `3.4.17`, `proxy-addr` to `2.0.8`, `shell-quote` to `1.12.0`, `undici` to `8.12.4` and `@fastify/busboy` to `3.2.5`. Before: `npm audit` reported 5 critical, 49 high, 90 total. After: **0 critical**, 46 high, 82 total, with no advisory introduced. `concurrently@9.2.1` was never itself vulnerable (the flagged range starts at `9.2.3`); it cleared when `shell-quote` moved. `docs/mastra/runtime-family.md` records the new Next pin. Verified with `tsc --noEmit`, the full Vitest suite and `next build`.
+- security(deps): patch the next/og RCE and clear all critical advisories; next 16.4.5, dompurify 3.4.17, proxy-addr 2.0.8, shell-quote 1.12.0, undici 6.29.1/8.12.4 by consumer, @fastify/busboy 3.2.5; npm audit critical 5 -> 0, high 49 -> 46 (IPI-1291, #322)
 
 ### Added
 

@@ -112,7 +112,10 @@
     "@next/env": "npm:@dotenvx/next-env",
     "dompurify": "3.4.17",
     "proxy-addr": "2.0.8",
-    "undici": "8.12.4",
-    "@fastify/busboy": "3.2.5"
+    "undici": "6.29.1",
+    "@fastify/busboy": "3.2.5",
+    "jsdom": {
+      "undici": "8.12.4"
+    }
   }
 }
