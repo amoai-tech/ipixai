@@ -6,18 +6,7 @@ CopilotKit is the operator-facing AI interface. Mastra owns agents, tools, workf
 
 ## Current runtime family
 
-| Component | Current pin |
-|---|---:|
-| `@copilotkit/runtime` | 1.68.1 |
-| `@copilotkit/react-core` | 1.68.1 |
-| `@copilotkit/channels` | 0.9.0 |
-| `@ag-ui/client` | 0.0.58 |
-| `@ag-ui/mastra` | 1.1.4 |
-| `@mastra/core` | 1.63.2 |
-| `@mastra/memory` | 1.28.1 |
-| `@mastra/pg` | 1.22.2 |
-| `@mastra/client-js` | 1.42.4 |
-| `mastra` | 1.27.2 |
+Versions are written down in exactly one place: [Runtime compatibility family](../mastra/runtime-family.md). `package.json` and `package-lock.json` are the executable source of truth; this page deliberately restates no version so it cannot drift again.
 
 ## Current contracts
 
@@ -30,6 +19,7 @@ CopilotKit is the operator-facing AI interface. Mastra owns agents, tools, workf
 
 ## Read next
 
+- [Verified upgrade roadmap](./06-copilotkit-mastra-upgrade.md)
 - [Product requirements](../prd.md)
 - [Runtime compatibility family](../mastra/runtime-family.md)
 - [Postgres schema contract](../mastra/db-001-matrix.md)
