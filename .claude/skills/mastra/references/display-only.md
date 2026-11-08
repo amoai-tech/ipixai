@@ -1,12 +1,13 @@
 ---
 title: CopilotKit v2 display-only (defer)
-description: Do NOT load for mdeapp Phase 1. CopilotKit v2 useComponent pattern — mdeapp uses 1.55.2 v1 useCopilotAction. Reference only.
+description: Historical CopilotKit v2 display-only component example; for iPix use the canonical CopilotKit skill and installed package types before reuse.
 parent: mastra
 impact: LOW
-impactDescription: CK v2 generative UI — wrong stack for mdeapp
+impactDescription: Historical sample; compatibility must be verified for the installed iPix CopilotKit v2 package
 tags: copilotkit, v2, defer
-mdeapp: defer-v2
 ---
+
+> **Historical sample, not an iPix setup guide.** These CopilotKit v2 examples were copied from older MDE notes; claims that v2 should be deferred for MDE do not apply to iPix. iPix **already uses v2**. Use the canonical `copilotkit` skill and the installed `@copilotkit/react-core/v2` types. After IPI-1389, verify against the pinned CopilotKit 1.85/AG-UI family before adapting any hook or slot. Never replace the current provider/route from this reference.
 
 # Display-only
 

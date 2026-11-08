@@ -1,14 +1,15 @@
 ---
 title: Supervisor agents — Mastra
-description: Load when designing supervisor + subagent delegation. Phase 2+ for mdeapp — Phase 1 uses single conciergeAgent.
+description: Optional Mastra supervisor/subagent patterns. Not automatically enabled in the iPix Production Planner.
 parent: mastra
 impact: MEDIUM
 impactDescription: Supervisor stream/generate patterns
 tags: mastra, agents, supervisor
-mdeapp: phase2-defer
 ---
 
 # Supervisor agents
+
+> **Optional architecture, not the current iPix Planner.** Older MDE Phase 1/2 concierge assumptions are historical, and supervisor examples are not proof the iPix package version supports a particular delegate/stream API. Verify installed Mastra types and obtain a task-specific architecture decision before introducing supervisors, new agents or extra runtime state.
 
 ## Contents
 

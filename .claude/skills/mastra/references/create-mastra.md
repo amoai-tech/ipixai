@@ -9,6 +9,8 @@ tags: mastra, scaffold, cli
 
 # Create Mastra Reference
 
+> **Scaffold-only reference.** Never run `npm create mastra@latest`, `npx mastra@latest init` or combined `npm run dev` inside iPix. This repository already has its own Mastra runtime, Planner, migrations and separate `npm run dev:agent` / `npm run dev:ui`. For IPI-1385, change pinned compatible packages in a clean upgrade worktree after IPI-1389, not by reinitializing the app. Never paste provider API keys into chat or an agent prompt.
+
 Complete guide for creating new Mastra projects. Includes both quickstart CLI method and detailed manual installation.
 
 **Official documentation: [mastra.ai/docs](https://mastra.ai/docs)**
@@ -19,7 +21,7 @@ Ask: **"How would you like to create your Mastra project?"**
 
 1. **Quick Setup**: Copy and run: `npm create mastra@latest`
 2. **Guided Setup**: I walk you through each step, you approve commands
-3. **Automatic Setup**: I create everything, just give me your API key
+3. **Automatic Setup**: create scaffold files with user approval; configure any provider key privately through the deployment/runtime secret manager, not in the chat.
 
 > **For AI agents:** The CLI is interactive. Use **Automatic Setup** to create files using the steps in "Automatic Setup / Manual Installation" below.
 

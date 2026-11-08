@@ -1,5 +1,7 @@
 # Trace Intelligence Reference
 
+> **Optional Mastra Platform private beta — not the iPix default.** This is not proof that the Vercel-hosted iPix Mastra instance or its Postgres observability store supports Trace Intelligence. Verify enrollment, auth, product permissions, installed CLI commands and selected target before attempting any hosted request. Do not set or transmit platform tokens, customer trace payloads or private endpoints automatically. For the stable 1.82 upgrade, see IPI-1385; for normal iPix tracing start with `trace-query.md` and [official observability capabilities](https://mastra.ai/reference/observability/tracing/advanced-queries#check-capabilities).
+
 How to query Trace Intelligence (private beta) from the Mastra platform. Trace Intelligence analyzes completed agent traces and groups them into recurring themes across four trace signals: `goal`, `outcome`, `behavior`, and `sentiment`.
 
 Use this reference when the user asks to investigate agent health, find recurring failures or behavior issues, identify ways to improve an agent, understand what users ask for, inspect recurring goal/outcome/behavior/sentiment themes, or query Trace Intelligence data programmatically.
@@ -22,7 +24,7 @@ Analysis is asynchronous: a project generally needs 100+ completed traces before
 
 All Trace Intelligence routes are read-only `GET` requests under `/api/learning/`.
 
-1. **`mastra api learning` CLI** (preferred): use the same credential model as hosted observability commands. No `--url` or `--header` is required if `MASTRA_PLATFORM_ACCESS_TOKEN` and `MASTRA_PROJECT_ID` are set, or if `.mastra-project.json` is present. The CLI also resolves `X-Mastra-Organization-Id` from `MASTRA_ORGANIZATION_ID` or `.mastra-project.json`.
+1. **`mastra api learning` CLI** (conditional): first verify `npx --no-install mastra api --help` and `npx --no-install mastra api learning --help` against the installed CLI and the authorized Platform project. Use the same credential model as hosted observability commands only when that feature is actually available. No `--url` or `--header` is required if `MASTRA_PLATFORM_ACCESS_TOKEN` and `MASTRA_PROJECT_ID` are set, or if `.mastra-project.json` is present. The CLI also resolves `X-Mastra-Organization-Id` from `MASTRA_ORGANIZATION_ID` or `.mastra-project.json`.
 
 ```bash
 mastra api learning entities '{"entityType":"agent"}'
@@ -30,7 +32,7 @@ mastra api learning entities '{"entityType":"agent"}'
 
 Pass `--url` and `--header` only when overriding the hosted Trace Intelligence target or credentials.
 
-2. **Local dev server proxy**: `mastra dev` proxies `GET http://localhost:4111/api/learning/*` to the platform using its normal platform credentials. Loopback only.
+2. **Local dev server proxy** (optional Platform-connected installations only): do **not** assume `mastra dev` in this iPix Vercel runtime proxies `GET http://localhost:4111/api/learning/*`. Check installed CLI, local server configuration, and actual proxy behavior against an authorized target first. Loopback only.
 
 ```bash
 curl -fsS "http://localhost:4111/api/learning/entities?entityType=agent" | jq
