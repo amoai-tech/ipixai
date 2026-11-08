@@ -31,5 +31,11 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      # Reference — REFERENCE ONLY: https://docs.github.com/en/rest/deployments/environments
+      # Read public GitHub environment rules with no privileged token; fail on
+      # reviewer/admin-bypass/branch drift before it can affect the next release.
+      - name: Verify Production approval policy has not drifted
+        run: node scripts/check-production-environment.mjs
+
       - name: Check Vercel deployment count and ownership
         run: node scripts/check-vercel-deployment-governance.mjs
