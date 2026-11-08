@@ -1,4 +1,4 @@
-import { InMemoryAgentRunner } from "@copilotkit/runtime/v2";
+import { InMemoryAgentRunner, ɵresolveThreadOwner } from "@copilotkit/runtime/v2";
 import { EventType, randomUUID } from "@ag-ui/client";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable } from "rxjs";
@@ -51,7 +51,12 @@ export function attachRunnerAbort(agents: Record<string, AbstractAgent>) {
  * it names, and each run removes only its own record, so overlapping or
  * cancelled starts can never erase or inherit another run's Stop.
  */
-type PendingRun = { runId: string | undefined; stopRequested: boolean };
+type PendingRun = {
+  runId: string | undefined;
+  /** Resolved owner that started this run; a Stop must name the same owner. */
+  owner: string;
+  stopRequested: boolean;
+};
 const pendingRuns = new Map<string, Set<PendingRun>>();
 
 export class TenantAbortRunner extends InMemoryAgentRunner {
@@ -95,7 +100,11 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
       );
       return runAgent(runInput, subscribers);
     };
-    const pending: PendingRun = { runId: request.input?.runId, stopRequested: false };
+    const pending: PendingRun = {
+      runId: request.input?.runId,
+      owner: ɵresolveThreadOwner(request.ownerId),
+      stopRequested: false,
+    };
     const threadPending = pendingRuns.get(runnerThreadId) ?? new Set<PendingRun>();
     threadPending.add(pending);
     pendingRuns.set(runnerThreadId, threadPending);
@@ -219,8 +228,13 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
 
   private async stopLocal(request: Parameters<InMemoryAgentRunner["stop"]>[0]) {
     const runnerThreadId = this.scope(request.threadId);
+    // A Stop without ownerId acts as the server owner, matching the runtime's
+    // own resolution. A foreign owner must not mark another owner's startup
+    // run as stopped, even when it names the exact runId.
+    const owner = ɵresolveThreadOwner(request.ownerId);
     let stopsPending = false;
     for (const pending of pendingRuns.get(runnerThreadId) ?? []) {
+      if (pending.owner !== owner) continue;
       if (request.runId === undefined || request.runId === pending.runId) {
         pending.stopRequested = true;
         stopsPending = true;
@@ -231,6 +245,12 @@ export class TenantAbortRunner extends InMemoryAgentRunner {
   }
 
   override async stop(request: Parameters<InMemoryAgentRunner["stop"]>[0]) {
+    if (
+      request.ownerId !== undefined &&
+      !this.isThreadAccessible(request.threadId, { ownerId: request.ownerId })
+    ) {
+      return false;
+    }
     if (await this.stopLocal(request)) return true;
     if (!this.runControl || request.runId === undefined) return false;
     try {

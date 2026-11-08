@@ -614,11 +614,15 @@ describe("IPI-1389 CopilotKit 1.85 authenticated runner ownership", () => {
     await vi.waitFor(() => expect(stopFromOwner).toBeTypeOf("function"));
 
     const stopSpy = vi.spyOn(InMemoryAgentRunner.prototype, "stop").mockResolvedValue(true);
-    await stopFromOwner?.("R-remote");
+    try {
+      await stopFromOwner?.("R-remote");
 
-    expect(stopSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerId: OWNER, runId: "R-remote" }),
-    );
+      expect(stopSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ ownerId: OWNER, runId: "R-remote" }),
+      );
+    } finally {
+      stopSpy.mockRestore();
+    }
     await run.done;
   });
 
@@ -677,5 +681,56 @@ describe("IPI-1389 CopilotKit 1.85 authenticated runner ownership", () => {
     );
     ownerSub.unsubscribe();
     await running.done;
+  });
+
+  it("refuses a foreign-owner Stop for an active run", async () => {
+    memoryGate = Promise.resolve();
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const slow = new SlowAgent();
+    const agent = wrapAbortRun(slow);
+    const running = collect(
+      runner.run({
+        threadId,
+        agent,
+        input: input(threadId, "OWN-R8"),
+        ownerId: OWNER,
+      }),
+    );
+    await vi.waitFor(async () => {
+      expect(await runner.isRunning({ threadId, ownerId: OWNER })).toBe(true);
+    });
+
+    expect(await runner.stop({ threadId, runId: "OWN-R8", ownerId: FOREIGN })).toBe(false);
+    await running.done;
+    expect(slow.finished).toBe(true);
+    expect(running.events.map((event) => event.type)).toContain(EventType.RUN_FINISHED);
+  });
+
+  it("does not let a foreign owner stop a run during startup", async () => {
+    let release!: () => void;
+    memoryGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const threadId = nextThread();
+    const runner = new TenantAbortRunner(RESOURCE, new AbortController().signal);
+    const slow = new SlowAgent();
+    const agent = wrapAbortRun(slow);
+    const running = collect(
+      runner.run({
+        threadId,
+        agent,
+        input: input(threadId, "OWN-R9"),
+        ownerId: OWNER,
+      }),
+    );
+
+    // The run is registered as pending but super.run() has not claimed the
+    // thread yet, so only the owner-scoped pending match can stop it.
+    expect(await runner.stop({ threadId, runId: "OWN-R9", ownerId: FOREIGN })).toBe(false);
+    release();
+    await running.done;
+    expect(slow.finished).toBe(true);
+    expect(running.events.map((event) => event.type)).toContain(EventType.RUN_FINISHED);
   });
 });
