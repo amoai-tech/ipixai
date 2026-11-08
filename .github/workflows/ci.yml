@@ -991,7 +991,7 @@ jobs:
           git fetch --no-tags origin main
           latest_sha="$(git rev-parse origin/main)"
           if [ "$TESTED_SHA" != "$latest_sha" ]; then
-            echo "::error title=Stale Production SHA::Manual release requested $TESTED_SHA but latest main is $latest_sha; no candidate will be staged."
+            echo "::error title=Stale Production SHA::Requested $TESTED_SHA, but main is now $latest_sha. No candidate staged. Start a NEW run: GitHub Actions > CI > Run workflow > Branch: main. Do not rerun this outdated run."
             exit 1
           fi
           echo "deploy=true" >> "$GITHUB_OUTPUT"
@@ -1064,7 +1064,7 @@ jobs:
           git fetch --no-tags origin main
           latest_sha="$(git rev-parse origin/main)"
           if [ "$TESTED_SHA" != "$latest_sha" ]; then
-            echo "::error::Refusing stale stage: tested SHA $TESTED_SHA is no longer latest main ($latest_sha)."
+            echo "::error title=Stale Production SHA::Build $TESTED_SHA is outdated; latest main is $latest_sha. No candidate staged. Start a NEW run: GitHub Actions > CI > Run workflow > Branch: main. Do not rerun this outdated run."
             exit 1
           fi
           deployment_url="$(vercel deploy --prebuilt --prod --skip-domain \
@@ -1098,13 +1098,13 @@ jobs:
           vercel inspect https://www.ipix.co --json > /tmp/ipix-live-after.json
           node --input-type=module -e '
             import { readFileSync } from "node:fs";
+            import { inspectedDeploymentHost } from "./scripts/vercel-inspect-host.mjs";
             const staged = JSON.parse(readFileSync("/tmp/ipix-staged.json", "utf8"));
             const live = JSON.parse(readFileSync("/tmp/ipix-live-after.json", "utf8"));
             const host = new URL(process.env.DEPLOYMENT_URL).hostname;
-            // Vercel CLI 59.25.4 inspect --json returns a bare hostname;
-            // accept a full https URL as well if a future CLI changes shape.
-            const inspectedHost = typeof staged.url === "string" && staged.url.startsWith("https://")
-              ? new URL(staged.url).hostname : staged.url;
+            // The pinned CLI may report a bare hostname; verify both canonical
+            // inspect URL shapes with the same testable, fail-closed helper.
+            const inspectedHost = inspectedDeploymentHost(staged.url);
             if (inspectedHost !== host || !staged.id || staged.target !== "production" ||
                 staged.readyState !== "READY") {
               throw new Error("Staged artifact is not a ready Production deployment");
@@ -1188,4 +1188,4 @@ jobs:
           DEPLOYMENT_URL: ${{ steps.stage.outputs.url }}
           TESTED_SHA: ${{ github.sha }}
         run: |
-          echo "::notice title=STAGED ONLY::$DEPLOYMENT_URL at $TESTED_SHA; www.ipix.co unchanged. IPI-1091 product gates and human promotion remain."
+          echo "::notice title=STAGED ONLY::$DEPLOYMENT_URL at $TESTED_SHA; www.ipix.co was unchanged when inspected BEFORE QA. Re-check the live alias immediately before any human-approved promotion. IPI-1091 approval/save/reopen gates remain."
