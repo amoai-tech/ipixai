@@ -19,12 +19,13 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Changed
 
-- IPI-1419 · MASTRA-DOCS-002 — Quarantined MDE-only Concierge/vector assumptions, labeled historical CopilotKit v2 and standalone Mastra starter examples, made Workspace execution fail closed in guidance, documented actual MCP connector schemas and Mastra 1.82 upgrade gates, and guarded optional Platform trace intelligence, labeled historical supervisor/browser/v0 examples, and fixed a broken skill-creator link. No runtime/package/database changes.
 
 
 ### Deprecated
 
 ### Removed
+
+- IPI-1419 · MASTRA-DOCS-002 — Quarantined MDE-only Concierge/vector assumptions, labeled historical CopilotKit v2 and standalone Mastra starter examples, made Workspace execution fail closed in guidance, documented actual MCP connector schemas and Mastra 1.82 upgrade gates, and guarded optional Platform trace intelligence, labeled historical supervisor/browser/v0 examples, and fixed a broken skill-creator link. No runtime/package/database changes.
 
 ### Fixed
 
