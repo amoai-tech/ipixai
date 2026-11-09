@@ -171,7 +171,7 @@ export function CommandCenter({
         ) : (
           <ul className={styles.grid} data-testid="command-center-brand-list">
             {brandsResult.brands.map((brand) => (
-              <li key={brand.id}>
+              <li key={brand.id} data-brand-id={brand.id}>
                 <Link href="/app/brands" className={styles.brandCardLink}>
                   <Card>
                     <CardHeader>
