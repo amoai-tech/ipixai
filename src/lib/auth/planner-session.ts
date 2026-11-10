@@ -20,7 +20,7 @@ export function intelligenceIdentifyUser(input: {
 }
 
 export async function requirePlannerResourceId(request: Request): Promise<
-  | { ok: true; resourceId: string; operator: VerifiedOperator }
+  | { ok: true; resourceId: string; orgId: string; operator: VerifiedOperator }
   | { ok: false; response: Response }
 > {
   const operator = await getVerifiedOperatorForRequest(request);
@@ -39,6 +39,8 @@ export async function requirePlannerResourceId(request: Request): Promise<
 
   return {
     ok: true,
+    // Server-verified tenant: authorization must not depend on memory key formatting.
+    orgId: tenant.orgId,
     resourceId: memoryResourceId({
       userId: operator.id,
       orgId: tenant.orgId,
