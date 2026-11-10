@@ -64,7 +64,12 @@ These are **outstanding**, not historical. They were written as "after PR #106 m
 
 ## Skill authoring
 
-If a procedure can be used by **Codex or multiple coding agents**, put its one canonical copy under `.agents/skills/<name>/SKILL.md`, exposing it to Claude via approved symlink/registry only. Use `.claude/skills/<name>/SKILL.md` **only** when the procedure depends on Claude-specific hooks or command APIs and has no cross-agent consumer. `.claude/commands/` remain compatibility shims, never duplicate implementations. Follow the Code style rules in `AGENTS.md` for vendored and temporary exceptions.
+Skill-home decision (one canonical copy, not one per agent):
+- **Cross-agent reusable procedure** (Codex or another coding agent also uses it): `.agents/skills/<name>/SKILL.md`, exposed to Claude through the approved registry or symlink.
+- **Claude-only hook or command API** with no cross-agent consumer: `.claude/skills/<name>/SKILL.md`.
+- **Vendored/legacy compatibility exception**: follow the existing `AGENTS.md` Code style and registry rules; migrate only through an explicitly scoped review.
+
+`.claude/commands/` remain compatibility shims rather than duplicate implementations.
 
 For any skill whose purpose is to change what the model decides or does — rather than to produce an artifact or answer a lookup — keep realistic prompts in that skill's own `evals/evals.json` (for example `.claude/skills/pr/evals/evals.json`) and compare a changed skill against the previous version before claiming the rewrite is better. That criterion is deliberately behaviour-based: a skill that changes decisions needs test prompts, while a purely descriptive or subjective one gets no value from assertions. Vendored skills are exempt — their evals belong upstream, not in a local edit the next sync discards. Keep trigger conditions in the skill description, keep `SKILL.md` concise, and move detailed material into supporting references/scripts when needed.
 

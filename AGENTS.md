@@ -126,7 +126,7 @@ Graph: `graphify-out/graph.json` (generated local state; do not commit it).
 6. Project markdown, which may be stale.
 7. Unverified prose and external examples; Linear remains authoritative for approved task requirements and progress.
 
-For an implementation-status claim, inspect current code/runtime and relevant test evidence; if proof is incomplete, mark the claim **unverified**. Live Linear is the source of **approved desired outcomes, acceptance criteria, dependencies and progress**; when approved requirements differ from verified behavior, record the gap and resolve it with the task owner rather than discarding either. Never implement from stale docs, a dirty checkout or another repository.
+An implementation-status claim is **verified** only when supported by current code/runtime and relevant tests; when that evidence is unavailable or incomplete, report **unverified** and the missing proof instead. Live Linear is the source of **approved desired outcomes, acceptance criteria, dependencies and progress**; if approved requirements differ from observed behavior, record the gap for the task owner rather than discarding either. Never implement from stale docs, a dirty checkout or another repository.
 
 ## Architecture boundaries
 
