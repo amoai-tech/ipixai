@@ -158,14 +158,14 @@ describe("IPI-1218 compatible advisory patches", () => {
     }
   });
 
-  it("keeps each Mastra Zod 4 copy patched without forcing root Zod 3 to v4", () => {
-    // GHSA-mrhx-c7xc-m3w5: Zod 3 remains a separate vendor/size-bound issue.
+  it("keeps each installed Zod 4 copy patched without pinning root Zod 3", () => {
+    // GHSA-mrhx-c7xc-m3w5: inspect Zod 3 exposure separately, but do not
+    // require an older major to remain installed after a safe upstream upgrade.
     const versions = resolvedVersions("zod");
     const zod4 = versions.filter((version) => parseStableVersion(version)[0] === 4);
     expect(zod4.length).toBeGreaterThan(0);
     for (const version of zod4) {
       expect(isAtLeast(version, "4.6.6")).toBe(true);
     }
-    expect(versions.some((version) => parseStableVersion(version)[0] === 3)).toBe(true);
   });
 });
