@@ -116,6 +116,11 @@ export async function POST(request: Request): Promise<Response> {
     });
     const suspended = readSuspendedPlanReview(result);
     if (!suspended) {
+      const failed = result as { status?: unknown; error?: unknown };
+      console.error("[plans/reviews] workflow did not suspend", {
+        status: failed.status,
+        error: failed.error instanceof Error ? failed.error.message : failed.error,
+      });
       return jsonError(502, "error", "review_start_failed");
     }
     // `runId` is returned as a non-authority trace id proving a real Mastra run
@@ -125,7 +130,10 @@ export async function POST(request: Request): Promise<Response> {
       { runId: run.runId, ...suspended },
       { status: 201, headers: { "content-type": "application/json" } },
     );
-  } catch {
+  } catch (error) {
+    console.error("[plans/reviews] review start failed", {
+      error: error instanceof Error ? error.message : error,
+    });
     return jsonError(502, "error", "review_start_failed");
   }
 }
