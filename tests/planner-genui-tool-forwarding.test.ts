@@ -38,6 +38,60 @@ const ENVELOPE = {
 };
 
 describe("CopilotKit GenerativeUIMiddleware → planner gate bridge", () => {
+  it("does not add render_ui for a malformed catalog envelope", async () => {
+    const middleware = new GenerativeUIMiddleware();
+    let bridgedInput: any;
+
+    await firstValueFrom(
+      middleware.run(
+        {
+          threadId: "thread-2",
+          runId: "run-2",
+          messages: [],
+          tools: [],
+          context: [],
+          forwardedProps: {
+            copilotkit: {
+              ui: {
+                "1.0": { supportedCatalogIds: ["ipix/test@1"] },
+                metadata: { extensions: {} },
+              },
+            },
+          },
+        } as any,
+        {
+          run: (input: any) => {
+            bridgedInput = input;
+            return of({ type: "RUN_STARTED", threadId: "thread-2", runId: "run-2" } as any);
+          },
+          messages: [],
+          state: {},
+        } as any,
+      ),
+    );
+
+    expect(bridgedInput.tools.map((tool: any) => tool.name)).not.toContain("render_ui");
+
+    const calls: unknown[][] = [];
+    const wrapped = wrapPlannerStreamWithToolGate(
+      (messages: unknown, options?: Record<string, unknown>) => {
+        calls.push([messages, options]);
+        return "stream-result";
+      },
+    );
+    wrapped([{ role: "user", content: "Plan a shoot" }], {
+      clientTools: Object.fromEntries(
+        bridgedInput.tools.map((tool: any) => [
+          tool.name,
+          { ...tool, id: tool.name },
+        ]),
+      ),
+    });
+    const activeTools = (calls[0]?.[1] as Record<string, unknown>)
+      .activeTools as string[];
+    expect(activeTools).not.toContain("render_ui");
+  });
+
   it("forwards render_ui and the catalog guide into activeTools", async () => {
     const middleware = new GenerativeUIMiddleware();
     let bridgedInput: any;

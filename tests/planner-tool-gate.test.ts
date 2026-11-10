@@ -426,6 +426,32 @@ describe("typed runtime delegation wrappers", () => {
     expect(activeTools).not.toContain("deleteBrand");
   });
 
+  it("prepareStep removes unavailable integration tools from an explicit activeTools list", async () => {
+    const calls: unknown[][] = [];
+    const original = (resumeData: unknown, streamOptions: Record<string, unknown>) => {
+      calls.push([resumeData, streamOptions]);
+      return "resume-result";
+    };
+    const wrapped = wrapPlannerResumeStreamWithToolGate(original);
+    const requestContext = new RequestContext();
+
+    wrapped(
+      { approved: true },
+      {
+        activeTools: ["composeShootPlan", "render_ui"],
+        requestContext,
+        clientTools: {},
+      },
+    );
+
+    const options = calls[0]?.[1] as Record<string, unknown>;
+    const prepareStep = options.prepareStep as (args: {
+      requestContext: RequestContext;
+    }) => Promise<{ activeTools?: string[] }>;
+    const prepared = await prepareStep({ requestContext });
+    expect(prepared.activeTools).toEqual(["composeShootPlan"]);
+  });
+
   it("resumeStream preserves an explicit activeTools override", () => {
     const calls: unknown[][] = [];
     const original = (resumeData: unknown, streamOptions: Record<string, unknown>) => {
