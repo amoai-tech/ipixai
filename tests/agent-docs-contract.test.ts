@@ -188,23 +188,29 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
     expect(agents).toContain("no agent-side override");
   });
 
-  it("keeps workstation-specific Supabase recovery in a scoped reference", () => {
+  it("records the verified local-Supabase root cause and the supported local path", () => {
     const agents = read("AGENTS.md");
-    const local = read("docs/development/local-supabase.md");
-    expect(agents).toContain("docs/development/local-supabase.md");
-    expect(agents).toContain("When it succeeds, use `supabase start`");
-    expect(agents).toContain("Never `supabase db push` against production");
-    expect(agents).not.toContain("**Known local-environment breakage (verified 2026-09-28).**");
-    expect(local).toContain("failed to parse config: missing private key");
-    expect(local).toContain("dotenvx-encrypted `.env.local`");
-    expect(local).toContain("For full Supabase proofs");
-    expect(local).toContain("For Mastra/Postgres-only proofs");
-    expect(local).not.toContain("Default writes: **disposable Postgres");
+    // IPI-1374 fixed this rather than documenting a workaround, so the assertions pin the
+    // fix: the failure a developer still sees when bypassing the wrapper, the mechanism
+    // that causes it, the supported entry point, and why CI is unaffected.
+    expect(agents).toContain("failed to parse config: missing private key");
+    expect(agents).toContain("DOTENV_PRIVATE_KEY_LOCAL");
+    expect(agents).toContain("`env(NAME)`");
+    expect(agents).toContain("npm run supabase:cli -- start");
+    expect(agents).toContain("npm run supabase:cli -- db reset --local");
+    expect(agents).toContain("--ignore=MISSING_ENV_FILE");
+    expect(agents).toContain("For Mastra/Postgres-only proofs");
+    expect(agents).not.toContain("Default writes: **disposable Postgres");
+    // The workaround-era framing must not return: the conflict is resolved, so
+    // "run the CLI from a copy of `supabase/` outside this working tree" is no longer
+    // the documented path for full Supabase proofs.
+    expect(agents).not.toContain("Known local-environment breakage");
+    expect(agents).not.toContain("For full Supabase proofs");
   });
 
   it("keeps the QA runner optional and never requires local secrets in clean CI", () => {
     const agents = read("AGENTS.md");
-    const tasks = read(".claude/skills/tasks/SKILL.md");
+    const tasks = read(".agents/skills/tasks/SKILL.md");
     const guide = read("docs/development/testing-with-1password.md");
     const { scripts } = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
     expect(agents).toContain("docs/development/testing-with-1password.md");
@@ -224,13 +230,15 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
   it("agrees on shared skill ownership and a reuse-first task gate", () => {
     const agents = read("AGENTS.md");
     const claude = read("CLAUDE.md");
-    const tasks = read(".claude/skills/tasks/SKILL.md");
+    const tasks = read(".agents/skills/tasks/SKILL.md");
     expect(claude.startsWith("@AGENTS.md\n")).toBe(true);
     expect(claude).toContain("`.agents/skills/<name>/SKILL.md`");
     expect(claude).toContain("`.claude/skills/<name>/SKILL.md`");
     const linearRuleWithoutEmphasis = agents.replace(/[*_]/g, "");
-    expect(linearRuleWithoutEmphasis).toMatch(/Linear is available, its live issue is authoritative for approved desired outcomes/i);
-    expect(linearRuleWithoutEmphasis).toContain("acceptance criteria, dependencies and progress");
+    expect(linearRuleWithoutEmphasis).toMatch(/live Linear issue for approved outcomes, acceptance criteria, dependencies/i);
+    expect(linearRuleWithoutEmphasis).toContain("approved outcomes, acceptance criteria, dependencies and recorded proof");
+    expect(agents).toContain("Exception and escalation");
+    expect(agents).toContain("authorized issue owner");
     for (const evidenceLabel of ["Code present", "Behavior verified", "Unverified"]) {
       expect(agents).toContain(evidenceLabel);
     }
@@ -244,7 +252,7 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
 
   it("keeps one task-level Mermaid decision across all three agent contracts", () => {
     const root = read("AGENTS.md");
-    const tasks = read(".claude/skills/tasks/SKILL.md");
+    const tasks = read(".agents/skills/tasks/SKILL.md");
     const mermaid = read(".claude/skills/mermaid-diagrams/SKILL.md");
     const fallback = "Diagram: N/A — no meaningful relationship/state/sequence to model.";
     for (const doc of [root, tasks, mermaid]) {
@@ -269,15 +277,16 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
       expect(local).toContain("`" + role + "`");
       expect(ci).toContain("create role " + role + " nologin;");
     }
-    expect(local).toContain("[`mem-001-restart-history` CI job](../../.github/workflows/ci.yml)");
+    expect(local).toContain("mem-001-restart-history");
+    expect(local).toContain("../../.github/workflows/ci.yml");
     expect(local).toContain("2.116.0");
     expect(local).toContain("2.119.0");
     expect(local).toContain("in timestamp order");
   });
 
   it("pins realistic tasks-skill decision evals without requiring live accounts", () => {
-    const tasks = read(".claude/skills/tasks/SKILL.md");
-    const evalFile = read(".claude/skills/tasks/evals/evals.json");
+    const tasks = read(".agents/skills/tasks/SKILL.md");
+    const evalFile = read(".agents/skills/tasks/evals/evals.json");
     const parsed = JSON.parse(evalFile) as {
       skill_name: string;
       evals: Array<{ id: number; prompt: string; expected_output: string; expectations: string[]; files: string[] }>;

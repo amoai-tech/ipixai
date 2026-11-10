@@ -1,28 +1,27 @@
-# Local Supabase testing and recovery — verified workstation notes
+# Local Supabase and isolated database testing
 
-> **Scope:** Diagnostics for the known iPix workstation issue, not permanent production guidance. Verify current CLI version, project config, worktree and CI before applying. The canonical safeguards remain in [AGENTS.md](../../AGENTS.md).
+**Current iPix path (IPI-1374):** The normal local CLI runs through `npm run supabase:cli`, which supplies only the required dotenvx private keys to the CLI, without exposing application credentials to the calling agent. The old plain `supabase start` / encrypted `.env.local` parse failure (`failed to parse config: missing private key`) is a **resolved local wrapper issue**, not a reason to copy a project or delete/decrypt secrets. See the Supabase safety section of [AGENTS.md](../../AGENTS.md), plus `scripts/` and `package.json` for the installed wrapper.
 
-## Historical verified failure and two proof-specific fallbacks
+## Standard local workflow
 
-**Known local-environment breakage (verified 2026-09-28).** On the current workstation setup, `supabase start` fails when the working tree contains the dotenvx-encrypted `.env.local`. This is **not a repository-wide Supabase failure**: CI does not reproduce the conflict, and `supabase-fresh-replay` runs the real `supabase start` plus `supabase db reset --local` path successfully on every pull request (`.github/workflows/ci.yml`). The pinned CLI (`supabase` 2.116.0) aborts before touching Docker:
+1. Inspect the live Linear task, current `origin/main`, installed Supabase CLI and actual project/role. Use a verified local-only target; check worktree/port/container ownership before any write.
+2. Start with `npm run supabase:cli -- start` (CLI pinned to 2.116.0). Use `npm run supabase:cli -- db reset --local` **only with task authorization and verified disposable local data**; this discards local DB contents. Do **not** run `supabase db push` against production.
+3. If wrapper/config fails, STOP and report the exact error. Do not delete `.env.local`, reveal `.env.keys`, or fall back to a different database without verified and approved proof isolation. CI `supabase-fresh-replay` independently tests a fresh stack.
 
-```text
-$ supabase start
-failed to parse config: missing private key
-```
+**Reference — REFERENCE ONLY:** https://supabase.com/docs/guides/local-development/cli/getting-started — verify CLI behavior and avoid applying destructive reset steps to hosted/production data.
 
-Cause is bisected, not guessed: the dotenvx-encrypted `.env.local` (values are `encrypted:…`, plus `DOTENV_PUBLIC_KEY_LOCAL`) is the trigger. The identical `supabase/config.toml` run from a directory *without* `.env.local` passes config parsing and starts containers. It is not `config.toml`, not the ambient shell environment, and not `.env.keys`, `.env.test`, `.env.agent`, or `.env.legacy-retired` — each was tested individually.
+## Independent local Supabase stack (only if isolation is required)
 
-Two verified fallbacks — choose by the proof you need:
+When a task explicitly requires a **separate** local Supabase instance, a copied `supabase/` directory is only a starting point, **not** proof of isolation. Choose a **unique local `project_id`** and **unused ports** for API, database, shadow DB, Studio, mail and every enabled service. Inspect listeners (`ss -ltn`), containers (`docker ps -a`) and volumes (`docker volume ls`); prove no project ID, port, container, volume or DB state is shared with another worktree. **STOP unless isolation** and ownership are established. Never stop, reuse, reset or delete another worktree's containers or data. The supported wrapper remains the standard path; do not revive the old dotenvx workaround as the default.
 
-1. **For full Supabase proofs**, run the CLI from a *separate copy* of `supabase/` outside the conflicting working tree, **only after proving isolation from every other worktree's local database**. In the copied `supabase/config.toml`, choose a **unique local `project_id`** and **unused ports** for API, DB, shadow DB, Studio, mail, analytics, edge inspector and every other enabled service. Inspect host listeners (`ss -ltn`), containers (`docker ps -a`) and volumes (`docker volume ls`) before starting; these are **read-only inventory commands**. Confirm no other local project shares the project ID, ports, container names or volume identities. **STOP unless isolation and ownership are established; never stop, reuse, reset or delete another worktree's containers, databases or volumes.** The copied project must not discover the root dotenvx-encrypted `.env.local`. The installed CLI 2.116.0 predates the experimental `supabase stack` feature (requires >=2.119.0), so do not rely on it. **Reference — REFERENCE ONLY:** https://supabase.com/docs/guides/local-development/running-multiple-local-projects (newer CLI isolation options; no CLI upgrade/config redesign in this task).
-2. **For Mastra/Postgres-only proofs**, use a verified **isolated** disposable Postgres instance on `127.0.0.1`. **Before any pinned migrations**, provision the prerequisite `anon`, `authenticated` and `service_role` NOLOGIN roles **and** the separate restricted login role, exactly as the `Provision the pinned mastra schema and the runtime role` step in the existing [`mem-001-restart-history` CI job](../../.github/workflows/ci.yml) does. Those SQL commands are for disposable local Postgres **only**, not hosted projects. Then apply this repository's pinned Mastra migrations **in timestamp order** (`20260722093028_mastra_schema_pinned_1_12_0` → `20260722094055_mastra_runtime_grants_and_rls` → `20260822070000_ipi1008_mastra_workflow_definitions` → `20260927194500_ipi1332_mastra_1_71_schema_delta`). The grants/RLS migration requires the roles and core tables; the delta relies on existing RLS. `127.0.0.1` is on the `src/mastra/pg-store.ts` allowlist. **STOP** if database/container identity is shared with another worktree; do not skip role provisioning or create an alternate schema.
+The experimental parallel-stack command requires CLI 2.119.0 or later; the repo currently pins 2.116.0. Do not assume `supabase stack` is available or upgrade tooling for this proof.
 
-Do not silently fall back to a second database provider to work around this. Report the breakage rather than working around it invisibly, and do not delete `.env.local` (the app needs it).
+**Reference — REFERENCE ONLY:** https://supabase.com/docs/guides/local-development/running-multiple-local-projects — verify version-specific support without replacing iPix scripts.
 
+## Isolated Mastra/Postgres-only proof
 
-## When this reference applies
+Use an approved disposable Postgres on `127.0.0.1` (allowlisted in `src/mastra/pg-store.ts`) with independently verified container/database ownership. Before migrations, create the `anon`, `authenticated` and `service_role` NOLOGIN roles and the restricted login role as shown in the `Provision the pinned mastra schema and the runtime role` step of the [existing `mem-001-restart-history` CI job](../../.github/workflows/ci.yml). These are local-only provisioning steps; **never** create or modify roles on hosted production.
 
-Read this only if `supabase start` or the local CLI actually fails, or the task needs an isolated Mastra/Postgres proof. Do not assume every machine has this issue. Never edit or decrypt `.env.local` to bypass this error. Never point a fallback at hosted production. Real database authorization/RLS must still be independently proven by its owning domain task and tests.
+Apply the repo's pinned Mastra migrations **in timestamp order**: `20260722093028_mastra_schema_pinned_1_12_0` → `20260722094055_mastra_runtime_grants_and_rls` → `20260822070000_ipi1008_mastra_workflow_definitions` → `20260927194500_ipi1332_mastra_1_71_schema_delta`. The grants/RLS migration expects the roles and core tables; the delta requires prior RLS state. Do not skip prerequisites or silently substitute a new database provider.
 
-**Reference — REFERENCE ONLY:** https://supabase.com/docs/guides/local-development/cli/getting-started (official Supabase CLI local development). Confirm installed version and project config first; do not copy destructive database reset or production migration commands.
+This scoped troubleshooting reference does not authorize production writes, paid QA or account changes.

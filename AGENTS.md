@@ -132,7 +132,9 @@ Evidence labels for implementation-status claims:
 - **Behavior verified** — the same SHA plus a passing risk-matched test or observed runtime/readback supporting the specific claim.
 - **Unverified** — missing, stale, or failed evidence; name the missing proof and the next check.
 
-When Linear is available, its live issue is authoritative for **approved desired outcomes, acceptance criteria, dependencies and progress**; during an outage, the existing `todo.md` handoff is temporary and must be reconciled to Linear before marking Done. Record conflicts between approved requirements and verified behavior for the task owner; do not silently discard either. Never implement from stale docs, a dirty checkout or another repository.
+**Task requirements and progress:** use the live Linear issue for approved outcomes, acceptance criteria, dependencies and recorded proof. Current code/runtime establish implementation state, not permission to silently change an approved requirement.
+
+**Exception and escalation:** when Linear is unavailable, use the existing temporary `todo.md` handoff and reconcile it to the owning issue before marking Done. If a requirement conflicts with current security constraints, verified runtime evidence, or urgent incident response, **STOP the affected action**. The authorized issue owner (or designated incident commander for incident response) must explicitly approve a changed scope or acceptance criterion; record the reason, approver, affected action, evidence and next review in the same Linear issue, using the temporary handoff only during an outage. This exception cannot bypass tenant authorization, exact-artifact approval, secret handling, production-write restrictions, or human merge approval. Never implement from stale docs, a dirty checkout or another repository.
 
 ## Architecture boundaries
 
@@ -184,11 +186,39 @@ Any BLOCKER or failed required evidence means **BLOCKED / UNVERIFIED**. Never us
 
 ## Supabase safety
 
-For data/auth/runtime changes, inspect the *actual* project, schema, role, table/FK, indexes, RLS/policies, RPC grants, `SECURITY DEFINER`, triggers, migrations and relevant security advisories before creating schema or policies.
+For tasks touching data/auth/runtime, inspect the existing contract before creating anything:
 
-For local Supabase tasks, first verify the installed CLI can parse the checkout configuration. When it succeeds, use `supabase start` (also exercised in CI fresh replay). If it fails due to the known dotenvx-encrypted `.env.local` conflict, **STOP** and use the proof-specific [local Supabase troubleshooting](docs/development/local-supabase.md); never delete/decrypt secrets or silently substitute an unproven database.
+- project/schema/role identity;
+- tables and relationships/FKs;
+- indexes;
+- RLS/policies;
+- RPC/functions/grants;
+- `SECURITY DEFINER` behavior;
+- triggers;
+- Edge Functions when relevant;
+- migration/type drift;
+- relevant security findings.
 
-For hosted reads, use the approved non-production target unless the owning Linear task explicitly authorizes a verified production read. Production/hosted writes are forbidden by default **unless** a task specifically authorizes a bounded synthetic proof with verified project identity, isolation, baseline/readback, cleanup and human approval. **Never `supabase db push` against production.** STOP when project, schema, role or read/write authority is uncertain.
+Default local writes: use the repository's normal local Supabase path — `npm run supabase:cli -- start`, then `npm run supabase:cli -- db reset --local`. Never delete or decrypt `.env.local` to make the CLI run. Hosted reads use the approved non-production target unless the live Linear task names the exact hosted project and authorizes the read.
+
+**Why the wrapper exists (root cause verified 2026-09-28, IPI-1374).** `supabase/config.toml` resolves several values through `env(NAME)` — `env(OPENAI_API_KEY)`, `env(S3_SECRET_KEY)` and others. The CLI builds that lookup table from the dotenv files it discovers in the project root, so it reads `.env.local`, whose values are dotenvx-encrypted and therefore begin with `encrypted:`. The CLI is dotenvx-aware and refuses to finish parsing config until it can decrypt them, which needs `DOTENV_PRIVATE_KEY_LOCAL` from `.env.keys` — a file the CLI does not read. It aborts before touching Docker:
+
+```text
+$ supabase start
+failed to parse config: missing private key
+```
+
+`npm run supabase:cli` injects **only the private keys** through the repository's existing dotenvx boundary, so the CLI decrypts on demand and no other secret enters the child environment (4 keys rather than the 64 plaintext values a `--convention=nextjs` injection would add). Supabase CLI 2.118.0 was tested against this tree and fails identically, so the pin stays at 2.116.0 and the gap is closed in the repository instead. `--ignore=MISSING_ENV_FILE` leaves CI unchanged: `.env.keys` and `.env.local` are both absent there, so the command falls through to the unmodified upstream CLI that `supabase-fresh-replay` already exercises.
+
+Verified 2026-09-28 with the encrypted `.env.local` present: `npm run supabase:cli -- start` exited 0, `npm run supabase:cli -- db reset --local` exited 0 after applying every migration, and `.env.local` and `.env.keys` were byte-identical afterwards.
+
+**For Mastra/Postgres-only proofs** that do not need the Supabase stack, use disposable Postgres plus this repository's own migrations. Start local Postgres on `127.0.0.1`, create the login role, then apply the pinned `mastra` migrations **in timestamp order** (`20260722093028_mastra_schema_pinned_1_12_0` → `20260722094055_mastra_runtime_grants_and_rls` → `20260822070000_ipi1008_mastra_workflow_definitions` → `20260927194500_ipi1332_mastra_1_71_schema_delta`). `127.0.0.1` is on the `src/mastra/pg-store.ts` allowlist. This is what the `mem-001-restart-history` CI job does, and it needs no new DDL.
+
+Do not silently fall back to a second database provider. Report a breakage rather than working around it invisibly, and do not delete `.env.local` (the app needs it).
+
+Production/hosted writes are forbidden by default. An explicit Linear task may authorize a hosted synthetic proof only with verified project identity, synthetic IDs/namespaces, non-interference baseline/after proof, required guards such as `disableInit: true`, cleanup, and explicit authorization.
+
+Never `supabase db push` against production. Stop if project, schema, role, or read/write boundary is uncertain.
 
 ## AI governance
 
