@@ -98,7 +98,8 @@ describe("IPI-1291 dependency security floors", () => {
     expect(isAtLeast(override!, JS_YAML_V3_FLOOR)).toBe(true);
 
     const versions = resolvedVersions("js-yaml");
-    expect(versions.length).toBeGreaterThan(0);
+    // Mastra 1.82 no longer pulls a js-yaml copy. Zero copies is safe; if any
+    // transitive copy reappears, the floor override above must still protect it.
     for (const version of versions) {
       expect(isPatchedJsYaml(version)).toBe(true);
     }

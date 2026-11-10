@@ -456,10 +456,47 @@ jobs:
             supabase/migrations/20260722093028_mastra_schema_pinned_1_12_0.sql \
             supabase/migrations/20260722094055_mastra_runtime_grants_and_rls.sql \
             supabase/migrations/20260822070000_ipi1008_mastra_workflow_definitions.sql \
-            supabase/migrations/20260927194500_ipi1332_mastra_1_71_schema_delta.sql ; do
+            supabase/migrations/20260927194500_ipi1332_mastra_1_71_schema_delta.sql \
+            supabase/migrations/20261110000000_ipi1385_mastra_1_82_run_fencing.sql ; do
             echo "applying $migration"
             psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$migration"
           done
+      # IPI-1385: prove the 1.82 run-fencing tables are usable by the dedicated
+      # runtime login, not only by the migration owner. RLS is enabled and the
+      # policy is scoped to hyperdrive_mastra_runtime, so these DML checks fail
+      # closed if the grant/policy posture is wrong.
+      - name: Verify 1.82 workflow ownership and memory fencing as the runtime role
+        env:
+          PGPASSWORD: runtime
+        run: |
+          psql -h 127.0.0.1 -U hyperdrive_mastra_runtime -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          BEGIN;
+          INSERT INTO mastra.mastra_workflow_run_owners
+            ("runId", generation, "ownerId", "leaseExpiresAt", "updatedAt")
+          VALUES
+            ('IPI-1385-RUN', 1, 'IPI-1385-WORKER', 9999999999999, 1);
+          SELECT "runId", generation, "ownerId"
+          FROM mastra.mastra_workflow_run_owners
+          WHERE "runId" = 'IPI-1385-RUN' AND "ownerId" = 'IPI-1385-WORKER';
+          UPDATE mastra.mastra_workflow_run_owners
+          SET "leaseExpiresAt" = NULL, "updatedAt" = 2
+          WHERE "runId" = 'IPI-1385-RUN';
+          DELETE FROM mastra.mastra_workflow_run_owners
+          WHERE "runId" = 'IPI-1385-RUN';
+          INSERT INTO mastra.mastra_memory_run_fences
+            ("runId", generation, "ownerId", "retiredAt")
+          VALUES
+            ('IPI-1385-RUN', 1, 'IPI-1385-WORKER', NULL);
+          SELECT "runId", generation, "ownerId"
+          FROM mastra.mastra_memory_run_fences
+          WHERE "runId" = 'IPI-1385-RUN' AND "ownerId" = 'IPI-1385-WORKER';
+          UPDATE mastra.mastra_memory_run_fences
+          SET "retiredAt" = 2
+          WHERE "runId" = 'IPI-1385-RUN';
+          DELETE FROM mastra.mastra_memory_run_fences
+          WHERE "runId" = 'IPI-1385-RUN';
+          ROLLBACK;
+          SQL
       - run: npm ci
       - name: Prior message history reaches the next Planner model call after a real restart
         run: npx tsx scripts/mem-001-restart-proof.mjs
