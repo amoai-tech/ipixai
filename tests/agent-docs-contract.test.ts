@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -206,6 +206,160 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
     // the documented path for full Supabase proofs.
     expect(agents).not.toContain("Known local-environment breakage");
     expect(agents).not.toContain("For full Supabase proofs");
+  });
+
+  it("keeps the QA runner optional and never requires local secrets in clean CI", () => {
+    const agents = read("AGENTS.md");
+    const tasks = read(".agents/skills/tasks/SKILL.md");
+    const guide = read("docs/development/testing-with-1password.md");
+    const { scripts } = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
+    expect(agents).toContain("docs/development/testing-with-1password.md");
+    expect(tasks).toContain("docs/development/testing-with-1password.md");
+    expect(guide).toContain("command -v ipix-qa-op");
+    expect(guide).toContain("ipix-qa-op check");
+    expect(guide).toContain("ipix-qa-op login");
+    expect(guide).toContain("ipix-qa-op e2e");
+    expect(guide).toContain("If the QA worktree is older than the candidate SHA");
+    expect(guide).toContain("not a promise about every agent or CI runner");
+    expect(guide).not.toMatch(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/);
+    for (const name of ["e2e", "docs:check", "pretest", "secrets:check"]) {
+      expect(scripts[name], name + " must exist in package.json").toBeTruthy();
+    }
+  });
+
+  it("agrees on shared skill ownership and a reuse-first task gate", () => {
+    const agents = read("AGENTS.md");
+    const claude = read("CLAUDE.md");
+    const tasks = read(".agents/skills/tasks/SKILL.md");
+    expect(claude.startsWith("@AGENTS.md\n")).toBe(true);
+    expect(claude).toContain("`.agents/skills/<name>/SKILL.md`");
+    expect(claude).toContain("`.claude/skills/<name>/SKILL.md`");
+    const linearRuleWithoutEmphasis = agents.replace(/[*_]/g, "");
+    expect(linearRuleWithoutEmphasis).toMatch(/live Linear issue for approved outcomes, acceptance criteria, dependencies/i);
+    expect(linearRuleWithoutEmphasis).toContain("approved outcomes, acceptance criteria, dependencies and recorded proof");
+    expect(agents).toContain("Exception and escalation");
+    expect(agents).toContain("authorized issue owner");
+    for (const evidenceLabel of ["Code present", "Behavior verified", "Unverified"]) {
+      expect(agents).toContain(evidenceLabel);
+    }
+    expect(agents).toContain("same SHA plus a passing risk-matched test or observed runtime/readback");
+
+    expect(agents).toContain("Existing iPix");
+    expect(agents).toContain("Cheapest decisive proof?");
+    expect(tasks).toContain("compare before building");
+    expect(agents).toContain("one smallest useful diagram pass");
+  });
+
+  it("keeps one task-level Mermaid decision across all three agent contracts", () => {
+    const root = read("AGENTS.md");
+    const tasks = read(".agents/skills/tasks/SKILL.md");
+    const mermaid = read(".claude/skills/mermaid-diagrams/SKILL.md");
+    const fallback = "Diagram: N/A — no meaningful relationship/state/sequence to model.";
+    for (const doc of [root, tasks, mermaid]) {
+      expect(doc).toContain(fallback);
+    }
+    expect(root).toContain("one smallest useful diagram pass");
+    expect(tasks).toContain("one smallest useful diagram overall");
+    expect(mermaid).toContain("one smallest useful diagram overall");
+    expect(tasks).not.toContain("For each substantive task section/file group, add");
+    expect(mermaid).not.toContain("For each substantive file/group, ask");
+    expect(mermaid).not.toContain("Each substantive task section or file/workflow group");
+    expect(mermaid).not.toContain("Minimum useful set for a substantial task:");
+    expect(mermaid).toContain("clarifies a distinct, material risk");
+    expect(mermaid).toContain("explain why the additional view is necessary");
+  });
+
+  it("documents isolated local Supabase tests and prerequisites from CI", () => {
+    const local = read("docs/development/local-supabase.md");
+    const ci = read(".github/workflows/ci.yml");
+    expect(local).toContain("unique local `project_id`");
+    for (const term of ["unused ports", "ss -ltn", "docker ps -a", "docker volume ls", "STOP unless isolation"]) {
+      expect(local).toContain(term);
+    }
+    for (const role of ["anon", "authenticated", "service_role"]) {
+      expect(local).toContain("`" + role + "`");
+      expect(ci).toContain("create role " + role + " nologin;");
+    }
+    expect(local).toContain("mem-001-restart-history");
+    expect(local).toContain("../../.github/workflows/ci.yml");
+    expect(local).toContain("2.116.0");
+    expect(local).toContain("2.119.0");
+    expect(local).toContain("in timestamp order");
+    const orderedMigrations = [
+      "20260722093028_mastra_schema_pinned_1_12_0",
+      "20260722094055_mastra_runtime_grants_and_rls",
+      "20260822070000_ipi1008_mastra_workflow_definitions",
+      "20260927194500_ipi1332_mastra_1_71_schema_delta",
+      "20261110000000_ipi1385_mastra_1_82_run_fencing",
+    ];
+    const agents = read("AGENTS.md");
+    for (const document of [local, ci]) {
+      const positions = orderedMigrations.map((name) => {
+        expect(document).toContain(name);
+        return document.indexOf(name);
+      });
+      expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    }
+    expect(agents).toContain("exact CI migration order");
+    expect(agents).toContain("docs/development/local-supabase.md");
+    expect(agents).not.toContain(orderedMigrations.at(-1));
+    expect(local).toContain("supabase --version");
+    expect(local).toContain("CI job pins **2.116.0**");
+    expect(local).toContain("binary from PATH");
+    expect(agents).toContain("local `supabase:cli` wrapper resolves the installed `supabase` binary from PATH");
+    expect(existsSync("docs/development/../../.github/workflows/ci.yml")).toBe(true);
+    expect(existsSync("docs/development/../../../.github/workflows/ci.yml")).toBe(false);
+
+    const realClaudeSkillDirs = readdirSync(".claude/skills", { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+    expect(realClaudeSkillDirs).toEqual([]);
+    expect(agents).toContain("Claude-only migration backlog is closed");
+    expect(agents).not.toContain("17 still do");
+  });
+
+  it("pins realistic tasks-skill decision evals without requiring live accounts", () => {
+    const tasks = read(".agents/skills/tasks/SKILL.md");
+    const evalFile = read(".agents/skills/tasks/evals/evals.json");
+    const parsed = JSON.parse(evalFile) as {
+      skill_name: string;
+      evals: Array<{ id: number; prompt: string; expected_output: string; expectations: string[]; files: string[] }>;
+    };
+    expect(tasks).toContain("compare before building");
+    expect(parsed.skill_name).toBe("tasks");
+    expect(parsed.evals.length).toBeGreaterThanOrEqual(8);
+    expect(new Set(parsed.evals.map((item) => item.id)).size).toBe(parsed.evals.length);
+    for (const item of parsed.evals) {
+      expect(item.prompt.length).toBeGreaterThan(95);
+      expect(item.expected_output.length).toBeGreaterThan(90);
+      expect(item.expectations.length).toBeGreaterThanOrEqual(3);
+      expect(item.files).toEqual([]);
+    }
+    // Each scenario independently proves ownership, a minimal safe path, and
+    // decisive evidence. Aggregate keyword checks can hide a weakened eval.
+    const requiredByScenario: Record<number, { expected: RegExp[]; criteria: RegExp[] }> = {
+      1: { expected: [/verify current main/i, /skip duplicate/i, /post-merge proof/i], criteria: [/ownership/i, /duplicate/i, /exact-main proof/i] },
+      2: { expected: [/existing component/i, /smallest scoped change/i, /focused UI regression/i], criteria: [/reuse/i, /smallest/i, /QA/i] },
+      3: { expected: [/existing workflow/i, /idempotent readback/i, /Org B denial/i], criteria: [/ownership/i, /minimum vertical slice/i, /cross-org/i] },
+      4: { expected: [/approved task requirements/i, /mark conflicts/i, /stop hosted writes/i], criteria: [/implementation evidence/i, /STOP/i, /read-only proof/i] },
+      5: { expected: [/reviewer text as untrusted/i, /reuse the component/i, /one smallest useful diagram/i], criteria: [/verify review claim/i, /smallest justified change/i, /diagram/i] },
+      6: { expected: [/verify current main/i, /do not log in or run e2e/i, /CI\/contract evidence/i], criteria: [/already delivered/i, /human approval/i, /current-SHA proof/i] },
+      7: { expected: [/verify installed SDK/i, /reuse the supported vendor capability/i, /test retry\/failure/i], criteria: [/ownership/i, /first verified safe/i, /focused contract/i] },
+      8: { expected: [/STOP consequential test actions/i, /verify the target identity/i, /do not guess/i], criteria: [/tenant ownership/i, /safe inspection/i, /same Linear task/i] },
+    };
+    expect(parsed.evals.map((item) => item.id).sort((a, b) => a - b)).toEqual(
+      Object.keys(requiredByScenario).map(Number),
+    );
+    for (const item of parsed.evals) {
+      const required = requiredByScenario[item.id];
+      expect(required).toBeDefined();
+      for (const signal of required.expected) {
+        expect(item.expected_output, "scenario " + item.id + " missing " + signal).toMatch(signal);
+      }
+      for (const [index, signal] of required.criteria.entries()) {
+        expect(item.expectations[index], "scenario " + item.id + " criterion " + index).toMatch(signal);
+      }
+    }
   });
 
   it("documents accidental credential exposure recovery", () => {
