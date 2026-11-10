@@ -314,9 +314,9 @@ describe("typed runtime delegation wrappers", () => {
 
     wrapped(messages, {
       clientTools: {
-        render_ui: {},
-        reviewShootPlan: {},
-        deleteBrand: {},
+        render_ui: { id: "render_ui" },
+        reviewShootPlan: { id: "reviewShootPlan" },
+        deleteBrand: { id: "deleteBrand" },
       },
     });
 
@@ -327,8 +327,8 @@ describe("typed runtime delegation wrappers", () => {
     expect(activeTools).not.toContain("deleteBrand");
     expect(activeTools).toEqual([
       ...PLANNING_ONLY_TOOLS,
-      "reviewShootPlan",
       "render_ui",
+      "reviewShootPlan",
     ]);
   });
 
@@ -360,6 +360,25 @@ describe("typed runtime delegation wrappers", () => {
     expect(activeTools).not.toContain("render_ui");
   });
 
+  it("stream rejects null or malformed client-tool definitions", () => {
+    const calls: unknown[][] = [];
+    const original = (messages: unknown, options?: Record<string, unknown>) => {
+      calls.push([messages, options]);
+      return "stream-result";
+    };
+    const wrapped = wrapPlannerStreamWithToolGate(original);
+    const messages = [{ role: "user", content: "Plan a shoot" }];
+
+    wrapped(messages, {
+      clientTools: { render_ui: null, reviewShootPlan: undefined },
+    });
+
+    const activeTools = (calls[0]?.[1] as Record<string, unknown>)
+      .activeTools as string[];
+    expect(activeTools).not.toContain("render_ui");
+    expect(activeTools).not.toContain("reviewShootPlan");
+  });
+
   it("stream rejects prototype-inherited client tools", () => {
     const calls: unknown[][] = [];
     const original = (messages: unknown, options?: Record<string, unknown>) => {
@@ -369,8 +388,11 @@ describe("typed runtime delegation wrappers", () => {
     const wrapped = wrapPlannerStreamWithToolGate(original);
     const messages = [{ role: "user", content: "Plan a shoot" }];
 
-    const inherited = Object.create({ render_ui: {}, reviewShootPlan: {} });
-    inherited.deleteBrand = {};
+    const inherited = Object.create({
+      render_ui: { id: "render_ui" },
+      reviewShootPlan: { id: "reviewShootPlan" },
+    });
+    inherited.deleteBrand = { id: "deleteBrand" };
 
     wrapped(messages, { clientTools: inherited });
 
@@ -391,15 +413,15 @@ describe("typed runtime delegation wrappers", () => {
     const messages = [{ role: "user", content: "Approve the brand draft" }];
 
     wrapped(messages, {
-      clientTools: { render_ui: {}, reviewShootPlan: {}, deleteBrand: {} },
+      clientTools: { render_ui: { id: "render_ui" }, reviewShootPlan: { id: "reviewShootPlan" }, deleteBrand: { id: "deleteBrand" } },
     });
 
     const activeTools = (calls[0]?.[1] as Record<string, unknown>)
       .activeTools as string[];
     expect(activeTools).toEqual([
       ...ALL_AGENT_TOOLS,
-      "reviewShootPlan",
       "render_ui",
+      "reviewShootPlan",
     ]);
     expect(activeTools).not.toContain("deleteBrand");
   });
@@ -433,7 +455,7 @@ describe("typed runtime delegation wrappers", () => {
       { approved: true },
       {
         requestContext,
-        clientTools: { render_ui: {}, reviewShootPlan: {} },
+        clientTools: { render_ui: { id: "render_ui" }, reviewShootPlan: { id: "reviewShootPlan" } },
       },
     );
 
@@ -444,8 +466,8 @@ describe("typed runtime delegation wrappers", () => {
     const prepared = await prepareStep({ requestContext });
     expect(prepared.activeTools).toEqual([
       ...PLANNING_ONLY_TOOLS,
-      "reviewShootPlan",
       "render_ui",
+      "reviewShootPlan",
     ]);
   });
 

@@ -312,11 +312,12 @@ export function suppliedIntegrationTools(
   if (!isRecord(options.clientTools)) return [];
   const clientTools = options.clientTools;
   const supplied: string[] = [];
-  if (Object.prototype.hasOwnProperty.call(clientTools, PLAN_REVIEW_TOOL)) {
-    supplied.push(PLAN_REVIEW_TOOL);
-  }
-  if (Object.prototype.hasOwnProperty.call(clientTools, GENUI_RENDER_TOOL)) {
-    supplied.push(GENUI_RENDER_TOOL);
+  for (const name of INTEGRATION_TOOL_NAMES) {
+    if (!Object.prototype.hasOwnProperty.call(clientTools, name)) continue;
+    const tool = clientTools[name];
+    // `buildClientTools` constructs `{ id: tool.name, ... }`. A null,
+    // undefined or malformed definition is not a supplied tool.
+    if (isRecord(tool) && tool.id === name) supplied.push(name);
   }
   return supplied;
 }
