@@ -293,13 +293,16 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
       "20261110000000_ipi1385_mastra_1_82_run_fencing",
     ];
     const agents = read("AGENTS.md");
-    for (const document of [local, agents, ci]) {
+    for (const document of [local, ci]) {
       const positions = orderedMigrations.map((name) => {
         expect(document).toContain(name);
         return document.indexOf(name);
       });
       expect(positions).toEqual([...positions].sort((a, b) => a - b));
     }
+    expect(agents).toContain("exact CI migration order");
+    expect(agents).toContain("docs/development/local-supabase.md");
+    expect(agents).not.toContain(orderedMigrations.at(-1));
     expect(local).toContain("supabase --version");
     expect(local).toContain("CI job pins **2.116.0**");
     expect(local).toContain("binary from PATH");
