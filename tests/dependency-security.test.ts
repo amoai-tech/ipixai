@@ -119,25 +119,36 @@ describe("IPI-1218 compatible advisory patches", () => {
     }
   });
 
-  it("protects each brace-expansion major from both recursion advisories", () => {
-    // GHSA-qhr7-859c-m2p7 and GHSA-6j4f-fj2g-mc7p.
-    // Different installed minimatch majors depend on incompatible brace majors.
+  it("protects every brace-expansion copy from known recursion and CPU DoS advisories", () => {
+    // GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p, and GHSA-q2hr-2g5m-vwhr.
+    // The final advisory has newer patched floors than the two high-severity ones.
+    // Unknown majors (including vulnerable v4) require explicit security review.
     const floors: Record<number, string> = {
-      1: "1.1.20",
-      2: "2.1.6",
-      3: "3.0.8",
-      5: "5.0.11",
+      1: "1.1.21",
+      2: "2.1.7",
+      3: "3.0.9",
+      5: "5.0.12",
     };
     const versions = resolvedVersions("brace-expansion");
     expect(versions.length).toBeGreaterThan(0);
     for (const version of versions) {
       const major = parseStableVersion(version)[0];
       const floor = floors[major];
-      // v4 has no patched release in the advisory: require compatible v5+.
-      if (major > 5) continue;
       expect(floor, `Unreviewed brace-expansion major ${major}`).toBeDefined();
       expect(isAtLeast(version, floor)).toBe(true);
     }
+
+    // Prove the guard would reject the *last vulnerable patch* on every line.
+    for (const [vulnerable, minimum] of [
+      ["1.1.20", floors[1]],
+      ["2.1.6", floors[2]],
+      ["3.0.8", floors[3]],
+      ["5.0.11", floors[5]],
+    ] as const) {
+      expect(isAtLeast(vulnerable, minimum)).toBe(false);
+    }
+    expect(floors[4], "Unreviewed 4.x must not pass").toBeUndefined();
+    expect(floors[6], "Unreviewed future majors must not silently pass").toBeUndefined();
   });
 
   it("keeps Mastra RE2JS past the patched floor (GHSA-gg6h-894w-4m9c)", () => {
