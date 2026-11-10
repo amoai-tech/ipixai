@@ -4,7 +4,7 @@
 
 `AGENTS.md` is the canonical repository-wide agent contract. **Follow it first.** This file is a Claude-specific overlay: it carries Claude-only detail only, and it must not restate or override repository-wide rules. If the two ever disagree, `AGENTS.md` wins and this file is the bug.
 
-Precedence is defined once, in `AGENTS.md` § Precedence: user chat → closest `AGENTS.md` → root `AGENTS.md` → this file → domain skills and other prose.
+Precedence is defined once, in `AGENTS.md` ` Precedence: user chat → closest `AGENTS.md` → root `AGENTS.md` → this file → domain skills and other prose.
 
 ## Goal
 
@@ -26,19 +26,19 @@ These topics were previously restated here. They are repository-wide rules, so t
 
 | Topic | Canonical location |
 |---|---|
-| Task and PR lifecycle, task structure, progress, post-merge | `AGENTS.md` § Canonical engineering workflow; `.claude/skills/tasks/SKILL.md` |
-| Cheapest-safe-path ordering | `AGENTS.md` § Fastest safe path |
-| Diagram reasoning gate and its defect checklist | `AGENTS.md` § Mermaid reasoning; `.claude/skills/mermaid-diagrams/SKILL.md` |
-| Source-of-truth tiers | `AGENTS.md` § Source of truth — higher wins |
-| Ownership, authorization, and tenant boundaries | `AGENTS.md` § Architecture boundaries |
-| Human-in-the-loop for consequential actions | `AGENTS.md` § AI governance |
-| Linear state, templates, relations, issue naming | `AGENTS.md` § Linear task execution and § Linear template routing |
-| Proof order, `npm test` vs `npx vitest run`, completion claims | `AGENTS.md` § Testing instructions and § Completion claims |
-| PR rules and merge authority | `AGENTS.md` § PR instructions and § Merge authority |
-| Reuse before custom | `AGENTS.md` § Reuse before custom |
-| Secrets and Dotenvx | `AGENTS.md` § Secrets / Dotenvx |
-| Local database safety, including the broken `supabase start` path | `AGENTS.md` § Supabase safety |
-| Graphify | `AGENTS.md` § Setup commands; `.claude/skills/graphify/SKILL.md` |
+| Task and PR lifecycle, task structure, progress, post-merge | `AGENTS.md` ` Canonical engineering workflow; `.claude/skills/tasks/SKILL.md` |
+| Cheapest-safe-path ordering | `AGENTS.md` ` Fastest safe path |
+| Diagram reasoning gate and its defect checklist | `AGENTS.md` ` Mermaid reasoning; `.claude/skills/mermaid-diagrams/SKILL.md` |
+| Source-of-truth tiers | `AGENTS.md` ` Source of truth — higher wins |
+| Ownership, authorization, and tenant boundaries | `AGENTS.md` ` Architecture boundaries |
+| Human-in-the-loop for consequential actions | `AGENTS.md` ` AI governance |
+| Linear state, templates, relations, issue naming | `AGENTS.md` ` Linear task execution and ` Linear template routing |
+| Proof order, `npm test` vs `npx vitest run`, completion claims | `AGENTS.md` ` Testing instructions and ` Completion claims |
+| PR rules and merge authority | `AGENTS.md` ` PR instructions and ` Merge authority |
+| Reuse before custom | `AGENTS.md` ` Reuse before custom |
+| Secrets and Dotenvx | `AGENTS.md` ` Secrets / Dotenvx |
+| Local database safety, including the broken `supabase start` path | `AGENTS.md` ` Supabase safety |
+| Graphify | `AGENTS.md` ` Setup commands; `.claude/skills/graphify/SKILL.md` |
 
 `task-verifier` independently challenges what remains unproven, at the risk-matched depth. It does not become a second implementation lifecycle.
 
@@ -64,23 +64,23 @@ These are **outstanding**, not historical. They were written as "after PR #106 m
 
 ## Skill authoring
 
-Prefer `.claude/skills/<name>/SKILL.md` for reusable procedures. `.claude/commands/` files are compatibility shims only when an equivalent project skill exists.
+For **shared** reusable procedures, author the canonical copy under `.agents/skills/<name>/SKILL.md`, with Claude exposure through approved symlinks/registry only. Put genuinely **Claude-only** procedures under `.claude/skills/<name>/SKILL.md` when appropriate. `.claude/commands/` are compatibility shims, not duplicate implementations. Follow `AGENTS.md` ` Code style for exceptions and vendored skills.
 
 For any skill whose purpose is to change what the model decides or does — rather than to produce an artifact or answer a lookup — keep realistic prompts in that skill's own `evals/evals.json` (for example `.claude/skills/pr/evals/evals.json`) and compare a changed skill against the previous version before claiming the rewrite is better. That criterion is deliberately behaviour-based: a skill that changes decisions needs test prompts, while a purely descriptive or subjective one gets no value from assertions. Vendored skills are exempt — their evals belong upstream, not in a local edit the next sync discards. Keep trigger conditions in the skill description, keep `SKILL.md` concise, and move detailed material into supporting references/scripts when needed.
 
 Side-effecting skills must require explicit user invocation or an equally strong human approval boundary. In particular, `/pr` is user-controlled and bare `/pr` is read-only; commit/push requires explicit `/pr ship`.
 
-Skill homes and the one-real-copy rule are defined in `AGENTS.md` § Code style — `.agents/skills/` is the canonical tree for shared skills; many existing skills remain under `.claude/skills/` until migrated.
+Skill homes and the one-real-copy rule are defined in `AGENTS.md` ` Code style — `.agents/skills/` is the canonical tree for shared skills; many existing skills remain under `.claude/skills/` until migrated.
 
 ## Secrets / Dotenvx — Claude launch rules
 
-`AGENTS.md` § Secrets / Dotenvx is the repository source of truth; this section adds only the Claude launch boundary.
+`AGENTS.md` ` Secrets / Dotenvx is the repository source of truth; this section adds only the Claude launch boundary.
 
 When Claude needs credentials, launch it with `npm run agent:claude`. If a required credential is missing from `.env.agent`, stop and ask the user to add the named key to `.env.agent` or its provider-managed owner; never request or paste the secret value into chat.
 
 ## Response style — Claude-specific delta
 
-`AGENTS.md` § Explain owns the response contract. This section adds only the parts Claude needs spelled out:
+`AGENTS.md` ` Explain owns the response contract. This section adds only the parts Claude needs spelled out:
 
 1. **Plain English first.** 1–2 sentences, no unexplained jargon.
 2. **A real iPix example when it clarifies the point** — a lookbook, Matching, a shoot, Brand Hub, the asset/Cloudinary pipeline, a real file or PR from this repo. Skip this only when the answer is already simple enough that an example would just repeat it.

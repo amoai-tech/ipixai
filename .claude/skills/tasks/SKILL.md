@@ -158,7 +158,7 @@ For progress rules, read [progress-tracker.md](references/progress-tracker.md).
 For Lumina migrations, also read [migration-lumina.md](references/migration-lumina.md).
 Before commit, read [pre-commit.md](references/pre-commit.md), then choose the risk-matched verification set from [pre-merge-tests.md](references/pre-merge-tests.md).
 For PR creation/troubleshooting, read [github-pr.md](references/github-pr.md), [review-comments.md](references/review-comments.md), [domain-routing.md](references/domain-routing.md), [research-evidence.md](references/research-evidence.md), and [github-actions.md](references/github-actions.md).
-For user-facing or AI-native workflows, read [user-journey-testing.md](references/user-journey-testing.md).
+For user-facing or AI-native workflows, read [user-journey-testing.md](references/user-journey-testing.md). For authorized existing-account/authenticated-browser QA, use the [1Password testing guide](../../../docs/development/testing-with-1password.md) conditionally; do not run it for every small change.
 For UI-heavy work, read [ui-review.md](references/ui-review.md).
 For every substantial task, also read `../mermaid-diagrams/SKILL.md` and use Mermaid as a reasoning/error-discovery gate, not only as presentation.
 After merge, read [post-merge.md](references/post-merge.md). Keep task and PR lifecycle behavior centralized in this `tasks` skill; do not create parallel lifecycle skills.
@@ -238,7 +238,7 @@ Parent workflow rows are roll-ups only when expanded into child rows. Implementa
 
 ## Faster/better approach
 
-At task start and each major phase ask once: **Is there a better, faster, more efficient way to complete this without weakening evidence?** Use that path.
+At task start, and only again when blocked or scope changes, **compare before building**: (1) already implemented/owned? (2) reuse existing code or an installed/official feature? (3) smallest safe remaining change? (4) cheapest decisive proof? Choose the first viable **verified safe** path; record a one-line reason in the **same Linear task** if it materially changes the work. Do **not** create extra plans, issues, tests, reviews or scores just to perform this assessment.
 
 ## Handoff contract
 
@@ -247,5 +247,5 @@ A different agent must be able to resume from the Linear issue alone and know: c
 ## Core agent prompt
 
 ```text
-You are executing one substantial iPix Linear task. Read this skill, the Mermaid reasoning skill, and only the domain references applicable to the current phase. Verify current code/runtime before trusting task assumptions. Before coding, diagram current → target state, material ownership/trust boundaries, dependencies/blockers, and failure/recovery paths; use the diagrams to challenge the plan. For each substantive section/file group, add the smallest useful diagram or an explicit N/A reason. Keep the user outcome separate from the proposed implementation, use the smallest safe solution, and record evidence after each checkpoint. Use the owning domain skill/MCP for uncertain external contracts. For Mastra/Lumina work, classify behavior-level reuse and independent Mastra proof classes before coding. Do not speculate about files or APIs you have not inspected. Stop and update Linear when a STOP condition or diagrammed failure path invalidates the plan. Finish only when the observable Definition of Done and required post-merge proof are verified.
+You are executing one substantial iPix Linear task. Read this skill, the Mermaid reasoning skill, and only the domain references applicable to the current phase. Verify current code/runtime before trusting task assumptions. Before coding, diagram current → target state, material ownership/trust boundaries, dependencies/blockers, and failure/recovery paths; use the diagrams to challenge the plan. Use one smallest useful diagram for substantial work (or one N/A reason if none adds value); add another only if a new material boundary warrants it. Keep the user outcome separate from the proposed implementation, use the smallest safe solution, and record evidence after each checkpoint. Use the owning domain skill/MCP for uncertain external contracts. For Mastra/Lumina work, classify behavior-level reuse and independent Mastra proof classes before coding. Do not speculate about files or APIs you have not inspected. Stop and update Linear when a STOP condition or diagrammed failure path invalidates the plan. Finish only when the observable Definition of Done and required post-merge proof are verified.
 ```

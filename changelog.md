@@ -25,6 +25,8 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Changed
 
+- IPI-1432 · AGENT-DOCS-002 — Reduced duplicated agent instructions, clarified approved Linear versus implementation evidence and shared skill ownership, made fast-path and diagram decisions risk-matched, and linked safe existing 1Password-backed QA and local tool recovery references. No app code, credentials, database or deployment changes.
+
 - IPI-1424 · DOC-INTENT-001 — Added task-size gating to the canonical `AGENTS.md` feature workflow, a `CLAUDE.md` import so Claude loads the same contract, optional task-level intent/spec/plan templates and an IPI-1389 release-gate pilot. Updated the existing `tasks` skill for resumable Linear-first handoffs. Small fixes skip extra artifacts; no second tracker or approval process.
 
 - change(copilotkit): upgrade the Planner to CopilotKit 1.85 / AG-UI 1.0.2 and enforce owner-scoped Stop, reconnect and thread reads (IPI-1389, #319)

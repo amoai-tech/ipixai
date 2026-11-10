@@ -61,11 +61,11 @@ Ownership:
 
 ## Fastest safe path
 
-At task start and each major phase ask once:
+At task start and when **blocked or the scope materially changes**, make one quick comparison:
 
-> Is there a better, faster, more efficient way to complete this without weakening evidence?
+> **Already done?** Check main/PR/Linear. **Reuse?** Existing iPix → installed/official provider → custom only for the gap. **Smallest safe step?** Avoid an unnecessary file/agent/issue/review. **Cheapest decisive proof?** Targeted test first, then domain/E2E only if risk requires it.
 
-Use that path.
+Choose the simplest **verified safe** path and record a short reason in the existing Linear task *only when it changes the approach*. If nothing materially improves the plan, execute; do not invent scores, extra reviews or planning artifacts.
 
 Preferred order:
 
@@ -83,30 +83,9 @@ Do not redesign architecture unless evidence proves the current design cannot sa
 
 ## Mermaid reasoning — required for substantial tasks
 
-Mermaid is an engineering reasoning and defect-prevention tool, not decorative documentation. Follow `.claude/skills/mermaid-diagrams/SKILL.md`.
+For a substantial task, follow the existing [mermaid-diagrams skill](.claude/skills/mermaid-diagrams/SKILL.md) and make **one smallest useful diagram pass** for architecture, approval, dependencies, failure/recovery, or other material relationships. Use the diagram to find hidden writes, missing ownership, tenant/auth/HITL gaps, retries, races and missing proof. Do not generate a diagram per file or task section; reuse a diagram unless a new risk requires another. If none adds value, record: `Diagram: N/A — no meaningful relationship/state/sequence to model.`
 
-Every substantial task must perform a diagram pass covering the applicable current state, target state, architecture/ownership, dependencies/blockers, negative/recovery paths, and verification path.
-
-For every substantive task section or file/workflow group, add the smallest useful diagram or explicitly record:
-
-```text
-Diagram: N/A — no meaningful relationship/state/sequence to model.
-```
-
-Use diagrams to actively look for:
-
-- missing owner or duplicate source of truth;
-- browser/client authorization or tenant-trust gaps;
-- hidden writes or side effects;
-- AI/HITL approval bypass or approval detached from exact artifact/revision/hash;
-- duplicate retry/resume/callback effects;
-- race conditions or circular dependencies;
-- external failures without recovery/rollback;
-- stale/deprecated routes, skills, providers, or architecture;
-- secret exposure to client/model/memory/snapshot/trace;
-- final states with no observable test/readback proving them.
-
-If a load-bearing red flag appears, correct the task/architecture before coding. A diagram defines expected structure; tests/runtime evidence prove actual behavior.
+A diagram clarifies a claim; only tests/runtime evidence prove it. Correct a real blocker before coding.
 
 ## Setup commands
 
@@ -145,9 +124,9 @@ Graph: `graphify-out/graph.json` (generated local state; do not commit it).
 4. Official version-specific vendor docs.
 5. Current official docs.
 6. Project markdown, which may be stale.
-7. Linear prose and external examples until independently verified.
+7. Unverified prose and external examples; Linear remains authoritative for approved task requirements and progress.
 
-Never implement from stale docs, a dirty checkout, another repository, or task prose contradicted by current code/runtime.
+Current code/runtime are proof of **what exists**. Live Linear is the source of **approved desired outcomes, acceptance criteria, dependencies and progress**. If requirements differ from implementation, record the gap and resolve uncertainty with the task owner; do not silently discard the requirement. Never implement from stale docs, a dirty checkout or another repository.
 
 ## Architecture boundaries
 
@@ -163,6 +142,8 @@ Never implement from stale docs, a dirty checkout, another repository, or task p
 Never treat browser `orgId`, `user_metadata`, or service-role possession as authorization.
 
 ## Testing instructions
+
+For authorized real-browser/identity/tenant QA, consult the [1Password QA guide](docs/development/testing-with-1password.md), which safely adapts the existing local `testing.md` / `ipix-qa-op` workflow. **Run targeted deterministic tests first.** Do not run paid, destructive, production, or real-account write journeys without the existing task approval, correct project/environment, and isolation proofs. Never expose credentials or browser sessions.
 
 Re-read `package.json` and the changed path before choosing commands; never invent missing scripts.
 
@@ -197,40 +178,11 @@ Any BLOCKER or failed required evidence means **BLOCKED / UNVERIFIED**. Never us
 
 ## Supabase safety
 
-For tasks touching data/auth/runtime, inspect the existing contract before creating anything:
+For data/auth/runtime changes, inspect the *actual* project, schema, role, table/FK, indexes, RLS/policies, RPC grants, `SECURITY DEFINER`, triggers, migrations and relevant security advisories before creating schema or policies.
 
-- project/schema/role identity;
-- tables and relationships/FKs;
-- indexes;
-- RLS/policies;
-- RPC/functions/grants;
-- `SECURITY DEFINER` behavior;
-- triggers;
-- Edge Functions when relevant;
-- migration/type drift;
-- relevant security findings.
+`supabase start` remains the normal local Supabase path when project config loads successfully; CI independently proves local fresh replay. If the current workstation hits the known dotenvx-encrypted `.env.local` parse conflict, **STOP** and use the proof-specific, verified fallbacks in [local Supabase troubleshooting](docs/development/local-supabase.md) — never delete/decrypt secrets or substitute an unproven DB path.
 
-Default local writes: use the repository's normal local Supabase path when the CLI can load project config; `supabase start` remains the normal local Supabase path when project config loads successfully. If the current working tree has the known dotenvx-encrypted `.env.local` conflict below, do not delete or decrypt that file just to make the CLI run. Choose the fallback by proof scope instead. Hosted reads use the approved non-production target unless the task explicitly says otherwise.
-
-**Known local-environment breakage (verified 2026-09-28).** On the current workstation setup, `supabase start` fails when the working tree contains the dotenvx-encrypted `.env.local`. This is **not a repository-wide Supabase failure**: CI does not reproduce the conflict, and `supabase-fresh-replay` runs the real `supabase start` plus `supabase db reset --local` path successfully on every pull request (`.github/workflows/ci.yml`). The pinned CLI (`supabase` 2.116.0) aborts before touching Docker:
-
-```text
-$ supabase start
-failed to parse config: missing private key
-```
-
-Cause is bisected, not guessed: the dotenvx-encrypted `.env.local` (values are `encrypted:…`, plus `DOTENV_PUBLIC_KEY_LOCAL`) is the trigger. The identical `supabase/config.toml` run from a directory *without* `.env.local` passes config parsing and starts containers. It is not `config.toml`, not the ambient shell environment, and not `.env.keys`, `.env.test`, `.env.agent`, or `.env.legacy-retired` — each was tested individually.
-
-Two verified fallbacks — choose by the proof you need:
-
-1. **For full Supabase proofs**, run the Supabase CLI from a copy of `supabase/` outside this working tree, so the conflicting root `.env.local` is not discoverable from the CLI's working directory. This preserves the real local Supabase stack instead of substituting a different database path.
-2. **For Mastra/Postgres-only proofs**, use disposable Postgres plus this repository's own migrations. Start local Postgres on `127.0.0.1`, create the login role, then apply the pinned `mastra` migrations **in timestamp order** (`20260722093028_mastra_schema_pinned_1_12_0` → `20260722094055_mastra_runtime_grants_and_rls` → `20260822070000_ipi1008_mastra_workflow_definitions` → `20260927194500_ipi1332_mastra_1_71_schema_delta`). `127.0.0.1` is on the `src/mastra/pg-store.ts` allowlist. This is what the `mem-001-restart-history` CI job does, and it needs no new DDL.
-
-Do not silently fall back to a second database provider to work around this. Report the breakage rather than working around it invisibly, and do not delete `.env.local` (the app needs it).
-
-Production/hosted writes are forbidden by default. An explicit Linear task may authorize a hosted synthetic proof only with verified project identity, synthetic IDs/namespaces, non-interference baseline/after proof, required guards such as `disableInit: true`, cleanup, and explicit authorization.
-
-Never `supabase db push` against production. Stop if project, schema, role, or read/write boundary is uncertain.
+Hosted reads use the approved non-production target by default. Production/hosted writes are forbidden by default. An explicit Linear task may authorize synthetic hosted proof only after verified project identity, isolation, baseline/readback, cleanup and human approval. **Never `supabase db push` against production.** STOP when project, schema, role or read/write authority is uncertain.
 
 ## AI governance
 
@@ -292,35 +244,22 @@ For substantial executable `IPI-*` work, load `.claude/skills/tasks/SKILL.md` be
 
 ### Linear template routing — mandatory
 
-For every new substantial `IPI-*` issue, use one approved Linear workspace template. Do not create a free-form issue when an approved template fits.
+The existing [tasks skill](.claude/skills/tasks/SKILL.md) owns **all** task creation, templates, PR follow-up and evidence. Search current Linear first; keep a reusable issue rather than creating a duplicate merely to change template metadata.
 
 - Normal feature/fix → `Universal Engineering Task`
 - Audit/research only; no implementation → `iPix Task Audit & Implementation Plan`
 - Confirmed bug/root-cause repair → `Forensic Error Audit & Fix`
 - Production/release certification → `Production Readiness / Release Gate`
 
-Before creating an issue: search Linear for an existing issue with the same TASK-ID or materially overlapping scope before creating anything new.
-
-Existing-issue decision:
-- Same work item with the correct or usable template structure → reuse/update it.
-- Same work item with a wrong or missing template association → preserve the issue/history, migrate its body and fields to the closest applicable template structure, and record the mismatch. If current Linear tooling cannot change the template association after creation, do not create a duplicate solely to change template metadata.
-- Existing issue is completed/canceled historical work, materially different scope, or requires creation-only form/template behavior → create a new correctly templated issue, link the old issue, and record the reason/relationship.
-- Assignment alone is not a reason to duplicate work; preserve or intentionally change ownership.
-
-If a new issue is required, apply the template through Linear's template field; do not replace the template body with a free-form description. Fill only relevant sections and write `Needs verification` for unknown facts. When materially correcting an existing issue, preserve the closest applicable template structure.
-
-**When the template field is unreachable (tooling gap).** The template field is only settable through tooling that exposes it. As of 2026-09-28 the sanctioned fallback `linear-cli` (0.3.28) has no `--template` flag, so a session without a template-capable Linear MCP cannot apply one. This is a third case — neither a non-standard issue nor a Linear outage. Handle it thus: create the issue with the closest approved template's structure written into the body, state in the body that the template field could not be set and why, record the tooling version, and continue. Do not block the task, and do not create a duplicate later solely to attach template metadata.
-
-**Identifiers are assigned, not chosen.** Linear assigns `IPI-NNN` at creation, so the `IPI-NNN · TASK-ID — Full title` form cannot be set in the create call. Create as `TASK-ID — Full title`, then rename to include the assigned identifier. A missing identifier in the title is drift, not a style preference.
+Existing-issue decision: reuse the same outcome/history when possible; **do not create a duplicate solely to change template metadata**. If it is genuinely different or historical, link the original. New issues use the actual Linear template field; the assigned `IPI-NNN` is added to the title *after* creation.
 
 Before implementation, use one of two explicit paths:
-
 - **Standard path:** verify template/type, project/milestone, dependencies/blockers, relations, observable outcome, acceptance criteria, verification plan, and exact next action.
-- **Exception path:** if a genuinely non-standard issue cannot use an approved template, document the concrete reason in the issue before implementation and preserve the same required outcome/evidence fields.
+- **Exception path:** document why an approved template cannot apply; keep the same outcome/evidence fields.
 
-In either path, keep the issue resumable by another agent from Linear alone. If Linear is temporarily unavailable, use `todo.md` only as a temporary handoff with the same required state/evidence fields, then reconcile that handoff back into Linear before marking the issue Done.
+If Linear is temporarily unavailable, use `todo.md` only as a temporary handoff with current proof and next action; **reconcile that handoff back into Linear before marking the issue Done**. Follow the [historical tooling fallback](.claude/skills/tasks/references/linear-tooling-compatibility.md) *only if* the current integration cannot set a template. The live Linear issue and tasks skill still own progress and post-merge certification.
 
-After opening or updating a PR, follow the mandatory **PR follow-up loop** in `.claude/skills/tasks/SKILL.md`: refresh current review/check/main state, validate every suggestion before changing code, fix proven root causes with evidence, update the PR, and repeat until the exact-head merge gate is clean.
+After opening or updating a PR, follow the **PR follow-up loop** in the tasks skill; verify comments against current code, run exact-head gates and require authorized merge approval.
 
 Before coding:
 

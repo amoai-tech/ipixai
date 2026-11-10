@@ -188,14 +188,51 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
     expect(agents).toContain("no agent-side override");
   });
 
-  it("records the verified local-database breakage and its workarounds", () => {
+  it("keeps workstation-specific Supabase recovery in a scoped reference", () => {
     const agents = read("AGENTS.md");
-    expect(agents).toContain("failed to parse config: missing private key");
-    expect(agents).toContain("dotenvx-encrypted `.env.local`");
+    const local = read("docs/development/local-supabase.md");
+    expect(agents).toContain("docs/development/local-supabase.md");
     expect(agents).toContain("`supabase start` remains the normal local Supabase path when project config loads successfully");
-    expect(agents).toContain("For full Supabase proofs");
-    expect(agents).toContain("For Mastra/Postgres-only proofs");
-    expect(agents).not.toContain("Default writes: **disposable Postgres");
+    expect(agents).toContain("Never `supabase db push` against production");
+    expect(agents).not.toContain("**Known local-environment breakage (verified 2026-09-28).**");
+    expect(local).toContain("failed to parse config: missing private key");
+    expect(local).toContain("dotenvx-encrypted `.env.local`");
+    expect(local).toContain("For full Supabase proofs");
+    expect(local).toContain("For Mastra/Postgres-only proofs");
+    expect(local).not.toContain("Default writes: **disposable Postgres");
+  });
+
+  it("keeps the QA runner optional and never requires local secrets in clean CI", () => {
+    const agents = read("AGENTS.md");
+    const tasks = read(".claude/skills/tasks/SKILL.md");
+    const guide = read("docs/development/testing-with-1password.md");
+    const { scripts } = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
+    expect(agents).toContain("docs/development/testing-with-1password.md");
+    expect(tasks).toContain("docs/development/testing-with-1password.md");
+    expect(guide).toContain("command -v ipix-qa-op");
+    expect(guide).toContain("ipix-qa-op check");
+    expect(guide).toContain("ipix-qa-op login");
+    expect(guide).toContain("ipix-qa-op e2e");
+    expect(guide).toContain("If the QA worktree is older than the candidate SHA");
+    expect(guide).toContain("not a promise about every agent or CI runner");
+    expect(guide).not.toMatch(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/);
+    for (const name of ["e2e", "docs:check", "pretest", "secrets:check"]) {
+      expect(scripts[name], name + " must exist in package.json").toBeTruthy();
+    }
+  });
+
+  it("agrees on shared skill ownership and a reuse-first task gate", () => {
+    const agents = read("AGENTS.md");
+    const claude = read("CLAUDE.md");
+    const tasks = read(".claude/skills/tasks/SKILL.md");
+    expect(claude.startsWith("@AGENTS.md\n")).toBe(true);
+    expect(claude).toContain("`.agents/skills/<name>/SKILL.md`");
+    expect(claude).toContain("`.claude/skills/<name>/SKILL.md`");
+    expect(agents).toContain("Linear is the source of **approved desired outcomes");
+    expect(agents).toContain("Existing iPix");
+    expect(agents).toContain("Cheapest decisive proof?");
+    expect(tasks).toContain("compare before building");
+    expect(agents).toContain("one smallest useful diagram pass");
   });
 
   it("documents accidental credential exposure recovery", () => {
