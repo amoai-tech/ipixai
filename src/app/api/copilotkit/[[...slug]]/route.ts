@@ -4,7 +4,7 @@ import {
   copilotAuthHooksFor,
   identifyOperator,
 } from "@/lib/auth/copilot-hooks";
-import { startPlannerMembershipWatchdog } from "@/lib/auth/planner-membership-watchdog";
+import { guardPlannerResponseStream, startPlannerMembershipWatchdog } from "@/lib/auth/planner-membership-watchdog";
 import { requirePlannerResourceId } from "@/lib/auth/planner-session";
 import { handle } from "hono/vercel";
 import { requestToken } from "@/lib/request-token";
@@ -58,13 +58,14 @@ async function handleCopilot(request: Request) {
   else request.signal.addEventListener("abort", abortMembership, { once: true });
   const membershipWatchdog = orgId
     ? startPlannerMembershipWatchdog({
-        check: async () => {
+        check: async (signal) => {
           if (!authClient) return "error";
           const { data, error } = await authClient
             .from("org_members")
             .select("org_id")
             .eq("org_id", orgId)
             .eq("user_id", session.operator.id)
+            .abortSignal(signal)
             .maybeSingle();
           if (error) return "error";
           return data ? "member" : "missing";
@@ -108,40 +109,7 @@ async function handleCopilot(request: Request) {
     throw error;
   }
   if (!membershipWatchdog) return response;
-  if (!response.body) {
-    cleanupMembershipWatchdog();
-    return response;
-  }
-  // Stop the membership poll when this stream finishes, errors, or is
-  // cancelled instead of leaving a timer alive for the watchdog's maximum
-  // lifetime. Client disconnects still stop it through the request abort
-  // signal above.
-  const reader = response.body.getReader();
-  const guardedBody = new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      try {
-        const { done, value } = await reader.read();
-        if (done) {
-          cleanupMembershipWatchdog();
-          controller.close();
-          return;
-        }
-        if (value) controller.enqueue(value);
-      } catch (error) {
-        cleanupMembershipWatchdog();
-        controller.error(error);
-      }
-    },
-    cancel(reason) {
-      cleanupMembershipWatchdog();
-      return reader.cancel(reason);
-    },
-  });
-  return new Response(guardedBody, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: response.headers,
-  });
+  return guardPlannerResponseStream(response, membershipController.signal, cleanupMembershipWatchdog);
 }
 
 // Bound the owner request to 300s so the Proxy can prove a refreshed JWT

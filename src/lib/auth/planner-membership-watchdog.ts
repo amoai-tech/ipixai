@@ -15,25 +15,38 @@ export type PlannerMembershipWatchdog = {
   stop: () => void;
 };
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+function withTimeout<T>(
+  check: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+  controller: AbortController,
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("membership check timed out")), timeoutMs);
+    const timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error("membership check timed out"));
+    }, timeoutMs);
     if (typeof timer === "object") timer.unref?.();
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      },
-    );
+    // Run asynchronously so stop() can cancel before a check begins.
+    Promise.resolve()
+      .then(() => {
+        if (controller.signal.aborted) throw new Error("membership check canceled");
+        return check(controller.signal);
+      })
+      .then(
+        (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        (error) => {
+          clearTimeout(timer);
+          reject(error);
+        },
+      );
   });
 }
 
 export function startPlannerMembershipWatchdog(options: {
-  check: () => Promise<PlannerMembershipState>;
+  check: (signal: AbortSignal) => Promise<PlannerMembershipState>;
   onRevoked: () => void;
   intervalMs?: number;
   checkTimeoutMs?: number;
@@ -47,12 +60,14 @@ export function startPlannerMembershipWatchdog(options: {
   let stopped = false;
   let checking = false;
   let consecutiveErrors = 0;
+  let activeCheck: AbortController | undefined;
   let interval: ReturnType<typeof setInterval> | undefined;
   let maxTimer: ReturnType<typeof setTimeout> | undefined;
 
   const stop = () => {
     if (stopped) return;
     stopped = true;
+    activeCheck?.abort();
     if (interval) clearInterval(interval);
     if (maxTimer) clearTimeout(maxTimer);
   };
@@ -70,8 +85,10 @@ export function startPlannerMembershipWatchdog(options: {
   const tick = async () => {
     if (stopped || checking) return;
     checking = true;
+    const checkController = new AbortController();
+    activeCheck = checkController;
     try {
-      const state = await withTimeout(options.check(), checkTimeoutMs);
+      const state = await withTimeout(options.check, checkTimeoutMs, checkController);
       if (stopped) return;
       if (state === "missing") {
         revoke();
@@ -89,6 +106,7 @@ export function startPlannerMembershipWatchdog(options: {
         error: error instanceof Error ? error.message : String(error),
       });
     } finally {
+      if (activeCheck === checkController) activeCheck = undefined;
       checking = false;
     }
 
@@ -108,4 +126,71 @@ export function startPlannerMembershipWatchdog(options: {
   if (typeof maxTimer === "object") maxTimer.unref?.();
 
   return { stop };
+}
+
+/**
+ * Keep the actual response body behind the same abort boundary as the Planner.
+ * A controller error discards queued protected data; close() alone would still
+ * allow previously queued chunks to reach a revoked user.
+ */
+export function guardPlannerResponseStream(
+  response: Response,
+  signal: AbortSignal,
+  cleanup: () => void,
+): Response {
+  if (!response.body) {
+    cleanup();
+    return response;
+  }
+
+  const reader = response.body.getReader();
+  let ended = false;
+  let abortListener: (() => void) | undefined;
+  const finish = () => {
+    if (ended) return false;
+    ended = true;
+    if (abortListener) signal.removeEventListener("abort", abortListener);
+    cleanup();
+    return true;
+  };
+
+  const guardedBody = new ReadableStream<Uint8Array>({
+    start(controller) {
+      abortListener = () => {
+        if (!finish()) return;
+        // Abort discards any queued SSE events, including a pending read.
+        controller.error(new DOMException("Planner request aborted", "AbortError"));
+        void reader.cancel().catch(() => undefined);
+      };
+      if (signal.aborted) abortListener();
+      else signal.addEventListener("abort", abortListener, { once: true });
+    },
+    async pull(controller) {
+      if (ended) return;
+      try {
+        const { done, value } = await reader.read();
+        // Membership can be revoked while the upstream read is pending.
+        if (ended) return;
+        if (done) {
+          finish();
+          controller.close();
+        } else if (value) {
+          controller.enqueue(value);
+        }
+      } catch (error) {
+        if (!finish()) return;
+        controller.error(error);
+      }
+    },
+    cancel(reason) {
+      if (!finish()) return;
+      return reader.cancel(reason);
+    },
+  });
+
+  return new Response(guardedBody, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
 }
