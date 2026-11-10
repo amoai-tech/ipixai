@@ -132,16 +132,16 @@ begin
 
   delete from public.brand_scores where brand_id = brand_a and score_type = 'pre_existing';
 
-  -- (3) viewer is blocked the same way (defense-in-depth: this role never had
-  --     write RLS either, but the grant now fails closed even before RLS).
+  -- (3) IPI-1314 grants UPDATE(name,brand_url) to authenticated, but
+  --     viewer has no matching UPDATE RLS permission. It must affect 0 rows.
+  --     Approval-controlled fields still fail at the GRANT boundary above.
   execute format('set local role authenticated; set local request.jwt.claims = %L', json_build_object('sub', org_a_viewer)::text);
-  begin
-    update public.brands set name = 'renamed by viewer' where id = brand_a;
-    reset role;
-    raise exception 'IPI-1093 FAIL: org A viewer must not be able to UPDATE brands at all';
-  exception
-    when insufficient_privilege then reset role;
-  end;
+  update public.brands set name = 'renamed by viewer' where id = brand_a;
+  get diagnostics row_count = row_count;
+  reset role;
+  if row_count <> 0 then
+    raise exception 'IPI-1093 FAIL: org A viewer updated Brand name';
+  end if;
 
   -- (3b) INSERT is a separate grant from UPDATE — an org member must not be
   --      able to fabricate "already approved" truth on a BRAND-NEW row by
