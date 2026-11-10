@@ -28,6 +28,8 @@ describe("Planner guarded response stream", () => {
     source.enqueue(encode("data: first\\n\\n"));
     expect(decode((await reader.read()).value)).toContain("first");
     source.enqueue(encode("data: protected\\n\\n"));
+    // Allow the guarded pull to buffer the event before revocation.
+    await new Promise((resolve) => setTimeout(resolve, 0));
     membership.abort();
 
     await expect(reader.read()).rejects.toMatchObject({ name: "AbortError" });

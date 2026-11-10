@@ -87,26 +87,26 @@ async function handleCopilot(request: Request) {
       once: true,
     });
 
-  const runtime = new CopilotRuntime({
-    agents: attachRunnerAbort(createLocalAgents(resourceId)),
-    identifyUser: identifyOperator,
-    runner: new TenantAbortRunner(
-      resourceId,
-      membershipController.signal,
-      createPlannerRunControl(resourceId, accessToken),
-    ),
-    ...(licenseToken ? { licenseToken } : {}),
-  });
-
-  const app = createCopilotEndpoint({
-    runtime,
-    basePath: "/api/copilotkit",
-    hooks: copilotAuthHooksFor(resourceId),
-  });
-
-  // Planner tools read the verified bearer through AsyncLocalStorage.
   let response: Response;
   try {
+    const runtime = new CopilotRuntime({
+      agents: attachRunnerAbort(createLocalAgents(resourceId)),
+      identifyUser: identifyOperator,
+      runner: new TenantAbortRunner(
+        resourceId,
+        membershipController.signal,
+        createPlannerRunControl(resourceId, accessToken),
+      ),
+      ...(licenseToken ? { licenseToken } : {}),
+    });
+
+    const app = createCopilotEndpoint({
+      runtime,
+      basePath: "/api/copilotkit",
+      hooks: copilotAuthHooksFor(resourceId),
+    });
+
+    // Planner tools read the verified bearer through AsyncLocalStorage.
     response = await requestToken.run(accessToken ?? "", () => handle(app)(request));
   } catch (error) {
     cleanupMembershipWatchdog();

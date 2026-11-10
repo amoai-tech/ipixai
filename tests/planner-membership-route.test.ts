@@ -9,7 +9,8 @@ const state = vi.hoisted(() => {
     resourceId: `org:${orgId}::user:${operatorId}`,
     sessionOrgId: orgId as string | null,
     authorized: true,
-    member: true,
+    members: [{ org_id: orgId, user_id: operatorId }],
+    setupFailure: false,
     failHandler: false,
     bodyless: false,
     checks: 0,
@@ -25,7 +26,10 @@ vi.mock("@copilotkit/runtime/v2", () => ({
   CopilotRuntime: class {},
   createCopilotEndpoint: () => ({}),
 }));
-vi.mock("@/agent", () => ({ createLocalAgents: () => ({}) }));
+vi.mock("@/agent", () => ({ createLocalAgents: () => {
+    if (state.setupFailure) throw new Error("agent setup unavailable");
+    return {};
+  } }));
 vi.mock("@/lib/auth/copilot-hooks", () => ({
   copilotAuthHooksFor: () => ({}),
   identifyOperator: vi.fn(),
@@ -52,9 +56,12 @@ vi.mock("@/lib/supabase/server", () => ({
           },
           async maybeSingle() {
             state.checks += 1;
+            const matches = state.members.filter((row) =>
+              state.queryFilters.every(([column, value]) => row[column as keyof typeof row] === value),
+            );
             return {
-              data: state.member ? { org_id: state.orgId } : null,
-              error: null,
+              data: matches.length === 1 ? { org_id: matches[0].org_id } : null,
+              error: matches.length > 1 ? { message: "multiple memberships" } : null,
             };
           },
         };
@@ -101,7 +108,8 @@ describe("Planner membership revocation route boundary", () => {
     state.authorized = true;
     state.sessionOrgId = state.orgId;
     state.resourceId = `org:${state.orgId}::user:${state.operatorId}`;
-    state.member = true;
+    state.members = [{ org_id: state.orgId, user_id: state.operatorId }];
+    state.setupFailure = false;
     state.failHandler = false;
     state.bodyless = false;
     state.checks = 0;
@@ -126,7 +134,7 @@ describe("Planner membership revocation route boundary", () => {
     const reader = response.body!.getReader();
     state.responseSource!.enqueue(new TextEncoder().encode("data: first\\n\\n"));
     expect((await reader.read()).done).toBe(false);
-    state.member = false; // Other Org B membership must not authorize original Org A stream
+    state.members = []; // Other Org B membership must not authorize original Org A stream
     await vi.advanceTimersByTimeAsync(5_000);
     expect(state.queryFilters).toContainEqual(["org_id", state.orgId]);
     expect(state.queryFilters).toContainEqual(["user_id", state.operatorId]);
@@ -140,12 +148,30 @@ describe("Planner membership revocation route boundary", () => {
     state.resourceId = "future-memory-key-format";
     const response = await POST(request());
     const reader = response.body!.getReader();
-    state.member = false;
+    state.members = [];
     await vi.advanceTimersByTimeAsync(5_000);
     expect(state.queryFilters).toContainEqual(["org_id", state.orgId]);
     expect(state.queryFilters).toContainEqual(["user_id", state.operatorId]);
     expect(state.lastRunnerSignal?.aborted).toBe(true);
     await expect(reader.read()).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("does not let Org B membership authorize an already-open Org A stream", async () => {
+    const response = await POST(request());
+    const reader = response.body!.getReader();
+    state.members = [{ org_id: "33333333-3333-4333-8333-333333333333", user_id: state.operatorId }];
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(state.queryFilters).toContainEqual(["org_id", state.orgId]);
+    expect(state.queryFilters).toContainEqual(["user_id", state.operatorId]);
+    expect(state.lastRunnerSignal?.aborted).toBe(true);
+    await expect(reader.read()).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("cleans up the watchdog when agent setup fails before request handling", async () => {
+    state.setupFailure = true;
+    await expect(POST(request())).rejects.toThrow("agent setup unavailable");
+    await vi.advanceTimersByTimeAsync(12_000);
+    expect(state.checks).toBe(0);
   });
 
   it("denies the request if the verified organization is absent", async () => {
