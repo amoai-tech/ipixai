@@ -105,3 +105,67 @@ describe("IPI-1291 dependency security floors", () => {
     }
   });
 });
+
+
+// IPI-1218: Prevent a future lockfile refresh from silently restoring
+// vulnerable transitive copies while respecting the consumers' major ranges.
+describe("IPI-1218 compatible advisory patches", () => {
+  it("keeps Express/MCP body-parser at 2.4.0+ (GHSA-27r3-jxmh-p828)", () => {
+    const versions = resolvedVersions("body-parser");
+    expect(versions.length).toBeGreaterThan(0);
+    for (const version of versions) {
+      expect(parseStableVersion(version)[0]).toBe(2);
+      expect(isAtLeast(version, "2.4.0")).toBe(true);
+    }
+  });
+
+  it("protects each brace-expansion major from both recursion advisories", () => {
+    // GHSA-qhr7-859c-m2p7 and GHSA-6j4f-fj2g-mc7p.
+    // Different installed minimatch majors depend on incompatible brace majors.
+    const floors: Record<number, string> = {
+      1: "1.1.20",
+      2: "2.1.6",
+      3: "3.0.8",
+      5: "5.0.11",
+    };
+    const versions = resolvedVersions("brace-expansion");
+    expect(versions.length).toBeGreaterThan(0);
+    for (const version of versions) {
+      const major = parseStableVersion(version)[0];
+      const floor = floors[major];
+      // v4 has no patched release in the advisory: require compatible v5+.
+      if (major > 5) continue;
+      expect(floor, `Unreviewed brace-expansion major ${major}`).toBeDefined();
+      expect(isAtLeast(version, floor)).toBe(true);
+    }
+  });
+
+  it("keeps Mastra RE2JS past the patched floor (GHSA-gg6h-894w-4m9c)", () => {
+    const versions = resolvedVersions("re2js");
+    expect(versions.length).toBeGreaterThan(0);
+    for (const version of versions) {
+      expect(parseStableVersion(version)[0]).toBe(2);
+      expect(isAtLeast(version, "2.8.7")).toBe(true);
+    }
+  });
+
+  it("keeps PostCSS source-map-js patched (GHSA-68fv-2mgg-jv7q)", () => {
+    const versions = resolvedVersions("source-map-js");
+    expect(versions.length).toBeGreaterThan(0);
+    for (const version of versions) {
+      expect(parseStableVersion(version)[0]).toBe(1);
+      expect(isAtLeast(version, "1.2.2")).toBe(true);
+    }
+  });
+
+  it("keeps each Mastra Zod 4 copy patched without forcing root Zod 3 to v4", () => {
+    // GHSA-mrhx-c7xc-m3w5: Zod 3 remains a separate vendor/size-bound issue.
+    const versions = resolvedVersions("zod");
+    const zod4 = versions.filter((version) => parseStableVersion(version)[0] === 4);
+    expect(zod4.length).toBeGreaterThan(0);
+    for (const version of zod4) {
+      expect(isAtLeast(version, "4.6.6")).toBe(true);
+    }
+    expect(versions.some((version) => parseStableVersion(version)[0] === 3)).toBe(true);
+  });
+});
