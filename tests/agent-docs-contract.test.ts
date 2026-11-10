@@ -231,6 +231,11 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
     const linearRuleWithoutEmphasis = agents.replace(/[*_]/g, "");
     expect(linearRuleWithoutEmphasis).toMatch(/Linear is the source of approved desired outcomes/i);
     expect(linearRuleWithoutEmphasis).toContain("acceptance criteria, dependencies and progress");
+    for (const evidenceLabel of ["Code present", "Behavior verified", "Unverified"]) {
+      expect(agents).toContain(evidenceLabel);
+    }
+    expect(agents).toContain("same SHA plus a passing risk-matched test or observed runtime/readback");
+
     expect(agents).toContain("Existing iPix");
     expect(agents).toContain("Cheapest decisive proof?");
     expect(tasks).toContain("compare before building");
