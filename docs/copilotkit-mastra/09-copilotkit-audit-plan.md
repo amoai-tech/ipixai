@@ -1,11 +1,11 @@
 # 09 — iPix CopilotKit GenUI foundation audit and corrected execution plan
 
-**Audit date:** 2026-11-10  
-**Repository:** `amoai-tech/ipixai`  
-**Source SHA:** `d55f4c2a6ff82b06626632c60e54dd7d7d8cecaa` (`origin/main`)  
-**Audit branch:** `audit/ipi-1425-genui-foundation`  
-**Clean worktree:** `/home/sk/worktrees/ipixai-ipi-1425-genui-audit`  
-**Foundation epic:** [IPI-1425](https://linear.app/amo100/issue/IPI-1425)  
+- **Audit date:** 2026-11-10
+- **Repository:** `amoai-tech/ipixai`
+- **Source SHA:** `d55f4c2a6ff82b06626632c60e54dd7d7d8cecaa` (`origin/main`)
+- **Audit branch:** `audit/ipi-1425-genui-foundation`
+- **Clean worktree:** `/home/sk/worktrees/ipixai-ipi-1425-genui-audit`
+- **Foundation epic:** [IPI-1425](https://linear.app/amo100/issue/IPI-1425)
 **Canonical Linear plan:** [iPix GenUI Foundation](https://linear.app/amo100/document/ipix-genui-foundation-official-copilotkit-implementation-plan-4cc40bb54dcd)
 
 > This is an evidence record and corrected implementation plan. It does not claim that native GenUI is shipped. It preserves the existing Planner, one authenticated CopilotKit provider, `composeShootPlan` renderer, Mastra runtime, durable memory, and exact-revision HITL.
