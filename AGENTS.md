@@ -197,7 +197,7 @@ For tasks touching data/auth/runtime, inspect the existing contract before creat
 - migration/type drift;
 - relevant security findings.
 
-Default local writes: use the repository's normal local Supabase path — `npm run supabase:cli -- start`, then `npm run supabase:cli -- db reset --local`. Never delete or decrypt `.env.local` to make the CLI run. Hosted reads use the approved non-production target unless the task explicitly says otherwise.
+Default local writes: use the repository's normal local Supabase path — `npm run supabase:cli -- start`, then `npm run supabase:cli -- db reset --local`. Never delete or decrypt `.env.local` to make the CLI run. Hosted reads use the approved non-production target unless the live Linear task names the exact hosted project and authorizes the read.
 
 **Why the wrapper exists (root cause verified 2026-09-28, IPI-1374).** `supabase/config.toml` resolves several values through `env(NAME)` — `env(OPENAI_API_KEY)`, `env(S3_SECRET_KEY)` and others. The CLI builds that lookup table from the dotenv files it discovers in the project root, so it reads `.env.local`, whose values are dotenvx-encrypted and therefore begin with `encrypted:`. The CLI is dotenvx-aware and refuses to finish parsing config until it can decrypt them, which needs `DOTENV_PRIVATE_KEY_LOCAL` from `.env.keys` — a file the CLI does not read. It aborts before touching Docker:
 

@@ -131,6 +131,12 @@ describe("skill eval policy follows ADR 005 (IPI-1374)", () => {
       const record = parsed as Record<string, unknown>;
       if (typeof record.skill_name !== "string" || record.skill_name.trim().length === 0) {
         problems.push(`${name}: missing non-empty \`skill_name\``);
+      } else if (record.skill_name !== name) {
+        // A set that names a different skill looks like coverage for `name` while actually
+        // testing another skill — the attribution has to point back at the folder it lives in.
+        problems.push(
+          `${name}: \`skill_name\` is "${record.skill_name}" but the set lives under ${name}/`,
+        );
       }
       const cases = record.evals;
       if (!Array.isArray(cases) || cases.length === 0) {

@@ -49,7 +49,10 @@ git fetch origin main
 git worktree add ../wt-ipi-286-route-aware-sections -b ipi/286-route-aware-sections origin/main
 cd ../wt-ipi-286-route-aware-sections
 # link the env files the app needs — never copy secret values into a new tree
-for f in .env.local .env.keys .env.test; do ln -sf "/path/to/primary/$f" "$f"; done
+primary="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+for f in .env.local .env.keys .env.test; do
+  [ -f "$primary/$f" ] && ln -sf "$primary/$f" "$f"
+done
 npm ci
 ```
 

@@ -355,7 +355,16 @@ const TRIGGER_MARKERS = [
 
 function statesWhenToUse(description: string): boolean {
   const text = description.toLowerCase();
-  return TRIGGER_MARKERS.some((marker) => text.includes(marker));
+  // Match a marker at a word boundary: "reuse for" and "retrigger" are
+  // descriptions of behavior, not instructions to invoke a skill.
+  return TRIGGER_MARKERS.some((marker) => {
+    let index = text.indexOf(marker);
+    while (index !== -1) {
+      if (index === 0 || !/[a-z0-9]/.test(text[index - 1])) return true;
+      index = text.indexOf(marker, index + marker.length);
+    }
+    return false;
+  });
 }
 
 const VENDORED_REAL_ROOTS = new Set(
@@ -403,6 +412,8 @@ describe("an auto-invokable skill states when to use it (IPI-1374)", () => {
       "Detect redundant tests, duplicated test logic, and semantic overlaps.",
       "Mermaid diagrams as an iPix engineering reasoning tool, not presentation.",
       "Detect flaky tests and trim the suite.",
+      "Teams reuse for deployment and release checks.",
+      "Implement a retrigger mechanism for event-based workflows.",
     ];
     expect(shouldMatch.filter((text) => !statesWhenToUse(text))).toEqual([]);
     expect(shouldNotMatch.filter((text) => statesWhenToUse(text))).toEqual([]);
