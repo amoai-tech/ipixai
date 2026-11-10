@@ -6,11 +6,7 @@
 import { firstValueFrom, of } from "rxjs";
 import { describe, expect, it } from "vitest";
 import { GenerativeUIMiddleware } from "@copilotkit/runtime/v2";
-import { RequestContext } from "@mastra/core/request-context";
-import {
-  GENUI_CONTEXT_DESCRIPTION,
-  wrapPlannerStreamWithToolGate,
-} from "../src/mastra/planner-tool-gate";
+import { wrapPlannerStreamWithToolGate } from "../src/mastra/planner-tool-gate";
 
 const ENVELOPE = {
   "1.0": {
@@ -69,12 +65,11 @@ describe("CopilotKit GenerativeUIMiddleware → planner gate bridge", () => {
     expect(bridgedInput.tools.map((tool: any) => tool.name)).toContain("render_ui");
     expect(
       bridgedInput.context.some(
-        (entry: any) => entry.description === GENUI_CONTEXT_DESCRIPTION,
+        (entry: any) =>
+          typeof entry.description === "string" &&
+          entry.description.includes("render_ui"),
       ),
     ).toBe(true);
-
-    const requestContext = new RequestContext();
-    requestContext.set("ag-ui", { context: bridgedInput.context });
 
     const calls: unknown[][] = [];
     const wrapped = wrapPlannerStreamWithToolGate(
@@ -85,7 +80,6 @@ describe("CopilotKit GenerativeUIMiddleware → planner gate bridge", () => {
     );
 
     wrapped([{ role: "user", content: "Compare three summer concepts" }], {
-      requestContext,
       clientTools: Object.fromEntries(
         bridgedInput.tools.map((tool: any) => [tool.name, tool]),
       ),
