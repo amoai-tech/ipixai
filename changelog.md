@@ -25,6 +25,8 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Changed
 
+- IPI-1424 · DOC-INTENT-001 — Added task-size gating to the canonical `AGENTS.md` feature workflow, a `CLAUDE.md` import so Claude loads the same contract, optional task-level intent/spec/plan templates and an IPI-1389 release-gate pilot. Updated the existing `tasks` skill for resumable Linear-first handoffs. Small fixes skip extra artifacts; no second tracker or approval process.
+
 - change(copilotkit): upgrade the Planner to CopilotKit 1.85 / AG-UI 1.0.2 and enforce owner-scoped Stop, reconnect and thread reads (IPI-1389, #319)
 - IPI-1418 · Claude skill authoring audit — Applied official Claude Code and Anthropic skill-creator guidance: focused Mastra invocation description, removed inert `metadata.paths`, documented existing evaluation fixtures versus actual baseline proof, refreshed unsafe/unpinned MCP and stale Planner tool-count examples; preserved auth, approval, privacy and vendor boundaries.
 - IPI-1418 · MASTRA-SKILL-001 — Reconciled the canonical iPix Mastra Claude skill with official Mastra skills v2.5.0 (pinned upstream SHA), preserved installed score/feedback predicates with required target/store checks, and documented that the installed Mastra CLI supports trace queries but not new span-query/aggregation commands. Also corrected older core-concepts and full-guide references that called the weather agent the default and incorrectly claimed local missing-DB behavior always aborts. Preserved the separate iPix security/HITL, Vercel hosting, development scripts, and privacy rules; extended the existing skill contract test.

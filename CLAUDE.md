@@ -1,3 +1,5 @@
+@AGENTS.md
+
 # iPix Claude Instructions
 
 `AGENTS.md` is the canonical repository-wide agent contract. **Follow it first.** This file is a Claude-specific overlay: it carries Claude-only detail only, and it must not restate or override repository-wide rules. If the two ever disagree, `AGENTS.md` wins and this file is the bug.
