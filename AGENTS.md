@@ -14,6 +14,19 @@ Canonical repository instructions for coding agents working on [amoai-tech/ipixa
 
 This repository is the iPix CopilotKit + Mastra runtime. Implement here, in `amoai-tech/ipixai`. Do not implement from a different checkout, or from the old repository name `amo-tech-ai/ipix`.
 
+## Feature orientation — intent, spec, plan
+
+Before implementing, **read the exact live Linear issue and verify current code, dependencies, and related PRs**. Then use the relevant portions of [product intent](docs/intent.md), [observable specification](docs/spec.md), and [delivery plan](docs/plan.md) as context; they do not replace current code or issue requirements.
+
+Choose the smallest useful path:
+- **Small fix** (local, clear requirements): use Linear + affected code + a short verification checklist. **Do not create** three task files.
+- **Normal feature** (existing, sufficient issue): execute its approved Linear plan and relevant domain skills. **Do not duplicate** it in Markdown.
+- **Cross-cutting, ambiguous, or multi-session work** with a demonstrated handoff gap: follow [spec-driven task guidance](docs/development/README.md), reusing existing task artifacts if present. Create only the missing intent/spec/plan documents that add material value, based on the reviewed templates, then link them in the **same** Linear issue.
+
+For every path: inspect existing implementation first, make the smallest safe change, run risk-matched verification, and record the current branch/SHA, result, blocker, and exact next action in Linear. **Do not treat draft files as permission for a production write or merge.**
+
+`AGENTS.md` remains the engineering contract, live Linear owns task state and progress, and `.claude/skills/tasks/SKILL.md` remains the only task/PR lifecycle skill.
+
 ## Canonical engineering workflow
 
 For every substantial executable `IPI-*` task:
