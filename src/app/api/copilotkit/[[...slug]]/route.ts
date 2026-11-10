@@ -4,6 +4,7 @@ import {
   copilotAuthHooksFor,
   identifyOperator,
 } from "@/lib/auth/copilot-hooks";
+import { startPlannerMembershipWatchdog } from "@/lib/auth/planner-membership-watchdog";
 import { requirePlannerResourceId } from "@/lib/auth/planner-session";
 import { handle } from "hono/vercel";
 import { requestToken } from "@/lib/request-token";
@@ -27,6 +28,12 @@ async function handleCopilot(request: Request) {
   if (!session.ok) return session.response;
 
   const resourceId = session.resourceId;
+  const orgId = /^org:([0-9a-f-]{36})::user:/.exec(resourceId)?.[1];
+  if (!orgId) {
+    // Fail visibly rather than silently disabling the revocation watchdog if
+    // the resourceId contract changes. Do not log tenant identifiers.
+    console.warn("[planner] resourceId missing orgId; membership watchdog disabled");
+  }
 
   const authClient = createClientFromRequest(request);
   const {
@@ -41,12 +48,46 @@ async function handleCopilot(request: Request) {
   // keeps a whitespace-padded env value from being rejected as invalid.
   const licenseToken = process.env.COPILOTKIT_LICENSE_TOKEN?.trim() || undefined;
 
+  // A request is authorized once at start. Long streams must stop when the
+  // operator is removed from the organization instead of continuing to deliver
+  // model output under the old authorization. The watchdog shares the request
+  // abort signal so either source stops the same runner.
+  const membershipController = new AbortController();
+  const abortMembership = () => membershipController.abort();
+  if (request.signal.aborted) abortMembership();
+  else request.signal.addEventListener("abort", abortMembership, { once: true });
+  const membershipWatchdog = orgId
+    ? startPlannerMembershipWatchdog({
+        check: async () => {
+          if (!authClient) return "error";
+          const { data, error } = await authClient
+            .from("org_members")
+            .select("org_id")
+            .eq("org_id", orgId)
+            .eq("user_id", session.operator.id)
+            .maybeSingle();
+          if (error) return "error";
+          return data ? "member" : "missing";
+        },
+        onRevoked: () => membershipController.abort(),
+      })
+    : undefined;
+  const cleanupMembershipWatchdog = () => {
+    membershipWatchdog?.stop();
+    request.signal.removeEventListener("abort", abortMembership);
+  };
+  if (membershipController.signal.aborted) cleanupMembershipWatchdog();
+  else
+    membershipController.signal.addEventListener("abort", cleanupMembershipWatchdog, {
+      once: true,
+    });
+
   const runtime = new CopilotRuntime({
     agents: attachRunnerAbort(createLocalAgents(resourceId)),
     identifyUser: identifyOperator,
     runner: new TenantAbortRunner(
       resourceId,
-      request.signal,
+      membershipController.signal,
       createPlannerRunControl(resourceId, accessToken),
     ),
     ...(licenseToken ? { licenseToken } : {}),
@@ -59,7 +100,48 @@ async function handleCopilot(request: Request) {
   });
 
   // Planner tools read the verified bearer through AsyncLocalStorage.
-  return requestToken.run(accessToken ?? "", () => handle(app)(request));
+  let response: Response;
+  try {
+    response = await requestToken.run(accessToken ?? "", () => handle(app)(request));
+  } catch (error) {
+    cleanupMembershipWatchdog();
+    throw error;
+  }
+  if (!membershipWatchdog) return response;
+  if (!response.body) {
+    cleanupMembershipWatchdog();
+    return response;
+  }
+  // Stop the membership poll when this stream finishes, errors, or is
+  // cancelled instead of leaving a timer alive for the watchdog's maximum
+  // lifetime. Client disconnects still stop it through the request abort
+  // signal above.
+  const reader = response.body.getReader();
+  const guardedBody = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          cleanupMembershipWatchdog();
+          controller.close();
+          return;
+        }
+        if (value) controller.enqueue(value);
+      } catch (error) {
+        cleanupMembershipWatchdog();
+        controller.error(error);
+      }
+    },
+    cancel(reason) {
+      cleanupMembershipWatchdog();
+      return reader.cancel(reason);
+    },
+  });
+  return new Response(guardedBody, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
 }
 
 // Bound the owner request to 300s so the Proxy can prove a refreshed JWT
