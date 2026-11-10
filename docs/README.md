@@ -6,6 +6,7 @@ This is the GitHub-native documentation home for iPix. Use these files for curre
 |---|---|
 | Product requirements | [prd.md](./prd.md) |
 | Product orientation (WHY → WHAT → HOW; not separate sources of truth) | [intent.md](./intent.md) · [spec.md](./spec.md) · [plan.md](./plan.md) |
+| Optional task-level spec-driven handoffs | [Development guide & reusable templates](./development/README.md) · [IPI-1389 pilot](./development/tasks/IPI-1389/intent.md) |
 | Routes and phases | [sitemap.md](./sitemap.md) |
 | Now → Next → Later | [roadmap.md](./roadmap.md) |
 | Current task status / blockers | [Linear v2-ipix](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues) |

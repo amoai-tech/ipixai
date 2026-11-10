@@ -25,7 +25,7 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Changed
 
-- IPI-1424 · DOC-INTENT-001 — Linked the new iPix WHY/WHAT/HOW guides into the canonical `AGENTS.md` feature-start checklist. Agents consult the live Linear issue and relevant `docs/intent.md`, `docs/spec.md`, and `docs/plan.md` sections before coding; small fixes read only what they need. Existing Linear, engineering and verification authority remains unchanged.
+- IPI-1424 · DOC-INTENT-001 — Added task-size gating to the canonical `AGENTS.md` feature workflow, a `CLAUDE.md` import so Claude loads the same contract, optional task-level intent/spec/plan templates and an IPI-1389 release-gate pilot. Updated the existing `tasks` skill for resumable Linear-first handoffs. Small fixes skip extra artifacts; no second tracker or approval process.
 
 - change(copilotkit): upgrade the Planner to CopilotKit 1.85 / AG-UI 1.0.2 and enforce owner-scoped Stop, reconnect and thread reads (IPI-1389, #319)
 - IPI-1418 · Claude skill authoring audit — Applied official Claude Code and Anthropic skill-creator guidance: focused Mastra invocation description, removed inert `metadata.paths`, documented existing evaluation fixtures versus actual baseline proof, refreshed unsafe/unpinned MCP and stale Planner tool-count examples; preserved auth, approval, privacy and vendor boundaries.

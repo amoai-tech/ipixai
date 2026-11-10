@@ -16,17 +16,16 @@ This repository is the iPix CopilotKit + Mastra runtime. Implement here, in `amo
 
 ## Feature orientation — intent, spec, plan
 
-Before implementing an iPix feature:
+Before implementing, **read the exact live Linear issue and verify current code, dependencies, and related PRs**. Then use the relevant portions of [product intent](docs/intent.md), [observable specification](docs/spec.md), and [delivery plan](docs/plan.md) as context; they do not replace current code or issue requirements.
 
-1. Read the live Linear task.
-2. Read `docs/intent.md` for product goals.
-3. Read `docs/spec.md` for relevant requirements.
-4. Read `docs/plan.md` for architecture and delivery guidance.
-5. Inspect current code and reuse existing functionality.
-6. Implement the smallest change and verify it.
+Choose the smallest useful path:
+- **Small fix** (local, clear requirements): use Linear + affected code + a short verification checklist. **Do not create** three task files.
+- **Normal feature** (existing, sufficient issue): execute its approved Linear plan and relevant domain skills. **Do not duplicate** it in Markdown.
+- **Cross-cutting, ambiguous, or multi-session work** with a demonstrated handoff gap: follow [spec-driven task guidance](docs/development/README.md), reusing existing task artifacts if present. Create only the missing intent/spec/plan documents that add material value, based on the reviewed templates, then link them in the **same** Linear issue.
 
-For small fixes, read only the relevant sections.
-`AGENTS.md` and live Linear remain authoritative. The three documents are orientation guides, not replacement requirements, task trackers, or proof that proposed features are implemented.
+For every path: inspect existing implementation first, make the smallest safe change, run risk-matched verification, and record the current branch/SHA, result, blocker, and exact next action in Linear. **Do not treat draft files as permission for a production write or merge.**
+
+`AGENTS.md` remains the engineering contract, live Linear owns task state and progress, and `.claude/skills/tasks/SKILL.md` remains the only task/PR lifecycle skill.
 
 ## Canonical engineering workflow
 

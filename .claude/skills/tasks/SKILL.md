@@ -84,6 +84,16 @@ If Linear is temporarily unavailable, use `todo.md` only as a temporary handoff 
 
 Linear remains the authoritative per-task execution record. Keep a concise handoff in the issue with: current verified state, last completed checkpoint, blocker, exact next action, branch/PR, and exact SHA when available. `todo.md` may point to that task for local session continuity but must not duplicate the full backlog.
 
+### Optional spec-driven task artifacts — use only when they reduce rework
+
+Follow the decision gate in `AGENTS.md` and [`docs/development/README.md`](../../../docs/development/README.md). Do not make one `intent.md`, `spec.md`, and `plan.md` mandatory for every Linear task. The canonical Linear template already contains purpose, acceptance criteria, implementation, and progress.
+
+- Inspect the **current live Linear issue, linked PRs, `origin/main`, and relevant tests** before writing any task artifacts. Reuse existing evidence; do not generate a new plan for work already implemented or blocked by release gates.
+- Create optional `docs/development/tasks/IPI-XXXX/` files from the shared templates only for a **proven unresolved handoff/design gap** (multiple owners, cross-session ambiguity, approval/security decisions). Do not copy entire issue bodies or maintain a second checklist of completion percentages.
+- `intent.md` captures human-reviewed WHY, without choosing implementation; `spec.md` captures testable WHAT with authorization and failures; `plan.md` points to the **existing task-owned runbook**, exact code and next checkpoint. Reuse only the documents that improve an actual decision.
+- Keep temporary findings and verified progress in **the same Linear issue** (the existing handoff contract below). On resume, re-fetch Linear and current branch/head; treat old doc SHA/status as historical, resolve contradictions using verified code and current contracts, then continue the next unproven checkpoint.
+- Small fixes: **no extra files, new lifecycle, or additional review round** beyond risk-matched CI/PR gates. Stop if the approved work is already merged or the remaining step requires human authorization.
+
 ## PR follow-up loop — mandatory after PR opens
 
 Opening a PR starts the review loop; it does not finish the task. After the PR opens or after any new push:
