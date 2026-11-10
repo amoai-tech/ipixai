@@ -14,6 +14,20 @@ Canonical repository instructions for coding agents working on [amoai-tech/ipixa
 
 This repository is the iPix CopilotKit + Mastra runtime. Implement here, in `amoai-tech/ipixai`. Do not implement from a different checkout, or from the old repository name `amo-tech-ai/ipix`.
 
+## Feature orientation — intent, spec, plan
+
+Before implementing an iPix feature:
+
+1. Read the live Linear task.
+2. Read `docs/intent.md` for product goals.
+3. Read `docs/spec.md` for relevant requirements.
+4. Read `docs/plan.md` for architecture and delivery guidance.
+5. Inspect current code and reuse existing functionality.
+6. Implement the smallest change and verify it.
+
+For small fixes, read only the relevant sections.
+`AGENTS.md` and live Linear remain authoritative. The three documents are orientation guides, not replacement requirements, task trackers, or proof that proposed features are implemented.
+
 ## Canonical engineering workflow
 
 For every substantial executable `IPI-*` task:
