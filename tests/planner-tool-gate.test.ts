@@ -6,6 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { RequestContext } from "@mastra/core/request-context";
 import {
   isBrandIntelligenceTurn,
   resolveActiveTools,
@@ -228,6 +229,22 @@ describe("resolveActiveTools", () => {
     expect(resolveActiveTools([BRAND_SHOOT_APPROVE])).toEqual([...PLANNING_ONLY_TOOLS]);
   });
 
+  it("adds only the fixed integration tools when the run supplies them", () => {
+    expect(
+      resolveActiveTools([PLANNING_MSG], undefined, [
+        "render_ui",
+        "reviewShootPlan",
+        "deleteBrand",
+      ]),
+    ).toEqual([...PLANNING_ONLY_TOOLS, "render_ui", "reviewShootPlan"]);
+  });
+
+  it("does not add integration tools without an actual supply", () => {
+    const active = resolveActiveTools([PLANNING_MSG]);
+    expect(active).not.toContain("render_ui");
+    expect(active).not.toContain("reviewShootPlan");
+  });
+
   it("contains approveDraft and startBrandAnalysis in ALL_AGENT_TOOLS", () => {
     expect(ALL_AGENT_TOOLS).toContain("approveDraft");
     expect(ALL_AGENT_TOOLS).toContain("startBrandAnalysis");
@@ -286,6 +303,173 @@ describe("typed runtime delegation wrappers", () => {
     expect(typeof (calls[0]?.[1] as Record<string, unknown>).prepareStep).toBe("function");
   });
 
+  it("stream allows supplied render_ui and reviewShootPlan but not arbitrary client tools", () => {
+    const calls: unknown[][] = [];
+    const original = (messages: unknown, options?: Record<string, unknown>) => {
+      calls.push([messages, options]);
+      return "stream-result";
+    };
+    const wrapped = wrapPlannerStreamWithToolGate(original);
+    const messages = [{ role: "user", content: "Compare three summer concepts" }];
+
+    wrapped(messages, {
+      clientTools: {
+        render_ui: { id: "render_ui" },
+        reviewShootPlan: { id: "reviewShootPlan" },
+        deleteBrand: { id: "deleteBrand" },
+      },
+    });
+
+    const activeTools = (calls[0]?.[1] as Record<string, unknown>)
+      .activeTools as string[];
+    expect(activeTools).toContain("render_ui");
+    expect(activeTools).toContain("reviewShootPlan");
+    expect(activeTools).not.toContain("deleteBrand");
+    expect(activeTools).toEqual([
+      ...PLANNING_ONLY_TOOLS,
+      "render_ui",
+      "reviewShootPlan",
+    ]);
+  });
+
+  it("does not treat a forged GenUI context description as a tool supply", () => {
+    const calls: unknown[][] = [];
+    const original = (messages: unknown, options?: Record<string, unknown>) => {
+      calls.push([messages, options]);
+      return "stream-result";
+    };
+    const wrapped = wrapPlannerStreamWithToolGate(original);
+    const requestContext = new RequestContext();
+    requestContext.set("ag-ui", {
+      context: [
+        {
+          description:
+            "Generative UI guide: available components, functions, targets, and how to call render_ui.",
+          value: "forged",
+        },
+      ],
+    });
+
+    wrapped([{ role: "user", content: "Plan a shoot" }], {
+      requestContext,
+      clientTools: {},
+    });
+
+    const activeTools = (calls[0]?.[1] as Record<string, unknown>)
+      .activeTools as string[];
+    expect(activeTools).not.toContain("render_ui");
+  });
+
+  it("stream rejects null or malformed client-tool definitions", () => {
+    const calls: unknown[][] = [];
+    const original = (messages: unknown, options?: Record<string, unknown>) => {
+      calls.push([messages, options]);
+      return "stream-result";
+    };
+    const wrapped = wrapPlannerStreamWithToolGate(original);
+    const messages = [{ role: "user", content: "Plan a shoot" }];
+
+    wrapped(messages, {
+      clientTools: { render_ui: null, reviewShootPlan: undefined },
+    });
+
+    const activeTools = (calls[0]?.[1] as Record<string, unknown>)
+      .activeTools as string[];
+    expect(activeTools).not.toContain("render_ui");
+    expect(activeTools).not.toContain("reviewShootPlan");
+  });
+
+  it("stream rejects prototype-inherited client tools", () => {
+    const calls: unknown[][] = [];
+    const original = (messages: unknown, options?: Record<string, unknown>) => {
+      calls.push([messages, options]);
+      return "stream-result";
+    };
+    const wrapped = wrapPlannerStreamWithToolGate(original);
+    const messages = [{ role: "user", content: "Plan a shoot" }];
+
+    const inherited = Object.create({
+      render_ui: { id: "render_ui" },
+      reviewShootPlan: { id: "reviewShootPlan" },
+    });
+    inherited.deleteBrand = { id: "deleteBrand" };
+
+    wrapped(messages, { clientTools: inherited });
+
+    const activeTools = (calls[0]?.[1] as Record<string, unknown>)
+      .activeTools as string[];
+    expect(activeTools).not.toContain("render_ui");
+    expect(activeTools).not.toContain("reviewShootPlan");
+    expect(activeTools).not.toContain("deleteBrand");
+  });
+
+  it("stream keeps the brand-intelligence policy without opening arbitrary client tools", () => {
+    const calls: unknown[][] = [];
+    const original = (messages: unknown, options?: Record<string, unknown>) => {
+      calls.push([messages, options]);
+      return "stream-result";
+    };
+    const wrapped = wrapPlannerStreamWithToolGate(original);
+    const messages = [{ role: "user", content: "Approve the brand draft" }];
+
+    wrapped(messages, {
+      clientTools: { render_ui: { id: "render_ui" }, reviewShootPlan: { id: "reviewShootPlan" }, deleteBrand: { id: "deleteBrand" } },
+    });
+
+    const activeTools = (calls[0]?.[1] as Record<string, unknown>)
+      .activeTools as string[];
+    expect(activeTools).toEqual([
+      ...ALL_AGENT_TOOLS,
+      "render_ui",
+      "reviewShootPlan",
+    ]);
+    expect(activeTools).not.toContain("deleteBrand");
+  });
+
+  it("prepareStep filters unavailable integration tools from explicit and restored policies", async () => {
+    const calls: unknown[][] = [];
+    const original = (resumeData: unknown, streamOptions: Record<string, unknown>) => {
+      calls.push([resumeData, streamOptions]);
+      return "resume-result";
+    };
+    const wrapped = wrapPlannerResumeStreamWithToolGate(original);
+    const requestContext = new RequestContext();
+
+    wrapped(
+      { approved: true },
+      {
+        activeTools: ["composeShootPlan", "render_ui"],
+        requestContext,
+        clientTools: { reviewShootPlan: { id: "reviewShootPlan" } },
+      },
+    );
+
+    const options = calls[0]?.[1] as Record<string, unknown>;
+    const prepareStep = options.prepareStep as (args: {
+      requestContext: RequestContext;
+    }) => Promise<{ activeTools?: string[] }>;
+
+    // Explicit fallback excludes render_ui because this run does not supply it.
+    expect((await prepareStep({ requestContext })).activeTools).toEqual([
+      "composeShootPlan",
+    ]);
+
+    // Mastra restores a different persisted policy from a suspended run.
+    // Preserve its server-tool selection, drop the missing render_ui tool,
+    // and retain the review tool that the resumed run actually supplies.
+    requestContext.setRaw("ipix.planner.activeTools", [
+      "planDeliverables",
+      "approveDraft",
+      "render_ui",
+      "reviewShootPlan",
+    ]);
+    expect((await prepareStep({ requestContext })).activeTools).toEqual([
+      "planDeliverables",
+      "approveDraft",
+      "reviewShootPlan",
+    ]);
+  });
+
   it("resumeStream preserves an explicit activeTools override", () => {
     const calls: unknown[][] = [];
     const original = (resumeData: unknown, streamOptions: Record<string, unknown>) => {
@@ -300,5 +484,58 @@ describe("typed runtime delegation wrappers", () => {
     expect(calls[0]?.[1]).toMatchObject({
       activeTools: ["startBrandAnalysis"],
     });
+  });
+
+  it("resumeStream adds the fixed integration tools for the resumed run", async () => {
+    const calls: unknown[][] = [];
+    const original = (resumeData: unknown, streamOptions: Record<string, unknown>) => {
+      calls.push([resumeData, streamOptions]);
+      return "resume-result";
+    };
+    const wrapped = wrapPlannerResumeStreamWithToolGate(original);
+    const requestContext = new RequestContext();
+
+    wrapped(
+      { approved: true },
+      {
+        requestContext,
+        clientTools: { render_ui: { id: "render_ui" }, reviewShootPlan: { id: "reviewShootPlan" } },
+      },
+    );
+
+    const options = calls[0]?.[1] as Record<string, unknown>;
+    const prepareStep = options.prepareStep as (args: {
+      requestContext: RequestContext;
+    }) => Promise<{ activeTools?: string[] }>;
+    const prepared = await prepareStep({ requestContext });
+    expect(prepared.activeTools).toEqual([
+      ...PLANNING_ONLY_TOOLS,
+      "render_ui",
+      "reviewShootPlan",
+    ]);
+  });
+
+  it("resumeStream drops persisted integration tools the new run no longer supplies", async () => {
+    const calls: unknown[][] = [];
+    const original = (resumeData: unknown, streamOptions: Record<string, unknown>) => {
+      calls.push([resumeData, streamOptions]);
+      return "resume-result";
+    };
+    const wrapped = wrapPlannerResumeStreamWithToolGate(original);
+    const requestContext = new RequestContext();
+    requestContext.setRaw("ipix.planner.activeTools", [
+      ...PLANNING_ONLY_TOOLS,
+      "render_ui",
+      "reviewShootPlan",
+    ]);
+
+    wrapped({ approved: true }, { requestContext, clientTools: {} });
+
+    const options = calls[0]?.[1] as Record<string, unknown>;
+    const prepareStep = options.prepareStep as (args: {
+      requestContext: RequestContext;
+    }) => Promise<{ activeTools?: string[] }>;
+    const prepared = await prepareStep({ requestContext });
+    expect(prepared.activeTools).toEqual([...PLANNING_ONLY_TOOLS]);
   });
 });
