@@ -722,9 +722,11 @@ jobs:
           git check-ignore -q .env.keys
           echo 'encrypted source files intact and correctly ignored'
       - name: Verify generated Supabase types are deterministic and current
+        # The script spawns Supabase CLI directly, not via package.json.
+        # Pass only synthetic private-key env to its subprocesses.
         run: |
-          node scripts/generate-supabase-types.mjs --check
-          node scripts/generate-supabase-types.mjs --check
+          dotenvx run -f .env.keys --ignore=MISSING_ENV_FILE -- node scripts/generate-supabase-types.mjs --check
+          dotenvx run -f .env.keys --ignore=MISSING_ENV_FILE -- node scripts/generate-supabase-types.mjs --check
       - name: Schema / RLS / RPC assertions
         env:
           PGPASSWORD: postgres
