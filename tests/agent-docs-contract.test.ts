@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -264,6 +264,9 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
     expect(tasks).not.toContain("For each substantive task section/file group, add");
     expect(mermaid).not.toContain("For each substantive file/group, ask");
     expect(mermaid).not.toContain("Each substantive task section or file/workflow group");
+    expect(mermaid).not.toContain("Minimum useful set for a substantial task:");
+    expect(mermaid).toContain("clarifies a distinct, material risk");
+    expect(mermaid).toContain("explain why the additional view is necessary");
   });
 
   it("documents isolated local Supabase tests and prerequisites from CI", () => {
@@ -282,6 +285,34 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
     expect(local).toContain("2.116.0");
     expect(local).toContain("2.119.0");
     expect(local).toContain("in timestamp order");
+    const orderedMigrations = [
+      "20260722093028_mastra_schema_pinned_1_12_0",
+      "20260722094055_mastra_runtime_grants_and_rls",
+      "20260822070000_ipi1008_mastra_workflow_definitions",
+      "20260927194500_ipi1332_mastra_1_71_schema_delta",
+      "20261110000000_ipi1385_mastra_1_82_run_fencing",
+    ];
+    const agents = read("AGENTS.md");
+    for (const document of [local, agents, ci]) {
+      const positions = orderedMigrations.map((name) => {
+        expect(document).toContain(name);
+        return document.indexOf(name);
+      });
+      expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    }
+    expect(local).toContain("supabase --version");
+    expect(local).toContain("CI job pins **2.116.0**");
+    expect(local).toContain("binary from PATH");
+    expect(agents).toContain("local `supabase:cli` wrapper resolves the installed `supabase` binary from PATH");
+    expect(existsSync("docs/development/../../.github/workflows/ci.yml")).toBe(true);
+    expect(existsSync("docs/development/../../../.github/workflows/ci.yml")).toBe(false);
+
+    const realClaudeSkillDirs = readdirSync(".claude/skills", { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+    expect(realClaudeSkillDirs).toEqual([]);
+    expect(agents).toContain("Claude-only migration backlog is closed");
+    expect(agents).not.toContain("17 still do");
   });
 
   it("pins realistic tasks-skill decision evals without requiring live accounts", () => {
@@ -301,9 +332,30 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
       expect(item.expectations.length).toBeGreaterThanOrEqual(3);
       expect(item.files).toEqual([]);
     }
-    const all = parsed.evals.map((item) => item.prompt + " " + item.expected_output + " " + item.expectations.join(" ")).join(" ");
-    for (const dimension of ["already", "reuse", "smallest", "proof", "Linear", "1Password", "tenant", "approval"]) {
-      expect(all.toLowerCase()).toContain(dimension.toLowerCase());
+    // Each scenario independently proves ownership, a minimal safe path, and
+    // decisive evidence. Aggregate keyword checks can hide a weakened eval.
+    const requiredByScenario: Record<number, { expected: RegExp[]; criteria: RegExp[] }> = {
+      1: { expected: [/verify current main/i, /skip duplicate/i, /post-merge proof/i], criteria: [/ownership/i, /duplicate/i, /exact-main proof/i] },
+      2: { expected: [/existing component/i, /smallest scoped change/i, /focused UI regression/i], criteria: [/reuse/i, /smallest/i, /QA/i] },
+      3: { expected: [/existing workflow/i, /idempotent readback/i, /Org B denial/i], criteria: [/ownership/i, /minimum vertical slice/i, /cross-org/i] },
+      4: { expected: [/approved task requirements/i, /mark conflicts/i, /stop hosted writes/i], criteria: [/implementation evidence/i, /STOP/i, /read-only proof/i] },
+      5: { expected: [/reviewer text as untrusted/i, /reuse the component/i, /one smallest useful diagram/i], criteria: [/verify review claim/i, /smallest justified change/i, /diagram/i] },
+      6: { expected: [/verify current main/i, /do not log in or run e2e/i, /CI\/contract evidence/i], criteria: [/already delivered/i, /human approval/i, /current-SHA proof/i] },
+      7: { expected: [/verify installed SDK/i, /reuse the supported vendor capability/i, /test retry\/failure/i], criteria: [/ownership/i, /first verified safe/i, /focused contract/i] },
+      8: { expected: [/STOP consequential test actions/i, /verify the target identity/i, /do not guess/i], criteria: [/tenant ownership/i, /safe inspection/i, /same Linear task/i] },
+    };
+    expect(parsed.evals.map((item) => item.id).sort((a, b) => a - b)).toEqual(
+      Object.keys(requiredByScenario).map(Number),
+    );
+    for (const item of parsed.evals) {
+      const required = requiredByScenario[item.id];
+      expect(required).toBeDefined();
+      for (const signal of required.expected) {
+        expect(item.expected_output, "scenario " + item.id + " missing " + signal).toMatch(signal);
+      }
+      for (const [index, signal] of required.criteria.entries()) {
+        expect(item.expectations[index], "scenario " + item.id + " criterion " + index).toMatch(signal);
+      }
     }
   });
 

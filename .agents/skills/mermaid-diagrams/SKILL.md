@@ -38,7 +38,7 @@ For every substantial `IPI-*` task:
 
 1. Choose **one smallest useful diagram overall** that reveals the most important real user/system relationship or state change. Include current versus target behavior and applicable ownership, trust/HITL, dependencies, retries/failures and verification in that diagram when they fit.
 2. **Inspect that diagram for hidden defects before coding.** Do not require one diagram per section, file, stage or PR checkpoint; reuse and update the task-level diagram as implementation evidence changes.
-3. Add an additional diagram **only if a distinct, material boundary or recovery risk cannot be understood in the first**, and document why that extra view helps.
+3. Add a second diagram **only if it clarifies a distinct, material risk** (for example, concurrency, authorization or recovery) that the first cannot convey; explain why the additional view is necessary.
 4. If none adds meaningful value, record the **single task-level** reason:
 
    ```text
@@ -114,15 +114,7 @@ Official Mermaid 11.17.2 currently lists flowchart, swimlanes, sequence, class, 
 
 ### 1. Task discovery
 
-Minimum useful set for a substantial task:
-
-```text
-flowchart       → current → target user/system journey
-architecture    → ownership + source-of-truth boundaries
-requirement     → AC → implementation/test trace when requirements are complex
-```
-
-Use a **current-state diagram first**, then target state. The difference is the actual task scope.
+For a substantial task, **choose one smallest useful diagram overall** to explain the material current → target change. Select a flowchart for journey/decisions, an architecture view for trust/ownership, a state diagram for lifecycle, or another relevant type; **none is mandatory in addition to the first**. Include enough current and target context to show what changes. If one diagram adds no value, record `Diagram: N/A — no meaningful relationship/state/sequence to model.` A second view needs a distinct, documented material risk the first cannot explain.
 
 ### 2. File/workflow planning
 

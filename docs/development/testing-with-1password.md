@@ -9,7 +9,7 @@
 3. **Authenticated real-user / RLS / cross-org journey:** use the existing iPix 1Password QA runner *when installed and authorized*, and verify the exact target project, SHA, environment and clean QA worktree before any actions.
 4. **Production or paid-model journey:** requires the owning Linear release/test task and explicit authorization; never infer consent from a QA login or this guide.
 
-## Existing local setup (verified on a developer workstation 2026-11-10)
+## Existing local setup (observed on one developer workstation; re-verify before use)
 
 An **untracked**, workstation-local `/home/sk/ipixai/testing.md` explains the original QA process. It is *optional local context*, not part of the Git repository: a fresh clone may not have it. Do **not** commit or copy its test account identities, session files, credentials, 1Password environment IDs or contents. This versioned guide is the portable starting point.
 
