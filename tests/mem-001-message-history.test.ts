@@ -32,7 +32,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
  *    recall cannot supply the fact.
  *
  * History window: the Planner does not set `lastMessages`, so Mastra's default
- * applies (`memoryDefaultOptions.lastMessages = 10` at `@mastra/core@1.71.0`).
+ * applies (`memoryDefaultOptions.lastMessages = 10` at `@mastra/core@1.82.0`).
  * MEM-001 promises bounded recent history, not unbounded context, so every
  * assertion below stays inside that window on purpose.
  */

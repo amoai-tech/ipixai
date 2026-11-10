@@ -11,11 +11,12 @@ This file records the currently installed compatibility family. `package.json` a
 | `@copilotkit/channels` | 0.12.0 |
 | `@ag-ui/client` | 1.0.2 |
 | `@ag-ui/mastra` | 2.0.2 |
-| `@mastra/core` | 1.71.0 |
-| `@mastra/memory` | 1.32.1 |
-| `@mastra/pg` | 1.27.1 |
-| `@mastra/client-js` | 1.50.0 |
-| `mastra` | 1.31.3 |
+| `@mastra/core` | 1.82.0 |
+| `@mastra/memory` | 1.41.0 |
+| `@mastra/pg` | 1.35.0 |
+| `@mastra/client-js` | 1.59.0 |
+| `@mastra/observability` | 1.23.1 |
+| `mastra` | 1.38.0 |
 | `next` | 16.4.5 |
 
 ## Runtime contract
