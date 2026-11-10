@@ -1,6 +1,6 @@
 # SCR-26 wireframe — Crm Companies
 
-> **SSOT:** [`SCR-26-CRM-Companies-List.dc.html`](../../../Pages/SCR-26-CRM-Companies-List.dc.html) · Method: [`ipix-wireframe`](../../../../.claude/skills/ipix-wireframe/SKILL.md)  
+> **SSOT:** [`SCR-26-CRM-Companies-List.dc.html`](../../../Pages/SCR-26-CRM-Companies-List.dc.html) · Method: [`ipix-wireframe`](../../../../.agents/skills/ipix-wireframe/SKILL.md)
 > **Rule:** ASCII zones must match DC `grid-template-columns` and Workspace blocks — not invented layout.
 
 ## Shell archetype

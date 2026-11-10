@@ -1,6 +1,6 @@
 # SCR-24 diagrams — Talent Onboarding
 
-> **SSOT:** [`SCR-24-Talent-Onboarding.dc.html`](../../../Pages/SCR-24-Talent-Onboarding.dc.html) · Skill: [`mermaid-diagrams`](../../../../.claude/skills/mermaid-diagrams/SKILL.md)
+> **SSOT:** [`SCR-24-Talent-Onboarding.dc.html`](../../../Pages/SCR-24-Talent-Onboarding.dc.html) · Skill: [`mermaid-diagrams`](../../../../.agents/skills/mermaid-diagrams/SKILL.md)
 
 ## Layout block (matches DC shell)
 

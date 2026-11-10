@@ -5,9 +5,8 @@ import { discoverVendoredRoots } from "../scripts/skills-vendor-baseline.mjs";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const agentsRoot = resolve(repoRoot, ".agents/skills");
-const claudeRoot = resolve(repoRoot, ".claude/skills");
 const registry = JSON.parse(readFileSync(resolve(agentsRoot, "registry.json"), "utf8")) as {
-  skills: Record<string, { canonical: string; claude_exposed: boolean; replaces?: string[] }>;
+  skills: Record<string, { canonical: string; replaces?: string[] }>;
   deprecated_aliases?: Record<string, string>;
 };
 
@@ -56,12 +55,7 @@ function bodyWithoutFrontmatter(text: string): string {
   return end === -1 ? text : text.slice(end + 5);
 }
 
-const liveSkillNames = new Set([
-  ...Object.keys(registry.skills),
-  ...readdirSync(claudeRoot, { withFileTypes: true })
-    .filter((entry) => existsSync(resolve(claudeRoot, entry.name, "SKILL.md")))
-    .map((entry) => entry.name),
-]);
+const liveSkillNames = new Set(Object.keys(registry.skills));
 const deprecatedSkills = new Set([
   ...Object.values(registry.skills).flatMap((entry) => entry.replaces ?? []),
   ...Object.keys(registry.deprecated_aliases ?? {}),
@@ -155,7 +149,7 @@ describe("skill reference integrity", () => {
     ];
     const invalidPaths: string[] = [];
     const staleAliases: string[] = [];
-    const pathPattern = /\.(agents|claude)\/skills\/([a-z0-9][a-z0-9-]+)(?=\/|`|[ \t]|$)/gim;
+    const pathPattern = /\.(agents)\/skills\/([a-z0-9][a-z0-9-]+)(?=\/|`|[ \t]|$)/gim;
 
     for (const file of sourceFiles) {
       const text = readFileSync(file, "utf8");
@@ -166,7 +160,6 @@ describe("skill reference integrity", () => {
       for (const alias of deprecatedSkills) {
         const stale = [
           `.agents/skills/${alias}`,
-          `.claude/skills/${alias}`,
           `\`${alias}\``,
           `${alias} skill`,
           `Skill(\"${alias}\")`,

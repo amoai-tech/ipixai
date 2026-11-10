@@ -1112,7 +1112,7 @@ EdgeRuntime.waitUntil(longTask())        // ✅ fire and forget
 
 **Canonical list (16 in-repo):** [references/edge-functions/edge-functions-inventory.md](references/edge-functions/edge-functions-inventory.md) — `verify_jwt`, schema, auth, Gemini models.
 
-**Drift check:** `.claude/skills/ipix-supabase/scripts/verify-edge-inventory.sh` (dirs ↔ `supabase/config.toml`).
+**Drift check:** `.agents/skills/ipix-supabase/scripts/verify-edge-inventory.sh` (dirs ↔ `supabase/config.toml`).
 
 **AI-only summary:** [references/edge-functions/ai-edge-functions.md](references/edge-functions/ai-edge-functions.md).
 

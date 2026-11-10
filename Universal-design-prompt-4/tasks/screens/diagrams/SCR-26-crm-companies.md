@@ -1,6 +1,6 @@
 # SCR-26 diagrams — Crm Companies
 
-> **SSOT:** [`SCR-26-CRM-Companies-List.dc.html`](../../../Pages/SCR-26-CRM-Companies-List.dc.html) · Skill: [`mermaid-diagrams`](../../../../.claude/skills/mermaid-diagrams/SKILL.md)
+> **SSOT:** [`SCR-26-CRM-Companies-List.dc.html`](../../../Pages/SCR-26-CRM-Companies-List.dc.html) · Skill: [`mermaid-diagrams`](../../../../.agents/skills/mermaid-diagrams/SKILL.md)
 
 ## Layout block (matches DC shell)
 

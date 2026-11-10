@@ -26,9 +26,9 @@ These topics were previously restated here. They are repository-wide rules, so t
 
 | Topic | Canonical location |
 |---|---|
-| Task and PR lifecycle, task structure, progress, post-merge | `AGENTS.md` § Canonical engineering workflow; `.claude/skills/tasks/SKILL.md` |
+| Task and PR lifecycle, task structure, progress, post-merge | `AGENTS.md` § Canonical engineering workflow; `.agents/skills/tasks/SKILL.md` |
 | Cheapest-safe-path ordering | `AGENTS.md` § Fastest safe path |
-| Diagram reasoning gate and its defect checklist | `AGENTS.md` § Mermaid reasoning; `.claude/skills/mermaid-diagrams/SKILL.md` |
+| Diagram reasoning gate and its defect checklist | `AGENTS.md` § Mermaid reasoning; `.agents/skills/mermaid-diagrams/SKILL.md` |
 | Source-of-truth tiers | `AGENTS.md` § Source of truth — higher wins |
 | Ownership, authorization, and tenant boundaries | `AGENTS.md` § Architecture boundaries |
 | Human-in-the-loop for consequential actions | `AGENTS.md` § AI governance |
@@ -38,7 +38,7 @@ These topics were previously restated here. They are repository-wide rules, so t
 | Reuse before custom | `AGENTS.md` § Reuse before custom |
 | Secrets and Dotenvx | `AGENTS.md` § Secrets / Dotenvx |
 | Local database safety, including the supported `supabase:cli` wrapper | `AGENTS.md` § Supabase safety |
-| Graphify | `AGENTS.md` § Setup commands; `.claude/skills/graphify/SKILL.md` |
+| Graphify | `AGENTS.md` § Setup commands; `.agents/skills/graphify/SKILL.md` |
 
 `task-verifier` independently challenges what remains unproven, at the risk-matched depth. It does not become a second implementation lifecycle.
 
@@ -54,7 +54,7 @@ They produce evidence. They do not replace `tasks`, domain skills, CI, or `task-
 
 ### Open follow-ups (IPI-1185)
 
-This repository has **no generated build/start/run recipe skill** — nothing under `.claude/skills/` or `.agents/skills/` matches one — so `/run` and `/verify` currently improvise the recipe each time. From clean current `main`:
+This repository has **no generated build/start/run recipe skill** — nothing under `.agents/skills/` or `.agents/skills/` matches one — so `/run` and `/verify` currently improvise the recipe each time. From clean current `main`:
 
 1. use the Claude-provided `skill-creator` skill to record the real iPix build/start/run recipe as a project skill;
 2. review and verify the generated recipe before committing it in a small follow-up PR;
@@ -66,19 +66,13 @@ These are **outstanding**, not historical. They were written as "after PR #106 m
 
 ## Skill authoring
 
-Skill-home decision (one canonical implementation, consistent with the shared-skill migration on `main`):
+Use `.agents/skills/<name>/SKILL.md` for reusable procedures. Launch Claude with npm run agent:claude to load them as the ipix plugin. `.claude/commands/` files are compatibility shims only when an equivalent project skill exists.
 
-- **Shared skill** used by Codex or multiple agents: `.agents/skills/<name>/SKILL.md`; expose it to Claude via the approved `.claude/skills/` symlink.
-- **Claude-specific hooks or command APIs** without a cross-agent consumer: `.claude/skills/<name>/SKILL.md`.
-- **Vendored or legacy exception:** preserve the installed registry/skill owner; migrate only under an explicitly scoped task.
-
-`.claude/commands/` remains a compatibility shim location, not a duplicate implementation.
-
-For any skill whose purpose is to change what the model decides or does — rather than to produce an artifact or answer a lookup — keep realistic prompts in that skill's own `evals/evals.json` (for example `.claude/skills/pr/evals/evals.json`) and compare a changed skill against the previous version before claiming the rewrite is better. That criterion is deliberately behaviour-based: a skill that changes decisions needs test prompts, while a purely descriptive or subjective one gets no value from assertions. Vendored skills are exempt — their evals belong upstream, not in a local edit the next sync discards. Keep trigger conditions in the skill description, keep `SKILL.md` concise, and move detailed material into supporting references/scripts when needed.
+For any skill whose purpose is to change what the model decides or does — rather than to produce an artifact or answer a lookup — keep realistic prompts in that skill's own `evals/evals.json` (for example `.agents/skills/pr/evals/evals.json`) and compare a changed skill against the previous version before claiming the rewrite is better. That criterion is deliberately behaviour-based: a skill that changes decisions needs test prompts, while a purely descriptive or subjective one gets no value from assertions. Vendored skills are exempt — their evals belong upstream, not in a local edit the next sync discards. Keep trigger conditions in the skill description, keep `SKILL.md` concise, and move detailed material into supporting references/scripts when needed.
 
 Side-effecting skills must require explicit user invocation or an equally strong human approval boundary. In particular, `/pr` is user-controlled and bare `/pr` is read-only; commit/push requires explicit `/pr ship`.
 
-Skill homes and the one-real-copy rule are defined in `AGENTS.md` § Code style — `.agents/skills/` is the canonical tree for shared skills; many existing skills remain under `.claude/skills/` until migrated.
+Skill homes and the one-real-copy rule are defined in `AGENTS.md` § Code style — `.agents/skills/` is the canonical tree for shared skills; all skills now live there and load through the ipix plugin launcher.
 
 ## Secrets / Dotenvx — Claude launch rules
 

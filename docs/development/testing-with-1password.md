@@ -1,6 +1,6 @@
 # iPix QA: reuse the existing 1Password-backed Playwright runner
 
-**Purpose:** When a user journey needs **existing QA accounts** and real authenticated browser checks, reuse the local iPix 1Password runner. This is conditional testing guidance, **not** a new test framework, a production-testing authorization, or a replacement for [AGENTS.md](../../AGENTS.md) and the [tasks testing standard](../../.claude/skills/tasks/references/user-journey-testing.md).
+**Purpose:** When a user journey needs **existing QA accounts** and real authenticated browser checks, reuse the local iPix 1Password runner. This is conditional testing guidance, **not** a new test framework, a production-testing authorization, or a replacement for [AGENTS.md](../../AGENTS.md) and the [tasks testing standard](../../.agents/skills/tasks/references/user-journey-testing.md).
 
 ## Select the cheapest adequate proof first
 

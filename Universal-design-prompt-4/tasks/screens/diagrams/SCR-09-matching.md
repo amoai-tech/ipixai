@@ -1,6 +1,6 @@
 # SCR-09 diagrams — Matching
 
-> **SSOT:** [`SCR-09-Matching-Talent.dc.html`](../../../Pages/SCR-09-Matching-Talent.dc.html) · Skill: [`mermaid-diagrams`](../../../../.claude/skills/mermaid-diagrams/SKILL.md)
+> **SSOT:** [`SCR-09-Matching-Talent.dc.html`](../../../Pages/SCR-09-Matching-Talent.dc.html) · Skill: [`mermaid-diagrams`](../../../../.agents/skills/mermaid-diagrams/SKILL.md)
 
 ## Layout block (matches DC shell)
 

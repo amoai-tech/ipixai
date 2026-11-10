@@ -22,15 +22,15 @@ Official docs: [Mastra model router](https://mastra.ai/docs/v1/models) (append `
 
 ## Verify provider keys and model names
 
-Run from the **repo root** (script is tracked at `.claude/skills/mastra/scripts/provider-registry.mjs`):
+Run from the **repo root** (script is tracked at `.agents/skills/mastra/scripts/provider-registry.mjs`):
 
 ```bash
 # List all available providers
-node .claude/skills/mastra/scripts/provider-registry.mjs --list
+node .agents/skills/mastra/scripts/provider-registry.mjs --list
 
 # List all models for a specific provider, sorted newest first
-node .claude/skills/mastra/scripts/provider-registry.mjs --provider openai
-node .claude/skills/mastra/scripts/provider-registry.mjs --provider anthropic
+node .agents/skills/mastra/scripts/provider-registry.mjs --provider openai
+node .agents/skills/mastra/scripts/provider-registry.mjs --provider anthropic
 ```
 
 When the user asks to use a model or provider, run the script first to verify the provider key and model name are valid. Do not guess model names from memory because they change frequently.

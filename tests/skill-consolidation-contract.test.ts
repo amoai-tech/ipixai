@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const skill = (name: string) => resolve(repoRoot, ".agents/skills", name, "SKILL.md");
-const claudeSkill = (name: string) => resolve(repoRoot, ".claude/skills", name, "SKILL.md");
+const claudeSkill = (name: string) => resolve(repoRoot, ".agents/skills", name, "SKILL.md");
 const read = (path: string) => readFileSync(resolve(repoRoot, path), "utf8");
 
 describe("skill consolidation contract", () => {
@@ -66,14 +66,14 @@ describe("skill consolidation contract", () => {
   it("routes fastest-path requests through tasks without a standalone fastest skill", () => {
     expect(existsSync(claudeSkill("fastest"))).toBe(false);
 
-    const fastestMode = read(".claude/skills/tasks/references/fastest-path.md");
+    const fastestMode = read(".agents/skills/tasks/references/fastest-path.md");
     expect(fastestMode).toContain("Verified fastest-path mode");
     expect(fastestMode).toContain("Stop at the first solution that fully satisfies the task without weakening evidence");
 
     const claudeCommand = read(".claude/commands/fastest.md");
-    expect(claudeCommand).toContain(".claude/skills/tasks/SKILL.md");
-    expect(claudeCommand).toContain(".claude/skills/tasks/references/fastest-path.md");
-    expect(claudeCommand).not.toContain(".claude/skills/fastest/SKILL.md");
+    expect(claudeCommand).toContain(".agents/skills/tasks/SKILL.md");
+    expect(claudeCommand).toContain(".agents/skills/tasks/references/fastest-path.md");
+    expect(claudeCommand).not.toContain(".agents/skills/fastest/SKILL.md");
   });
 
   it("does not keep removed upstream skill names in the provenance lock", () => {
@@ -117,7 +117,7 @@ describe("skill consolidation contract", () => {
       "qa-requirement-reviewer",
     ]) {
       expect(existsSync(resolve(repoRoot, ".agents/skills", removed)), `${removed} directory should be removed`).toBe(false);
-      expect(existsSync(resolve(repoRoot, ".claude/skills", removed)), `${removed} Claude alias should be removed`).toBe(false);
+      expect(existsSync(resolve(repoRoot, ".agents/skills", removed)), `${removed} Claude alias should be removed`).toBe(false);
     }
 
     const requirements = read(".agents/skills/requirements/SKILL.md");

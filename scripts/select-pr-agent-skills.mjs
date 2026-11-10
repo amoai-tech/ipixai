@@ -45,7 +45,7 @@ export function selectSkills(files) {
   const skills = [UNIVERSAL, ...SPECIALISTS.filter((skill) => selected.has(skill))];
   return {
     skills,
-    paths: skills.map((skill) => `/github/workspace/.claude/skills/${skill}`),
+    paths: skills.map((skill) => `/github/workspace/.agents/skills/${skill}`),
     maxTokens: budget(skills.length),
   };
 }
@@ -57,7 +57,7 @@ function runCli() {
   const files = JSON.parse(rawFiles);
   const result = selectSkills(files);
   for (const skill of result.skills) {
-    const file = `.claude/skills/${skill}/SKILL.md`;
+    const file = `.agents/skills/${skill}/SKILL.md`;
     if (!existsSync(file)) throw new Error(`required trusted PR-Agent skill missing: ${file}`);
   }
   process.stdout.write("enabled=true\n");

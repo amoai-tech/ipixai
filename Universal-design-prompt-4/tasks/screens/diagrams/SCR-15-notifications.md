@@ -1,6 +1,6 @@
 # SCR-15 diagrams — Notifications
 
-> **SSOT:** [`SCR-15-Notification-Center.dc.html`](../../../Pages/SCR-15-Notification-Center.dc.html) · Skill: [`mermaid-diagrams`](../../../../.claude/skills/mermaid-diagrams/SKILL.md)
+> **SSOT:** [`SCR-15-Notification-Center.dc.html`](../../../Pages/SCR-15-Notification-Center.dc.html) · Skill: [`mermaid-diagrams`](../../../../.agents/skills/mermaid-diagrams/SKILL.md)
 
 ## Layout block (matches DC shell)
 

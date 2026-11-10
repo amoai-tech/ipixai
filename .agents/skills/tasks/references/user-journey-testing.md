@@ -81,7 +81,7 @@ For each affected Mastra journey record evidence for these layers:
 | Recovery | Did retry/disconnect/provider failure/stale state fail safely? |
 | Tenant | Could Org B read, resume, or influence Org A state? |
 
-Use `.claude/skills/mastra/references/user-journeys.md` for the current iPix Mastra journey map, including current executable Planner journeys and future activation gates for Shoot Approval/Save and Brand Intelligence workflows.
+Use `.agents/skills/mastra/references/user-journeys.md` for the current iPix Mastra journey map, including current executable Planner journeys and future activation gates for Shoot Approval/Save and Brand Intelligence workflows.
 
 ## Required journey scenarios
 

@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-12
 **Scope:** Re-verify 4 "High Impact" findings from `design-audit.md` against actual files, project conventions, and the React target architecture (`planner-react-onboarding.md`) — before deciding whether to fix anything in the design prototypes.
-**Method:** Four independent read-only verification passes, each with direct file/grep evidence, cross-checked against project docs (`COMPONENTS.md`, `docs/design/*`, `.claude/skills/claude-design-handoff/`) and the real React app (`app/src/`). No files modified in producing this report.
+**Method:** Four independent read-only verification passes, each with direct file/grep evidence, cross-checked against project docs (`COMPONENTS.md`, `docs/design/*`, `.agents/skills/claude-design-handoff/`) and the real React app (`app/src/`). No files modified in producing this report.
 **Legend:** 🟢 verified correct · 🟡 needs clarification or limited fix · 🔴 confirmed blocker · ⚪ defer to React/backend
 
 ---

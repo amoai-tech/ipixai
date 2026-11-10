@@ -2,9 +2,9 @@
 
 > **Copy sections into `SCR-NN-<slug>.md` before coding.**  
 > **Discipline:** [`../designtoreact.md`](../designtoreact.md)  
-> **Skill:** [`.claude/skills/design-to-production/SKILL.md`](../../../.claude/skills/design-to-production/SKILL.md)  
+> **Skill:** [`.agents/skills/design-to-production/SKILL.md`](../../../.agents/skills/design-to-production/SKILL.md)
 > **Wireframes:** [`wireframes/SCR-NN-<slug>.md`](./wireframes/) · **Diagrams:** [`diagrams/SCR-NN-<slug>.md`](./diagrams/)  
-> **Report:** [`design-to-production/references/report-template.md`](../../../.claude/skills/design-to-production/references/report-template.md)
+> **Report:** [`design-to-production/references/report-template.md`](../../../.agents/skills/design-to-production/references/report-template.md)
 
 Workspace column only — do not rebuild OperatorPanel · NavSidebar · IntelligencePanel · PersistentChatDock.
 

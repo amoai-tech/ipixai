@@ -1,6 +1,6 @@
 # SCR-08 diagrams — Assets
 
-> **SSOT:** [`Assets.v2.image-first.dc.html`](../../../Pages/Assets.v2.image-first.dc.html) · Skill: [`mermaid-diagrams`](../../../../.claude/skills/mermaid-diagrams/SKILL.md)
+> **SSOT:** [`Assets.v2.image-first.dc.html`](../../../Pages/Assets.v2.image-first.dc.html) · Skill: [`mermaid-diagrams`](../../../../.agents/skills/mermaid-diagrams/SKILL.md)
 
 ## Layout block (matches DC shell)
 

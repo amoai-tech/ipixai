@@ -7,11 +7,11 @@ Use this reference for all iPix Linear work.
 - Team: `IPI`
 - Issue format: `IPI-###`
 - Task/progress source of truth: live Linear issue
-- Canonical task standard: `.claude/skills/tasks/SKILL.md`
+- Canonical task standard: `.agents/skills/tasks/SKILL.md`
 
 ## Read first for iPix tasks
 
-1. `.claude/skills/tasks/SKILL.md`.
+1. `.agents/skills/tasks/SKILL.md`.
 2. Live Linear issue, dependencies, and current progress.
 3. Graphify before codebase exploration when the graph exists.
 4. Current repository/runtime evidence relevant to the task.
@@ -54,7 +54,7 @@ Personas: **Operator**, **Engineer**, **Shopper** (commerce only).
 
 ## Verification gates
 
-Use `.claude/skills/tasks/references/pre-merge-tests.md` plus the affected domain skill. Re-read current `package.json` / CI before naming commands; do not maintain a second command matrix here.
+Use `.agents/skills/tasks/references/pre-merge-tests.md` plus the affected domain skill. Re-read current `package.json` / CI before naming commands; do not maintain a second command matrix here.
 
 ## Done definition
 

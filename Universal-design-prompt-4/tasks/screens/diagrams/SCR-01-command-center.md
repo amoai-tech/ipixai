@@ -1,6 +1,6 @@
 # SCR-01 diagrams — Command Center
 
-> **SSOT:** [`Command Center.v2.image-first.dc.html`](../../../Pages/Command Center.v2.image-first.dc.html) · Skill: [`mermaid-diagrams`](../../../../.claude/skills/mermaid-diagrams/SKILL.md)
+> **SSOT:** [`Command Center.v2.image-first.dc.html`](../../../Pages/Command Center.v2.image-first.dc.html) · Skill: [`mermaid-diagrams`](../../../../.agents/skills/mermaid-diagrams/SKILL.md)
 
 ## Layout block (matches DC shell)
 

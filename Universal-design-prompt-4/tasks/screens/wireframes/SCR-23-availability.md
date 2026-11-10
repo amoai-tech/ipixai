@@ -1,6 +1,6 @@
 # SCR-23 wireframe — Availability
 
-> **SSOT:** [`SCR-23-Availability-Editor.dc.html`](../../../Pages/SCR-23-Availability-Editor.dc.html) · Method: [`ipix-wireframe`](../../../../.claude/skills/ipix-wireframe/SKILL.md)  
+> **SSOT:** [`SCR-23-Availability-Editor.dc.html`](../../../Pages/SCR-23-Availability-Editor.dc.html) · Method: [`ipix-wireframe`](../../../../.agents/skills/ipix-wireframe/SKILL.md)
 > **Rule:** ASCII zones must match DC `grid-template-columns` and Workspace blocks — not invented layout.
 
 ## Shell archetype

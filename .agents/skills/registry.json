@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "skills": {
     "automate-manual-test-cases": {
       "owner": "qa",
@@ -17,7 +17,6 @@
         "writing product requirements",
         "debugging unrelated application behavior"
       ],
-      "claude_exposed": false,
       "canonical": ".agents/skills/automate-manual-test-cases"
     },
     "brainstorming": {
@@ -34,7 +33,6 @@
       "do_not_use_for": [
         "executing an already-approved implementation plan"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/brainstorming"
     },
     "ci-review": {
@@ -52,7 +50,6 @@
         "reviewing application source changes",
         "authoring product requirements"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/ci-review"
     },
     "cloudinary": {
@@ -70,7 +67,6 @@
         "commerce or order truth",
         "Supabase schema and RLS design"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/cloudinary"
     },
     "code-review": {
@@ -90,7 +86,6 @@
         "writing implementation plans",
         "automatic merge or approval"
       ],
-      "claude_exposed": true,
       "replaces": [
         "pr-agent-code-review"
       ],
@@ -112,7 +107,6 @@
       "do_not_use_for": [
         "routine small edits with no architectural decision"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/codebase-design"
     },
     "copilotkit": {
@@ -130,7 +124,6 @@
         "Mastra agent, tool, workflow, or memory design",
         "Supabase schema and RLS design"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/copilotkit"
     },
     "diagnosing-bugs": {
@@ -149,7 +142,6 @@
         "feature planning",
         "requirements discovery"
       ],
-      "claude_exposed": true,
       "replaces": [
         "debug-fix-failed-flaky-autotests"
       ],
@@ -175,7 +167,6 @@
         "shared mutable state",
         "sequential dependencies"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/dispatching-parallel-agents"
     },
     "domain-modeling": {
@@ -194,7 +185,6 @@
       "do_not_use_for": [
         "routine implementation with no domain ambiguity"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/domain-modeling"
     },
     "explain": {
@@ -209,7 +199,6 @@
         "making code changes",
         "deciding product requirements"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/explain"
     },
     "explorbot": {
@@ -230,7 +219,6 @@
         "deterministic browser merge gates",
         "static-content-only testing"
       ],
-      "claude_exposed": true,
       "replaces": [
         "explorbot-fundamentals",
         "explorbot-setup",
@@ -257,7 +245,6 @@
         "implementing code",
         "Supabase schema, RLS, or migration work"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/fashion-production"
     },
     "graphify": {
@@ -274,7 +261,6 @@
       "do_not_use_for": [
         "authoritative runtime, database, or provider truth"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/graphify"
     },
     "improve-test-cases": {
@@ -292,7 +278,6 @@
         "writing product requirements",
         "creating automation from scratch"
       ],
-      "claude_exposed": false,
       "canonical": ".agents/skills/improve-test-cases"
     },
     "ipix-supabase": {
@@ -312,7 +297,6 @@
         "hosted production writes without explicit task authorization",
         "UI or wireframe design"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/ipix-supabase"
     },
     "ipix-wireframe": {
@@ -330,7 +314,6 @@
         "building the production UI",
         "database or RLS design"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/ipix-wireframe"
     },
     "lean": {
@@ -346,7 +329,6 @@
       "do_not_use_for": [
         "single-task implementation planning"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/lean"
     },
     "linear": {
@@ -363,7 +345,6 @@
         "implementation work",
         "pull request review"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/linear"
     },
     "mastra": {
@@ -384,7 +365,6 @@
         "Supabase RLS and migration design",
         "interactive AI UX transport"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/mastra"
     },
     "mermaid-diagrams": {
@@ -402,7 +382,6 @@
         "replacing executable tests or runtime evidence",
         "decorative documentation only"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/mermaid-diagrams"
     },
     "nextjs-developer": {
@@ -421,7 +400,6 @@
         "Mastra agent or workflow design",
         "Supabase RLS design"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/nextjs-developer"
     },
     "playwright-cli": {
@@ -438,7 +416,6 @@
       "do_not_use_for": [
         "autonomous exploratory testing"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/playwright-cli",
       "routing_phrases": [
         "run deterministic browser steps",
@@ -458,7 +435,6 @@
         "replacing task or domain skills",
         "skipping validation, security, or required evidence"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/ponytail",
       "routing_phrases": [
         "smallest change that works",
@@ -484,7 +460,6 @@
         "implementing the change itself",
         "merging without explicit human approval"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/pr"
     },
     "prima": {
@@ -501,7 +476,6 @@
         "autonomous exploratory testing",
         "browser-free unit tests"
       ],
-      "claude_exposed": false,
       "canonical": ".agents/skills/prima"
     },
     "qa-automation-test-consolidation": {
@@ -520,7 +494,6 @@
         "writing requirements",
         "fixing a specific failing test"
       ],
-      "claude_exposed": false,
       "canonical": ".agents/skills/qa-automation-test-consolidation"
     },
     "qa-data-seeder": {
@@ -536,7 +509,6 @@
       "do_not_use_for": [
         "production data changes"
       ],
-      "claude_exposed": false,
       "canonical": ".agents/skills/qa-data-seeder"
     },
     "qa-explain-behavior": {
@@ -554,7 +526,6 @@
         "authoring product requirements",
         "implementing product code"
       ],
-      "claude_exposed": false,
       "canonical": ".agents/skills/qa-explain-behavior"
     },
     "qa-lead-strategy-advisor": {
@@ -572,7 +543,6 @@
       "do_not_use_for": [
         "a single tactical testing task"
       ],
-      "claude_exposed": false,
       "canonical": ".agents/skills/qa-lead-strategy-advisor"
     },
     "qa-pr-analysis": {
@@ -592,7 +562,6 @@
         "requirements authoring",
         "implementation"
       ],
-      "claude_exposed": true,
       "replaces": [
         "qa-pr-requirements-analyzer",
         "pull-request-diff-analyzer"
@@ -617,7 +586,6 @@
         "editing production code",
         "rewriting requirements unless defects are found"
       ],
-      "claude_exposed": true,
       "replaces": [
         "qa-thinking",
         "qa-review-pr"
@@ -639,7 +607,6 @@
       "do_not_use_for": [
         "writing product requirements"
       ],
-      "claude_exposed": false,
       "canonical": ".agents/skills/qa-split-testing-levels-pyramid"
     },
     "qa-test-code-coverage": {
@@ -657,7 +624,6 @@
         "product requirements",
         "runtime performance profiling"
       ],
-      "claude_exposed": false,
       "canonical": ".agents/skills/qa-test-code-coverage"
     },
     "qa-write-test-cases": {
@@ -677,7 +643,6 @@
       "do_not_use_for": [
         "product requirements authoring"
       ],
-      "claude_exposed": false,
       "canonical": ".agents/skills/qa-write-test-cases"
     },
     "receiving-code-review": {
@@ -694,7 +659,6 @@
       "do_not_use_for": [
         "blindly applying reviewer suggestions"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/receiving-code-review"
     },
     "refactor-plan": {
@@ -712,7 +676,6 @@
       "do_not_use_for": [
         "ordinary feature plans with no migration risk"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/refactor-plan",
       "routing_phrases": [
         "plan a risky multi-file migration",
@@ -733,7 +696,6 @@
       "do_not_use_for": [
         "self-approving or automatically merging code"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/requesting-code-review"
     },
     "requirements": {
@@ -754,7 +716,6 @@
         "no-interview conversation synthesis",
         "implementation planning after requirements are accepted"
       ],
-      "claude_exposed": true,
       "replaces": [
         "epic-requirements-specification",
         "write-user-story",
@@ -782,7 +743,6 @@
       "do_not_use_for": [
         "implementation that does not require external evidence"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/research"
     },
     "resolving-merge-conflicts": {
@@ -800,7 +760,6 @@
       "do_not_use_for": [
         "unrelated refactoring while resolving conflicts"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/resolving-merge-conflicts"
     },
     "setup-ci-automation": {
@@ -818,7 +777,6 @@
       "do_not_use_for": [
         "debugging a single existing CI failure"
       ],
-      "claude_exposed": false,
       "canonical": ".agents/skills/setup-ci-automation"
     },
     "shadcn": {
@@ -835,7 +793,6 @@
         "framework-level routing or data fetching decisions",
         "Supabase or Mastra work"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/shadcn"
     },
     "subagent-driven-development": {
@@ -853,7 +810,6 @@
         "unclear requirements",
         "tightly coupled work that cannot be isolated"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/subagent-driven-development"
     },
     "task-verifier": {
@@ -871,7 +827,6 @@
         "implementing the change being verified",
         "replacing required CI or runtime evidence"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/task-verifier"
     },
     "tasks": {
@@ -890,7 +845,6 @@
         "domain implementation how-to",
         "replacing CI or runtime proof"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/tasks"
     },
     "tdd": {
@@ -908,7 +862,6 @@
         "documentation-only edits",
         "generated artifacts"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/tdd"
     },
     "testing-workflow": {
@@ -936,7 +889,6 @@
         "high-level QA strategy",
         "non-QA feature implementation"
       ],
-      "claude_exposed": false,
       "canonical": ".agents/skills/testing-workflow"
     },
     "testomatio": {
@@ -959,7 +911,6 @@
         "generic test design",
         "non-Testomat.io CI"
       ],
-      "claude_exposed": true,
       "replaces": [
         "qa-e2e-tests-reporting",
         "qa-sprint-report-by-testomatio",
@@ -985,7 +936,6 @@
         "interactive requirements discovery",
         "implementation execution"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/to-spec",
       "routing_phrases": [
         "turn this conversation into a spec",
@@ -1006,7 +956,6 @@
         "non-React performance work",
         "Mastra or Supabase internals"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/vercel-react-best-practices"
     },
     "worktrees": {
@@ -1023,7 +972,6 @@
         "branch or merge policy decisions",
         "implementation work itself"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/worktrees"
     },
     "writing-plans": {
@@ -1041,7 +989,6 @@
         "requirements discovery",
         "structural migration plans where compatibility or rollback is load-bearing"
       ],
-      "claude_exposed": true,
       "canonical": ".agents/skills/writing-plans",
       "routing_phrases": [
         "make an implementation plan",

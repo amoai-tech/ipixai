@@ -1,6 +1,6 @@
 # Screen wireframes — ASCII layout (matches `Pages/`)
 
-> **SSOT:** [`../../Pages/`](../../../Pages/) · Method: [`ipix-wireframe`](../../../../.claude/skills/ipix-wireframe/SKILL.md)  
+> **SSOT:** [`../../Pages/`](../../../Pages/) · Method: [`ipix-wireframe`](../../../../.agents/skills/ipix-wireframe/SKILL.md)
 > **Regenerate:** `python3 ../_generate-layout-assets.py` (after DC layout changes)
 
 Each file mirrors the **shell grid** and **Workspace zones** from its `.dc.html` — not a redesign.

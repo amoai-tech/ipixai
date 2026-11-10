@@ -4,7 +4,7 @@ Use this reference when a Linear issue is being implemented in code.
 
 ## iPix default
 
-For iPix work, use `.claude/skills/tasks/SKILL.md` as the canonical execution contract. Live Linear is the task/progress source of truth; do not require a local issue mirror unless a separate task explicitly owns one.
+For iPix work, use `.agents/skills/tasks/SKILL.md` as the canonical execution contract. Live Linear is the task/progress source of truth; do not require a local issue mirror unless a separate task explicitly owns one.
 
 ## Generic workflow
 
@@ -12,7 +12,7 @@ For iPix work, use `.claude/skills/tasks/SKILL.md` as the canonical execution co
    - Get title, description, status, priority, labels, project, initiative, assignee, and suggested branch name.
 
 2. **Read local context**
-   - For iPix: read the live Linear issue and `.claude/skills/tasks/SKILL.md`.
+   - For iPix: read the live Linear issue and `.agents/skills/tasks/SKILL.md`.
    - Before any Read/Grep/Glob/exploratory Bash codebase exploration, run Graphify when the graph exists and use it to scope the smallest relevant file set.
 
 3. **Move to In Progress**
@@ -32,7 +32,7 @@ For iPix work, use `.claude/skills/tasks/SKILL.md` as the canonical execution co
    - Do not commit unless the user explicitly asks.
 
 7. **Verify**
-   - Use `.claude/skills/tasks/references/pre-merge-tests.md` as the canonical risk-matched matrix.
+   - Use `.agents/skills/tasks/references/pre-merge-tests.md` as the canonical risk-matched matrix.
    - Do not maintain a second fixed command list here.
    - Re-read current `package.json` / CI before naming commands.
    - Run Supabase, browser, build, or live-provider proof only when the changed boundary requires it.
@@ -56,4 +56,4 @@ Use lowercase, hyphens, and no spaces.
 
 ## PR creation
 
-Create a PR only when the user explicitly asks. Follow `.claude/skills/tasks/references/github-pr.md` and `review-comments.md` for canonical PR/review behavior.
+Create a PR only when the user explicitly asks. Follow `.agents/skills/tasks/references/github-pr.md` and `review-comments.md` for canonical PR/review behavior.

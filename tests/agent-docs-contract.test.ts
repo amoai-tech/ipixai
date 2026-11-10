@@ -132,7 +132,7 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
     expect(agents).toContain("the closest `AGENTS.md` to the file being edited");
     // Nested AGENTS.md files must be named, not described as hypothetical:
     // they already exist and the closest one wins for its subtree.
-    expect(agents).toContain(".claude/skills/vercel-react-best-practices/AGENTS.md");
+    expect(agents).toContain(".agents/skills/vercel-react-best-practices/AGENTS.md");
     // Both Claude files must be placed correctly, and they are different files:
     // the root CLAUDE.md is the overlay; .claude/CLAUDE.md is directory-scoped
     // trigger notes for work under .claude/. Conflating them mis-states which
@@ -233,7 +233,7 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
     const tasks = read(".agents/skills/tasks/SKILL.md");
     expect(claude.startsWith("@AGENTS.md\n")).toBe(true);
     expect(claude).toContain("`.agents/skills/<name>/SKILL.md`");
-    expect(claude).toContain("`.claude/skills/<name>/SKILL.md`");
+    expect(claude).toContain("npm run agent:claude");
     const linearRuleWithoutEmphasis = agents.replace(/[*_]/g, "");
     expect(linearRuleWithoutEmphasis).toMatch(/live Linear issue for approved outcomes, acceptance criteria, dependencies/i);
     expect(linearRuleWithoutEmphasis).toContain("approved outcomes, acceptance criteria, dependencies and recorded proof");
@@ -253,7 +253,7 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
   it("keeps one task-level Mermaid decision across all three agent contracts", () => {
     const root = read("AGENTS.md");
     const tasks = read(".agents/skills/tasks/SKILL.md");
-    const mermaid = read(".claude/skills/mermaid-diagrams/SKILL.md");
+    const mermaid = read(".agents/skills/mermaid-diagrams/SKILL.md");
     const fallback = "Diagram: N/A — no meaningful relationship/state/sequence to model.";
     for (const doc of [root, tasks, mermaid]) {
       expect(doc).toContain(fallback);
@@ -310,12 +310,13 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
     expect(existsSync("docs/development/../../.github/workflows/ci.yml")).toBe(true);
     expect(existsSync("docs/development/../../../.github/workflows/ci.yml")).toBe(false);
 
-    const realClaudeSkillDirs = readdirSync(".claude/skills", { withFileTypes: true })
+    const canonicalSkills = readdirSync(".agents/skills", { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name);
-    expect(realClaudeSkillDirs).toEqual([]);
-    expect(agents).toContain("Claude-only migration backlog is closed");
-    expect(agents).not.toContain("17 still do");
+    expect(canonicalSkills.length).toBeGreaterThan(40);
+    expect(existsSync(".claude/skills")).toBe(false);
+    expect(agents).toContain("**One-real-copy rule:**");
+    expect(agents).toContain("No secondary skill aliases are committed");
   });
 
   it("pins realistic tasks-skill decision evals without requiring live accounts", () => {

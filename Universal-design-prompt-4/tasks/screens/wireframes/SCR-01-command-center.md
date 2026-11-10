@@ -1,6 +1,6 @@
 # SCR-01 wireframe — Command Center
 
-> **SSOT:** [`Command Center.v2.image-first.dc.html`](../../../Pages/Command Center.v2.image-first.dc.html) · Method: [`ipix-wireframe`](../../../../.claude/skills/ipix-wireframe/SKILL.md)  
+> **SSOT:** [`Command Center.v2.image-first.dc.html`](../../../Pages/Command Center.v2.image-first.dc.html) · Method: [`ipix-wireframe`](../../../../.agents/skills/ipix-wireframe/SKILL.md)
 > **Rule:** ASCII zones must match DC `grid-template-columns` and Workspace blocks — not invented layout.
 
 ## Shell archetype

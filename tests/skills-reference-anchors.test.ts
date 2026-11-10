@@ -31,7 +31,7 @@ import { discoverVendoredRoots } from "../scripts/skills-vendor-baseline.mjs";
  */
 
 const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
-const SKILL_ROOTS = [".claude/skills", ".agents/skills"];
+const SKILL_ROOTS = [".agents/skills"];
 
 /** The same composition the guard uses: anchors on lines that are not inside a fence. */
 function anchorsOutsideFences(text: string): string[] {
@@ -148,7 +148,7 @@ describe("vendored trees are excluded from the anchor scan", () => {
   );
 
   // Mirrors `markdownFiles` in the guard: `readdirSync(..., {withFileTypes:true})`
-  // does not follow symlinks, so `.claude/skills/<name>` is not descended and the
+  // does not follow symlinks, so `.agents/skills/<name>` is not descended and the
   // same tree is reached as `.agents/skills/<name>`.
   const candidateFiles: string[] = [];
   const walk = (dir: string): void => {
@@ -178,7 +178,7 @@ describe("vendored trees are excluded from the anchor scan", () => {
 
   it("scans every non-vendored file and no vendored one", () => {
     // This is the assertion that fails when the exclusion silently stops working.
-    // `.claude/skills/<name>` symlinks to `.agents/skills/<name>`, so the baseline
+    // `.agents/skills/<name>` symlinks to `.agents/skills/<name>`, so the baseline
     // records one spelling while the walk produces the other; comparing the two
     // literally excluded nothing for 6 of the 10 vendored roots.
     const { scanned, skippedSnapshot } = findBrokenAnchors(REPO_ROOT);

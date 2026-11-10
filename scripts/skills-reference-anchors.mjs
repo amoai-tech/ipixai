@@ -28,7 +28,7 @@ import { discoverVendoredRoots } from "./skills-vendor-baseline.mjs";
  * than GitHub's.
  */
 
-const SKILL_ROOTS = [".claude/skills", ".agents/skills"];
+const SKILL_ROOTS = [".agents/skills"];
 const SKIP_PATH_SEGMENTS = ["node_modules"];
 
 /**
@@ -169,7 +169,7 @@ function* markdownFiles(dir) {
 
 /** Every broken same-file anchor in an iPix-maintained skill markdown file. */
 export function findBrokenAnchors(repoRoot) {
-  // Canonicalise vendored roots to real paths before comparing. `.claude/skills/<name>`
+  // Canonicalise vendored roots to real paths before comparing. `.agents/skills/<name>`
   // is normally a symlink to `.agents/skills/<name>`, and `markdownFiles` descends real
   // directories rather than symlinks, so a literal comparison against the baseline's
   // spelling silently fails to exclude the tree. Verified: 6 of the 10 `.claude/`-spelled

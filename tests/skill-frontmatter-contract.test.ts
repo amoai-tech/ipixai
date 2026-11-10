@@ -24,11 +24,11 @@ import { discoverVendoredRoots } from "../scripts/skills-vendor-baseline.mjs";
  * reads frontmatter with a bespoke key scan rather than a YAML parser.
  *
  * When this fails, fix the YAML — quote the value or fold it into a block scalar (house
- * style: `.claude/skills/ipix-supabase/SKILL.md`) — rather than relaxing the assertion.
+ * style: `.agents/skills/ipix-supabase/SKILL.md`) — rather than relaxing the assertion.
  */
 
 const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
-const SKILL_ROOTS = [".agents/skills", ".claude/skills"] as const;
+const SKILL_ROOTS = [".agents/skills"] as const;
 
 /**
  * Agent Skills spec: non-empty, lowercase alphanumerics in hyphen-separated
@@ -74,9 +74,7 @@ function readFrontmatter(absolute: string): string | null {
 /**
  * Every `SKILL.md` under the skill roots, deduplicated by real path.
  *
- * `.claude/skills/<name>` is normally a symlink to `.agents/skills/<name>` (the
- * one-real-copy rule), so walking both roots visits the same file twice; without
- * deduplication every genuine failure would be reported twice.
+ * Scan the canonical tree; real-path deduplication handles nested references.
  */
 function findSkillFiles(): SkillFile[] {
   const found = new Map<string, SkillFile>();
@@ -103,8 +101,7 @@ function findSkillFiles(): SkillFile[] {
       const absolute = join(directory, entry);
       let stats: Stats;
       try {
-        // statSync, not the Dirent: `.claude/skills/<name>` is a symlink and
-        // `isDirectory()` on the link itself would be false.
+        // statSync handles nested reference directories.
         stats = statSync(absolute);
       } catch {
         continue;

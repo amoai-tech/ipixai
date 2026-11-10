@@ -25,7 +25,7 @@ import { describe, expect, it } from "vitest";
  *     data" do not trigger skills regardless of description quality.
  */
 
-const SKILL_ROOTS = [".claude/skills", ".agents/skills"];
+const SKILL_ROOTS = [".agents/skills"];
 const MIN_CASES = 8;
 const MIN_PER_DIRECTION = 3;
 const MIN_QUERY_LENGTH = 20;

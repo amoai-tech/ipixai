@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # task-verifier — disk probe for mdeapp claims
 # Usage:
-#   bash .claude/skills/task-verifier/scripts/probe-disk.sh           # all probes
-#   bash .claude/skills/task-verifier/scripts/probe-disk.sh tasks     # filter to one section
+#   bash .agents/skills/task-verifier/scripts/probe-disk.sh           # all probes
+#   bash .agents/skills/task-verifier/scripts/probe-disk.sh tasks     # filter to one section
 #
 # Valid filters (match a section name, not an individual task ID):
 #   struct scripts deps pins files tasks git env beta

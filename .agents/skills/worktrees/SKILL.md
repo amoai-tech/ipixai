@@ -27,7 +27,7 @@ A real incident: an agent hit a build error that was already fixed on `origin/ma
 - **Correct worktree for the task** — `git branch --show-current` matches what you intend to work on.
 - **State is clean, or intentionally dirty** — `git status --short`; know what's yours before touching anything.
 - **Docs/specs aren't "missing" due to staleness** — if a file exists on `origin/main` but not locally, that means the checkout is stale, not that the doc needs recreating. Verify with `git show origin/main:<path>` before concluding a doc is missing, and never recreate a doc without first fetching/rebasing to confirm it's genuinely absent upstream.
-- **`.claude/skills/` gitignore state matches upstream** — `git check-ignore -q .claude/skills/` exiting `0` (ignored) means this checkout predates the skills-tracking rollout (PR #234) and is running an old ignore rule; rebase before assuming local skill edits will ever be trackable. (A plain `grep` against `.gitignore` text would miss commented, negated, or reformatted rules — `check-ignore` asks git the real answer.)
+- **`.agents/skills/` gitignore state matches upstream** — `git check-ignore -q .agents/skills/` exiting `0` (ignored) means this checkout predates the skills-tracking rollout (PR #234) and is running an old ignore rule; rebase before assuming local skill edits will ever be trackable. (A plain `grep` against `.gitignore` text would miss commented, negated, or reformatted rules — `check-ignore` asks git the real answer.)
 
 If any check fails: **stop and report it, don't route around it.** Fetching/rebasing is the fix; patching around a stale symptom (like re-adding a "fixed" bug's workaround) just reintroduces the original problem in a new place.
 
