@@ -103,7 +103,7 @@ This is the **target user journey**. Solid arrows do not mean every stage is cur
 
 ### Step 5 — Close the loop without duplicate status
 
-Record in **Linear only**: last verified checkpoint, blockers, PR + exact head SHA, real evidence, remaining risk, and exact next action. Let the [tasks skill](../.claude/skills/tasks/SKILL.md) govern post-merge certification.
+Record in **Linear**: last verified checkpoint, blockers, PR + exact head SHA, real evidence, remaining risk, and exact next action. If Linear is unavailable, use `todo.md` only as a **temporary handoff** with those same details, then reconcile it to Linear **before marking Done**. The [tasks skill](../.claude/skills/tasks/SKILL.md) still governs post-merge certification.
 
 - A PR opened ≠ merged.
 - Merged ≠ deployed.

@@ -2,7 +2,7 @@
 
 > **Purpose:** Define the observable behavior and non-negotiable boundaries behind the [product intent](./intent.md). This is a **navigation and acceptance summary**, not a competing specification: [docs/prd.md](./prd.md) is the master product requirements source; [docs/sitemap.md](./sitemap.md) owns route/phase definitions; each live [Linear issue](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues) owns its exact deliverable.
 >
-> **Status vocabulary:** **Intended** = product requirement; **implemented** = supported by current code; **certified** = exact required tests/runtime/user journey proved. A route, PRD paragraph, prototype, or scaffold alone does **not** establish certification.
+> **Status vocabulary:** **Intended** = product requirement; **Implemented** = supported by current code; **Verified** = supported by specific passing evidence; **Certified** = the required exact-version tests, runtime and user journey proved (including live release checks when required). A route, PRD paragraph, prototype, or scaffold alone does **not** establish certification.
 
 ## One complete customer journey
 
@@ -53,7 +53,7 @@ These are **requirements and destination owners**, not a claim that the entire t
 `AI proposal → editable preview → human approve / reject → server revalidate actor, org, artifact version/hash and action → authorized idempotent write → audited readback`
 
 - Approval never means “allow whatever the agent generates next.”
-- Rejection, stale revisions, lost connections and duplicate submissions must not create the consequential effect.
+- Rejection and stale revisions must not authorize a consequential write. A lost connection can leave the outcome **unknown** if an approved write already committed; retry must recover the **existing durable result** without creating another effect. Duplicate submissions must be idempotent.
 - Publication, payment, booking confirmation, deletion and changing approved Brand Brain are gated actions.
 
 **Proof:** Same-version success; mismatched-version rejection; repeated-click and cross-tenant rejection tests.
@@ -69,7 +69,7 @@ These are **requirements and destination owners**, not a claim that the entire t
 
 ### S-05 — Honest product and release states
 
-- Differentiate `planned`, `implemented`, `verified`, and `certified/live`; a built page is not automatically a complete workflow.
+- Differentiate **Intended**, **Implemented**, **Verified**, and **Certified** using the definitions above; a built page is not automatically a complete workflow.
 - No invented KPIs, readiness scores, sample revenue, booking availability, or “published” statuses.
 - User-facing errors should be understandable, privacy-safe, and recoverable. Critical journeys must meet the product accessibility baseline.
 - A merged PR does not prove production behavior. Only exact-main, deployed and user-journey evidence can close the applicable release gate.
