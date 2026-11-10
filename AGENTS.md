@@ -132,7 +132,7 @@ Evidence labels for implementation-status claims:
 - **Behavior verified** — the same SHA plus a passing risk-matched test or observed runtime/readback supporting the specific claim.
 - **Unverified** — missing, stale, or failed evidence; name the missing proof and the next check.
 
-Live Linear is the source of **approved desired outcomes, acceptance criteria, dependencies and progress**. Record conflicts between approved requirements and verified behavior for the task owner; do not silently discard either. Never implement from stale docs, a dirty checkout or another repository.
+When Linear is available, its live issue is authoritative for **approved desired outcomes, acceptance criteria, dependencies and progress**; during an outage, the existing `todo.md` handoff is temporary and must be reconciled to Linear before marking Done. Record conflicts between approved requirements and verified behavior for the task owner; do not silently discard either. Never implement from stale docs, a dirty checkout or another repository.
 
 ## Architecture boundaries
 

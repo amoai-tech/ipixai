@@ -229,7 +229,7 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
     expect(claude).toContain("`.agents/skills/<name>/SKILL.md`");
     expect(claude).toContain("`.claude/skills/<name>/SKILL.md`");
     const linearRuleWithoutEmphasis = agents.replace(/[*_]/g, "");
-    expect(linearRuleWithoutEmphasis).toMatch(/Linear is the source of approved desired outcomes/i);
+    expect(linearRuleWithoutEmphasis).toMatch(/Linear is available, its live issue is authoritative for approved desired outcomes/i);
     expect(linearRuleWithoutEmphasis).toContain("acceptance criteria, dependencies and progress");
     for (const evidenceLabel of ["Code present", "Behavior verified", "Unverified"]) {
       expect(agents).toContain(evidenceLabel);
