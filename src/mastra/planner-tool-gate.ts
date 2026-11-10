@@ -43,6 +43,26 @@ export const ALL_AGENT_TOOLS = [
 ] as const;
 
 /**
+ * IPI-1426 · GENUI-TOOL-001 — the only cross-boundary tools the planner gate
+ * may add when the CopilotKit run actually supplies them. Keep this list
+ * narrow: never derive it from browser-provided tool names.
+ */
+export const GENUI_RENDER_TOOL = "render_ui" as const;
+export const PLAN_REVIEW_TOOL = "reviewShootPlan" as const;
+export const INTEGRATION_TOOL_NAMES = [
+  GENUI_RENDER_TOOL,
+  PLAN_REVIEW_TOOL,
+] as const;
+
+/**
+ * Appended by the CopilotKit GenerativeUIMiddleware only when the browser sent
+ * a valid tool-transport catalog. Its presence distinguishes a real GenUI run
+ * from a browser that merely named a tool `render_ui`.
+ */
+export const GENUI_CONTEXT_DESCRIPTION =
+  "Generative UI guide: available components, functions, targets, and how to call render_ui.";
+
+/**
  * Matches approval/rejection of a brand draft or profile:
  *   "approve the brand draft", "reject this profile", "decline the draft"
  * Does NOT match "approve the brand shoot plan" because the regex requires
@@ -233,10 +253,18 @@ export function normaliseToMessages(input: unknown): MessageLike[] {
 export function resolveActiveTools(
   messages: MessageLike[],
   defaultActiveTools?: string[],
+  integrationTools: readonly string[] = [],
 ): string[] {
   if (defaultActiveTools) return defaultActiveTools;
-  if (isBrandIntelligenceTurn(messages)) return [...ALL_AGENT_TOOLS];
-  return [...PLANNING_ONLY_TOOLS];
+  const base = isBrandIntelligenceTurn(messages)
+    ? [...ALL_AGENT_TOOLS]
+    : [...PLANNING_ONLY_TOOLS];
+  const allowed = integrationTools.filter(
+    (name): name is (typeof INTEGRATION_TOOL_NAMES)[number] =>
+      (INTEGRATION_TOOL_NAMES as readonly string[]).includes(name) &&
+      !base.includes(name as (typeof ALL_AGENT_TOOLS)[number]),
+  );
+  return [...base, ...allowed];
 }
 
 type Callable = (..._args: never[]) => unknown;
@@ -260,6 +288,7 @@ type PrepareStepLike = (
 
 type ActiveToolsOptions = {
   activeTools?: string[];
+  clientTools?: unknown;
   requestContext?: RequestContext;
   prepareStep?: PrepareStepLike;
   [key: string]: unknown;
@@ -270,6 +299,38 @@ function normaliseToolOptions(value: unknown): ActiveToolsOptions {
   return typeof value === "object" && value !== null
     ? (value as ActiveToolsOptions)
     : {};
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasGenUICatalog(requestContext?: RequestContext): boolean {
+  const agUi = requestContext?.get("ag-ui");
+  if (!isRecord(agUi) || !Array.isArray(agUi.context)) return false;
+  return agUi.context.some(
+    (entry) =>
+      isRecord(entry) && entry.description === GENUI_CONTEXT_DESCRIPTION,
+  );
+}
+
+/**
+ * Returns only the fixed integration tools actually present on this run.
+ * `render_ui` additionally requires the middleware's catalog guide, so a
+ * browser cannot unlock it by naming a client tool.
+ */
+export function suppliedIntegrationTools(
+  options: ActiveToolsOptions,
+  requestContext?: RequestContext,
+): string[] {
+  if (!isRecord(options.clientTools)) return [];
+  const clientTools = options.clientTools;
+  const supplied: string[] = [];
+  if (PLAN_REVIEW_TOOL in clientTools) supplied.push(PLAN_REVIEW_TOOL);
+  if (GENUI_RENDER_TOOL in clientTools && hasGenUICatalog(requestContext)) {
+    supplied.push(GENUI_RENDER_TOOL);
+  }
+  return supplied;
 }
 
 function readPersistedToolPolicy(requestContext?: RequestContext): string[] | undefined {
@@ -309,11 +370,12 @@ export function wrapPlannerStreamWithToolGate<T extends Callable>(original: T): 
   const wrapped = (...args: Parameters<T>): ReturnType<T> => {
     const messages = args[0] as unknown;
     const options = normaliseToolOptions(args[1]);
+    const requestContext = options.requestContext ?? new RequestContext();
     const activeTools = resolveActiveTools(
       normaliseToMessages(messages),
       options.activeTools,
+      suppliedIntegrationTools(options, requestContext),
     );
-    const requestContext = options.requestContext ?? new RequestContext();
     persistToolPolicy(requestContext, activeTools);
     const prepareStep = buildPolicyPrepareStep(options.prepareStep, activeTools);
 
@@ -339,10 +401,14 @@ export function wrapPlannerResumeStreamWithToolGate<T extends Callable>(
   const wrapped = (...args: Parameters<T>): ReturnType<T> => {
     const resumeData = args[0] as unknown;
     const streamOptions = normaliseToolOptions(args[1]);
-    const fallbackActiveTools = streamOptions.activeTools ?? [
-      ...PLANNING_ONLY_TOOLS,
-    ];
     const requestContext = streamOptions.requestContext ?? new RequestContext();
+    const fallbackActiveTools =
+      streamOptions.activeTools ??
+      resolveActiveTools(
+        [],
+        undefined,
+        suppliedIntegrationTools(streamOptions, requestContext),
+      );
     if (streamOptions.activeTools) {
       persistToolPolicy(requestContext, streamOptions.activeTools);
     }

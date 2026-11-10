@@ -6,6 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { RequestContext } from "@mastra/core/request-context";
 import {
   isBrandIntelligenceTurn,
   resolveActiveTools,
@@ -15,6 +16,7 @@ import {
   PLANNING_ONLY_TOOLS,
   CONSEQUENTIAL_WRITE_TOOLS,
   ALL_AGENT_TOOLS,
+  GENUI_CONTEXT_DESCRIPTION,
   type MessageLike,
 } from "../src/mastra/planner-tool-gate";
 
@@ -41,6 +43,14 @@ const MULTIMODAL_PLANNING: MessageLike = {
     { type: "image", contentType: "image/png" as any, fileName: "ref.png" },
   ],
 };
+
+function genUIRequestContext(): RequestContext {
+  const requestContext = new RequestContext();
+  requestContext.set("ag-ui", {
+    context: [{ description: GENUI_CONTEXT_DESCRIPTION, value: "catalog" }],
+  });
+  return requestContext;
+}
 
 describe("isBrandIntelligenceTurn — approval/rejection patterns", () => {
   it("returns false for an empty message list", () => {
@@ -228,6 +238,22 @@ describe("resolveActiveTools", () => {
     expect(resolveActiveTools([BRAND_SHOOT_APPROVE])).toEqual([...PLANNING_ONLY_TOOLS]);
   });
 
+  it("adds only the fixed integration tools when the run supplies them", () => {
+    expect(
+      resolveActiveTools([PLANNING_MSG], undefined, [
+        "render_ui",
+        "reviewShootPlan",
+        "deleteBrand",
+      ]),
+    ).toEqual([...PLANNING_ONLY_TOOLS, "render_ui", "reviewShootPlan"]);
+  });
+
+  it("does not add integration tools without an actual supply", () => {
+    const active = resolveActiveTools([PLANNING_MSG]);
+    expect(active).not.toContain("render_ui");
+    expect(active).not.toContain("reviewShootPlan");
+  });
+
   it("contains approveDraft and startBrandAnalysis in ALL_AGENT_TOOLS", () => {
     expect(ALL_AGENT_TOOLS).toContain("approveDraft");
     expect(ALL_AGENT_TOOLS).toContain("startBrandAnalysis");
@@ -286,6 +312,79 @@ describe("typed runtime delegation wrappers", () => {
     expect(typeof (calls[0]?.[1] as Record<string, unknown>).prepareStep).toBe("function");
   });
 
+  it("stream allows render_ui only with a real GenUI catalog and reviewShootPlan only when supplied", () => {
+    const calls: unknown[][] = [];
+    const original = (messages: unknown, options?: Record<string, unknown>) => {
+      calls.push([messages, options]);
+      return "stream-result";
+    };
+    const wrapped = wrapPlannerStreamWithToolGate(original);
+    const messages = [{ role: "user", content: "Compare three summer concepts" }];
+
+    wrapped(messages, {
+      requestContext: genUIRequestContext(),
+      clientTools: {
+        render_ui: {},
+        reviewShootPlan: {},
+        deleteBrand: {},
+      },
+    });
+
+    const activeTools = (calls[0]?.[1] as Record<string, unknown>)
+      .activeTools as string[];
+    expect(activeTools).toContain("render_ui");
+    expect(activeTools).toContain("reviewShootPlan");
+    expect(activeTools).not.toContain("deleteBrand");
+    expect(activeTools).toEqual([
+      ...PLANNING_ONLY_TOOLS,
+      "reviewShootPlan",
+      "render_ui",
+    ]);
+  });
+
+  it("stream does not allow render_ui from a client tool name without the catalog guide", () => {
+    const calls: unknown[][] = [];
+    const original = (messages: unknown, options?: Record<string, unknown>) => {
+      calls.push([messages, options]);
+      return "stream-result";
+    };
+    const wrapped = wrapPlannerStreamWithToolGate(original);
+    const messages = [{ role: "user", content: "Plan a shoot" }];
+
+    wrapped(messages, {
+      clientTools: { render_ui: {}, reviewShootPlan: {} },
+    });
+
+    const activeTools = (calls[0]?.[1] as Record<string, unknown>)
+      .activeTools as string[];
+    expect(activeTools).not.toContain("render_ui");
+    expect(activeTools).toContain("reviewShootPlan");
+  });
+
+  it("stream keeps the brand-intelligence policy without opening arbitrary client tools", () => {
+    const calls: unknown[][] = [];
+    const original = (messages: unknown, options?: Record<string, unknown>) => {
+      calls.push([messages, options]);
+      return "stream-result";
+    };
+    const wrapped = wrapPlannerStreamWithToolGate(original);
+    const messages = [{ role: "user", content: "Approve the brand draft" }];
+
+    wrapped(messages, {
+      requestContext: genUIRequestContext(),
+      clientTools: { render_ui: {}, reviewShootPlan: {}, deleteBrand: {} },
+    });
+
+    const activeTools = (calls[0]?.[1] as Record<string, unknown>)
+      .activeTools as string[];
+    expect(activeTools).toEqual([
+      ...ALL_AGENT_TOOLS,
+      "reviewShootPlan",
+      "render_ui",
+    ]);
+    expect(activeTools).not.toContain("deleteBrand");
+  });
+
   it("resumeStream preserves an explicit activeTools override", () => {
     const calls: unknown[][] = [];
     const original = (resumeData: unknown, streamOptions: Record<string, unknown>) => {
@@ -300,5 +399,34 @@ describe("typed runtime delegation wrappers", () => {
     expect(calls[0]?.[1]).toMatchObject({
       activeTools: ["startBrandAnalysis"],
     });
+  });
+
+  it("resumeStream adds the fixed integration tools for the resumed run", async () => {
+    const calls: unknown[][] = [];
+    const original = (resumeData: unknown, streamOptions: Record<string, unknown>) => {
+      calls.push([resumeData, streamOptions]);
+      return "resume-result";
+    };
+    const wrapped = wrapPlannerResumeStreamWithToolGate(original);
+    const requestContext = genUIRequestContext();
+
+    wrapped(
+      { approved: true },
+      {
+        requestContext,
+        clientTools: { render_ui: {}, reviewShootPlan: {} },
+      },
+    );
+
+    const options = calls[0]?.[1] as Record<string, unknown>;
+    const prepareStep = options.prepareStep as (args: {
+      requestContext: RequestContext;
+    }) => Promise<{ activeTools?: string[] }>;
+    const prepared = await prepareStep({ requestContext });
+    expect(prepared.activeTools).toEqual([
+      ...PLANNING_ONLY_TOOLS,
+      "reviewShootPlan",
+      "render_ui",
+    ]);
   });
 });
