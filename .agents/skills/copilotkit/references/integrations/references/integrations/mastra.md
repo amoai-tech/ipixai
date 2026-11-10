@@ -14,7 +14,7 @@ For version-sensitive decisions:
 
 Do not copy dependency pins, demo auth, in-memory storage, or demo agent names from an upstream example into iPix.
 
-## Current installed iPix family — verified 2026-11-08
+## Current installed iPix family — verified 2026-11-10
 
 | Package | iPix pin |
 | --- | ---: |
@@ -23,10 +23,11 @@ Do not copy dependency pins, demo auth, in-memory storage, or demo agent names f
 | `@copilotkit/channels` | `0.12.0` |
 | `@ag-ui/client` | `1.0.2` |
 | `@ag-ui/mastra` | `2.0.2` |
-| `@mastra/core` | `1.71.0` |
-| `@mastra/memory` | `1.32.1` |
-| `@mastra/pg` | `1.27.1` |
-| `@mastra/client-js` | `1.50.0` |
+| `@mastra/core` | `1.82.0` |
+| `@mastra/memory` | `1.41.0` |
+| `@mastra/pg` | `1.35.0` |
+| `@mastra/client-js` | `1.59.0` |
+| `@mastra/observability` | `1.23.1` |
 
 These are the current **installed iPix pins**, not a command to install `latest`. Re-check npm/official release guidance at execution time; any dependency-family change requires a separate upgrade task and compatibility proof.
 
