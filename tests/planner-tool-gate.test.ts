@@ -426,7 +426,7 @@ describe("typed runtime delegation wrappers", () => {
     expect(activeTools).not.toContain("deleteBrand");
   });
 
-  it("prepareStep removes unavailable integration tools from an explicit activeTools list", async () => {
+  it("prepareStep filters unavailable integration tools from explicit and restored policies", async () => {
     const calls: unknown[][] = [];
     const original = (resumeData: unknown, streamOptions: Record<string, unknown>) => {
       calls.push([resumeData, streamOptions]);
@@ -440,7 +440,7 @@ describe("typed runtime delegation wrappers", () => {
       {
         activeTools: ["composeShootPlan", "render_ui"],
         requestContext,
-        clientTools: {},
+        clientTools: { reviewShootPlan: { id: "reviewShootPlan" } },
       },
     );
 
@@ -448,8 +448,26 @@ describe("typed runtime delegation wrappers", () => {
     const prepareStep = options.prepareStep as (args: {
       requestContext: RequestContext;
     }) => Promise<{ activeTools?: string[] }>;
-    const prepared = await prepareStep({ requestContext });
-    expect(prepared.activeTools).toEqual(["composeShootPlan"]);
+
+    // Explicit fallback excludes render_ui because this run does not supply it.
+    expect((await prepareStep({ requestContext })).activeTools).toEqual([
+      "composeShootPlan",
+    ]);
+
+    // Mastra restores a different persisted policy from a suspended run.
+    // Preserve its server-tool selection, drop the missing render_ui tool,
+    // and retain the review tool that the resumed run actually supplies.
+    requestContext.setRaw("ipix.planner.activeTools", [
+      "planDeliverables",
+      "approveDraft",
+      "render_ui",
+      "reviewShootPlan",
+    ]);
+    expect((await prepareStep({ requestContext })).activeTools).toEqual([
+      "planDeliverables",
+      "approveDraft",
+      "reviewShootPlan",
+    ]);
   });
 
   it("resumeStream preserves an explicit activeTools override", () => {
