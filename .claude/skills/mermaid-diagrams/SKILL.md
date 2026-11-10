@@ -1,13 +1,12 @@
 ---
 name: mermaid-diagrams
 description: >
-  Mermaid diagrams as an iPix engineering reasoning tool, not just presentation. Use on every substantial
-  Linear task and PR to model architecture, ownership, dependencies, user journeys, state, data, timing,
-  requirements, risks, blockers, and failure/recovery paths before coding and during verification. For each
-  substantive task section or file/workflow group, add the diagram that exposes the relevant relationships
-  or explicitly record `Diagram: N/A — no meaningful relationship/state/sequence to model`. Prefer the
-  smallest diagram that can reveal wrong assumptions, missing boundaries, red flags, failure points, or
-  verification gaps. Verify syntax against the installed/target Mermaid version and current official docs.
+  Mermaid diagrams are an iPix engineering reasoning tool, not decoration. For substantial
+  tasks, use one smallest useful diagram overall to expose the most important journey,
+  architecture, ownership, dependencies, trust boundary, or failure/recovery path.
+  Add another only for a materially different risk not clearly captured by the first.
+  When none adds value, record `Diagram: N/A — no meaningful relationship/state/sequence to model.`
+  Verify syntax against the installed/target Mermaid version and official docs.
 version: "2.0.0-ipix.2"
 ---
 
@@ -37,22 +36,16 @@ Mermaid's official purpose is to keep documentation closer to development using 
 
 For every substantial `IPI-*` task:
 
-1. **Task overview:** include one diagram showing the end-to-end user/system outcome.
-2. **Architecture/ownership:** diagram every material boundary crossed by the task.
-3. **Dependencies/blockers:** show predecessor, downstream, external, and human-approval dependencies when material.
-4. **Each substantive task section or file/workflow group:** add the diagram that best exposes its behavior, ownership, data, state, or failure path.
-5. **Negative/recovery:** include failure/error/retry/rollback branches for risky work.
-6. **Verification:** show how expected state/evidence is reached when the path is non-trivial.
-7. **PR:** include the smallest diagrams that let a reviewer understand changed architecture/user flow without reconstructing it from code.
-8. **Post-merge:** update diagrams if the merged implementation differs from the planned model.
+1. Choose **one smallest useful diagram overall** that reveals the most important real user/system relationship or state change. Include current versus target behavior and applicable ownership, trust/HITL, dependencies, retries/failures and verification in that diagram when they fit.
+2. **Inspect that diagram for hidden defects before coding.** Do not require one diagram per section, file, stage or PR checkpoint; reuse and update the task-level diagram as implementation evidence changes.
+3. Add an additional diagram **only if a distinct, material boundary or recovery risk cannot be understood in the first**, and document why that extra view helps.
+4. If none adds meaningful value, record the **single task-level** reason:
 
-If a section truly has no meaningful relationship, state, dependency, sequence, or decision to visualize, write:
+   ```text
+   Diagram: N/A — no meaningful relationship/state/sequence to model.
+   ```
 
-```text
-Diagram: N/A — no meaningful relationship/state/sequence to model.
-```
-
-Do **not** create filler diagrams merely to satisfy the rule.
+Diagrams model hypotheses; runtime/tests/readback establish proof. PR and post-merge updates revise the existing diagram only when the implemented behavior differs.
 
 ## Diagram-first defect discovery
 
@@ -133,19 +126,19 @@ Use a **current-state diagram first**, then target state. The difference is the 
 
 ### 2. File/workflow planning
 
-For each substantive file/group, ask:
+When selecting or revising the **task-level** diagram, choose the type that best exposes the material change:
 
 ```text
-Does this file change call order?       → sequence
-Does it change decisions/branches?      → flowchart
-Does it change lifecycle/state?         → state
-Does it change durable relationships?   → ER
-Does it change service boundaries?      → architecture/C4
-Does it implement AC dependencies?      → requirement
-Otherwise                               → Diagram: N/A with reason
+Call ordering                         → sequence
+Decisions or branching               → flowchart
+Lifecycle or state                   → state
+Durable relationships                → ER
+Service/authorization boundaries     → architecture/C4
+Complex acceptance dependencies      → requirement
+Nothing meaningful to model          → task-level Diagram: N/A reason
 ```
 
-A file diagram should show **why the file exists in the task**, not every import/function.
+**Do not create a new diagram for each file or workflow group.** Reuse the existing diagram unless a new material risk cannot fit clearly; show relevant behavior, not every import or function.
 
 ### 3. Implementation
 

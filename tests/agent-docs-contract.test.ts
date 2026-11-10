@@ -192,7 +192,7 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
     const agents = read("AGENTS.md");
     const local = read("docs/development/local-supabase.md");
     expect(agents).toContain("docs/development/local-supabase.md");
-    expect(agents).toContain("`supabase start` remains the normal local Supabase path when project config loads successfully");
+    expect(agents).toContain("When it succeeds, use `supabase start`");
     expect(agents).toContain("Never `supabase db push` against production");
     expect(agents).not.toContain("**Known local-environment breakage (verified 2026-09-28).**");
     expect(local).toContain("failed to parse config: missing private key");
@@ -228,11 +228,69 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
     expect(claude.startsWith("@AGENTS.md\n")).toBe(true);
     expect(claude).toContain("`.agents/skills/<name>/SKILL.md`");
     expect(claude).toContain("`.claude/skills/<name>/SKILL.md`");
-    expect(agents).toContain("Linear is the source of **approved desired outcomes");
+    const linearRuleWithoutEmphasis = agents.replace(/[*_]/g, "");
+    expect(linearRuleWithoutEmphasis).toMatch(/Linear is the source of approved desired outcomes/i);
+    expect(linearRuleWithoutEmphasis).toContain("acceptance criteria, dependencies and progress");
     expect(agents).toContain("Existing iPix");
     expect(agents).toContain("Cheapest decisive proof?");
     expect(tasks).toContain("compare before building");
     expect(agents).toContain("one smallest useful diagram pass");
+  });
+
+  it("keeps one task-level Mermaid decision across all three agent contracts", () => {
+    const root = read("AGENTS.md");
+    const tasks = read(".claude/skills/tasks/SKILL.md");
+    const mermaid = read(".claude/skills/mermaid-diagrams/SKILL.md");
+    const fallback = "Diagram: N/A — no meaningful relationship/state/sequence to model.";
+    for (const doc of [root, tasks, mermaid]) {
+      expect(doc).toContain(fallback);
+    }
+    expect(root).toContain("one smallest useful diagram pass");
+    expect(tasks).toContain("one smallest useful diagram overall");
+    expect(mermaid).toContain("one smallest useful diagram overall");
+    expect(tasks).not.toContain("For each substantive task section/file group, add");
+    expect(mermaid).not.toContain("For each substantive file/group, ask");
+    expect(mermaid).not.toContain("Each substantive task section or file/workflow group");
+  });
+
+  it("documents isolated local Supabase tests and prerequisites from CI", () => {
+    const local = read("docs/development/local-supabase.md");
+    const ci = read(".github/workflows/ci.yml");
+    expect(local).toContain("unique local `project_id`");
+    for (const term of ["unused ports", "ss -ltn", "docker ps -a", "docker volume ls", "STOP unless isolation"]) {
+      expect(local).toContain(term);
+    }
+    for (const role of ["anon", "authenticated", "service_role"]) {
+      expect(local).toContain("`" + role + "`");
+      expect(ci).toContain("create role " + role + " nologin;");
+    }
+    expect(local).toContain("[`mem-001-restart-history` CI job](../../.github/workflows/ci.yml)");
+    expect(local).toContain("2.116.0");
+    expect(local).toContain("2.119.0");
+    expect(local).toContain("in timestamp order");
+  });
+
+  it("pins realistic tasks-skill decision evals without requiring live accounts", () => {
+    const tasks = read(".claude/skills/tasks/SKILL.md");
+    const evalFile = read(".claude/skills/tasks/evals/evals.json");
+    const parsed = JSON.parse(evalFile) as {
+      skill_name: string;
+      evals: Array<{ id: number; prompt: string; expected_output: string; expectations: string[]; files: string[] }>;
+    };
+    expect(tasks).toContain("compare before building");
+    expect(parsed.skill_name).toBe("tasks");
+    expect(parsed.evals.length).toBeGreaterThanOrEqual(8);
+    expect(new Set(parsed.evals.map((item) => item.id)).size).toBe(parsed.evals.length);
+    for (const item of parsed.evals) {
+      expect(item.prompt.length).toBeGreaterThan(95);
+      expect(item.expected_output.length).toBeGreaterThan(90);
+      expect(item.expectations.length).toBeGreaterThanOrEqual(3);
+      expect(item.files).toEqual([]);
+    }
+    const all = parsed.evals.map((item) => item.prompt + " " + item.expected_output + " " + item.expectations.join(" ")).join(" ");
+    for (const dimension of ["already", "reuse", "smallest", "proof", "Linear", "1Password", "tenant", "approval"]) {
+      expect(all.toLowerCase()).toContain(dimension.toLowerCase());
+    }
   });
 
   it("documents accidental credential exposure recovery", () => {

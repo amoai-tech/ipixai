@@ -126,7 +126,7 @@ Graph: `graphify-out/graph.json` (generated local state; do not commit it).
 6. Project markdown, which may be stale.
 7. Unverified prose and external examples; Linear remains authoritative for approved task requirements and progress.
 
-Current code/runtime are proof of **what exists**. Live Linear is the source of **approved desired outcomes, acceptance criteria, dependencies and progress**. If requirements differ from implementation, record the gap and resolve uncertainty with the task owner; do not silently discard the requirement. Never implement from stale docs, a dirty checkout or another repository.
+For an implementation-status claim, inspect current code/runtime and relevant test evidence; if proof is incomplete, mark the claim **unverified**. Live Linear is the source of **approved desired outcomes, acceptance criteria, dependencies and progress**; when approved requirements differ from verified behavior, record the gap and resolve it with the task owner rather than discarding either. Never implement from stale docs, a dirty checkout or another repository.
 
 ## Architecture boundaries
 
@@ -180,9 +180,9 @@ Any BLOCKER or failed required evidence means **BLOCKED / UNVERIFIED**. Never us
 
 For data/auth/runtime changes, inspect the *actual* project, schema, role, table/FK, indexes, RLS/policies, RPC grants, `SECURITY DEFINER`, triggers, migrations and relevant security advisories before creating schema or policies.
 
-`supabase start` remains the normal local Supabase path when project config loads successfully; CI independently proves local fresh replay. If the current workstation hits the known dotenvx-encrypted `.env.local` parse conflict, **STOP** and use the proof-specific, verified fallbacks in [local Supabase troubleshooting](docs/development/local-supabase.md) — never delete/decrypt secrets or substitute an unproven DB path.
+For local Supabase tasks, first verify the installed CLI can parse the checkout configuration. When it succeeds, use `supabase start` (also exercised in CI fresh replay). If it fails due to the known dotenvx-encrypted `.env.local` conflict, **STOP** and use the proof-specific [local Supabase troubleshooting](docs/development/local-supabase.md); never delete/decrypt secrets or silently substitute an unproven database.
 
-Hosted reads use the approved non-production target by default. Production/hosted writes are forbidden by default. An explicit Linear task may authorize synthetic hosted proof only after verified project identity, isolation, baseline/readback, cleanup and human approval. **Never `supabase db push` against production.** STOP when project, schema, role or read/write authority is uncertain.
+For hosted reads, use the approved non-production target unless the owning Linear task explicitly authorizes a verified production read. Production/hosted writes are forbidden by default **unless** a task specifically authorizes a bounded synthetic proof with verified project identity, isolation, baseline/readback, cleanup and human approval. **Never `supabase db push` against production.** STOP when project, schema, role or read/write authority is uncertain.
 
 ## AI governance
 
@@ -251,7 +251,7 @@ The existing [tasks skill](.claude/skills/tasks/SKILL.md) owns **all** task crea
 - Confirmed bug/root-cause repair → `Forensic Error Audit & Fix`
 - Production/release certification → `Production Readiness / Release Gate`
 
-Existing-issue decision: reuse the same outcome/history when possible; **do not create a duplicate solely to change template metadata**. If it is genuinely different or historical, link the original. New issues use the actual Linear template field; the assigned `IPI-NNN` is added to the title *after* creation.
+Existing-issue decision: when the TASK-ID, user/system outcome and acceptance criteria materially match, update that issue and its history; **do not create a duplicate solely to change template metadata**. Create and link a new issue only for genuinely different scope or completed/canceled historical work. New issues use the actual Linear template field; add the assigned `IPI-NNN` to the title *after* creation.
 
 Before implementation, use one of two explicit paths:
 - **Standard path:** verify template/type, project/milestone, dependencies/blockers, relations, observable outcome, acceptance criteria, verification plan, and exact next action.

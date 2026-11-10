@@ -219,7 +219,7 @@ If even migration batches cannot stay green independently, use an explicit integ
 - Define affected business-critical user journeys and certify both system correctness and AI correctness when AI participates.
 - Named third-party testing/review tools are not iPix defaults unless this repository contains a pinned, reproducible setup or an explicit approved task owns the adoption decision. Explorbot is the currently selected exploratory-testing pilot; it is not a mandatory merge gate until a repository-owned path is approved.
 - Run a Mermaid reasoning pass before implementation: draw current state, target state, material boundaries, dependencies/blockers, and negative/recovery paths; use the diagram to identify missing owners, second sources of truth, auth/tenant gaps, HITL bypass, duplicate side effects, circular dependencies, unowned failures, and missing evidence.
-- For each substantive task section/file group, add the smallest diagram that exposes the relevant relationship/state/sequence or explicitly record `Diagram: N/A — no meaningful relationship/state/sequence to model`. Do not add decorative filler diagrams.
+- For each substantial task, use **one smallest useful diagram overall** (or one task-level `Diagram: N/A — no meaningful relationship/state/sequence to model.`). Reuse it across sections/file groups; add another only if a new material boundary or recovery risk cannot fit. Do not add decorative filler diagrams.
 - If code inspection disproves a planned diagram, update the diagram and Linear plan before coding; never force implementation to match a stale diagram.
 - Update Linear progress after every verified checkpoint.
 - If a completed checkpoint regresses, uncheck it and reduce the percentage.
