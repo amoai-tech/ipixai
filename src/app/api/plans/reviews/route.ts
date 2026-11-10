@@ -116,10 +116,9 @@ export async function POST(request: Request): Promise<Response> {
     });
     const suspended = readSuspendedPlanReview(result);
     if (!suspended) {
-      const failed = result as { status?: unknown; error?: unknown };
+      const failed = result as { status?: unknown };
       console.error("[plans/reviews] workflow did not suspend", {
-        status: failed.status,
-        error: failed.error instanceof Error ? failed.error.message : failed.error,
+        status: typeof failed.status === "string" ? failed.status : "unknown",
       });
       return jsonError(502, "error", "review_start_failed");
     }
@@ -131,8 +130,10 @@ export async function POST(request: Request): Promise<Response> {
       { status: 201, headers: { "content-type": "application/json" } },
     );
   } catch (error) {
+    const failure = error as { name?: unknown; code?: unknown };
     console.error("[plans/reviews] review start failed", {
-      error: error instanceof Error ? error.message : error,
+      name: typeof failure.name === "string" ? failure.name : "unknown",
+      code: typeof failure.code === "string" ? failure.code : undefined,
     });
     return jsonError(502, "error", "review_start_failed");
   }
