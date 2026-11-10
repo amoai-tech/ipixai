@@ -31,7 +31,7 @@ Store genuinely needed task artifacts under `docs/development/tasks/IPI-XXXX/`. 
 
 ## Pilot — avoid a duplicate CopilotKit upgrade
 
-[IPI-1389 pilot](./tasks/IPI-1389/intent.md) demonstrates the boundary. The CopilotKit/AG-UI code upgrade is already merged in [PR #319](https://github.com/amoai-tech/ipixai/pull/319), but release/certification evidence belongs in [the existing Linear issue](https://linear.app/amo100/issue/IPI-1389). The correct handoff is **verify pending live acceptance**, not create another upgrade PR. The [spec](./tasks/IPI-1389/spec.md) and [plan](./tasks/IPI-1389/plan.md) are concise examples of the decision; do not treat them as an alternate runbook.
+[IPI-1389 decision record](./pilots/IPI-1389.md) demonstrates a real **skip** outcome. The code upgrade is merged in [PR #319](https://github.com/amoai-tech/ipixai/pull/319), and the existing [Linear issue](https://linear.app/amo100/issue/IPI-1389) already holds its intent, acceptance, dependencies and plan. Creating another three-file plan would be **redundant**. The next work is existing authorized production certification, not reimplementation.
 
 ## External references applied here
 
