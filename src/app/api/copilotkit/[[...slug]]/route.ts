@@ -4,6 +4,7 @@ import {
   copilotAuthHooksFor,
   identifyOperator,
 } from "@/lib/auth/copilot-hooks";
+import { guardPlannerResponseStream, startPlannerMembershipWatchdog } from "@/lib/auth/planner-membership-watchdog";
 import { requirePlannerResourceId } from "@/lib/auth/planner-session";
 import { handle } from "hono/vercel";
 import { requestToken } from "@/lib/request-token";
@@ -27,6 +28,13 @@ async function handleCopilot(request: Request) {
   if (!session.ok) return session.response;
 
   const resourceId = session.resourceId;
+  // The authorization boundary provides this trusted tenant directly.
+  // Changes to memory-key formatting must never disable stream revocation.
+  const orgId = session.orgId;
+  if (typeof orgId !== "string" || !orgId) {
+    console.error("[planner] verified organization unavailable; rejecting request");
+    return new Response("Planner authorization unavailable", { status: 500 });
+  }
 
   const authClient = createClientFromRequest(request);
   const {
@@ -41,25 +49,71 @@ async function handleCopilot(request: Request) {
   // keeps a whitespace-padded env value from being rejected as invalid.
   const licenseToken = process.env.COPILOTKIT_LICENSE_TOKEN?.trim() || undefined;
 
-  const runtime = new CopilotRuntime({
-    agents: attachRunnerAbort(createLocalAgents(resourceId)),
-    identifyUser: identifyOperator,
-    runner: new TenantAbortRunner(
-      resourceId,
-      request.signal,
-      createPlannerRunControl(resourceId, accessToken),
-    ),
-    ...(licenseToken ? { licenseToken } : {}),
-  });
+  // A request is authorized once at start. Long streams must stop when the
+  // operator is removed from the organization instead of continuing to deliver
+  // model output under the old authorization. The watchdog shares the request
+  // abort signal so either source stops the same runner.
+  const membershipController = new AbortController();
+  const abortMembership = () => membershipController.abort();
+  if (request.signal.aborted) abortMembership();
+  else request.signal.addEventListener("abort", abortMembership, { once: true });
+  const membershipWatchdog = orgId
+    ? startPlannerMembershipWatchdog({
+        check: async (signal) => {
+          if (!authClient) return "error";
+          const { data, error } = await authClient
+            .from("org_members")
+            .select("org_id")
+            .eq("org_id", orgId)
+            .eq("user_id", session.operator.id)
+            .abortSignal(signal)
+            .maybeSingle();
+          if (error) return "error";
+          return data ? "member" : "missing";
+        },
+        onRevoked: () => membershipController.abort(),
+        // Next.js needs the static exported duration, but the watchdog can
+        // derive its deadline directly from the same route-level value.
+        maxMs: maxDuration * 1_000,
+      })
+    : undefined;
+  const cleanupMembershipWatchdog = () => {
+    membershipWatchdog?.stop();
+    request.signal.removeEventListener("abort", abortMembership);
+  };
+  if (membershipController.signal.aborted) cleanupMembershipWatchdog();
+  else
+    membershipController.signal.addEventListener("abort", cleanupMembershipWatchdog, {
+      once: true,
+    });
 
-  const app = createCopilotEndpoint({
-    runtime,
-    basePath: "/api/copilotkit",
-    hooks: copilotAuthHooksFor(resourceId),
-  });
+  let response: Response;
+  try {
+    const runtime = new CopilotRuntime({
+      agents: attachRunnerAbort(createLocalAgents(resourceId)),
+      identifyUser: identifyOperator,
+      runner: new TenantAbortRunner(
+        resourceId,
+        membershipController.signal,
+        createPlannerRunControl(resourceId, accessToken),
+      ),
+      ...(licenseToken ? { licenseToken } : {}),
+    });
 
-  // Planner tools read the verified bearer through AsyncLocalStorage.
-  return requestToken.run(accessToken ?? "", () => handle(app)(request));
+    const app = createCopilotEndpoint({
+      runtime,
+      basePath: "/api/copilotkit",
+      hooks: copilotAuthHooksFor(resourceId),
+    });
+
+    // Planner tools read the verified bearer through AsyncLocalStorage.
+    response = await requestToken.run(accessToken ?? "", () => handle(app)(request));
+  } catch (error) {
+    cleanupMembershipWatchdog();
+    throw error;
+  }
+  if (!membershipWatchdog) return response;
+  return guardPlannerResponseStream(response, membershipController.signal, cleanupMembershipWatchdog);
 }
 
 // Bound the owner request to 300s so the Proxy can prove a refreshed JWT
