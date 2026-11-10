@@ -9,6 +9,7 @@ This is the GitHub-native documentation home for iPix. Use these files for curre
 | Optional task-level spec-driven handoffs | [Development guide & reusable templates](./development/README.md) · [IPI-1389 no-duplicate-plan pilot](./development/pilots/IPI-1389.md) |
 | Routes and phases | [sitemap.md](./sitemap.md) |
 | Now → Next → Later | [roadmap.md](./roadmap.md) |
+| Testing and local tool recovery | [Safe 1Password QA](./development/testing-with-1password.md) · [Local Supabase troubleshooting](./development/local-supabase.md) |
 | Current task status / blockers | [Linear v2-ipix](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues) |
 | Architecture decisions | [adr/README.md](./adr/README.md) |
 | AI runtime | [copilotkit-mastra/README.md](./copilotkit-mastra/README.md) |

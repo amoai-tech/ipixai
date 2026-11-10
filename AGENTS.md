@@ -61,11 +61,11 @@ Ownership:
 
 ## Fastest safe path
 
-At task start and each major phase ask once:
+At task start and when **blocked or the scope materially changes**, make one quick comparison:
 
-> Is there a better, faster, more efficient way to complete this without weakening evidence?
+> **Already done?** Check main/PR/Linear. **Reuse?** Existing iPix → installed/official provider → custom only for the gap. **Smallest safe step?** Avoid an unnecessary file/agent/issue/review. **Cheapest decisive proof?** Targeted test first, then domain/E2E only if risk requires it.
 
-Use that path.
+Choose the simplest **verified safe** path and record a short reason in the existing Linear task *only when it changes the approach*. If nothing materially improves the plan, execute; do not invent scores, extra reviews or planning artifacts.
 
 Preferred order:
 
@@ -83,30 +83,9 @@ Do not redesign architecture unless evidence proves the current design cannot sa
 
 ## Mermaid reasoning — required for substantial tasks
 
-Mermaid is an engineering reasoning and defect-prevention tool, not decorative documentation. Follow `.claude/skills/mermaid-diagrams/SKILL.md`.
+For a substantial task, follow the existing [mermaid-diagrams skill](.claude/skills/mermaid-diagrams/SKILL.md) and make **one smallest useful diagram pass** for architecture, approval, dependencies, failure/recovery, or other material relationships. Use the diagram to find hidden writes, missing ownership, tenant/auth/HITL gaps, retries, races and missing proof. Do not generate a diagram per file or task section; reuse a diagram unless a new risk requires another. If none adds value, record: `Diagram: N/A — no meaningful relationship/state/sequence to model.`
 
-Every substantial task must perform a diagram pass covering the applicable current state, target state, architecture/ownership, dependencies/blockers, negative/recovery paths, and verification path.
-
-For every substantive task section or file/workflow group, add the smallest useful diagram or explicitly record:
-
-```text
-Diagram: N/A — no meaningful relationship/state/sequence to model.
-```
-
-Use diagrams to actively look for:
-
-- missing owner or duplicate source of truth;
-- browser/client authorization or tenant-trust gaps;
-- hidden writes or side effects;
-- AI/HITL approval bypass or approval detached from exact artifact/revision/hash;
-- duplicate retry/resume/callback effects;
-- race conditions or circular dependencies;
-- external failures without recovery/rollback;
-- stale/deprecated routes, skills, providers, or architecture;
-- secret exposure to client/model/memory/snapshot/trace;
-- final states with no observable test/readback proving them.
-
-If a load-bearing red flag appears, correct the task/architecture before coding. A diagram defines expected structure; tests/runtime evidence prove actual behavior.
+A diagram clarifies a claim; only tests/runtime evidence prove it. Correct a real blocker before coding.
 
 ## Setup commands
 
@@ -145,9 +124,17 @@ Graph: `graphify-out/graph.json` (generated local state; do not commit it).
 4. Official version-specific vendor docs.
 5. Current official docs.
 6. Project markdown, which may be stale.
-7. Linear prose and external examples until independently verified.
+7. Unverified prose and external examples; Linear remains authoritative for approved task requirements and progress.
 
-Never implement from stale docs, a dirty checkout, another repository, or task prose contradicted by current code/runtime.
+Evidence labels for implementation-status claims:
+
+- **Code present** — verified current main SHA and exact file/symbol; this does not prove working behavior.
+- **Behavior verified** — the same SHA plus a passing risk-matched test or observed runtime/readback supporting the specific claim.
+- **Unverified** — missing, stale, or failed evidence; name the missing proof and the next check.
+
+**Task requirements and progress:** use the live Linear issue for approved outcomes, acceptance criteria, dependencies and recorded proof. Current code/runtime establish implementation state, not permission to silently change an approved requirement.
+
+**Exception and escalation:** when Linear is unavailable, use the existing temporary `todo.md` handoff and reconcile it to the owning issue before marking Done. If a requirement conflicts with current security constraints, verified runtime evidence, or urgent incident response, **STOP the affected action**. The authorized issue owner (or designated incident commander for incident response) must explicitly approve a changed scope or acceptance criterion; record the reason, approver, affected action, evidence and next review in the same Linear issue, using the temporary handoff only during an outage. This exception cannot bypass tenant authorization, exact-artifact approval, secret handling, production-write restrictions, or human merge approval. Never implement from stale docs, a dirty checkout or another repository.
 
 ## Architecture boundaries
 
@@ -163,6 +150,8 @@ Never implement from stale docs, a dirty checkout, another repository, or task p
 Never treat browser `orgId`, `user_metadata`, or service-role possession as authorization.
 
 ## Testing instructions
+
+For authorized real-browser/identity/tenant QA, consult the [1Password QA guide](docs/development/testing-with-1password.md), which safely adapts the existing local `testing.md` / `ipix-qa-op` workflow. **Run targeted deterministic tests first.** Do not run paid, destructive, production, or real-account write journeys without the existing task approval, correct project/environment, and isolation proofs. Never expose credentials or browser sessions.
 
 Re-read `package.json` and the changed path before choosing commands; never invent missing scripts.
 
@@ -219,11 +208,11 @@ $ supabase start
 failed to parse config: missing private key
 ```
 
-`npm run supabase:cli` injects **only the private keys** through the repository's existing dotenvx boundary, so the CLI decrypts on demand and no other secret enters the child environment (4 keys rather than the 64 plaintext values a `--convention=nextjs` injection would add). Supabase CLI 2.118.0 was tested against this tree and fails identically, so the pin stays at 2.116.0 and the gap is closed in the repository instead. `--ignore=MISSING_ENV_FILE` leaves CI unchanged: `.env.keys` and `.env.local` are both absent there, so the command falls through to the unmodified upstream CLI that `supabase-fresh-replay` already exercises.
+`npm run supabase:cli` injects **only the private keys** through the repository's existing dotenvx boundary, so the CLI decrypts on demand and no other secret enters the child environment (4 keys rather than the 64 plaintext values a `--convention=nextjs` injection would add). Supabase CLI 2.118.0 was tested against this tree and fails identically; the CI pin remains 2.116.0, while the local `supabase:cli` wrapper resolves the installed `supabase` binary from PATH. Check `supabase --version` before relying on a local proof. The decryption gap is closed in the repository. `--ignore=MISSING_ENV_FILE` leaves CI unchanged: `.env.keys` and `.env.local` are both absent there, so the command falls through to the unmodified upstream CLI that `supabase-fresh-replay` already exercises.
 
 Verified 2026-09-28 with the encrypted `.env.local` present: `npm run supabase:cli -- start` exited 0, `npm run supabase:cli -- db reset --local` exited 0 after applying every migration, and `.env.local` and `.env.keys` were byte-identical afterwards.
 
-**For Mastra/Postgres-only proofs** that do not need the Supabase stack, use disposable Postgres plus this repository's own migrations. Start local Postgres on `127.0.0.1`, create the login role, then apply the pinned `mastra` migrations **in timestamp order** (`20260722093028_mastra_schema_pinned_1_12_0` → `20260722094055_mastra_runtime_grants_and_rls` → `20260822070000_ipi1008_mastra_workflow_definitions` → `20260927194500_ipi1332_mastra_1_71_schema_delta`). `127.0.0.1` is on the `src/mastra/pg-store.ts` allowlist. This is what the `mem-001-restart-history` CI job does, and it needs no new DDL.
+**For Mastra/Postgres-only proofs** that do not need the Supabase stack, use a verified isolated disposable database plus this repository's migrations. Provision all prerequisite API and restricted runtime roles **before** applying migrations in the **exact CI migration order** from the `mem-001-restart-history` job. The scoped [local Supabase/Mastra proof guide](docs/development/local-supabase.md) links to the CI commands and pins the current migration sequence; do not duplicate the version-sensitive filenames here. `127.0.0.1` is allowlisted in `src/mastra/pg-store.ts`. Do not invent DDL, reuse another worktree's database or access hosted production.
 
 Do not silently fall back to a second database provider. Report a breakage rather than working around it invisibly, and do not delete `.env.local` (the app needs it).
 
@@ -257,11 +246,9 @@ Do not autonomously publish, pay, delete, or commit sensitive business state.
 
 Rules: `.cursor/rules/`. Canonical skill source tree: `.agents/skills/`. Claude discovers shared skills through symlinks under `.claude/skills/` — but **not every canonical skill is exposed, and that is deliberate**: `claude_exposed: true` in the registry marks the skills that get a Claude symlink, and the rest stay `.agents`-only until a Claude workflow needs one (`tests/skill-tree-contract.test.ts` enforces the correspondence, so a missing symlink is not automatically a defect and an unexpected one is). `.cursor/skills` may point at the Claude discovery layer. Registry SSOT: `.agents/skills/registry.json`. The index `.claude/skills/index-skills.md` is generated from that registry; update it with `npm run skills:index`, never by hand.
 
-**One-real-copy rule:** every canonical skill has exactly one real directory in the repository, under `.agents/skills/<skill>/`. `.claude/skills/<skill>` is a symlink to that directory when the registry marks the skill `claude_exposed: true`, and is absent otherwise; no skill is maintained as a real directory in both trees. The former Claude-only migration backlog is closed — `npm run skills:registry:check` and `tests/skill-tree-contract.test.ts` enforce the correspondence, so a missing symlink is expected for a non-exposed skill and an unexpected real directory under `.claude/skills/` is a defect. Any new temporary exception must be explicitly approved and documented in the owning task/PR with the authoritative copy, reason, and removal checkpoint; otherwise stop instead of creating a duplicate. New shared skills and migrated skills must use `.agents/skills/` as their real home.
+**One-real-copy rule:** by default, a skill has one real directory in the repository. Shared/cross-agent skills belong in `.agents/skills/<skill>/`; `.claude/skills/<skill>` must be a symlink to that canonical directory. Do not maintain copied skill directories in both trees. The Claude-only migration backlog is closed: `.claude/skills/` now contains discovery symlinks, not real skill directories. Treat any newly encountered real directory there as an exception requiring explicit approval and documentation, not as an expected migration backlog. Any other temporary exception must be explicitly approved and documented in the owning task/PR with the authoritative copy, reason, and removal checkpoint; otherwise stop instead of creating a duplicate. New shared skills and migrated skills must use `.agents/skills/` as their real home.
 
-**Vendored skills are hash-locked — do not edit them in place.** Two independent sources record provenance and both are enforced in CI: `skills-lock.json` records 18 skills vendored from upstream (`testomatio/skills`, `mattpocock/skills`, `DietrichGebert/ponytail`) with a `computedHash`, and `skills-vendor-baseline.json` records a per-tree hash for every vendor snapshot and vendored reference pack, checked by `npm run skills:vendor:check`. Reference trees carrying an `UPSTREAM.md` are vendor snapshots too. Edit the upstream source and re-vendor; local edits to a vendored tree invalidate its provenance record and are silently lost on the next sync.
-
-Inside a vendored tree, `SKILL.md` is the **only operational entry point**. The other files are upstream artifacts kept verbatim: `README.md` documents how the upstream project builds its own pack, generated files such as a compiled `AGENTS.md` are build output, and `metadata.json` records upstream document metadata. A vendored README that refers to upstream build steps or files not vendored here (`src/`, `test-cases.json`) is provenance evidence, not an instruction to follow — do not run it, and do not "fix" it in place.
+**Vendored skills are hash-locked — do not edit them in place.** `skills-lock.json` records 18 skills vendored from upstream (`testomatio/skills`, `mattpocock/skills`, `DietrichGebert/ponytail`) with a `computedHash`. Reference trees carrying an `UPSTREAM.md` are vendor snapshots too. Edit the upstream source and re-vendor; local edits to a vendored tree invalidate its provenance record and are silently lost on the next sync.
 
 ## PR instructions
 
@@ -293,35 +280,22 @@ For substantial executable `IPI-*` work, load `.claude/skills/tasks/SKILL.md` be
 
 ### Linear template routing — mandatory
 
-For every new substantial `IPI-*` issue, use one approved Linear workspace template. Do not create a free-form issue when an approved template fits.
+The existing [tasks skill](.claude/skills/tasks/SKILL.md) owns **all** task creation, templates, PR follow-up and evidence. Search current Linear first; keep a reusable issue rather than creating a duplicate merely to change template metadata.
 
 - Normal feature/fix → `Universal Engineering Task`
 - Audit/research only; no implementation → `iPix Task Audit & Implementation Plan`
 - Confirmed bug/root-cause repair → `Forensic Error Audit & Fix`
 - Production/release certification → `Production Readiness / Release Gate`
 
-Before creating an issue: search Linear for an existing issue with the same TASK-ID or materially overlapping scope before creating anything new.
-
-Existing-issue decision:
-- Same work item with the correct or usable template structure → reuse/update it.
-- Same work item with a wrong or missing template association → preserve the issue/history, migrate its body and fields to the closest applicable template structure, and record the mismatch. If current Linear tooling cannot change the template association after creation, do not create a duplicate solely to change template metadata.
-- Existing issue is completed/canceled historical work, materially different scope, or requires creation-only form/template behavior → create a new correctly templated issue, link the old issue, and record the reason/relationship.
-- Assignment alone is not a reason to duplicate work; preserve or intentionally change ownership.
-
-If a new issue is required, apply the template through Linear's template field; do not replace the template body with a free-form description. Fill only relevant sections and write `Needs verification` for unknown facts. When materially correcting an existing issue, preserve the closest applicable template structure.
-
-**When the template field is unreachable (tooling gap).** The template field is only settable through tooling that exposes it. As of 2026-09-28 the sanctioned fallback `linear-cli` (0.3.28) has no `--template` flag, so a session without a template-capable Linear MCP cannot apply one. This is a third case — neither a non-standard issue nor a Linear outage. Handle it thus: create the issue with the closest approved template's structure written into the body, state in the body that the template field could not be set and why, record the tooling version, and continue. Do not block the task, and do not create a duplicate later solely to attach template metadata.
-
-**Identifiers are assigned, not chosen.** Linear assigns `IPI-NNN` at creation, so the `IPI-NNN · TASK-ID — Full title` form cannot be set in the create call. Create as `TASK-ID — Full title`, then rename to include the assigned identifier. A missing identifier in the title is drift, not a style preference.
+Existing-issue decision: when the TASK-ID, user/system outcome and acceptance criteria materially match, update that issue and its history; **do not create a duplicate solely to change template metadata**. Create and link a new issue only for genuinely different scope or completed/canceled historical work. New issues use the actual Linear template field; add the assigned `IPI-NNN` to the title *after* creation.
 
 Before implementation, use one of two explicit paths:
-
 - **Standard path:** verify template/type, project/milestone, dependencies/blockers, relations, observable outcome, acceptance criteria, verification plan, and exact next action.
-- **Exception path:** if a genuinely non-standard issue cannot use an approved template, document the concrete reason in the issue before implementation and preserve the same required outcome/evidence fields.
+- **Exception path:** document why an approved template cannot apply; keep the same outcome/evidence fields.
 
-In either path, keep the issue resumable by another agent from Linear alone. If Linear is temporarily unavailable, use `todo.md` only as a temporary handoff with the same required state/evidence fields, then reconcile that handoff back into Linear before marking the issue Done.
+If Linear is temporarily unavailable, use `todo.md` only as a temporary handoff with current proof and next action; **reconcile that handoff back into Linear before marking the issue Done**. Follow the [historical tooling fallback](.claude/skills/tasks/references/linear-tooling-compatibility.md) *only if* the current integration cannot set a template. The live Linear issue and tasks skill still own progress and post-merge certification.
 
-After opening or updating a PR, follow the mandatory **PR follow-up loop** in `.claude/skills/tasks/SKILL.md`: refresh current review/check/main state, validate every suggestion before changing code, fix proven root causes with evidence, update the PR, and repeat until the exact-head merge gate is clean.
+After opening or updating a PR, follow the **PR follow-up loop** in the tasks skill; verify comments against current code, run exact-head gates and require authorized merge approval.
 
 Before coding:
 

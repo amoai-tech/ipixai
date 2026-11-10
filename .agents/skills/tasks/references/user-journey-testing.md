@@ -2,7 +2,7 @@
 
 A user journey is not “does this page work?” It is whether the operator can achieve the real business outcome across every system the journey touches.
 
-Prioritize a small number of business-critical journeys over broad low-value coverage.
+Prioritize a small number of business-critical journeys over broad low-value coverage. For authorized QA with existing authenticated users, first follow [safe local 1Password testing](../../../../docs/development/testing-with-1password.md); never copy account credentials, auth storage or local `testing.md` into Git.
 
 ## Quick lookup — which canonical journey applies?
 
