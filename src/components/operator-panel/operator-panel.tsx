@@ -783,7 +783,7 @@ function ProductionCopilotPanel({
           description="Read-only qualitative comparison of shoot concepts. Use one ConceptComparison when the operator asks to compare concepts."
           ui={ipixGenerativeUI}
           components={["ConceptComparison"]}
-          fallback={null}
+          fallback={<span className="sr-only">No generated comparison yet.</span>}
           autoScroll={false}
           className={styles.generativeSurface}
         />
