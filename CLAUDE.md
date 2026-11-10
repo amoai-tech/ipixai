@@ -37,7 +37,7 @@ These topics were previously restated here. They are repository-wide rules, so t
 | PR rules and merge authority | `AGENTS.md` § PR instructions and § Merge authority |
 | Reuse before custom | `AGENTS.md` § Reuse before custom |
 | Secrets and Dotenvx | `AGENTS.md` § Secrets / Dotenvx |
-| Local database safety, including the broken `supabase start` path | `AGENTS.md` § Supabase safety |
+| Local database safety, including the supported `supabase:cli` wrapper | `AGENTS.md` § Supabase safety |
 | Graphify | `AGENTS.md` § Setup commands; `.claude/skills/graphify/SKILL.md` |
 
 `task-verifier` independently challenges what remains unproven, at the risk-matched depth. It does not become a second implementation lifecycle.
@@ -66,7 +66,13 @@ These are **outstanding**, not historical. They were written as "after PR #106 m
 
 ## Skill authoring
 
-Prefer `.claude/skills/<name>/SKILL.md` for reusable procedures. `.claude/commands/` files are compatibility shims only when an equivalent project skill exists.
+Skill-home decision (one canonical implementation, consistent with the shared-skill migration on `main`):
+
+- **Shared skill** used by Codex or multiple agents: `.agents/skills/<name>/SKILL.md`; expose it to Claude via the approved `.claude/skills/` symlink.
+- **Claude-specific hooks or command APIs** without a cross-agent consumer: `.claude/skills/<name>/SKILL.md`.
+- **Vendored or legacy exception:** preserve the installed registry/skill owner; migrate only under an explicitly scoped task.
+
+`.claude/commands/` remains a compatibility shim location, not a duplicate implementation.
 
 For any skill whose purpose is to change what the model decides or does — rather than to produce an artifact or answer a lookup — keep realistic prompts in that skill's own `evals/evals.json` (for example `.claude/skills/pr/evals/evals.json`) and compare a changed skill against the previous version before claiming the rewrite is better. That criterion is deliberately behaviour-based: a skill that changes decisions needs test prompts, while a purely descriptive or subjective one gets no value from assertions. Vendored skills are exempt — their evals belong upstream, not in a local edit the next sync discards. Keep trigger conditions in the skill description, keep `SKILL.md` concise, and move detailed material into supporting references/scripts when needed.
 
