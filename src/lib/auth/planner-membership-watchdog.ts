@@ -51,12 +51,12 @@ export function startPlannerMembershipWatchdog(options: {
   intervalMs?: number;
   checkTimeoutMs?: number;
   maxConsecutiveErrors?: number;
-  maxMs?: number;
+  maxMs: number;
 }): PlannerMembershipWatchdog {
   const intervalMs = options.intervalMs ?? 5_000;
   const checkTimeoutMs = options.checkTimeoutMs ?? 4_000;
   const maxConsecutiveErrors = options.maxConsecutiveErrors ?? 3;
-  const maxMs = options.maxMs ?? 300_000;
+  const maxMs = options.maxMs;
   let stopped = false;
   let checking = false;
   let consecutiveErrors = 0;

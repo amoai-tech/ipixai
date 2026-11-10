@@ -7,6 +7,7 @@ const state = vi.hoisted(() => {
     operatorId,
     orgId,
     resourceId: `org:${orgId}::user:${operatorId}`,
+    sessionOrgId: orgId as string | null,
     authorized: true,
     member: true,
     failHandler: false,
@@ -32,7 +33,7 @@ vi.mock("@/lib/auth/copilot-hooks", () => ({
 vi.mock("@/lib/auth/planner-session", () => ({
   requirePlannerResourceId: async () =>
     state.authorized
-      ? { ok: true, resourceId: state.resourceId, operator: { id: state.operatorId } }
+      ? { ok: true, resourceId: state.resourceId, orgId: state.sessionOrgId, operator: { id: state.operatorId } }
       : { ok: false, response: new Response("not authorized", { status: 401 }) },
 }));
 vi.mock("@/lib/supabase/server", () => ({
@@ -89,7 +90,7 @@ vi.mock("hono/vercel", () => ({
   },
 }));
 
-import { POST } from "@/app/api/copilotkit/[[...slug]]/route";
+import { POST, maxDuration } from "@/app/api/copilotkit/[[...slug]]/route";
 
 const request = (signal?: AbortSignal) =>
   new Request("http://localhost/api/copilotkit", { method: "POST", signal });
@@ -98,6 +99,8 @@ describe("Planner membership revocation route boundary", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     state.authorized = true;
+    state.sessionOrgId = state.orgId;
+    state.resourceId = `org:${state.orgId}::user:${state.operatorId}`;
     state.member = true;
     state.failHandler = false;
     state.bodyless = false;
@@ -131,6 +134,37 @@ describe("Planner membership revocation route boundary", () => {
     expect(state.lastRunnerSignal?.aborted).toBe(true);
     await expect(reader.read()).rejects.toMatchObject({ name: "AbortError" });
     expect(state.sourceCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the trusted organization even when the memory key format changes", async () => {
+    state.resourceId = "future-memory-key-format";
+    const response = await POST(request());
+    const reader = response.body!.getReader();
+    state.member = false;
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(state.queryFilters).toContainEqual(["org_id", state.orgId]);
+    expect(state.queryFilters).toContainEqual(["user_id", state.operatorId]);
+    expect(state.lastRunnerSignal?.aborted).toBe(true);
+    await expect(reader.read()).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("denies the request if the verified organization is absent", async () => {
+    state.sessionOrgId = null;
+    const response = await POST(request());
+    expect(response.status).toBe(500);
+    expect(state.lastRunnerSignal).toBeNull();
+    await vi.advanceTimersByTimeAsync(12_000);
+    expect(state.checks).toBe(0);
+  });
+
+  it("keeps the watchdog deadline aligned with the Next.js route duration", async () => {
+    const response = await POST(request());
+    const reader = response.body!.getReader();
+    await vi.advanceTimersByTimeAsync(maxDuration * 1_000 - 1);
+    expect(state.lastRunnerSignal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(state.lastRunnerSignal?.aborted).toBe(true);
+    await expect(reader.read()).rejects.toMatchObject({ name: "AbortError" });
   });
 
   it("does not keep checking after a normal response completes", async () => {

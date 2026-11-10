@@ -28,11 +28,12 @@ async function handleCopilot(request: Request) {
   if (!session.ok) return session.response;
 
   const resourceId = session.resourceId;
-  const orgId = /^org:([0-9a-f-]{36})::user:/.exec(resourceId)?.[1];
-  if (!orgId) {
-    // Fail visibly rather than silently disabling the revocation watchdog if
-    // the resourceId contract changes. Do not log tenant identifiers.
-    console.warn("[planner] resourceId missing orgId; membership watchdog disabled");
+  // The authorization boundary provides this trusted tenant directly.
+  // Changes to memory-key formatting must never disable stream revocation.
+  const orgId = session.orgId;
+  if (typeof orgId !== "string" || !orgId) {
+    console.error("[planner] verified organization unavailable; rejecting request");
+    return new Response("Planner authorization unavailable", { status: 500 });
   }
 
   const authClient = createClientFromRequest(request);
@@ -71,6 +72,9 @@ async function handleCopilot(request: Request) {
           return data ? "member" : "missing";
         },
         onRevoked: () => membershipController.abort(),
+        // Next.js needs the static exported duration, but the watchdog can
+        // derive its deadline directly from the same route-level value.
+        maxMs: maxDuration * 1_000,
       })
     : undefined;
   const cleanupMembershipWatchdog = () => {
