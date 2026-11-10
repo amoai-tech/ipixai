@@ -901,6 +901,14 @@ jobs:
           # above, not a bare-Postgres mock.
           psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/tests/security/ipi1311-org-members-single-membership.sql
+
+          # IPI-1433 · AUTHZ-PROFILE-001 — normal signed-in users cannot
+          # insert/update their own admin/organizer role, while ordinary
+          # profile edits, signup default and trusted admin edits still work.
+          # Runs after the *full* fresh migration replay with real auth.users
+          # and Postgres RLS/grants; fixtures are transaction-rolled back.
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/ipi1433-profile-role-acl.sql
       - run: supabase stop
 
   # IPI-1205 · SB-EDGE-CI-001 — native Deno regression tests + frozen
