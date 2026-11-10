@@ -105,3 +105,78 @@ describe("IPI-1291 dependency security floors", () => {
     }
   });
 });
+
+
+// IPI-1218: Prevent a future lockfile refresh from silently restoring
+// vulnerable transitive copies while respecting the consumers' major ranges.
+describe("IPI-1218 compatible advisory patches", () => {
+  it("keeps Express/MCP body-parser at 2.4.0+ (GHSA-27r3-jxmh-p828)", () => {
+    const versions = resolvedVersions("body-parser");
+    expect(versions.length).toBeGreaterThan(0);
+    for (const version of versions) {
+      expect(parseStableVersion(version)[0]).toBe(2);
+      expect(isAtLeast(version, "2.4.0")).toBe(true);
+    }
+  });
+
+  it("protects every brace-expansion copy from known recursion and CPU DoS advisories", () => {
+    // GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p, and GHSA-q2hr-2g5m-vwhr.
+    // The final advisory has newer patched floors than the two high-severity ones.
+    // Unknown majors (including vulnerable v4) require explicit security review.
+    const floors: Record<number, string> = {
+      1: "1.1.21",
+      2: "2.1.7",
+      3: "3.0.9",
+      5: "5.0.12",
+    };
+    const versions = resolvedVersions("brace-expansion");
+    expect(versions.length).toBeGreaterThan(0);
+    for (const version of versions) {
+      const major = parseStableVersion(version)[0];
+      const floor = floors[major];
+      expect(floor, `Unreviewed brace-expansion major ${major}`).toBeDefined();
+      expect(isAtLeast(version, floor)).toBe(true);
+    }
+
+    // Prove the guard would reject the *last vulnerable patch* on every line.
+    for (const [vulnerable, minimum] of [
+      ["1.1.20", floors[1]],
+      ["2.1.6", floors[2]],
+      ["3.0.8", floors[3]],
+      ["5.0.11", floors[5]],
+    ] as const) {
+      expect(isAtLeast(vulnerable, minimum)).toBe(false);
+    }
+    expect(floors[4], "Unreviewed 4.x must not pass").toBeUndefined();
+    expect(floors[6], "Unreviewed future majors must not silently pass").toBeUndefined();
+  });
+
+  it("keeps Mastra RE2JS past the patched floor (GHSA-gg6h-894w-4m9c)", () => {
+    const versions = resolvedVersions("re2js");
+    expect(versions.length).toBeGreaterThan(0);
+    for (const version of versions) {
+      expect(parseStableVersion(version)[0]).toBe(2);
+      expect(isAtLeast(version, "2.8.7")).toBe(true);
+    }
+  });
+
+  it("keeps PostCSS source-map-js patched (GHSA-68fv-2mgg-jv7q)", () => {
+    const versions = resolvedVersions("source-map-js");
+    expect(versions.length).toBeGreaterThan(0);
+    for (const version of versions) {
+      expect(parseStableVersion(version)[0]).toBe(1);
+      expect(isAtLeast(version, "1.2.2")).toBe(true);
+    }
+  });
+
+  it("keeps each installed Zod 4 copy patched without pinning root Zod 3", () => {
+    // GHSA-mrhx-c7xc-m3w5: inspect Zod 3 exposure separately, but do not
+    // require an older major to remain installed after a safe upstream upgrade.
+    const versions = resolvedVersions("zod");
+    const zod4 = versions.filter((version) => parseStableVersion(version)[0] === 4);
+    expect(zod4.length).toBeGreaterThan(0);
+    for (const version of zod4) {
+      expect(isAtLeast(version, "4.6.6")).toBe(true);
+    }
+  });
+});
