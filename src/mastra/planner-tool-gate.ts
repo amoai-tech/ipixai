@@ -43,6 +43,18 @@ export const ALL_AGENT_TOOLS = [
 ] as const;
 
 /**
+ * IPI-1426 · GENUI-TOOL-001 — the only cross-boundary tools the planner gate
+ * may add when the CopilotKit run actually supplies them. Keep this list
+ * narrow: never derive it from browser-provided tool names.
+ */
+export const GENUI_RENDER_TOOL = "render_ui" as const;
+export const PLAN_REVIEW_TOOL = "reviewShootPlan" as const;
+export const INTEGRATION_TOOL_NAMES = [
+  GENUI_RENDER_TOOL,
+  PLAN_REVIEW_TOOL,
+] as const;
+
+/**
  * Matches approval/rejection of a brand draft or profile:
  *   "approve the brand draft", "reject this profile", "decline the draft"
  * Does NOT match "approve the brand shoot plan" because the regex requires
@@ -233,10 +245,18 @@ export function normaliseToMessages(input: unknown): MessageLike[] {
 export function resolveActiveTools(
   messages: MessageLike[],
   defaultActiveTools?: string[],
+  integrationTools: readonly string[] = [],
 ): string[] {
   if (defaultActiveTools) return defaultActiveTools;
-  if (isBrandIntelligenceTurn(messages)) return [...ALL_AGENT_TOOLS];
-  return [...PLANNING_ONLY_TOOLS];
+  const base = isBrandIntelligenceTurn(messages)
+    ? [...ALL_AGENT_TOOLS]
+    : [...PLANNING_ONLY_TOOLS];
+  const allowed = integrationTools.filter(
+    (name): name is (typeof INTEGRATION_TOOL_NAMES)[number] =>
+      (INTEGRATION_TOOL_NAMES as readonly string[]).includes(name) &&
+      !base.includes(name as (typeof ALL_AGENT_TOOLS)[number]),
+  );
+  return [...base, ...allowed];
 }
 
 type Callable = (..._args: never[]) => unknown;
@@ -260,6 +280,7 @@ type PrepareStepLike = (
 
 type ActiveToolsOptions = {
   activeTools?: string[];
+  clientTools?: unknown;
   requestContext?: RequestContext;
   prepareStep?: PrepareStepLike;
   [key: string]: unknown;
@@ -270,6 +291,35 @@ function normaliseToolOptions(value: unknown): ActiveToolsOptions {
   return typeof value === "object" && value !== null
     ? (value as ActiveToolsOptions)
     : {};
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Returns only the fixed integration tools actually present on this run.
+ *
+ * This is an availability check, not an authorization check. CopilotKit's
+ * server-side GenerativeUIMiddleware adds `render_ui` only after validating a
+ * tool-transport catalog; the planner gate must not read a client context
+ * description as a trust signal. `reviewShootPlan` is the existing frontend
+ * HITL tool and remains server-authorized independently.
+ */
+export function suppliedIntegrationTools(
+  options: ActiveToolsOptions,
+): string[] {
+  if (!isRecord(options.clientTools)) return [];
+  const clientTools = options.clientTools;
+  const supplied: string[] = [];
+  for (const name of INTEGRATION_TOOL_NAMES) {
+    if (!Object.prototype.hasOwnProperty.call(clientTools, name)) continue;
+    const tool = clientTools[name];
+    // `buildClientTools` constructs `{ id: tool.name, ... }`. A null,
+    // undefined or malformed definition is not a supplied tool.
+    if (isRecord(tool) && tool.id === name) supplied.push(name);
+  }
+  return supplied;
 }
 
 function readPersistedToolPolicy(requestContext?: RequestContext): string[] | undefined {
@@ -286,6 +336,7 @@ function persistToolPolicy(requestContext: RequestContext, activeTools: string[]
 function buildPolicyPrepareStep(
   existingPrepareStep: PrepareStepLike | undefined,
   fallbackActiveTools: string[],
+  suppliedIntegrationToolsForRun: readonly string[],
 ): PrepareStepLike {
   return async (args) => {
     const existingResult = await existingPrepareStep?.(args);
@@ -293,10 +344,16 @@ function buildPolicyPrepareStep(
       typeof existingResult === "object" && existingResult !== null
         ? existingResult
         : {};
-    const activeTools =
+    const persisted =
       readPersistedToolPolicy(args.requestContext) ?? fallbackActiveTools;
+    const available = new Set(suppliedIntegrationToolsForRun);
+    const activeTools = persisted.filter(
+      (name) =>
+        !(INTEGRATION_TOOL_NAMES as readonly string[]).includes(name) ||
+        available.has(name),
+    );
 
-    return { ...result, activeTools: [...activeTools] };
+    return { ...result, activeTools };
   };
 }
 
@@ -309,13 +366,19 @@ export function wrapPlannerStreamWithToolGate<T extends Callable>(original: T): 
   const wrapped = (...args: Parameters<T>): ReturnType<T> => {
     const messages = args[0] as unknown;
     const options = normaliseToolOptions(args[1]);
+    const requestContext = options.requestContext ?? new RequestContext();
+    const supplied = suppliedIntegrationTools(options);
     const activeTools = resolveActiveTools(
       normaliseToMessages(messages),
       options.activeTools,
+      supplied,
     );
-    const requestContext = options.requestContext ?? new RequestContext();
     persistToolPolicy(requestContext, activeTools);
-    const prepareStep = buildPolicyPrepareStep(options.prepareStep, activeTools);
+    const prepareStep = buildPolicyPrepareStep(
+      options.prepareStep,
+      activeTools,
+      supplied,
+    );
 
     const forwarded = [
       messages,
@@ -339,16 +402,18 @@ export function wrapPlannerResumeStreamWithToolGate<T extends Callable>(
   const wrapped = (...args: Parameters<T>): ReturnType<T> => {
     const resumeData = args[0] as unknown;
     const streamOptions = normaliseToolOptions(args[1]);
-    const fallbackActiveTools = streamOptions.activeTools ?? [
-      ...PLANNING_ONLY_TOOLS,
-    ];
     const requestContext = streamOptions.requestContext ?? new RequestContext();
+    const supplied = suppliedIntegrationTools(streamOptions);
+    const fallbackActiveTools =
+      streamOptions.activeTools ??
+      resolveActiveTools([], undefined, supplied);
     if (streamOptions.activeTools) {
       persistToolPolicy(requestContext, streamOptions.activeTools);
     }
     const prepareStep = buildPolicyPrepareStep(
       streamOptions.prepareStep,
       fallbackActiveTools,
+      supplied,
     );
 
     const forwardedOptions = {
