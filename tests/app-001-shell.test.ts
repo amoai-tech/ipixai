@@ -76,6 +76,15 @@ vi.mock("@copilotkit/react-core/v2", () => ({
   CopilotChat: () => createElement("div", { "data-testid": "copilot-chat-stub" }),
 }));
 
+vi.mock("@copilotkit/react-core/v2/generative-ui", () => ({
+  GenerativeUISurface: ({ id }: { id: string }) =>
+    createElement("div", { "data-testid": "generative-ui-surface-stub", "data-surface-id": id }),
+}));
+
+vi.mock("../src/lib/copilotkit/ipix-generative-ui", () => ({
+  ipixGenerativeUI: { id: "ipix/planner@1" },
+}));
+
 vi.mock("../src/components/ui/empty-state.module.css", () => ({
   default: new Proxy({}, { get: (_, key) => String(key) }),
 }));

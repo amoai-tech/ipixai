@@ -162,6 +162,18 @@ vi.mock("@copilotkit/react-core/v2", () => ({
   ),
 }));
 
+// IPI-1427: render a stable target marker in this shell test; the real
+// surface is exercised by the catalog/provider integration proof.
+vi.mock("@copilotkit/react-core/v2/generative-ui", () => ({
+  GenerativeUISurface: ({ id }: { id: string }) => (
+    <div data-testid="generative-ui-surface-stub" data-surface-id={id} />
+  ),
+}));
+
+vi.mock("@/lib/copilotkit/ipix-generative-ui", () => ({
+  ipixGenerativeUI: { id: "ipix/planner@1" },
+}));
+
 // Real component makes its own fetch to /api/planner/threads/:id/messages
 // and calls agent.setMessages(...) — none of that is what these tests are
 // proving. What matters here is *whether PlannerChatDock renders it at
@@ -310,6 +322,23 @@ describe("OperatorPanel", () => {
     // Nothing else on the provider is filtered or replaced by this change.
     expect(copilotKitPropsMock.current?.runtimeUrl).toBe("/api/copilotkit");
     expect(copilotKitPropsMock.current?.useSingleEndpoint).toBe(false);
+  });
+
+  it("wires one native GenUI catalog and one named surface into the existing provider", async () => {
+    render(
+      <OperatorPanel>
+        <p>Workspace body</p>
+      </OperatorPanel>,
+    );
+    await waitFor(() => expect(screen.getByTestId("copilot-chat-stub")).toBeDefined());
+
+    const generativeUI = copilotKitPropsMock.current?.generativeUI as {
+      ui?: { id?: string };
+    };
+    expect(generativeUI?.ui?.id).toBe("ipix/planner@1");
+    expect(screen.getByTestId("generative-ui-surface-stub").dataset.surfaceId).toBe(
+      "planner-comparison",
+    );
   });
 
   it("opens and closes the Production Copilot panel without remounting the chat", async () => {
