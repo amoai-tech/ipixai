@@ -16,7 +16,7 @@ iPix already has the hard parts that should be reused: one authenticated Copilot
 
 Native CopilotKit Components and Surfaces are **not implemented** on current `main`. The installed CopilotKit 1.85 packages do expose the intended A2UI 1.0 APIs: `createGenerativeUI`, `standardUI`, `GenerativeUISurface`, `useGenerativeUIState`, and `useGenerativeUIFunction`. The official standard catalog contains 69 components. This establishes API availability, not runtime readiness.
 
-The audit found one concrete GenUI transport incompatibility: CopilotKit injects `render_ui` as an AG-UI client tool, `@ag-ui/mastra` forwards it as `clientTools`, and installed Mastra filters the combined tool set against `activeTools`. iPix's `planner-tool-gate.ts` always supplies an `activeTools` list containing only its five or seven server tools, so `render_ui` is filtered out. Existing tool-gate tests pass because they do not include a client-tool case. This is the smallest implementation gap owned by IPI-1426.
+The audit found one concrete client-tool compatibility gap: CopilotKit injects `render_ui` as an AG-UI client tool, `@ag-ui/mastra` forwards it as `clientTools`, and installed Mastra filters against `activeTools`. iPix's `planner-tool-gate.ts` always supplies a fixed five/seven-server-tool list, so it also filters the existing `reviewShootPlan` HITL client tool. Existing gate tests lack client-tool cases. IPI-1426 owns the smallest fix, after IPI-1386.
 
 Implementation must nevertheless **stop before changing product code**. IPI-1386, the combined-runtime release gate, is Backlog and blocked by IPI-1385 (Mastra 1.82) and IPI-1389. Current `main` still has Mastra Core 1.71.0. The user-requested rule says not to force a downstream feature through an upstream blocker. Therefore this delivery updates the audit/plan and Linear evidence only; it does not add a catalog, Surface, database object, provider, renderer, or transport.
 
@@ -104,7 +104,7 @@ flowchart LR
   end
 
   subgraph Server[Next.js server]
-    Route[/api/copilotkit]
+    Route["/api/copilotkit"]
     Auth[requirePlannerResourceId]
     Runner[TenantAbortRunner]
     Bridge[AG-UI Mastra bridge]
@@ -125,12 +125,12 @@ flowchart LR
   Shell --> Provider
   Provider --> ToolCard
   Provider --> HITL
-  Provider -. future A2UI 1.0 .-> Future
+  Provider -.->|Future A2UI 1.0| Future
   Provider --> Route --> Auth --> Runner --> Bridge --> Agent
   Agent --> Gate --> Tools
   Agent --> PG
   HITL --> ReviewWF --> SB
-  Future -. render_ui currently filtered .-> Gate
+  Future -.->|client tools currently filtered| Gate
 ```
 
 ### 2.1 Frontend truth
@@ -239,11 +239,11 @@ The installed catalog has 69 components:
 
 | Policy | Components | Reason |
 | --- | --- | --- |
-| Enable immediately | `Box`, `Card`, `Column`, `Row`, `Grid`, `GridItem`, `Spacer`, `Divider`, `Text`, `Title`, `Caption`, `Bold`, `Italic`, `Badge`, `List`, `ListItem`, `Table`, `TableSection`, `TableRow`, `TableCell`, `Citation`, `PulseIndicator`, `ShimmerText` | Read-only layout, evidence, status, comparison |
+| Enable immediately | `Box`, `Card`, `Column`, `Row`, `Grid`, `GridItem`, `Spacer`, `Divider`, `Text`, `Title`, `Caption`, `Bold`, `Italic`, `Blockquote`, `Badge`, `List`, `ListItem`, `Table`, `TableSection`, `TableRow`, `TableCell`, `Citation`, `PulseIndicator`, `ShimmerText` | Read-only layout, evidence, status, comparison |
 | Enable with iPix adapter/verified data | `Image`, `ImageGrid`, `Carousel`, `CarouselItem`, `CarouselMediaItem`, `Chart`, `EntityCard`, `Link`, `LinkCard`, `Tabs`, `Tooltip`, `Icon`, `Markdown` | Signed media, source allowlist, chart bounds, token/theme and accessibility checks |
-| Keep disabled in first pilot | `AudioPlayer`, `Video`, `Map`, `HtmlView`, `Svg`, `Code`, `Math`, `Form`, `Button`, `Pressable`, `CheckBox`, `ChoicePicker`, `DateTimeInput`, `Radio`, `RadioGroup`, `SegmentedControl`, `Select`, `Slider`, `TextArea`, `TextField`, `Modal`, `Popover`, `PopoverContent`, `PopoverTrigger`, `Flow`, `FlowItem`, `FlashcardFlip`, `FollowUp`, `Favicon`, `Underline`, `Strikethrough` | Unneeded dependencies, arbitrary content, modal/focus risk, or interactive behavior not required for the read-only transport proof |
+| Keep disabled in first pilot | `AudioPlayer`, `Video`, `Map`, `HtmlView`, `Svg`, `Code`, `Math`, `Form`, `Button`, `Pressable`, `CheckBox`, `ChoicePicker`, `DateTimeInput`, `Radio`, `RadioGroup`, `SegmentedControl`, `Select`, `Slider`, `TextArea`, `TextField`, `Label`, `Modal`, `Popover`, `PopoverContent`, `PopoverTrigger`, `Flow`, `FlowItem`, `FlashcardFlip`, `FollowUp`, `Favicon`, `Underline`, `Strikethrough` | Unneeded dependencies, arbitrary content, modal/focus risk, or interactive behavior not required for the read-only transport proof |
 
-Do not install Chart/Map/media dependencies until a selected product use case requires them. The first proof needs only layout/text/table/status plus one small iPix-specific comparison component if the standard catalog cannot express provenance clearly.
+Verify that all **69 installed standard components** appear **exactly once** in the three-way policy table: `Blockquote` is read-only; `Label` is deferred with form controls. Do not install Chart/Map/media dependencies until a selected product use case requires them. The first proof needs only layout/text/table/status plus one small iPix-specific comparison component if the standard catalog cannot express provenance clearly.
 
 ## 5. Feature-by-feature implementation decisions
 
@@ -286,11 +286,11 @@ Evidence chain:
 }
 ```
 
-**Root cause:** a security allowlist designed for server tools also filters client tools, but no client-tool policy exists.
+**Root cause:** a security allowlist designed for server tools also filters known client tools (`render_ui` and the already-registered `reviewShootPlan` HITL hook); no explicit client-tool policy exists.
 
-**Smallest supported fix after IPI-1386:** in the shared gate, add only `render_ui` when it is actually present in `options.clientTools`; preserve the existing server-tool decision and persisted policy. Do not append arbitrary browser-provided client tool names. Apply the same policy on resume if the adapter presents the tool there.
+**Smallest supported fix after IPI-1386:** explicitly admit **only** `render_ui` and `reviewShootPlan`, **each only when present in the current run's `options.clientTools`**. Preserve the existing five/seven-server-tool decision and `RequestContext` persisted policy; reapply only present, explicitly trusted client-tool names on `prepareStep` and resume when the adapter presents them. Never admit arbitrary browser-provided client tool names or revive stale client tools from persisted history. The known HITL tool only requests human review; existing server authorization and exact revision/hash validation still own any write, and IPI-1247 continues to gate historical clicked-card review.
 
-**Required regression:** valid `clientTools.render_ui` is active; an arbitrary client tool remains inactive; `approveDraft` remains inactive in a planning turn; the existing 40 gate tests stay green; malformed A2UI is rejected; `composeShootPlan` still renders.
+**Required regression:** both `clientTools.render_ui` and `clientTools.reviewShootPlan` become active only when supplied, including resume; an arbitrary client tool remains blocked; `approveDraft` remains blocked in planning; the original 40 gate tests stay green; malformed A2UI falls back; `composeShootPlan` still renders. **End-to-end after IPI-1386:** invoke the registered `reviewShootPlan` tool, verify the operator's exact staged revision/authorization and duplicate-decision denial, and keep historical clicked-card review gated by IPI-1247.
 
 ### 6.2 Streaming, Stop, replay, and retry
 
@@ -313,7 +313,7 @@ Read-only inspection used live project `nvdlhrodvevgwdsneplk` (`ipix`), status `
 Generated UI rules:
 
 1. A browser `orgId`, Brand ID, thread ID, surface ID, or model value is a claim.
-2. UI displays canonical server/tool results; it does not query tenant data from model-authored identifiers.
+2. Every displayed **business fact** must come from authorized bound server/tool data **or pass server-side validation against its source and tenant scope**. A schema-valid but invented price, shot count, Brand ID or performance metric must not render; show the safe missing-data fallback instead. UI must not fetch tenant data from model-authored identifiers.
 3. Media components require an existing authorized/signed preview URL, not a raw private Cloudinary identifier or transformation URL.
 4. A generated action can start an authenticated workflow, but cannot approve, publish, pay, delete, or save by itself.
 5. Human review must bind actor, organization, exact artifact, revision/hash, and current state.
@@ -330,7 +330,7 @@ Generated UI rules:
 
 | # | Severity | Finding and evidence | Root cause / real failure | Smallest fix | Regression / blocker |
 | ---: | --- | --- | --- | --- | --- |
-| 1 | **High** | `render_ui` is present in `clientTools` but absent from iPix `activeTools`; installed Mastra filters it out. See section 6.1. | Security gate treats all tools as the fixed server inventory. A valid UI request produces text/no surface. | Allow only present `render_ui` in the shared gate after IPI-1386. | Client-tool allowlist test. **Production blocker: Yes for native GenUI.** |
+| 1 | **High** | `render_ui` and the existing `reviewShootPlan` client hook are absent from the server-only `activeTools` allowlist; installed Mastra filters the client tools. See section 6.1. | A valid GenUI request cannot render; HITL invocation may not reach the model. | Allow only present `render_ui` / `reviewShootPlan` client tools after IPI-1386, preserving server and persisted policy. | Client-tool allowlist and end-to-end HITL regression. **Blocker: Yes for native GenUI.** |
 | 2 | **High** | Historical card review is prompt-selected (`compose-shoot-plan-renderer.tsx:13-45,109-131`) rather than bound to `toolCallId`. | The model may stage a different authorized plan/Brand than the clicked card. | Implement IPI-1247 server resolution; keep current workflow. | Plan A → Plan B → reload → click A. **Blocker: Yes for IPI-1388 review action.** |
 | 3 | **High** | IPI-1386 is Backlog and blocked; current Mastra remains 1.71.0 rather than the planned 1.82 family. | Downstream feature assumptions have not passed combined-runtime release proof. | Finish 1389/1385/1386 in order. | Exact-SHA runtime matrix. **Blocker: Yes for implementation start.** |
 | 4 | **Medium** | No `generativeUI` provider config, catalog, named Surface, state binding, or GenUI action is present on `main`. | Work is planned but not built. | One small versioned catalog, then transport proof. | Import/type, schema rejection, render/fallback. **Blocker: Yes for GenUI capability, not current Planner.** |
@@ -366,7 +366,7 @@ Generated UI rules:
 | --- | --- | --- | --- |
 | [IPI-1386](https://linear.app/amo100/issue/IPI-1386) | Backlog; blocks catalog/transport/certification; blocked by IPI-1389 and IPI-1385 | Must include the now-confirmed client-tool/`activeTools` compatibility check, but must not implement the catalog | Finish prerequisites and certify exact combined runtime |
 | [IPI-1387](https://linear.app/amo100/issue/IPI-1387) | Backlog; no catalog code exists; blocked by 1386 | Start with selected standard components, not all 69; avoid interactive/media set | After 1386, add one versioned read-only catalog and tests |
-| [IPI-1426](https://linear.app/amo100/issue/IPI-1426) | Todo; transport was described as unknown | Unknown is resolved: current gate filters `render_ui` | Add failing client-tool test, minimal gate fix, real read-only render proof |
+| [IPI-1426](https://linear.app/amo100/issue/IPI-1426) | Todo; transport was described as unknown | Confirmed: gate filters both `render_ui` and registered `reviewShootPlan` client tools | Add failing client-tool tests, minimal gate fix, read-only render and end-to-end HITL proof; preserve IPI-1247 |
 | [IPI-1427](https://linear.app/amo100/issue/IPI-1427) | Todo; no Surface exists; blocked by 1426 | Surface should follow active thread/Brand and clear stale state; target is not auth | Add one bounded named target with native fallback |
 | [IPI-1428](https://linear.app/amo100/issue/IPI-1428) | Todo; no state/writable binding exists | User-owned edits and source provenance need explicit tests | Bind authorized page state; keep edits local/draft-only |
 | [IPI-1429](https://linear.app/amo100/issue/IPI-1429) | Todo; existing authenticated actions/HITL are reusable | `callRendererFunction` agent calls are unsupported; clicked-plan action also needs IPI-1247 | Use renderer events; route to existing server handlers; keep exact-review disabled until 1247 |
@@ -537,7 +537,8 @@ flowchart TD
 - [ ] Correct 1.85 import path
 - [ ] One provider only
 - [ ] Selected component policy encoded
-- [ ] Canonical-data descriptions prohibit invented values
+- [ ] Every displayed business fact has **verifiable provenance**: authorized bound data or independently server-validated source/tenant scope; UI schema validity is insufficient
+- [ ] **Negative provenance test:** pass a schema-valid but invented shot count/budget/metric that differs from all authorized bound values; assert it is rejected or hidden and the missing-data fallback appears
 - [ ] Existing chat/card/HITL tests pass
 
 **Checkpoint:** PASS only after IPI-1386; STOP on extra provider/renderer/dependency.
@@ -546,7 +547,7 @@ flowchart TD
 
 **Destination:** `src/mastra/planner-tool-gate.ts` and its tests; route only if a failing installed contract proves necessary.
 
-**Current truth:** reproduced `render_ui` filtering; route middleware already injects/validates the client tool.
+**Current truth:** reproduced filtering of `render_ui`; the existing `reviewShootPlan` HITL hook is registered but also absent from the server-only active tool list. Runtime middleware supplies `render_ui`; no client-tool allowance has been implemented.
 
 **Reference — ADAPT**
 
@@ -555,13 +556,13 @@ flowchart TD
 - Use: preserve existing AG-UI/Mastra bridge.
 - Do not copy: custom transport, separate agent, markdown transport, or legacy A2UI route.
 - Apply to: shared active-tool policy.
-- Change: when and only when `clientTools.render_ui` is present, include `render_ui` without widening server write tools.
-- Verify: valid/malformed render, arbitrary client tool denied, planning writes still denied, Stop/new run, replay.
+- Change: admit only `render_ui` and `reviewShootPlan` when each exists in `clientTools` for the current run/resume; keep server-tool decisions and persisted policy unchanged, never arbitrary client names.
+- Verify: valid/malformed render, present/absent cases for both known client tools, arbitrary names denied, server writes denied, Stop/replay and end-to-end HITL exact-stage authorization, while IPI-1247 still blocks historical clicked-card review.
 
 **Success checklist:**
 
 - [ ] Failing regression written first
-- [ ] `render_ui` active only when supplied by current run
+- [ ] `render_ui` and `reviewShootPlan` active only when supplied in current client tools, including resume; server policy remains unchanged
 - [ ] Arbitrary client tools remain inactive
 - [ ] `approveDraft` remains blocked in planning
 - [ ] Existing 40 gate tests and broader focused suite pass
@@ -703,13 +704,13 @@ These numbers measure current evidence coverage, not a forecast and not a produc
 
 **Do not start IPI-1426 implementation yet.** First complete the current release chain through IPI-1385 and IPI-1386. Once IPI-1386 passes, the smallest safe implementation slice is:
 
-> Add a failing planner-gate test showing a supplied `clientTools.render_ui` is filtered; make the minimal shared gate change that admits only present `render_ui`; prove one read-only catalog fixture streams through the existing provider/Mastra bridge while arbitrary client tools and consequential server tools remain blocked.
+> Add failing planner-gate tests for supplied `clientTools.render_ui` and `clientTools.reviewShootPlan`; minimally admit only those known, present client tools without changing the five/seven-server-tool policy or persistence/resume semantics. Verify a read-only catalog fixture and a real HITL review, while arbitrary client tools/writes remain blocked and IPI-1247 still gates historical clicked-card review.
 
 Measurable success:
 
 - one provider, agent, transport, and persistence stack;
-- valid `render_ui` reaches the model and renders a schema-validated read-only card;
-- arbitrary client tool remains unavailable;
+- valid `render_ui` reaches the model and displays a schema-validated read-only card containing only authorized bound/server-validated business facts;
+- `reviewShootPlan` is available only when registered and an end-to-end test confirms exact staged-review authorization; a schema-valid invented business fact does not render; arbitrary client tools remain unavailable;
 - `approveDraft` remains unavailable in planning turns;
 - malformed/unsupported UI falls back without losing chat;
 - existing 194-test focused baseline plus the new tests pass;
@@ -721,4 +722,4 @@ Measurable success:
 - Better Design MCP tools were not installed/exposed, so design-system extraction, principle calls, automated comprehension review, DOM spacing inspection, and dashboard finalization were not run.
 - No authenticated Playwright journey, supported-Node production build, exact-current-main CI run, Vercel Preview, or production smoke was executed.
 - No advisory was labeled exploitable without an applicability test; npm severity alone is not proof of a reachable vulnerability.
-- The primary dirty checkout's untracked `08-copilotkit-genui-plan.md` was read as planning context but not edited or adopted as Git history.
+- The dirty primary checkout's untracked `08-copilotkit-genui-plan.md` remains a **local working copy**. This PR tracks `docs/copilotkit-mastra/09-copilotkit-audit-plan.md` as the accessible audit/implementation evidence; the full product plan is attached to [IPI-1425](https://linear.app/amo100/issue/IPI-1425). Do not present the local `08` file as a GitHub-browseable reference.
