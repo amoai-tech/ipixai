@@ -29,8 +29,8 @@ export function ConceptComparison({
       </CardHeader>
       <CardContent className="space-y-3 p-4 pt-0">
         <ul className="space-y-3">
-          {options.map((option) => (
-            <li key={option.name} className="space-y-1">
+          {options.map((option, index) => (
+            <li key={`${option.name}-${index}`} className="space-y-1">
               <p className="text-sm font-medium">{option.name}</p>
               <p className="text-sm text-[var(--muted-foreground)]">{option.rationale}</p>
             </li>

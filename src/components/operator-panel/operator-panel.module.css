@@ -246,7 +246,10 @@
   border-bottom: 1px solid var(--border);
 }
 
-.generativeSurface:empty {
+/* CopilotKit 1.85 retains an empty root after rejecting a malformed generated
+   component. Collapse that shell instead of leaving a blank bordered strip.
+   The normal fallback renders outside this container when no surface exists. */
+.generativeSurface:has(> [data-generative-ui-root]:empty) {
   display: none;
 }
 
