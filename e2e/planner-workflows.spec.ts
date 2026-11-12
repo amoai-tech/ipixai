@@ -34,12 +34,13 @@ async function send(page: Page, text: string) {
   // CopilotKit reuses this button as Stop during an in-flight run. An
   // editable textarea alone does not mean a new message can be submitted.
   await expect(sendOrStop.locator("svg.lucide-square"), "Planner must be in Send mode")
-    .toHaveCount(0, { timeout: NAV_TIMEOUT_MS });
+    .toBeHidden({ timeout: 10_000 });
   await expect(sendOrStop, "Planner Send button must be enabled").toBeEnabled({
-    timeout: NAV_TIMEOUT_MS,
+    timeout: 10_000,
   });
-  // A missing agent request is an actionable failure, not a six-minute hang.
-  const run = page.waitForRequest(isAgentRun, { timeout: NAV_TIMEOUT_MS });
+  // Bound each prerequisite and request separately, without enlarging the
+  // full paid-journey timeout: failures say whether Stop or Send was blocked.
+  const run = page.waitForRequest(isAgentRun, { timeout: 20_000 });
   await sendOrStop.click();
   await run;
 }
@@ -157,10 +158,15 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
     // Rendering the end marker does not prove the agent has completed.
     // The prior response may still be streaming, so an immediate click
     // would invoke Stop instead of sending the follow-up request.
+    const sendOrStop = dock.getByTestId("copilot-send-button");
     await expect(
-      dock.getByTestId("copilot-send-button"),
-      "first run finishes and the chat returns to Send-ready after navigation",
-    ).toBeDisabled({ timeout: RESPONSE_TIMEOUT_MS });
+      sendOrStop.locator("svg.lucide-square"),
+      "first answer must leave Stop mode after navigation",
+    ).toBeHidden({ timeout: NAV_TIMEOUT_MS * 2 });
+    await expect(
+      sendOrStop,
+      "first answer must leave the empty composer disabled before another send",
+    ).toBeDisabled({ timeout: 5_000 });
 
     // The chat still works after navigating.
     await send(page, `Reply with exactly this and nothing else: ${second}`);
