@@ -72,6 +72,30 @@ describe("iPix native GenUI catalog", () => {
     ).toBe(false);
   });
 
+  it("rejects whitespace-only text and trims the rest", () => {
+    const options = [
+      { name: "Editorial", rationale: "Natural light." },
+      { name: "Studio", rationale: "Controlled lighting." },
+    ];
+    for (const invalid of [
+      { title: "   ", options },
+      { title: "Concepts", options: [{ ...options[0], name: " " }, options[1]] },
+      { title: "Concepts", options: [{ ...options[0], rationale: "\n\t" }, options[1]] },
+      { title: "Concepts", options, note: "   " },
+    ]) {
+      expect(ENTRY().props.safeParse(invalid).success).toBe(false);
+    }
+    // Surrounding whitespace is trimmed, not treated as an empty value.
+    expect(ENTRY().props.safeParse({ title: "  Concepts  ", options }).success).toBe(true);
+
+    // The direct-caller guard rejects a visibly empty title too.
+    const { container } = render(
+      <ConceptComparison title="   " options={options} />,
+    );
+    expect(container.querySelector("[data-testid=genui-concept-comparison]")).toBeNull();
+    expect(container.querySelector("[data-testid=genui-comparison-content-error]")).not.toBeNull();
+  });
+
   it("rejects numerical business claims embedded in otherwise schema-valid text", () => {
     const options = [
       { name: "Editorial", rationale: "Natural light." },

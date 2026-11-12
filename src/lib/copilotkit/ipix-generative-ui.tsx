@@ -23,8 +23,10 @@ const UNSUPPORTED_BUSINESS_CLAIMS = [
   /\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|dozen|hundred|thousand|million)\s+(?:shots?|images?|assets?|photos?|deliverables?|models?|items?|looks|look(?!\s+at\b))\b/iu,
 ];
 
+// Trim first: min(1) alone accepts "   ", which would render an empty title or
+// option while looking like a valid proposal.
 const qualitativeText = (max: number) =>
-  z.string().min(1).max(max).refine(
+  z.string().trim().min(1).max(max).refine(
     (text) => UNSUPPORTED_BUSINESS_CLAIMS.every((pattern) => !pattern.test(text)),
     "Only qualitative proposals are allowed; use authorized tools for business facts.",
   );
