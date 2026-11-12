@@ -30,8 +30,22 @@ async function send(page: Page, text: string) {
   const textarea = dock.getByTestId("copilot-chat-textarea");
   await expect(textarea).toBeEditable({ timeout: NAV_TIMEOUT_MS });
   await textarea.fill(text);
-  const run = page.waitForRequest(isAgentRun);
-  await dock.getByTestId("copilot-send-button").click();
+  const sendOrStop = dock.getByTestId("copilot-send-button");
+  // CopilotKit reuses this button as Stop during an in-flight run. An
+  // editable textarea alone does not mean a new message can be submitted.
+  // Wait for the same Stop-to-Send transition budget the other Planner
+  // specs use (NAV_TIMEOUT_MS): a run's terminal event is bounded but not
+  // instant, and a shorter wait would turn a slow instance into a failure.
+  await expect(sendOrStop.locator("svg.lucide-square"), "Planner must be in Send mode")
+    .toBeHidden({ timeout: NAV_TIMEOUT_MS });
+  await expect(sendOrStop, "Planner Send button must be enabled").toBeEnabled({
+    timeout: 10_000,
+  });
+  // The request is dispatched by the click, so this bounds client-side
+  // dispatch only — never model generation, which the response assertions
+  // above already wait for. Stop/Send above are separate, cheaper failures.
+  const run = page.waitForRequest(isAgentRun, { timeout: 20_000 });
+  await sendOrStop.click();
   await run;
 }
 
@@ -144,6 +158,24 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
       dock.getByTestId("copilot-assistant-message").filter({ hasText: first }),
       "the first answer survives navigation exactly once",
     ).toHaveCount(1, { timeout: RESPONSE_TIMEOUT_MS });
+
+    // Rendering the end marker does not prove the agent has completed.
+    // The prior response may still be streaming, so an immediate click
+    // would invoke Stop instead of sending the follow-up request.
+    const sendOrStop = dock.getByTestId("copilot-send-button");
+    await expect(
+      sendOrStop.locator("svg.lucide-square"),
+      "first answer must leave Stop mode after navigation",
+    ).toBeHidden({ timeout: NAV_TIMEOUT_MS * 2 });
+    // Diagnostic, not a precondition: send() re-checks Send after filling.
+    // Installed CopilotKit clears the composer when the message is submitted
+    // (onSubmitInput calls setInputValue("") before queueing), so an idle
+    // composer here is empty and its Send button disabled. A short timeout is
+    // enough because this is a render of already-settled state.
+    await expect(
+      sendOrStop,
+      "first answer must leave an empty composer with Send disabled",
+    ).toBeDisabled({ timeout: 5_000 });
 
     // The chat still works after navigating.
     await send(page, `Reply with exactly this and nothing else: ${second}`);
