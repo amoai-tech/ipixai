@@ -65,31 +65,97 @@ describe("Playwright E2E harness hardening", () => {
   // IPI-1344 · E2E-PREVIEW-BYPASS-001: certifying a Preview against Vercel
   // Deployment Protection used to depend on single-use share links, which
   // silently stopped granting access and made journeys fail on an SSO screen.
-  it("requires and sends the Vercel bypass secret for Preview runs, and never locally", () => {
-    expect(previewBypassHeaders("http://localhost:3015", undefined)).toBeUndefined();
-    expect(previewBypassHeaders("http://127.0.0.1:3015", "ignored-secret")).toBeUndefined();
+  it("requires a bypass secret before making the Vercel ownership request", async () => {
+    await expect(previewBypassHeaders("http://localhost:3015", undefined)).resolves.toBeUndefined();
+    await expect(previewBypassHeaders("http://127.0.0.1:3015", "ignored-secret")).resolves.toBeUndefined();
 
-    expect(() => previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app", undefined)).toThrow(
+    await expect(previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app", undefined)).rejects.toThrow(
       "VERCEL_AUTOMATION_BYPASS_SECRET is required for Vercel Preview E2E",
     );
-    expect(() => previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app", "")).toThrow(
+    await expect(previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app", "")).rejects.toThrow(
       /VERCEL_AUTOMATION_BYPASS_SECRET is required/,
     );
-    // A whitespace-only secret is truthy, so it must still fail closed here
-    // rather than be sent and fail later at Vercel's SSO boundary.
-    expect(() => previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app", "   ")).toThrow(
+    await expect(previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app", "   ")).rejects.toThrow(
       /VERCEL_AUTOMATION_BYPASS_SECRET is required/,
     );
+  });
 
-    expect(previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app", "the-secret")).toEqual({
-      "x-vercel-protection-bypass": "the-secret",
-      "x-vercel-set-bypass-cookie": "true",
-    });
-    // A padded secret is trimmed before it is sent.
-    expect(previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app", "  padded\n")).toEqual({
+  it("returns origin-scoped bypass headers only after Vercel confirms exact project ownership", async () => {
+    const candidate = "https://ipixai-abc123-amo-agency.vercel.app";
+    const requests: URL[] = [];
+    const ownership = {
+      token: "fake-vercel-api-token",
+      teamId: "team_PbKG2U0lCR67rN57C4fqcfaw",
+      projectId: "prj_KIVAtc7rizfqvPl4Qaz8OdCFlMCh",
+      fetchImpl: async (input: RequestInfo | URL) => {
+        requests.push(new URL(input.toString()));
+        return new Response(JSON.stringify({
+          url: "ipixai-abc123-amo-agency.vercel.app",
+          projectId: "prj_KIVAtc7rizfqvPl4Qaz8OdCFlMCh",
+          readyState: "READY",
+        }), { status: 200 });
+      },
+    };
+    await expect(previewBypassHeaders(candidate, "  padded\n", ownership)).resolves.toEqual({
       "x-vercel-protection-bypass": "padded",
       "x-vercel-set-bypass-cookie": "true",
     });
+    expect(requests).toHaveLength(1);
+    expect(requests[0].origin).toBe("https://api.vercel.com");
+    expect(requests[0].searchParams.get("teamId")).toBe(ownership.teamId);
+  });
+
+  it("denies a foreign-team lookalike before returning bypass headers", async () => {
+    const candidate = "https://ipixai-abc123-evil-amo-agency.vercel.app";
+    // The hostname may appear to match the new account, but the Vercel API
+    // is authoritative: the foreign team is not the iPix project.
+    const ownership = {
+      token: "fake-vercel-api-token",
+      teamId: "team_PbKG2U0lCR67rN57C4fqcfaw",
+      projectId: "prj_KIVAtc7rizfqvPl4Qaz8OdCFlMCh",
+      fetchImpl: async () => new Response(JSON.stringify({
+        url: "ipixai-abc123-evil-amo-agency.vercel.app",
+        projectId: "prj_foreignTeam",
+        readyState: "READY",
+      }), { status: 200 }),
+    };
+    await expect(previewBypassHeaders(candidate, "bypass-secret", ownership)).rejects.toThrow(
+      /does not belong to the expected READY Vercel project/,
+    );
+    await expect(previewBypassHeaders(candidate, "bypass-secret", {
+      ...ownership,
+      fetchImpl: async () => new Response(null, { status: 404 }),
+    })).rejects.toThrow(/HTTP 404/);
+    await expect(previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app/evil", "bypass-secret", ownership))
+      .rejects.toThrow(/not an allowed canonical HTTPS origin/);
+  });
+
+  it("checks Vercel ownership before routing or sending any bypass secret and QA password", () => {
+    const authSetup = readFileSync(path.resolve(process.cwd(), "e2e/auth.setup.ts"), "utf8");
+    const loginJourney = readFileSync(path.resolve(process.cwd(), "e2e/login-journey.spec.ts"), "utf8");
+    const config = readFileSync(path.resolve(process.cwd(), "playwright.config.ts"), "utf8");
+    for (const source of [authSetup, loginJourney]) {
+      expect(source).toContain("await previewBypassHeaders(");
+      expect(source.indexOf("await previewBypassHeaders(")).toBeLessThan(
+        source.indexOf("await establishAndProveVercelBypass("),
+      );
+    }
+    expect(config.indexOf("await verifyVercelDeploymentOwnership(")).toBeLessThan(
+      config.indexOf('"x-vercel-protection-bypass": trimmedSecret'),
+    );
+    const workflow = readFileSync(path.resolve(process.cwd(), ".github/workflows/ci.yml"), "utf8");
+    for (const name of [
+      "Run staged authenticated QA for login and tenant isolation",
+      "Run staged Planner Stop and thread isolation against real AI",
+    ]) {
+      const start = workflow.indexOf("      - name: " + name);
+      expect(start).toBeGreaterThan(-1);
+      const end = workflow.indexOf("      - name:", start + 15);
+      const step = workflow.slice(start, end === -1 ? undefined : end);
+      expect(step).toContain("VERCEL_TOKEN: ");
+      expect(step).toContain("VERCEL_ORG_ID: ");
+      expect(step).toContain("VERCEL_PROJECT_ID: ");
+    }
   });
 
   it("keeps Preview config collection credential-independent while auth setup fails closed", () => {

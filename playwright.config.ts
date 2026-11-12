@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { config as loadDotenvx } from "@dotenvx/dotenvx";
+import { verifyVercelDeploymentOwnership, type VercelOwnershipOptions } from "./e2e/support/vercel-ownership";
 
 // E2E credentials and overrides live in .env.test (gitignored, see .env.example).
 // CI injects equivalent values as job env vars, so only CI suppresses missing-file errors.
@@ -20,14 +21,8 @@ loadDotenvx({ path: ".env.local", quiet: true, ignore: missingEnvIgnore });
 const hasExplicitBaseURL = Boolean(process.env.E2E_BASE_URL);
 const baseURL = process.env.E2E_BASE_URL || "http://localhost:3015";
 
-// These tests perform real sign-ins with real credentials — fail closed
-// rather than let a misconfigured/malicious E2E_BASE_URL point that at
-// production (ipix.co), someone else's vercel.app deployment, or any other
-// host. Only localhost and this project's own Vercel previews are allowed —
-// verified live (not guessed) from this repo's own PR deployment comments:
-// ipixai-n647s4ru3-amo-agency.vercel.app (verified from the current Vercel project).
-// Project "ipixai" under the "amo-agency" Vercel team/scope — any other
-// vercel.app subdomain, including a bare one, is rejected.
+// Syntactic preflight only. Hyphenated Vercel team names make hostname shape
+// ambiguous. The async bypass helper MUST also verify via Vercel's API.
 const ALLOWED_PREVIEW_HOST = /^ipixai(-[a-z0-9-]+)?-amo-agency\.vercel\.app$/i;
 
 const LOCAL_TARGET = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/;
@@ -40,7 +35,10 @@ export function isAllowedE2EBaseUrl(candidate: string): boolean {
   if (isLocalE2ETarget(candidate)) return true;
 
   const parsedCandidate = new URL(candidate);
-  return parsedCandidate.protocol === "https:" && ALLOWED_PREVIEW_HOST.test(parsedCandidate.hostname);
+  return parsedCandidate.protocol === "https:" &&
+    parsedCandidate.origin === candidate &&
+    !parsedCandidate.username && !parsedCandidate.password && !parsedCandidate.port &&
+    ALLOWED_PREVIEW_HOST.test(parsedCandidate.hostname);
 }
 
 const isLocalTarget = isLocalE2ETarget(baseURL);
@@ -77,11 +75,15 @@ if (!isAllowedE2EBaseUrl(baseURL)) {
  * Fail closed: a Preview target with no secret would otherwise fail much later
  * as a confusing auth/JSON error. Local runs need no secret and get no headers.
  */
-export function previewBypassHeaders(
+export async function previewBypassHeaders(
   candidate: string,
   secret: string | undefined,
-): Record<string, string> | undefined {
+  ownership: VercelOwnershipOptions = {},
+): Promise<Record<string, string> | undefined> {
   if (isLocalE2ETarget(candidate)) return undefined;
+  if (!isAllowedE2EBaseUrl(candidate)) {
+    throw new Error("E2E preview target is not an allowed canonical HTTPS origin");
+  }
   // A whitespace-only secret is truthy; sending it would push the run all the
   // way to Vercel's SSO boundary instead of failing closed here.
   const trimmedSecret = secret?.trim();
@@ -90,6 +92,8 @@ export function previewBypassHeaders(
       "VERCEL_AUTOMATION_BYPASS_SECRET is required for Vercel Preview E2E: without it Vercel Deployment Protection answers with an SSO screen instead of the app.",
     );
   }
+  // No bypass secret escapes until the deployment API proves ownership.
+  await verifyVercelDeploymentOwnership(candidate, ownership);
   return {
     "x-vercel-protection-bypass": trimmedSecret,
     "x-vercel-set-bypass-cookie": "true",
