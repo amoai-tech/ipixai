@@ -31,7 +31,9 @@ gh workflow run vercel-preview.yml -R amoai-tech/ipixai --ref main \
 ~~~
 
 The existing Production GitHub environment requires human approval before
-the build job can download Vercel Preview variables or run paid AI QA. Review
+either credential-bearing job can download Vercel variables or deploy.
+These are separate runner jobs and GitHub may request approval for each.
+Review
 the candidate commit and authorize QA costs/persistent test threads before
 approving. The workflow compares the candidate's full certified spec list with
 main and stops rather than silently testing fewer specs.

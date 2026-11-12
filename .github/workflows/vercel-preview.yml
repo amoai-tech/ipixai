@@ -197,7 +197,10 @@ jobs:
   deploy:
     # A fresh runner with no candidate checkout or build scripts. Candidate
     # code cannot alter PATH/GITHUB_ENV before this job receives Vercel access.
+    # A second protected job is needed so an environment-scoped VERCEL_TOKEN
+    # remains available after removing its repository-wide copy.
     needs: build
+    environment: Production
     runs-on: ubuntu-latest
     timeout-minutes: 12
     outputs:

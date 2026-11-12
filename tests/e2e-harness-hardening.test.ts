@@ -324,6 +324,7 @@ describe("Playwright E2E harness hardening", () => {
     const { build, deploy, journeys } = yaml.jobs;
     expect(build.if).toContain("github.ref == 'refs/heads/main'");
     expect(build.environment).toBe("Production");
+    expect(deploy.environment).toBe("Production");
     expect(deploy.needs).toBe("build");
     expect(journeys.needs).toBe("deploy");
     expect(build.steps?.some((step) => step.uses?.includes("upload-artifact@"))).toBe(true);
