@@ -35,11 +35,6 @@ begin
     (org_a,viewer_a,'viewer'),(org_b,owner_b,'owner')
   on conflict(org_id,user_id) do nothing;
 
-  -- Historical personal Brand fixture (org_id NULL): only its creator may edit it.
-  -- Seed as table owner because direct authenticated INSERT requires a real org.
-  insert into public.brands(id,name,org_id,user_id,brand_url)
-    values(personal_brand,'Legacy Personal Brand',null,owner_a,'https://example.invalid/personal');
-
   -- Owner can create a Brand with their own user_id.
   execute format('set local role authenticated; set local request.jwt.claims = %L',
     json_build_object('sub',owner_a)::text);
@@ -117,20 +112,6 @@ begin
   execute 'reset role';
   if not denied then raise exception 'IPI-1314 editor could reparent Brand'; end if;
 
-  -- A different user cannot edit or claim a personal Brand.
-  execute format('set local role authenticated; set local request.jwt.claims = %L',
-    json_build_object('sub',editor_a)::text);
-  update public.brands set name='Stolen Personal Brand' where id=personal_brand;
-  get diagnostics n=row_count;
-  if n<>0 then raise exception 'IPI-1314 editor changed another user personal Brand'; end if;
-  denied:=false;
-  begin
-    update public.brands set org_id=org_a where id=personal_brand;
-  exception when insufficient_privilege then denied:=true;
-  end;
-  execute 'reset role';
-  if not denied then raise exception 'IPI-1314 editor reparented another user personal Brand'; end if;
-
   -- Editors cannot delete Brands: destructive actions remain owner-only.
   execute format('set local role authenticated; set local request.jwt.claims = %L',
     json_build_object('sub',editor_a)::text);
@@ -193,6 +174,34 @@ begin
   execute 'reset role';
   if n<>1 then raise exception 'IPI-1314 org owner cannot delete Brand'; end if;
 
+  -- The current schema requires org_id NOT NULL. Exercise the older
+  -- NULL-org policy branch only as a rollback-only compatibility fixture.
+  -- Do not relax constraints in any production migration or hosted database.
+  if not exists (
+    select 1 from pg_catalog.pg_attribute
+     where attrelid='public.brands'::regclass and attname='org_id'
+       and attnotnull and not attisdropped
+  ) then
+    raise exception 'IPI-1314 expected real Brands schema to require org_id';
+  end if;
+  execute 'alter table public.brands alter column org_id drop not null';
+  insert into public.brands(id,name,org_id,user_id,brand_url)
+    values(personal_brand,'Legacy Personal Brand',null,owner_a,'https://example.invalid/personal');
+
+  -- A different user cannot edit or claim a personal Brand.
+  execute format('set local role authenticated; set local request.jwt.claims = %L',
+    json_build_object('sub',editor_a)::text);
+  update public.brands set name='Stolen Personal Brand' where id=personal_brand;
+  get diagnostics n=row_count;
+  if n<>0 then raise exception 'IPI-1314 editor changed another user personal Brand'; end if;
+  denied:=false;
+  begin
+    update public.brands set org_id=org_a where id=personal_brand;
+  exception when insufficient_privilege then denied:=true;
+  end;
+  execute 'reset role';
+  if not denied then raise exception 'IPI-1314 editor reparented another user personal Brand'; end if;
+
   -- Only the creator may update allowed columns on their legacy personal Brand.
   execute format('set local role authenticated; set local request.jwt.claims = %L',
     json_build_object('sub',owner_a)::text);
@@ -206,6 +215,10 @@ begin
   if actual_name is distinct from 'Personal Owner Renamed' then
     raise exception 'IPI-1314 personal owner update was not persisted';
   end if;
+
+  -- Restore the real NOT NULL contract before ending the disposable replay.
+  delete from public.brands where id=personal_brand;
+  execute 'alter table public.brands alter column org_id set not null';
 
   -- Assert the complete effective UPDATE allow-list, including future columns.
   -- has_column_privilege also catches table-level UPDATE grants.
