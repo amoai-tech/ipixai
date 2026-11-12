@@ -3,8 +3,8 @@
  * Fail closed for unknown shapes; only the deployment host is needed to
  * compare against the exact URL returned by our own staged deploy.
  *
- * Accepted: "ipixai-abc-amoco.vercel.app" or
- *           "https://ipixai-abc-amoco.vercel.app".
+ * Accepted: "ipixai-abc-amo-agency.vercel.app" or
+ *           "https://ipixai-abc-amo-agency.vercel.app".
  */
 export function inspectedDeploymentHost(value) {
   if (typeof value !== "string" || value.length === 0) {
