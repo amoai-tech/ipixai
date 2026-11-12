@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { tmpdir } from "node:os";
 import { describe, expect, it, vi } from "vitest";
 import { parse } from "yaml";
 
@@ -51,44 +52,131 @@ function timeoutError() {
   return error;
 }
 describe("Playwright E2E harness hardening", () => {
-  it("allows current amoco iPix Vercel previews and rejects unsafe hosts", () => {
-    expect(isAllowedE2EBaseUrl("https://ipixai-5y1wsa98w-amoco.vercel.app")).toBe(true);
-    expect(isAllowedE2EBaseUrl("https://ipixai-amoco.vercel.app")).toBe(true);
+  it("allows current amo-agency iPix Vercel previews and rejects unsafe hosts", () => {
+    expect(isAllowedE2EBaseUrl("https://ipixai-5y1wsa98w-amo-agency.vercel.app")).toBe(true);
+    // Staged QA operates on exact unique deployment URLs, not mutable aliases.
+    expect(isAllowedE2EBaseUrl("https://ipixai-amo-agency.vercel.app")).toBe(false);
     expect(isAllowedE2EBaseUrl("http://localhost:3015")).toBe(true);
     expect(isAllowedE2EBaseUrl("https://ipixai-5y1wsa98w-amo1000.vercel.app")).toBe(false);
-    expect(isAllowedE2EBaseUrl("https://evil-amoco.vercel.app")).toBe(false);
+    expect(isAllowedE2EBaseUrl("https://evil-amo-agency.vercel.app")).toBe(false);
+    expect(isAllowedE2EBaseUrl("https://ipixai-abc123-amoco.vercel.app")).toBe(false);
     expect(isAllowedE2EBaseUrl("https://ipix.co")).toBe(false);
-    expect(isAllowedE2EBaseUrl("http://ipixai-5y1wsa98w-amoco.vercel.app")).toBe(false);
+    expect(isAllowedE2EBaseUrl("http://ipixai-5y1wsa98w-amo-agency.vercel.app")).toBe(false);
+    expect(isAllowedE2EBaseUrl("http://localhost:secret@attacker.example")).toBe(false);
+    expect(isAllowedE2EBaseUrl("http://localhost:3000@attacker.example")).toBe(false);
+    expect(isAllowedE2EBaseUrl("http://localhost:3015/path")).toBe(false);
+    expect(isAllowedE2EBaseUrl("invalid-url")).toBe(false);
   });
 
   // IPI-1344 · E2E-PREVIEW-BYPASS-001: certifying a Preview against Vercel
   // Deployment Protection used to depend on single-use share links, which
   // silently stopped granting access and made journeys fail on an SSO screen.
-  it("requires and sends the Vercel bypass secret for Preview runs, and never locally", () => {
-    expect(previewBypassHeaders("http://localhost:3015", undefined)).toBeUndefined();
-    expect(previewBypassHeaders("http://127.0.0.1:3015", "ignored-secret")).toBeUndefined();
+  it("never skips ownership for a credentialed local-looking attacker origin", async () => {
+    const spy = vi.fn(async () => new Response(null, { status: 200 }));
+    const options = {
+      token: "fake-vercel-api-token",
+      teamId: "team_PbKG2U0lCR67rN57C4fqcfaw",
+      projectId: "prj_KIVAtc7rizfqvPl4Qaz8OdCFlMCh",
+      fetchImpl: spy,
+    };
+    await expect(previewBypassHeaders("http://localhost:secret@attacker.example", "bypass-secret", options))
+      .rejects.toThrow(/not an allowed canonical HTTPS origin/);
+    await expect(previewBypassHeaders("https://ipixai-amo-agency.vercel.app", "bypass-secret", options))
+      .rejects.toThrow(/not an allowed canonical HTTPS origin/);
+    expect(spy).not.toHaveBeenCalled();
+  });
 
-    expect(() => previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", undefined)).toThrow(
+  it("requires a bypass secret before making the Vercel ownership request", async () => {
+    await expect(previewBypassHeaders("http://localhost:3015", undefined)).resolves.toBeUndefined();
+    await expect(previewBypassHeaders("http://127.0.0.1:3015", "ignored-secret")).resolves.toBeUndefined();
+
+    await expect(previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app", undefined)).rejects.toThrow(
       "VERCEL_AUTOMATION_BYPASS_SECRET is required for Vercel Preview E2E",
     );
-    expect(() => previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", "")).toThrow(
+    await expect(previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app", "")).rejects.toThrow(
       /VERCEL_AUTOMATION_BYPASS_SECRET is required/,
     );
-    // A whitespace-only secret is truthy, so it must still fail closed here
-    // rather than be sent and fail later at Vercel's SSO boundary.
-    expect(() => previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", "   ")).toThrow(
+    await expect(previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app", "   ")).rejects.toThrow(
       /VERCEL_AUTOMATION_BYPASS_SECRET is required/,
     );
+  });
 
-    expect(previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", "the-secret")).toEqual({
-      "x-vercel-protection-bypass": "the-secret",
-      "x-vercel-set-bypass-cookie": "true",
-    });
-    // A padded secret is trimmed before it is sent.
-    expect(previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", "  padded\n")).toEqual({
+  it("returns origin-scoped bypass headers only after Vercel confirms exact project ownership", async () => {
+    const candidate = "https://ipixai-abc123-amo-agency.vercel.app";
+    const requests: URL[] = [];
+    const ownership = {
+      token: "fake-vercel-api-token",
+      teamId: "team_PbKG2U0lCR67rN57C4fqcfaw",
+      projectId: "prj_KIVAtc7rizfqvPl4Qaz8OdCFlMCh",
+      fetchImpl: async (input: RequestInfo | URL) => {
+        requests.push(new URL(input.toString()));
+        return new Response(JSON.stringify({
+          url: "ipixai-abc123-amo-agency.vercel.app",
+          projectId: "prj_KIVAtc7rizfqvPl4Qaz8OdCFlMCh",
+          readyState: "READY",
+        }), { status: 200 });
+      },
+    };
+    await expect(previewBypassHeaders(candidate, "  padded\n", ownership)).resolves.toEqual({
       "x-vercel-protection-bypass": "padded",
       "x-vercel-set-bypass-cookie": "true",
     });
+    expect(requests).toHaveLength(1);
+    expect(requests[0].origin).toBe("https://api.vercel.com");
+    expect(requests[0].searchParams.get("teamId")).toBe(ownership.teamId);
+  });
+
+  it("denies a foreign-team lookalike before returning bypass headers", async () => {
+    const candidate = "https://ipixai-abc123-evil-amo-agency.vercel.app";
+    // The hostname may appear to match the new account, but the Vercel API
+    // is authoritative: the foreign team is not the iPix project.
+    const ownership = {
+      token: "fake-vercel-api-token",
+      teamId: "team_PbKG2U0lCR67rN57C4fqcfaw",
+      projectId: "prj_KIVAtc7rizfqvPl4Qaz8OdCFlMCh",
+      fetchImpl: async () => new Response(JSON.stringify({
+        url: "ipixai-abc123-evil-amo-agency.vercel.app",
+        projectId: "prj_foreignTeam",
+        readyState: "READY",
+      }), { status: 200 }),
+    };
+    await expect(previewBypassHeaders(candidate, "bypass-secret", ownership)).rejects.toThrow(
+      /does not belong to the expected READY Vercel project/,
+    );
+    await expect(previewBypassHeaders(candidate, "bypass-secret", {
+      ...ownership,
+      fetchImpl: async () => new Response(null, { status: 404 }),
+    })).rejects.toThrow(/HTTP 404/);
+    await expect(previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app/evil", "bypass-secret", ownership))
+      .rejects.toThrow(/not an allowed canonical HTTPS origin/);
+  });
+
+  it("checks Vercel ownership before routing or sending any bypass secret and QA password", () => {
+    const authSetup = readFileSync(path.resolve(process.cwd(), "e2e/auth.setup.ts"), "utf8");
+    const loginJourney = readFileSync(path.resolve(process.cwd(), "e2e/login-journey.spec.ts"), "utf8");
+    const config = readFileSync(path.resolve(process.cwd(), "playwright.config.ts"), "utf8");
+    for (const source of [authSetup, loginJourney]) {
+      expect(source).toContain("await previewBypassHeaders(");
+      expect(source.indexOf("await previewBypassHeaders(")).toBeLessThan(
+        source.indexOf("await establishAndProveVercelBypass("),
+      );
+    }
+    expect(config.indexOf("await verifyVercelDeploymentOwnership(")).toBeLessThan(
+      config.indexOf('"x-vercel-protection-bypass": trimmedSecret'),
+    );
+    const workflow = readFileSync(path.resolve(process.cwd(), ".github/workflows/ci.yml"), "utf8");
+    for (const name of [
+      "Run staged authenticated QA for login and tenant isolation",
+      "Run staged Planner Stop and thread isolation against real AI",
+    ]) {
+      const start = workflow.indexOf("      - name: " + name);
+      expect(start).toBeGreaterThan(-1);
+      const end = workflow.indexOf("      - name:", start + 15);
+      const step = workflow.slice(start, end === -1 ? undefined : end);
+      expect(step).toContain("VERCEL_TOKEN: ");
+      expect(step).toContain("VERCEL_ORG_ID: ");
+      expect(step).toContain("VERCEL_PROJECT_ID: ");
+    }
   });
 
   it("keeps Preview config collection credential-independent while auth setup fails closed", () => {
@@ -170,17 +258,23 @@ describe("Playwright E2E harness hardening", () => {
       "utf8",
     );
     const workflow = (parse(source) ?? {}) as { env?: Record<string, string> };
-    const job = workflowJob(source, "deploy");
+    const job = workflowJob(source, "journeys");
     const journey = (job.steps ?? []).find((step) =>
       step.run?.includes("npx playwright test"),
     );
     expect(journey, "the exact-SHA Preview workflow must run the Planner journeys").toBeDefined();
     // The deployed artifact must be the target, and Deployment Protection must be
     // cleared by the existing secret rather than an unprotected preview.
-    expect(journey?.env?.E2E_BASE_URL).toContain("steps.deploy.outputs.url");
+    expect(journey?.env?.E2E_BASE_URL).toContain("needs.deploy.outputs.url");
+    expect(journey?.env?.E2E_VERIFIED_PREVIEW_ORIGIN).toContain("needs.deploy.outputs.url");
     expect(journey?.env?.VERCEL_AUTOMATION_BYPASS_SECRET).toContain(
       "secrets.VERCEL_AUTOMATION_BYPASS_SECRET",
     );
+    // The candidate E2E code must never receive the Vercel management token:
+    // the separate, token-bearing deploy job attested the READY origin first.
+    expect(journey?.env?.VERCEL_TOKEN).toBeUndefined();
+    expect(journey?.env?.VERCEL_ORG_ID).toBeUndefined();
+    expect(journey?.env?.VERCEL_PROJECT_ID).toBeUndefined();
 
     // IPI-1332 · CERT-INTEGRITY-001 — the certified spec list is declared once
     // at workflow level and the run step consumes it, so assert the EFFECTIVE
@@ -217,6 +311,128 @@ describe("Playwright E2E harness hardening", () => {
   // certified set in exactly the way this workflow exists to prevent. Execute
   // the workflow's own expansion line against its own declared list, so a
   // regression to a first-line-only reader fails here.
+  it("isolates Vercel credentials and restricts the Preview workflow to protected main", () => {
+    const source = readFileSync(
+      path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"), "utf8",
+    );
+    const yaml = parse(source) as {
+      env?: Record<string, unknown>;
+      jobs: Record<string, {
+        if?: string; needs?: string; environment?: string; env?: Record<string, unknown>;
+        steps?: Array<{ name?: string; uses?: string; env?: Record<string, unknown>; run?: string }>;
+      }>;
+    };
+    const { build, deploy, journeys } = yaml.jobs;
+    expect(build.if).toContain("github.ref == 'refs/heads/main'");
+    expect(build.environment).toBe("Production");
+    expect(deploy.environment).toBe("Production");
+    expect(deploy.needs).toBe("build");
+    expect(journeys.needs).toBe("deploy");
+    expect(build.steps?.some((step) => step.uses?.includes("upload-artifact@"))).toBe(true);
+    expect(deploy.steps?.some((step) => step.uses?.includes("download-artifact@"))).toBe(true);
+    expect(deploy.steps?.some((step) => step.uses?.includes("actions/checkout"))).toBe(false);
+    expect(deploy.steps?.some((step) => step.run?.includes("npm ci"))).toBe(false);
+    const buildStep = build.steps?.find((step) => step.name === "Build exact SHA Preview artifact");
+    expect(buildStep?.run).toBe("vercel build");
+    expect(buildStep?.env?.VERCEL_TOKEN).toBeUndefined();
+    const pullStep = build.steps?.find((step) => step.name === "Pull branch-scoped Preview environment");
+    expect(pullStep?.env?.VERCEL_TOKEN).toContain("secrets.VERCEL_TOKEN");
+    const deploymentStep = deploy.steps?.find((step) => step.name === "Deploy exact SHA Preview");
+    expect(deploymentStep?.env?.VERCEL_TOKEN).toContain("secrets.VERCEL_TOKEN");
+    const verification = deploy.steps?.find((step) => step.name?.startsWith("Verify exact READY"));
+    expect(verification?.env?.VERCEL_TOKEN).toContain("secrets.VERCEL_TOKEN");
+    expect(verification?.run).toContain("api.vercel.com/v13/deployments/");
+    expect(verification?.run).toContain("GITHUB_OUTPUT");
+    expect(verification?.run).not.toContain("import(");
+    // GitHub Actions inherits env from workflow and job scopes. A check of
+    // step.env alone is a false green if someone adds a token above the step.
+    for (const name of ["VERCEL_TOKEN", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID"]) {
+      expect(yaml.env?.[name], name + " must not be workflow-level").toBeUndefined();
+      expect(journeys.env?.[name], name + " must not be job-level").toBeUndefined();
+      expect(journeys.steps?.some((step) => step.env?.[name] !== undefined),
+        name + " must not reach any candidate-run QA step").toBe(false);
+    }
+    // Main-only dispatch ensures even the workflow definition is trusted.
+    expect(source).toContain("if: github.ref == 'refs/heads/main'");
+  });
+
+  it("runs the exact trusted preflight and rejects a mismatched Vercel project", () => {
+    const source = readFileSync(
+      path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"), "utf8",
+    );
+    const parsed = parse(source) as { jobs: {
+      deploy: { steps: Array<{ id?: string; run?: string }> };
+    } };
+    const run = parsed.jobs.deploy.steps.find((step) => step.id === "verify")?.run ?? "";
+    const match = run.match(/node --input-type=module <<'NODE'\n([\s\S]*?)\nNODE/);
+    expect(match, "the trusted inline verification script exists").not.toBeNull();
+
+    const directory = mkdtempSync(path.join(tmpdir(), "ipix-vercel-preflight-"));
+    const output = path.join(directory, "github-output");
+    const origin = "https://ipixai-abc123-amo-agency.vercel.app";
+    const sha = "a".repeat(40);
+    const fakePayload = {
+      url: "ipixai-abc123-amo-agency.vercel.app",
+      projectId: "prj_expected",
+      readyState: "READY",
+      target: null,
+      meta: { githubCommitSha: sha, githubCommitRef: "fix/reviewed" },
+    };
+    const env = {
+      ...process.env, GITHUB_OUTPUT: output, VERCEL_TOKEN: "fake-token",
+      VERCEL_ORG_ID: "team_expected", VERCEL_PROJECT_ID: "prj_expected",
+      DEPLOYMENT_URL: origin, EXPECTED_SHA: sha, EXPECTED_BRANCH: "fix/reviewed",
+    };
+    try {
+      const execute = (payload: typeof fakePayload) => {
+        const stub = "globalThis.fetch = async () => new Response(" +
+          JSON.stringify(JSON.stringify(payload)) +
+          ", { status: 200, headers: { 'content-type': 'application/json' } });\n";
+        return spawnSync(process.execPath, ["--input-type=module"], {
+          input: stub + match![1], env, encoding: "utf8",
+        });
+      };
+      const accepted = execute(fakePayload);
+      expect(accepted.status, accepted.stderr).toBe(0);
+      expect(readFileSync(output, "utf8")).toBe("origin=" + origin + "\n");
+
+      const foreign = execute({ ...fakePayload, projectId: "prj_attacker" });
+      expect(foreign.status, "foreign Vercel project must be rejected").not.toBe(0);
+      expect(foreign.stderr).toContain("ownership, READY status, or commit identity mismatch");
+      const stale = execute({
+        ...fakePayload, meta: { ...fakePayload.meta, githubCommitSha: "b".repeat(40) },
+      });
+      expect(stale.status, "wrong candidate SHA must be rejected").not.toBe(0);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts a trusted exact-origin attestation, never a changed URL or untrusted ref", async () => {
+    const origin = "https://ipixai-abc123-amo-agency.vercel.app";
+    const options = {
+      token: "", teamId: "team_example", projectId: "prj_example",
+      fetchImpl: vi.fn(async () => new Response(null, { status: 500 })),
+    };
+    vi.stubEnv("GITHUB_ACTIONS", "true");
+    vi.stubEnv("GITHUB_REF", "refs/heads/main");
+    vi.stubEnv("E2E_VERIFIED_PREVIEW_ORIGIN", origin);
+    try {
+      await expect(previewBypassHeaders(origin, "bypass-secret", options)).resolves.toEqual({
+        "x-vercel-protection-bypass": "bypass-secret",
+        "x-vercel-set-bypass-cookie": "true",
+      });
+      expect(options.fetchImpl).not.toHaveBeenCalled();
+      await expect(previewBypassHeaders(
+        "https://ipixai-different-amo-agency.vercel.app", "bypass-secret", options,
+      )).rejects.toThrow(/VERCEL_TOKEN/);
+      vi.stubEnv("GITHUB_REF", "refs/heads/candidate");
+      await expect(previewBypassHeaders(origin, "bypass-secret", options)).rejects.toThrow(/VERCEL_TOKEN/);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("expands every declared certified spec when the Preview workflow runs", () => {
     const source = readFileSync(
       path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"),
@@ -230,7 +446,7 @@ describe("Playwright E2E harness hardening", () => {
       .filter(Boolean);
     expect(declared.length, "a multi-line declaration is the case this guards").toBeGreaterThan(1);
 
-    const job = workflowJob(source, "deploy");
+    const job = workflowJob(source, "journeys");
     const journey = (job.steps ?? []).find((step) =>
       step.run?.includes("npx playwright test"),
     );
@@ -293,7 +509,7 @@ describe("Playwright E2E harness hardening", () => {
       path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"),
       "utf8",
     );
-    const job = workflowJob(source, "deploy");
+    const job = workflowJob(source, "build");
     const assertion = (job.steps ?? []).find((step) =>
       step.name?.startsWith("Assert the running workflow"),
     );
@@ -341,26 +557,22 @@ describe("Playwright E2E harness hardening", () => {
     ).toEqual([...specFiles].sort());
 
     // The same pattern must appear in the run step, or the two could drift.
-    const journey = (job.steps ?? []).find((step) =>
+    const journey = (workflowJob(source, "journeys").steps ?? []).find((step) =>
       step.run?.includes("npx playwright test"),
     );
     expect(journey?.run).toContain("spec_path_pattern");
   });
 
-  it("tells the operator a dispatch ref may be a branch or a tag", () => {
+  it("instructs operators to dispatch only the trusted main workflow", () => {
     const source = readFileSync(
-      path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"),
-      "utf8",
+      path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"), "utf8",
     );
-    const job = workflowJob(source, "deploy");
-    const assertion = (job.steps ?? []).find((step) =>
+    const build = workflowJob(source, "build");
+    const assertion = (build.steps ?? []).find((step) =>
       step.name?.startsWith("Assert the running workflow"),
     );
-
-    expect(assertion?.run).toContain("branch or tag");
-    expect(assertion?.run, "a workflow_dispatch ref is not always a branch").not.toMatch(
-      /--ref (?:set to )?the branch\b/,
-    );
+    expect(assertion?.run).toContain("--ref main");
+    expect(assertion?.run).toContain("never dispatch from the candidate branch");
   });
 
   // IPI-1332 · CERT-INTEGRITY-001 regression — a workflow_dispatch runs the
@@ -373,7 +585,7 @@ describe("Playwright E2E harness hardening", () => {
       path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"),
       "utf8",
     );
-    const job = workflowJob(source, "deploy");
+    const job = workflowJob(source, "build");
     const guard = (job.steps ?? []).find((step) =>
       step.name?.includes("Assert the running workflow matches the candidate SHA"),
     );
@@ -822,7 +1034,7 @@ describe("Playwright E2E harness hardening", () => {
 // after `setup` carries storageState and never re-sends the header. Asserting a
 // named cookie existed was the previous weakness: it passed even when Vercel
 // rejected the cookie on the next request. These prove the replay instead.
-const PREVIEW_ORIGIN = "https://ipixai-abc123-amoco.vercel.app";
+const PREVIEW_ORIGIN = "https://ipixai-abc123-amo-agency.vercel.app";
 const BYPASS_HEADERS = {
   "x-vercel-protection-bypass": "the-secret",
   "x-vercel-set-bypass-cookie": "true",
@@ -833,7 +1045,7 @@ function cookieJar(count: number) {
   return Array.from({ length: count }, (_, index) => ({
     name: `cookie-${index}`,
     value: "irrelevant",
-    domain: "ipixai-abc123-amoco.vercel.app",
+    domain: "ipixai-abc123-amo-agency.vercel.app",
     path: "/",
     expires: -1,
     httpOnly: true,

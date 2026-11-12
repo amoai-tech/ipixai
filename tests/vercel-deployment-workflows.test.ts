@@ -212,8 +212,37 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(release).not.toMatch(/--prod\s*(?:\n|\r|$)\s*--meta/);
   });
 
+  it("accepts only this project's new amo-agency staged deployment URL", () => {
+    const workflow = parseYaml(read(".github/workflows/ci.yml")) as {
+      jobs: { "vercel-production": { steps: Array<{ name: string; run?: string }> } };
+    };
+    const stage = workflow.jobs["vercel-production"].steps.find(
+      (step) => step.name === "Stage exact latest SHA without assigning customer domains",
+    )?.run;
+    expect(stage).toBeDefined();
+    const inlineNodeScript = stage?.match(/DEPLOYMENT_URL="\$deployment_url" node -e '([\s\S]*?)'\n/)?.[1];
+    expect(inlineNodeScript).toBeTruthy();
+
+    const exitCode = (url: string) => spawnSync(process.execPath, ["-e", inlineNodeScript!], {
+      env: { ...process.env, DEPLOYMENT_URL: url },
+      encoding: "utf8",
+    }).status;
+
+    expect(exitCode("https://ipixai-n647s4ru3-amo-agency.vercel.app")).toBe(0);
+    for (const unsafe of [
+      "https://ipixai-amo-agency.vercel.app",
+      "https://ipixai-n647s4ru3-amoco.vercel.app",
+      "https://evil-n647s4ru3-amo-agency.vercel.app",
+      "http://ipixai-n647s4ru3-amo-agency.vercel.app",
+      "https://ipixai-n647s4ru3-amo-agency.vercel.app/path",
+      "https://ipixai-n647s4ru3-amo-agency.vercel.app.evil.example",
+    ]) {
+      expect(exitCode(unsafe), unsafe).not.toBe(0);
+    }
+  });
+
   it("normalizes Vercel inspect hostnames without accepting unsafe URL shapes", () => {
-    const host = "ipixai-test123-amoco.vercel.app";
+    const host = "ipixai-test123-amo-agency.vercel.app";
     expect(inspectedDeploymentHost(host)).toBe(host);
     expect(inspectedDeploymentHost("https://" + host)).toBe(host);
 
