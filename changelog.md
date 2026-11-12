@@ -11,6 +11,7 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Added
 
+- IPI-1387 · GENUI-CATALOG-001 — Added the first read-only native CopilotKit Generative UI catalog and one named Planner surface. `ConceptComparison` shows two or three qualitative shoot concepts inside the existing provider, rejects quantified/status business claims in model-supplied text, refuses unknown components and malformed props with an accessible recovery message, and leaves existing chat, plan cards and HITL review unchanged. No Supabase, API or new dependency; the optional MapLibre 5.x import is aliased away because the catalog has no map, and live paid-AI rendering certification remains IPI-1427/IPI-1430 work.
 - IPI-1420 · COPILOTKIT-SKILL-002 — Adapted the official CopilotKit v3.2.0 live-doc/source lookup skill in one iPix-owned entry, preserved Planner tenant/HITL boundaries, updated upstream skill inventory, corrected outdated v1 migration package advice and clarified four MCP corpora plus optional CLI safety. Added three focused load-on-demand guides for native catalogs/standardUI, page surfaces and AG-UI/A2UI 1.0 vs legacy dynamic-schema v0.9. No runtime/dependency/deployment changes.
 
 - IPI-1294 / PR #258 — Standardized Linear workflow governance with mandatory four-template routing, documented exception and outage-handoff paths, clear `todo.md`/changelog ownership, and regression tests for the governance contract.
