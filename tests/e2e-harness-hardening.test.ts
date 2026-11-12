@@ -316,8 +316,9 @@ describe("Playwright E2E harness hardening", () => {
       path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"), "utf8",
     );
     const yaml = parse(source) as {
+      env?: Record<string, unknown>;
       jobs: Record<string, {
-        if?: string; needs?: string; environment?: string;
+        if?: string; needs?: string; environment?: string; env?: Record<string, unknown>;
         steps?: Array<{ name?: string; uses?: string; env?: Record<string, unknown>; run?: string }>;
       }>;
     };
@@ -343,7 +344,14 @@ describe("Playwright E2E harness hardening", () => {
     expect(verification?.run).toContain("api.vercel.com/v13/deployments/");
     expect(verification?.run).toContain("GITHUB_OUTPUT");
     expect(verification?.run).not.toContain("import(");
-    expect(journeys.steps?.some((step) => step.env?.VERCEL_TOKEN !== undefined)).toBe(false);
+    // GitHub Actions inherits env from workflow and job scopes. A check of
+    // step.env alone is a false green if someone adds a token above the step.
+    for (const name of ["VERCEL_TOKEN", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID"]) {
+      expect(yaml.env?.[name], name + " must not be workflow-level").toBeUndefined();
+      expect(journeys.env?.[name], name + " must not be job-level").toBeUndefined();
+      expect(journeys.steps?.some((step) => step.env?.[name] !== undefined),
+        name + " must not reach any candidate-run QA step").toBe(false);
+    }
     // Main-only dispatch ensures even the workflow definition is trusted.
     expect(source).toContain("if: github.ref == 'refs/heads/main'");
   });
