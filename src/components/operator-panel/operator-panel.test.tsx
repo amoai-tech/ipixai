@@ -165,6 +165,8 @@ vi.mock("@copilotkit/react-core/v2", () => ({
 // IPI-1427: render a stable target marker in this shell test; the real
 // surface is exercised by the catalog/provider integration proof.
 vi.mock("@copilotkit/react-core/v2/generative-ui", () => ({
+  // Shell tests stub the runtime; real provider/Surface behavior is covered separately.
+  useGenerativeUIRuntime: () => null,
   GenerativeUISurface: ({ id }: { id: string }) => (
     <div data-testid="generative-ui-surface-stub" data-surface-id={id} />
   ),

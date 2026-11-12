@@ -77,6 +77,8 @@ vi.mock("@copilotkit/react-core/v2", () => ({
 }));
 
 vi.mock("@copilotkit/react-core/v2/generative-ui", () => ({
+  // Shell tests stub the runtime; real provider/Surface behavior is covered separately.
+  useGenerativeUIRuntime: () => null,
   GenerativeUISurface: ({ id }: { id: string }) =>
     createElement("div", { "data-testid": "generative-ui-surface-stub", "data-surface-id": id }),
 }));

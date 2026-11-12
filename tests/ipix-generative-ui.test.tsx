@@ -35,6 +35,35 @@ describe("iPix native GenUI catalog", () => {
     expect(screen.getByText("Qualitative only.")).toBeTruthy();
   });
 
+  it("rejects numerical business claims embedded in otherwise schema-valid text", () => {
+    const options = [
+      { name: "Editorial", rationale: "Natural light." },
+      { name: "Studio", rationale: "Simple sets." },
+    ];
+    for (const unsafe of [
+      { title: "Compare concepts", options, note: "Budget is COP 12,000." },
+      { title: "Compare concepts", options: [{ ...options[0], rationale: "Three shots are already approved." }, options[1]] },
+      { title: "Sales increased 20%", options },
+      { title: "Compare concepts", options, note: "Fifty percent growth is promised." },
+    ]) {
+      expect(ENTRY().props.safeParse(unsafe).success).toBe(false);
+    }
+  });
+
+  it("shows a safe message rather than rendering an unverified fact when invoked directly", () => {
+    const { container } = render(<ConceptComparison
+      title="Summer concepts"
+      options={[
+        { name: "Studio", rationale: "A 50% increase in sales is guaranteed." },
+        { name: "Outdoor", rationale: "Natural sunlight." },
+      ]}
+      note="Unverified."
+    />);
+    expect(container.querySelector("[data-testid=genui-concept-comparison]")).toBeNull();
+    expect(container.querySelector("[data-testid=genui-comparison-content-error]")?.textContent).toContain("unverified");
+    expect(container.textContent).not.toContain("A 50% increase in sales is guaranteed.");
+  });
+
   it("accepts two or three options and rejects measured business facts", () => {
     const valid = {
       title: "Concepts",

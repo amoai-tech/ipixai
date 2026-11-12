@@ -8,6 +8,31 @@ import {
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+// Defense in depth for the FIRST qualitative-only pilot, not verification of
+// business truth. Quantities, currencies, metrics, status claims and identifiers
+// must come from a tenant-authorized server source (IPI-1428), never prose.
+// A false positive hides a proposal rather than displaying an unverified fact.
+const UNSUPPORTED_BUSINESS_CLAIMS = [
+  /[\d$€£¥₹₱%]/u,
+  /\b(?:USD|CAD|COP|EUR|GBP|budgets?|costs?|prices?|profits?|revenue|sales|conversions?|engagement|impressions?|metrics?|ROI|ROAS|KPIs?|percent(?:age)?s?|dollars?|pesos?|approved|published|completed|delivered|paid|spent|spending|shot\s+counts?|asset\s+IDs?)\b/iu,
+  /\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|hundred|thousand|million)\s+(?:shots?|images?|looks?|assets?|photos?|deliverables?|models?|items?)\b/iu,
+];
+
+const qualitativeText = (max: number) =>
+  z.string().min(1).max(max).refine(
+    (text) => UNSUPPORTED_BUSINESS_CLAIMS.every((pattern) => !pattern.test(text)),
+    "Only qualitative proposals are allowed; use authorized tools for business facts.",
+  );
+
+const conceptComparisonSchema = z.object({
+  title: qualitativeText(120),
+  options: z.array(z.object({
+    name: qualitativeText(80),
+    rationale: qualitativeText(280),
+  }).strict()).min(2).max(3),
+  note: qualitativeText(200).optional(),
+}).strict();
+
 /**
  * IPI-1387 · GENUI-CATALOG-001 — the first, deliberately small native GenUI
  * catalog. This pilot is read-only and qualitative: it never accepts prices,
@@ -19,6 +44,12 @@ export function ConceptComparison({
   options,
   note,
 }: GenerativeUIComponentProps<typeof ipixGenerativeUI, "ConceptComparison">) {
+  // A caller can bypass the catalog schema in tests or a future refactor.
+  // Never render unverified quantified/status claims if invoked directly.
+  if (!conceptComparisonSchema.safeParse({ title, options, note }).success) {
+    return <p role="status" data-testid="genui-comparison-content-error">Comparison unavailable: unverified business details.</p>;
+  }
+
   return (
     <Card
       className="border-[var(--border)] bg-[var(--card)]"
@@ -56,20 +87,7 @@ export const ipixGenerativeUI = createGenerativeUI({
       component: ConceptComparison,
       description:
         "A read-only qualitative comparison of two or three shoot concepts. Use only concept names and short rationales. Never include prices, budgets, shot counts, asset IDs or other measured business facts.",
-      props: z.object({
-        title: z.string().min(1).max(120),
-        options: z
-          .array(
-            z.object({
-              name: z.string().min(1).max(80),
-              rationale: z.string().min(1).max(280),
-            })
-            .strict(),
-          )
-          .min(2)
-          .max(3),
-        note: z.string().max(200).optional(),
-      }).strict(),
+      props: conceptComparisonSchema,
     },
   },
 });

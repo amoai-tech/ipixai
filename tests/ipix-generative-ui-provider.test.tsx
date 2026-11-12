@@ -4,11 +4,9 @@ import { act, render, screen, waitFor, cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { CopilotKit } from "@copilotkit/react-core/v2";
 import { A2UI_VERSION, GENERATIVE_UI_ROOT_ID } from "@copilotkit/shared";
-import {
-  GenerativeUISurface,
-  useGenerativeUIRuntime,
-} from "@copilotkit/react-core/v2/generative-ui";
+import { useGenerativeUIRuntime } from "@copilotkit/react-core/v2/generative-ui";
 import { ipixGenerativeUI } from "../src/lib/copilotkit/ipix-generative-ui";
+import { IpixGenerativeComparisonSurface } from "../src/components/operator-panel/ipix-generative-surface";
 
 type Runtime = NonNullable<ReturnType<typeof useGenerativeUIRuntime>>;
 let capturedRuntime: Runtime | null = null;
@@ -36,24 +34,17 @@ describe("native GenUI provider and surface integration", () => {
         enableInspector={false}
         generativeUI={{ ui: ipixGenerativeUI }}
       >
-        <GenerativeUISurface
-          id="planner-comparison"
-          description="Read-only qualitative concept comparisons"
-          ui={ipixGenerativeUI}
-          components={["ConceptComparison"]}
-          fallback={<span data-testid="empty-comparison">No generated comparison yet.</span>}
-          autoScroll={false}
-        />
+        <IpixGenerativeComparisonSurface />
         <Probe />
       </CopilotKit>,
     );
 
-    expect(screen.getByTestId("empty-comparison")).toBeTruthy();
+    expect(screen.getByText("No generated comparison yet.")).toBeTruthy();
     await waitFor(() => {
       expect(capturedRuntime?.ui).toBe(ipixGenerativeUI);
       expect(capturedRuntime?.manager.getMountedTargets()).toContainEqual({
         id: "planner-comparison",
-        description: "Read-only qualitative concept comparisons",
+        description: "Read-only qualitative comparison of shoot concepts. Use one ConceptComparison only for proposed ideas. Do not assert measured or approved business facts.",
         components: ["ConceptComparison"],
       });
     });
@@ -93,14 +84,14 @@ describe("native GenUI provider and surface integration", () => {
     await waitFor(() => {
       expect(screen.getByText("Three shoot concepts")).toBeTruthy();
       expect(screen.getByText("Studio")).toBeTruthy();
-      expect(screen.queryByTestId("empty-comparison")).toBeNull();
+      expect(screen.queryByText("No generated comparison yet.")).toBeNull();
     });
     expect(manager.debugSurfaces()[0]?.rejected).toEqual([]);
 
     // Surface content follows the active thread, never the previous conversation.
     act(() => manager.setActiveThread("different-thread"));
     expect(screen.queryByText("Three shoot concepts")).toBeNull();
-    expect(screen.getByTestId("empty-comparison")).toBeTruthy();
+    expect(screen.getByText("No generated comparison yet.")).toBeTruthy();
 
     // Even an otherwise valid component cannot sneak in measured business facts.
     const badId = "bad-comparison";
@@ -135,7 +126,63 @@ describe("native GenUI provider and surface integration", () => {
         ],
       });
     });
+    // A rejected root must leave an accessible recovery message, not silence.
+    expect(screen.getByTestId("genui-comparison-recovery").textContent).toContain("comparison");
     expect(screen.queryByText("Invented budget")).toBeNull();
     expect(manager.debugSurfaces().find((surface) => surface.surfaceId === badId)?.rejected.length).toBeGreaterThan(0);
+
+    // A subsequent valid update restores the card and clears the error.
+    act(() => {
+      manager.ingest("different-thread", "default", {
+        surfaceId: badId,
+        catalogId: ipixGenerativeUI.id,
+        target: "planner-comparison",
+        status: "ready",
+        rejected: [],
+        operations: [
+          {
+            version: A2UI_VERSION,
+            createSurface: { surfaceId: badId, catalogId: ipixGenerativeUI.id },
+          },
+          {
+            version: A2UI_VERSION,
+            updateComponents: {
+              surfaceId: badId,
+              components: [{
+                id: GENERATIVE_UI_ROOT_ID,
+                component: "ConceptComparison",
+                title: "Recovered concepts",
+                options: [
+                  { name: "Editorial", rationale: "Natural styling." },
+                  { name: "Studio", rationale: "Controlled lighting." },
+                ],
+              }],
+            },
+          },
+        ],
+      });
+    });
+    expect(screen.getByText("Recovered concepts")).toBeTruthy();
+    expect(screen.queryByTestId("genui-comparison-recovery")).toBeNull();
+
+    // A ready surface that omits its root entirely is also a recoverable failure.
+    act(() => {
+      manager.setActiveThread("rootless-thread");
+      manager.ingest("rootless-thread", "default", {
+        surfaceId: "no-root",
+        catalogId: ipixGenerativeUI.id,
+        target: "planner-comparison",
+        status: "ready",
+        rejected: [],
+        operations: [{
+          version: A2UI_VERSION,
+          createSurface: { surfaceId: "no-root", catalogId: ipixGenerativeUI.id },
+        }],
+      });
+    });
+    expect(screen.getByTestId("genui-comparison-recovery").textContent).toContain("comparison");
+    expect(screen.queryByText("Recovered concepts")).toBeNull();
+    expect(manager.getMountedTargets().some((target) => target.id === "planner-comparison")).toBe(true);
+
   });
 });
