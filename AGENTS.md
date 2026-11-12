@@ -81,8 +81,7 @@ Graphify / dependency discovery
 
 Do not redesign architecture unless evidence proves the current design cannot satisfy the requirement.
 
-**Optional Jev for coding agents (including the iPix Superagent on port 3084):** See [jev-agent.md](jev-agent.md) for bounded semantic judgments, safe tool choice, and real iPix examples. Follow this AGENTS.md, the canonical task skill, task-verifier and deterministic evidence first. The 3084 Jev servers are machine-specific; never treat a Jev verdict as permission to approve, publish, access tenant data, or declare Done. Do not add a second MCP setup or a new task/approval gate.
-
+**Optional Jev reference:** See [jev-agent.md](jev-agent.md) for iPix-specific examples of advisory semantic judgments, including the owner's local Superagent on port 3084. This does not change the existing tool setup, task workflow, permissions, or approval policy. Follow the canonical task skill and task-verifier; use actual code, tests, and authorized runtime evidence to establish results. Jev judgments can help assess uncertainty but cannot independently authorize actions or establish task completion.
 
 ## Mermaid reasoning — required for substantial tasks
 
