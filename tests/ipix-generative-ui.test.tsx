@@ -35,6 +35,25 @@ describe("iPix native GenUI catalog", () => {
     expect(screen.getByText("Qualitative only.")).toBeTruthy();
   });
 
+  it("renders the fashion idiom 'one look at' but still rejects counted looks", () => {
+    const concept = {
+      title: "One Look at Nature",
+      options: [
+        { name: "Botanical studio", rationale: "Pressed-flower props." },
+        { name: "Coastal linen", rationale: "Natural afternoon light." },
+      ],
+    };
+    expect(ENTRY().props.safeParse(concept).success).toBe(true);
+    const { container } = render(<ConceptComparison {...concept} />);
+    expect(container.querySelector("[data-testid=genui-concept-comparison]")).not.toBeNull();
+    expect(screen.getByText("One Look at Nature")).toBeTruthy();
+
+    // A count of looks is still a business quantity, not concept vocabulary.
+    expect(
+      ENTRY().props.safeParse({ ...concept, note: "Sign off twelve looks by Friday." }).success,
+    ).toBe(false);
+  });
+
   it("rejects numerical business claims embedded in otherwise schema-valid text", () => {
     const options = [
       { name: "Editorial", rationale: "Natural light." },
