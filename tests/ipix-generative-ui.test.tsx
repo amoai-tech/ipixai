@@ -16,6 +16,16 @@ describe("iPix native GenUI catalog", () => {
     expect([...components.keys()]).toEqual(["ConceptComparison"]);
   });
 
+  it("registers no callable function and no writable state", () => {
+    const ui = ipixGenerativeUI as unknown as {
+      functions: Map<string, unknown>;
+      state: Record<string, unknown>;
+    };
+    // Read-only pilot: generated UI cannot invoke app code or own app state.
+    expect(ui.functions.size).toBe(0);
+    expect(Object.keys(ui.state)).toEqual([]);
+  });
+
   it("renders qualitative concept names and rationales", () => {
     render(
       <ConceptComparison

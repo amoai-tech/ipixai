@@ -185,4 +185,89 @@ describe("native GenUI provider and surface integration", () => {
     expect(manager.getMountedTargets().some((target) => target.id === "planner-comparison")).toBe(true);
 
   });
+
+  it("shows no error while a surface streams before its root arrives", async () => {
+    render(
+      <CopilotKit
+        runtimeUrl="/api/copilotkit"
+        useSingleEndpoint={false}
+        showDevConsole={false}
+        enableInspector={false}
+        generativeUI={{ ui: ipixGenerativeUI }}
+      >
+        <IpixGenerativeComparisonSurface />
+        <Probe />
+      </CopilotKit>,
+    );
+    await waitFor(() => expect(capturedRuntime).not.toBeNull());
+
+    act(() => {
+      capturedRuntime!.manager.setActiveThread("streaming-thread");
+      capturedRuntime!.manager.ingest("streaming-thread", "default", {
+        surfaceId: "streaming-1",
+        catalogId: ipixGenerativeUI.id,
+        target: "planner-comparison",
+        status: "streaming",
+        rejected: [],
+        operations: [{
+          version: A2UI_VERSION,
+          createSurface: { surfaceId: "streaming-1", catalogId: ipixGenerativeUI.id },
+        }],
+      });
+    });
+
+    // A loading surface is not a failure: keep the existing chat usable and
+    // stay silent until the run either finishes or rejects the root.
+    expect(screen.queryByTestId("genui-comparison-recovery")).toBeNull();
+    expect(screen.queryByTestId("genui-concept-comparison")).toBeNull();
+  });
+
+  it("rejects a component outside the catalog allowlist with an accessible message", async () => {
+    render(
+      <CopilotKit
+        runtimeUrl="/api/copilotkit"
+        useSingleEndpoint={false}
+        showDevConsole={false}
+        enableInspector={false}
+        generativeUI={{ ui: ipixGenerativeUI }}
+      >
+        <IpixGenerativeComparisonSurface />
+        <Probe />
+      </CopilotKit>,
+    );
+    await waitFor(() => expect(capturedRuntime).not.toBeNull());
+
+    act(() => {
+      capturedRuntime!.manager.setActiveThread("unknown-component-thread");
+      capturedRuntime!.manager.ingest("unknown-component-thread", "default", {
+        surfaceId: "map-surface",
+        catalogId: ipixGenerativeUI.id,
+        target: "planner-comparison",
+        status: "ready",
+        rejected: [],
+        operations: [
+          {
+            version: A2UI_VERSION,
+            createSurface: { surfaceId: "map-surface", catalogId: ipixGenerativeUI.id },
+          },
+          {
+            version: A2UI_VERSION,
+            updateComponents: {
+              surfaceId: "map-surface",
+              components: [{ id: GENERATIVE_UI_ROOT_ID, component: "Map" }],
+            },
+          },
+        ],
+      });
+    });
+
+    const surface = capturedRuntime!.manager
+      .debugSurfaces()
+      .find((candidate) => candidate.surfaceId === "map-surface");
+    expect(surface?.rejected.map((rejected) => rejected.reason).join(" ")).toContain(
+      'unknown component "Map"',
+    );
+    expect(screen.getByTestId("genui-comparison-recovery").textContent).toContain("comparison");
+    expect(screen.queryByTestId("genui-concept-comparison")).toBeNull();
+  });
 });
