@@ -30,9 +30,15 @@ const IS_IPIX_HOST = (host: string): boolean => {
   const suffix = "-amo-agency.vercel.app";
   if (!text.startsWith(prefix) || !text.endsWith(suffix)) return false;
   const middle = text.slice(prefix.length, -suffix.length);
-  return middle.length > 0 && [...middle].every((c) =>
-    (c >= "a" && c <= "z") || (c >= "0" && c <= "9") || c === "-"
-  );
+  if (middle.length === 0) return false;
+  // URL hostnames are ASCII; check code units without splitting Unicode text.
+  for (let i = 0; i < middle.length; i++) {
+    const code = middle.charCodeAt(i);
+    if (!((code >= 97 && code <= 122) || (code >= 48 && code <= 57) || code === 45)) {
+      return false;
+    }
+  }
+  return true;
 };
 
 const LOCAL_TARGET = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/;
