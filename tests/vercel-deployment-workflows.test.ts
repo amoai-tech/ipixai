@@ -230,6 +230,7 @@ describe("IPI-1229 Vercel deployment ownership", () => {
 
     expect(exitCode("https://ipixai-n647s4ru3-amo-agency.vercel.app")).toBe(0);
     for (const unsafe of [
+      "https://ipixai-amo-agency.vercel.app",
       "https://ipixai-n647s4ru3-amoco.vercel.app",
       "https://evil-n647s4ru3-amo-agency.vercel.app",
       "http://ipixai-n647s4ru3-amo-agency.vercel.app",

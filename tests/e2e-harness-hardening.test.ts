@@ -53,18 +53,38 @@ function timeoutError() {
 describe("Playwright E2E harness hardening", () => {
   it("allows current amo-agency iPix Vercel previews and rejects unsafe hosts", () => {
     expect(isAllowedE2EBaseUrl("https://ipixai-5y1wsa98w-amo-agency.vercel.app")).toBe(true);
-    expect(isAllowedE2EBaseUrl("https://ipixai-amo-agency.vercel.app")).toBe(true);
+    // Staged QA operates on exact unique deployment URLs, not mutable aliases.
+    expect(isAllowedE2EBaseUrl("https://ipixai-amo-agency.vercel.app")).toBe(false);
     expect(isAllowedE2EBaseUrl("http://localhost:3015")).toBe(true);
     expect(isAllowedE2EBaseUrl("https://ipixai-5y1wsa98w-amo1000.vercel.app")).toBe(false);
     expect(isAllowedE2EBaseUrl("https://evil-amo-agency.vercel.app")).toBe(false);
     expect(isAllowedE2EBaseUrl("https://ipixai-abc123-amoco.vercel.app")).toBe(false);
     expect(isAllowedE2EBaseUrl("https://ipix.co")).toBe(false);
     expect(isAllowedE2EBaseUrl("http://ipixai-5y1wsa98w-amo-agency.vercel.app")).toBe(false);
+    expect(isAllowedE2EBaseUrl("http://localhost:secret@attacker.example")).toBe(false);
+    expect(isAllowedE2EBaseUrl("http://localhost:3000@attacker.example")).toBe(false);
+    expect(isAllowedE2EBaseUrl("http://localhost:3015/path")).toBe(false);
+    expect(isAllowedE2EBaseUrl("invalid-url")).toBe(false);
   });
 
   // IPI-1344 · E2E-PREVIEW-BYPASS-001: certifying a Preview against Vercel
   // Deployment Protection used to depend on single-use share links, which
   // silently stopped granting access and made journeys fail on an SSO screen.
+  it("never skips ownership for a credentialed local-looking attacker origin", async () => {
+    const spy = vi.fn(async () => new Response(null, { status: 200 }));
+    const options = {
+      token: "fake-vercel-api-token",
+      teamId: "team_PbKG2U0lCR67rN57C4fqcfaw",
+      projectId: "prj_KIVAtc7rizfqvPl4Qaz8OdCFlMCh",
+      fetchImpl: spy,
+    };
+    await expect(previewBypassHeaders("http://localhost:secret@attacker.example", "bypass-secret", options))
+      .rejects.toThrow(/not an allowed canonical HTTPS origin/);
+    await expect(previewBypassHeaders("https://ipixai-amo-agency.vercel.app", "bypass-secret", options))
+      .rejects.toThrow(/not an allowed canonical HTTPS origin/);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
   it("requires a bypass secret before making the Vercel ownership request", async () => {
     await expect(previewBypassHeaders("http://localhost:3015", undefined)).resolves.toBeUndefined();
     await expect(previewBypassHeaders("http://127.0.0.1:3015", "ignored-secret")).resolves.toBeUndefined();

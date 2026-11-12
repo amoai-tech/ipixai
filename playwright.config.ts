@@ -25,7 +25,6 @@ const baseURL = process.env.E2E_BASE_URL || "http://localhost:3015";
 // ambiguous. The async bypass helper MUST also verify via Vercel's API.
 const IS_IPIX_HOST = (host: string): boolean => {
   const text = host.toLowerCase();
-  if (text === "ipixai-amo-agency.vercel.app") return true;
   const prefix = "ipixai-";
   const suffix = "-amo-agency.vercel.app";
   if (!text.startsWith(prefix) || !text.endsWith(suffix)) return false;
@@ -41,20 +40,30 @@ const IS_IPIX_HOST = (host: string): boolean => {
   return true;
 };
 
-const LOCAL_TARGET = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/;
-
+// Local bypass is allowed only for a *parsed local origin*, never for text
+// that merely starts with "localhost" (e.g. userinfo@attacker.example).
 export function isLocalE2ETarget(candidate: string): boolean {
-  return LOCAL_TARGET.test(candidate);
+  try {
+    const url = new URL(candidate);
+    return (url.protocol === "http:" || url.protocol === "https:") &&
+      (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
+      !url.username && !url.password && url.origin === candidate;
+  } catch {
+    return false;
+  }
 }
 
 export function isAllowedE2EBaseUrl(candidate: string): boolean {
   if (isLocalE2ETarget(candidate)) return true;
 
-  const parsedCandidate = new URL(candidate);
-  return parsedCandidate.protocol === "https:" &&
-    parsedCandidate.origin === candidate &&
-    !parsedCandidate.username && !parsedCandidate.password && !parsedCandidate.port &&
-    IS_IPIX_HOST(parsedCandidate.hostname);
+  try {
+    const url = new URL(candidate);
+    return url.protocol === "https:" && url.origin === candidate &&
+      !url.username && !url.password && !url.port &&
+      IS_IPIX_HOST(url.hostname);
+  } catch {
+    return false;
+  }
 }
 
 const isLocalTarget = isLocalE2ETarget(baseURL);
