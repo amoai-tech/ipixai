@@ -15,7 +15,7 @@ declare
   brand_b uuid := gen_random_uuid();
   n integer;
   denied boolean;
-  saved_role uuid;
+  personal_brand uuid := gen_random_uuid();
   actual_name text;
 begin
   -- Use normal auth signup triggers, organization ownership, and memberships.
@@ -34,6 +34,11 @@ begin
     (org_a,owner_a,'owner'),(org_a,editor_a,'editor'),
     (org_a,viewer_a,'viewer'),(org_b,owner_b,'owner')
   on conflict(org_id,user_id) do nothing;
+
+  -- Historical personal Brand fixture (org_id NULL): only its creator may edit it.
+  -- Seed as table owner because direct authenticated INSERT requires a real org.
+  insert into public.brands(id,name,org_id,user_id,brand_url)
+    values(personal_brand,'Legacy Personal Brand',null,owner_a,'https://example.invalid/personal');
 
   -- Owner can create a Brand with their own user_id.
   execute format('set local role authenticated; set local request.jwt.claims = %L',
@@ -112,6 +117,20 @@ begin
   execute 'reset role';
   if not denied then raise exception 'IPI-1314 editor could reparent Brand'; end if;
 
+  -- A different user cannot edit or claim a personal Brand.
+  execute format('set local role authenticated; set local request.jwt.claims = %L',
+    json_build_object('sub',editor_a)::text);
+  update public.brands set name='Stolen Personal Brand' where id=personal_brand;
+  get diagnostics n=row_count;
+  if n<>0 then raise exception 'IPI-1314 editor changed another user personal Brand'; end if;
+  denied:=false;
+  begin
+    update public.brands set org_id=org_a where id=personal_brand;
+  exception when insufficient_privilege then denied:=true;
+  end;
+  execute 'reset role';
+  if not denied then raise exception 'IPI-1314 editor reparented another user personal Brand'; end if;
+
   -- Editors cannot delete Brands: destructive actions remain owner-only.
   execute format('set local role authenticated; set local request.jwt.claims = %L',
     json_build_object('sub',editor_a)::text);
@@ -120,8 +139,12 @@ begin
   execute 'reset role';
   if n<>0 then raise exception 'IPI-1314 editor deleted Brand'; end if;
 
-  -- Signed-out callers cannot create Brands.
+  -- Signed-out callers cannot create Brands: clear the prior editor JWT too.
+  execute 'set local request.jwt.claims = ''{}''';
   execute 'set local role anon';
+  if (select auth.uid()) is not null then
+    raise exception 'IPI-1314 anon inherited a signed-in JWT identity';
+  end if;
   denied:=false;
   begin
     insert into public.brands(id,name,org_id,user_id)
@@ -170,12 +193,34 @@ begin
   execute 'reset role';
   if n<>1 then raise exception 'IPI-1314 org owner cannot delete Brand'; end if;
 
-  -- Even owner/editor can never directly write approval-controlled columns.
-  if has_column_privilege('authenticated','public.brands','approved_profile_at','UPDATE')
-     or has_column_privilege('authenticated','public.brands','ai_profile_draft','UPDATE')
-     or has_column_privilege('authenticated','public.brands','org_id','UPDATE')
-     or has_column_privilege('authenticated','public.brands','user_id','UPDATE') then
-     raise exception 'IPI-1314 grant accidentally reopened approval/tenancy bypass';
+  -- Only the creator may update allowed columns on their legacy personal Brand.
+  execute format('set local role authenticated; set local request.jwt.claims = %L',
+    json_build_object('sub',owner_a)::text);
+  update public.brands set name='Personal Owner Renamed',
+    brand_url='https://example.invalid/personal-edited' where id=personal_brand;
+  get diagnostics n=row_count;
+  execute 'reset role';
+  if n<>1 then raise exception 'IPI-1314 personal Brand owner ordinary UPDATE failed'; end if;
+
+  select name into actual_name from public.brands where id=personal_brand;
+  if actual_name is distinct from 'Personal Owner Renamed' then
+    raise exception 'IPI-1314 personal owner update was not persisted';
+  end if;
+
+  -- Assert the complete effective UPDATE allow-list, including future columns.
+  -- has_column_privilege also catches table-level UPDATE grants.
+  select string_agg(a.attname, ', ' order by a.attname) into actual_name
+    from pg_catalog.pg_attribute a
+   where a.attrelid='public.brands'::regclass
+     and a.attnum>0 and not a.attisdropped
+     and a.attname not in ('name','brand_url')
+     and has_column_privilege('authenticated','public.brands',a.attname,'UPDATE');
+  if actual_name is not null then
+    raise exception 'IPI-1314 grant accidentally allowed UPDATE on protected Brand columns: %', actual_name;
+  end if;
+  if not has_column_privilege('authenticated','public.brands','name','UPDATE')
+     or not has_column_privilege('authenticated','public.brands','brand_url','UPDATE') then
+    raise exception 'IPI-1314 ordinary Brand UPDATE grants missing';
   end if;
 
   raise notice 'IPI-1314 owner/editor/viewer and Org A/B full-schema security matrix PASS';

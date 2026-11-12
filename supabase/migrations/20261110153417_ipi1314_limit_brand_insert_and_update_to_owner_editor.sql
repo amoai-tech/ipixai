@@ -24,3 +24,28 @@ alter policy "brands_update_org" on public.brands
 -- org/owner identity remain protected; editors only rename or edit Brand URL.
 revoke update on table public.brands from authenticated;
 grant update (name, brand_url) on table public.brands to authenticated;
+
+-- Recovery / rollback (MANUAL, reviewed migration only; never run on hosted DB
+-- as part of this PR). Historical policy expressions are from:
+-- 20260624000000_ipi16_org_layer.sql (INSERT) and
+-- 20260627170000_brands_rls_null_org_backfill.sql (UPDATE).
+-- The immediately preceding 20260911000000_ipi1093_brand_db_write_boundary.sql
+-- had REVOKED table-level UPDATE; do NOT GRANT UPDATE on the whole table.
+--
+--   ALTER POLICY "brands_insert_org" ON public.brands
+--     WITH CHECK (public.is_org_member(org_id));
+--   ALTER POLICY "brands_update_org" ON public.brands
+--     USING (
+--       (org_id IS NULL AND user_id = (SELECT auth.uid()))
+--       OR (org_id IS NOT NULL AND public.is_org_member(org_id))
+--     )
+--     WITH CHECK (
+--       (org_id IS NULL AND user_id = (SELECT auth.uid()))
+--       OR (org_id IS NOT NULL AND public.is_org_member(org_id))
+--     );
+--   REVOKE UPDATE (name, brand_url) ON public.brands FROM authenticated;
+--
+-- CAUTION: Restoring the former INSERT policy allows org viewers to insert
+-- Brands again, including forged creator IDs. Prefer a narrow forward fix
+-- if an application regression occurs. Confirm the live catalog and grants
+-- before any separately approved rollback.
