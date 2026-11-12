@@ -33,13 +33,17 @@ async function send(page: Page, text: string) {
   const sendOrStop = dock.getByTestId("copilot-send-button");
   // CopilotKit reuses this button as Stop during an in-flight run. An
   // editable textarea alone does not mean a new message can be submitted.
+  // Wait for the same Stop-to-Send transition budget the other Planner
+  // specs use (NAV_TIMEOUT_MS): a run's terminal event is bounded but not
+  // instant, and a shorter wait would turn a slow instance into a failure.
   await expect(sendOrStop.locator("svg.lucide-square"), "Planner must be in Send mode")
-    .toBeHidden({ timeout: 10_000 });
+    .toBeHidden({ timeout: NAV_TIMEOUT_MS });
   await expect(sendOrStop, "Planner Send button must be enabled").toBeEnabled({
     timeout: 10_000,
   });
-  // Bound each prerequisite and request separately, without enlarging the
-  // full paid-journey timeout: failures say whether Stop or Send was blocked.
+  // The request is dispatched by the click, so this bounds client-side
+  // dispatch only — never model generation, which the response assertions
+  // above already wait for. Stop/Send above are separate, cheaper failures.
   const run = page.waitForRequest(isAgentRun, { timeout: 20_000 });
   await sendOrStop.click();
   await run;
@@ -163,9 +167,14 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
       sendOrStop.locator("svg.lucide-square"),
       "first answer must leave Stop mode after navigation",
     ).toBeHidden({ timeout: NAV_TIMEOUT_MS * 2 });
+    // Diagnostic, not a precondition: send() re-checks Send after filling.
+    // Installed CopilotKit clears the composer when the message is submitted
+    // (onSubmitInput calls setInputValue("") before queueing), so an idle
+    // composer here is empty and its Send button disabled. A short timeout is
+    // enough because this is a render of already-settled state.
     await expect(
       sendOrStop,
-      "first answer must leave the empty composer disabled before another send",
+      "first answer must leave an empty composer with Send disabled",
     ).toBeDisabled({ timeout: 5_000 });
 
     // The chat still works after navigating.
