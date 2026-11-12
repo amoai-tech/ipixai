@@ -51,14 +51,15 @@ function timeoutError() {
   return error;
 }
 describe("Playwright E2E harness hardening", () => {
-  it("allows current amoco iPix Vercel previews and rejects unsafe hosts", () => {
-    expect(isAllowedE2EBaseUrl("https://ipixai-5y1wsa98w-amoco.vercel.app")).toBe(true);
-    expect(isAllowedE2EBaseUrl("https://ipixai-amoco.vercel.app")).toBe(true);
+  it("allows current amo-agency iPix Vercel previews and rejects unsafe hosts", () => {
+    expect(isAllowedE2EBaseUrl("https://ipixai-5y1wsa98w-amo-agency.vercel.app")).toBe(true);
+    expect(isAllowedE2EBaseUrl("https://ipixai-amo-agency.vercel.app")).toBe(true);
     expect(isAllowedE2EBaseUrl("http://localhost:3015")).toBe(true);
     expect(isAllowedE2EBaseUrl("https://ipixai-5y1wsa98w-amo1000.vercel.app")).toBe(false);
-    expect(isAllowedE2EBaseUrl("https://evil-amoco.vercel.app")).toBe(false);
+    expect(isAllowedE2EBaseUrl("https://evil-amo-agency.vercel.app")).toBe(false);
+    expect(isAllowedE2EBaseUrl("https://ipixai-abc123-amoco.vercel.app")).toBe(false);
     expect(isAllowedE2EBaseUrl("https://ipix.co")).toBe(false);
-    expect(isAllowedE2EBaseUrl("http://ipixai-5y1wsa98w-amoco.vercel.app")).toBe(false);
+    expect(isAllowedE2EBaseUrl("http://ipixai-5y1wsa98w-amo-agency.vercel.app")).toBe(false);
   });
 
   // IPI-1344 · E2E-PREVIEW-BYPASS-001: certifying a Preview against Vercel
@@ -68,24 +69,24 @@ describe("Playwright E2E harness hardening", () => {
     expect(previewBypassHeaders("http://localhost:3015", undefined)).toBeUndefined();
     expect(previewBypassHeaders("http://127.0.0.1:3015", "ignored-secret")).toBeUndefined();
 
-    expect(() => previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", undefined)).toThrow(
+    expect(() => previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app", undefined)).toThrow(
       "VERCEL_AUTOMATION_BYPASS_SECRET is required for Vercel Preview E2E",
     );
-    expect(() => previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", "")).toThrow(
+    expect(() => previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app", "")).toThrow(
       /VERCEL_AUTOMATION_BYPASS_SECRET is required/,
     );
     // A whitespace-only secret is truthy, so it must still fail closed here
     // rather than be sent and fail later at Vercel's SSO boundary.
-    expect(() => previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", "   ")).toThrow(
+    expect(() => previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app", "   ")).toThrow(
       /VERCEL_AUTOMATION_BYPASS_SECRET is required/,
     );
 
-    expect(previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", "the-secret")).toEqual({
+    expect(previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app", "the-secret")).toEqual({
       "x-vercel-protection-bypass": "the-secret",
       "x-vercel-set-bypass-cookie": "true",
     });
     // A padded secret is trimmed before it is sent.
-    expect(previewBypassHeaders("https://ipixai-abc123-amoco.vercel.app", "  padded\n")).toEqual({
+    expect(previewBypassHeaders("https://ipixai-abc123-amo-agency.vercel.app", "  padded\n")).toEqual({
       "x-vercel-protection-bypass": "padded",
       "x-vercel-set-bypass-cookie": "true",
     });
@@ -822,7 +823,7 @@ describe("Playwright E2E harness hardening", () => {
 // after `setup` carries storageState and never re-sends the header. Asserting a
 // named cookie existed was the previous weakness: it passed even when Vercel
 // rejected the cookie on the next request. These prove the replay instead.
-const PREVIEW_ORIGIN = "https://ipixai-abc123-amoco.vercel.app";
+const PREVIEW_ORIGIN = "https://ipixai-abc123-amo-agency.vercel.app";
 const BYPASS_HEADERS = {
   "x-vercel-protection-bypass": "the-secret",
   "x-vercel-set-bypass-cookie": "true",
@@ -833,7 +834,7 @@ function cookieJar(count: number) {
   return Array.from({ length: count }, (_, index) => ({
     name: `cookie-${index}`,
     value: "irrelevant",
-    domain: "ipixai-abc123-amoco.vercel.app",
+    domain: "ipixai-abc123-amo-agency.vercel.app",
     path: "/",
     expires: -1,
     httpOnly: true,

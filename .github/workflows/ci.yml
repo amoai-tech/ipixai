@@ -1156,7 +1156,7 @@ jobs:
           DEPLOYMENT_URL="$deployment_url" node -e '
             const u = new URL(process.env.DEPLOYMENT_URL);
             if (u.protocol !== "https:" || u.origin !== process.env.DEPLOYMENT_URL ||
-                !/^ipixai-[a-z0-9-]+-amoco\.vercel\.app$/i.test(u.hostname)) {
+                !/^ipixai-[a-z0-9-]+-amo-agency\.vercel\.app$/i.test(u.hostname)) {
               throw new Error("Staged URL does not belong to this iPix Vercel project");
             }
           '
