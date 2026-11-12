@@ -27,7 +27,7 @@ export function IpixGenerativeComparisonSurface() {
   );
   const surface = runtime?.manager.getSurfaceForTarget(TARGET);
   const showRecovery = surface?.status === "ready" &&
-    !surface.model.componentsModel.get(GENERATIVE_UI_ROOT_ID);
+    !surface.model?.componentsModel?.get(GENERATIVE_UI_ROOT_ID);
 
   return (
     <>

@@ -45,6 +45,8 @@ describe("iPix native GenUI catalog", () => {
       { title: "Compare concepts", options: [{ ...options[0], rationale: "Three shots are already approved." }, options[1]] },
       { title: "Sales increased 20%", options },
       { title: "Compare concepts", options, note: "Fifty percent growth is promised." },
+      { title: "Compare concepts", options, note: "Fifty shots are ready." },
+      { title: "Compare concepts", options, note: "Thirteen assets exist." },
     ]) {
       expect(ENTRY().props.safeParse(unsafe).success).toBe(false);
     }
