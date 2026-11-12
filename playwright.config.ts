@@ -23,7 +23,17 @@ const baseURL = process.env.E2E_BASE_URL || "http://localhost:3015";
 
 // Syntactic preflight only. Hyphenated Vercel team names make hostname shape
 // ambiguous. The async bypass helper MUST also verify via Vercel's API.
-const ALLOWED_PREVIEW_HOST = /^ipixai(-[a-z0-9-]+)?-amo-agency\.vercel\.app$/i;
+const IS_IPIX_HOST = (host: string): boolean => {
+  const text = host.toLowerCase();
+  if (text === "ipixai-amo-agency.vercel.app") return true;
+  const prefix = "ipixai-";
+  const suffix = "-amo-agency.vercel.app";
+  if (!text.startsWith(prefix) || !text.endsWith(suffix)) return false;
+  const middle = text.slice(prefix.length, -suffix.length);
+  return middle.length > 0 && [...middle].every((c) =>
+    (c >= "a" && c <= "z") || (c >= "0" && c <= "9") || c === "-"
+  );
+};
 
 const LOCAL_TARGET = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/;
 
@@ -38,7 +48,7 @@ export function isAllowedE2EBaseUrl(candidate: string): boolean {
   return parsedCandidate.protocol === "https:" &&
     parsedCandidate.origin === candidate &&
     !parsedCandidate.username && !parsedCandidate.password && !parsedCandidate.port &&
-    ALLOWED_PREVIEW_HOST.test(parsedCandidate.hostname);
+    IS_IPIX_HOST(parsedCandidate.hostname);
 }
 
 const isLocalTarget = isLocalE2ETarget(baseURL);
