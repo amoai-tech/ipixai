@@ -121,8 +121,13 @@ export async function previewBypassHeaders(
   // separate, token-bearing runner and passes that immutable origin here.
   // This opt-in is useless for local/manual runs or a different target: those
   // still require the direct authenticated Vercel API verification.
+  // Codacy cannot resolve Node's process.env types in this config; tsc and
+  // Playwright can. Keep the suppression scoped to these three accesses.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const verifiedByTrustedCI = process.env.GITHUB_ACTIONS === "true" &&
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     process.env.GITHUB_REF === "refs/heads/main" &&
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     process.env.E2E_VERIFIED_PREVIEW_ORIGIN === candidate;
   if (!verifiedByTrustedCI) {
     await verifyVercelDeploymentOwnership(candidate, ownership);
