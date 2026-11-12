@@ -117,8 +117,16 @@ export async function previewBypassHeaders(
       "VERCEL_AUTOMATION_BYPASS_SECRET is required for Vercel Preview E2E: without it Vercel Deployment Protection answers with an SSO screen instead of the app.",
     );
   }
-  // No bypass secret escapes until the deployment API proves ownership.
-  await verifyVercelDeploymentOwnership(candidate, ownership);
+  // A protected main-ref GitHub workflow verifies the exact READY URL on a
+  // separate, token-bearing runner and passes that immutable origin here.
+  // This opt-in is useless for local/manual runs or a different target: those
+  // still require the direct authenticated Vercel API verification.
+  const verifiedByTrustedCI = process.env.GITHUB_ACTIONS === "true" &&
+    process.env.GITHUB_REF === "refs/heads/main" &&
+    process.env.E2E_VERIFIED_PREVIEW_ORIGIN === candidate;
+  if (!verifiedByTrustedCI) {
+    await verifyVercelDeploymentOwnership(candidate, ownership);
+  }
   return {
     "x-vercel-protection-bypass": trimmedSecret,
     "x-vercel-set-bypass-cookie": "true",

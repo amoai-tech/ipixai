@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { tmpdir } from "node:os";
 import { describe, expect, it, vi } from "vitest";
 import { parse } from "yaml";
 
@@ -257,23 +258,23 @@ describe("Playwright E2E harness hardening", () => {
       "utf8",
     );
     const workflow = (parse(source) ?? {}) as { env?: Record<string, string> };
-    const job = workflowJob(source, "deploy");
+    const job = workflowJob(source, "journeys");
     const journey = (job.steps ?? []).find((step) =>
       step.run?.includes("npx playwright test"),
     );
     expect(journey, "the exact-SHA Preview workflow must run the Planner journeys").toBeDefined();
     // The deployed artifact must be the target, and Deployment Protection must be
     // cleared by the existing secret rather than an unprotected preview.
-    expect(journey?.env?.E2E_BASE_URL).toContain("steps.deploy.outputs.url");
+    expect(journey?.env?.E2E_BASE_URL).toContain("needs.deploy.outputs.url");
+    expect(journey?.env?.E2E_VERIFIED_PREVIEW_ORIGIN).toContain("needs.deploy.outputs.url");
     expect(journey?.env?.VERCEL_AUTOMATION_BYPASS_SECRET).toContain(
       "secrets.VERCEL_AUTOMATION_BYPASS_SECRET",
     );
-    // The ownership verifier runs during Playwright authentication setup,
-    // not during the preceding Vercel build. These trusted CI variables
-    // must reach THIS step before any QA credentials can be sent.
-    expect(journey?.env?.VERCEL_TOKEN).toContain("secrets.VERCEL_TOKEN");
-    expect(journey?.env?.VERCEL_ORG_ID).toContain("vars.VERCEL_ORG_ID");
-    expect(journey?.env?.VERCEL_PROJECT_ID).toContain("vars.VERCEL_PROJECT_ID");
+    // The candidate E2E code must never receive the Vercel management token:
+    // the separate, token-bearing deploy job attested the READY origin first.
+    expect(journey?.env?.VERCEL_TOKEN).toBeUndefined();
+    expect(journey?.env?.VERCEL_ORG_ID).toBeUndefined();
+    expect(journey?.env?.VERCEL_PROJECT_ID).toBeUndefined();
 
     // IPI-1332 · CERT-INTEGRITY-001 — the certified spec list is declared once
     // at workflow level and the run step consumes it, so assert the EFFECTIVE
@@ -310,6 +311,119 @@ describe("Playwright E2E harness hardening", () => {
   // certified set in exactly the way this workflow exists to prevent. Execute
   // the workflow's own expansion line against its own declared list, so a
   // regression to a first-line-only reader fails here.
+  it("isolates Vercel credentials and restricts the Preview workflow to protected main", () => {
+    const source = readFileSync(
+      path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"), "utf8",
+    );
+    const yaml = parse(source) as {
+      jobs: Record<string, {
+        if?: string; needs?: string; environment?: string;
+        steps?: Array<{ name?: string; uses?: string; env?: Record<string, unknown>; run?: string }>;
+      }>;
+    };
+    const { build, deploy, journeys } = yaml.jobs;
+    expect(build.if).toContain("github.ref == 'refs/heads/main'");
+    expect(build.environment).toBe("Production");
+    expect(deploy.needs).toBe("build");
+    expect(journeys.needs).toBe("deploy");
+    expect(build.steps?.some((step) => step.uses?.includes("upload-artifact@"))).toBe(true);
+    expect(deploy.steps?.some((step) => step.uses?.includes("download-artifact@"))).toBe(true);
+    expect(deploy.steps?.some((step) => step.uses?.includes("actions/checkout"))).toBe(false);
+    expect(deploy.steps?.some((step) => step.run?.includes("npm ci"))).toBe(false);
+    const buildStep = build.steps?.find((step) => step.name === "Build exact SHA Preview artifact");
+    expect(buildStep?.run).toBe("vercel build");
+    expect(buildStep?.env?.VERCEL_TOKEN).toBeUndefined();
+    const pullStep = build.steps?.find((step) => step.name === "Pull branch-scoped Preview environment");
+    expect(pullStep?.env?.VERCEL_TOKEN).toContain("secrets.VERCEL_TOKEN");
+    const deploymentStep = deploy.steps?.find((step) => step.name === "Deploy exact SHA Preview");
+    expect(deploymentStep?.env?.VERCEL_TOKEN).toContain("secrets.VERCEL_TOKEN");
+    const verification = deploy.steps?.find((step) => step.name?.startsWith("Verify exact READY"));
+    expect(verification?.env?.VERCEL_TOKEN).toContain("secrets.VERCEL_TOKEN");
+    expect(verification?.run).toContain("api.vercel.com/v13/deployments/");
+    expect(verification?.run).toContain("GITHUB_OUTPUT");
+    expect(verification?.run).not.toContain("import(");
+    expect(journeys.steps?.some((step) => step.env?.VERCEL_TOKEN !== undefined)).toBe(false);
+    // Main-only dispatch ensures even the workflow definition is trusted.
+    expect(source).toContain("if: github.ref == 'refs/heads/main'");
+  });
+
+  it("runs the exact trusted preflight and rejects a mismatched Vercel project", () => {
+    const source = readFileSync(
+      path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"), "utf8",
+    );
+    const parsed = parse(source) as { jobs: {
+      deploy: { steps: Array<{ id?: string; run?: string }> };
+    } };
+    const run = parsed.jobs.deploy.steps.find((step) => step.id === "verify")?.run ?? "";
+    const match = run.match(/node --input-type=module <<'NODE'\n([\s\S]*?)\nNODE/);
+    expect(match, "the trusted inline verification script exists").not.toBeNull();
+
+    const directory = mkdtempSync(path.join(tmpdir(), "ipix-vercel-preflight-"));
+    const output = path.join(directory, "github-output");
+    const origin = "https://ipixai-abc123-amo-agency.vercel.app";
+    const sha = "a".repeat(40);
+    const fakePayload = {
+      url: "ipixai-abc123-amo-agency.vercel.app",
+      projectId: "prj_expected",
+      readyState: "READY",
+      target: null,
+      meta: { githubCommitSha: sha, githubCommitRef: "fix/reviewed" },
+    };
+    const env = {
+      ...process.env, GITHUB_OUTPUT: output, VERCEL_TOKEN: "fake-token",
+      VERCEL_ORG_ID: "team_expected", VERCEL_PROJECT_ID: "prj_expected",
+      DEPLOYMENT_URL: origin, EXPECTED_SHA: sha, EXPECTED_BRANCH: "fix/reviewed",
+    };
+    try {
+      const execute = (payload: typeof fakePayload) => {
+        const stub = "globalThis.fetch = async () => new Response(" +
+          JSON.stringify(JSON.stringify(payload)) +
+          ", { status: 200, headers: { 'content-type': 'application/json' } });\n";
+        return spawnSync(process.execPath, ["--input-type=module"], {
+          input: stub + match![1], env, encoding: "utf8",
+        });
+      };
+      const accepted = execute(fakePayload);
+      expect(accepted.status, accepted.stderr).toBe(0);
+      expect(readFileSync(output, "utf8")).toBe("origin=" + origin + "\n");
+
+      const foreign = execute({ ...fakePayload, projectId: "prj_attacker" });
+      expect(foreign.status, "foreign Vercel project must be rejected").not.toBe(0);
+      expect(foreign.stderr).toContain("ownership, READY status, or commit identity mismatch");
+      const stale = execute({
+        ...fakePayload, meta: { ...fakePayload.meta, githubCommitSha: "b".repeat(40) },
+      });
+      expect(stale.status, "wrong candidate SHA must be rejected").not.toBe(0);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts a trusted exact-origin attestation, never a changed URL or untrusted ref", async () => {
+    const origin = "https://ipixai-abc123-amo-agency.vercel.app";
+    const options = {
+      token: "", teamId: "team_example", projectId: "prj_example",
+      fetchImpl: vi.fn(async () => new Response(null, { status: 500 })),
+    };
+    vi.stubEnv("GITHUB_ACTIONS", "true");
+    vi.stubEnv("GITHUB_REF", "refs/heads/main");
+    vi.stubEnv("E2E_VERIFIED_PREVIEW_ORIGIN", origin);
+    try {
+      await expect(previewBypassHeaders(origin, "bypass-secret", options)).resolves.toEqual({
+        "x-vercel-protection-bypass": "bypass-secret",
+        "x-vercel-set-bypass-cookie": "true",
+      });
+      expect(options.fetchImpl).not.toHaveBeenCalled();
+      await expect(previewBypassHeaders(
+        "https://ipixai-different-amo-agency.vercel.app", "bypass-secret", options,
+      )).rejects.toThrow(/VERCEL_TOKEN/);
+      vi.stubEnv("GITHUB_REF", "refs/heads/candidate");
+      await expect(previewBypassHeaders(origin, "bypass-secret", options)).rejects.toThrow(/VERCEL_TOKEN/);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("expands every declared certified spec when the Preview workflow runs", () => {
     const source = readFileSync(
       path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"),
@@ -323,7 +437,7 @@ describe("Playwright E2E harness hardening", () => {
       .filter(Boolean);
     expect(declared.length, "a multi-line declaration is the case this guards").toBeGreaterThan(1);
 
-    const job = workflowJob(source, "deploy");
+    const job = workflowJob(source, "journeys");
     const journey = (job.steps ?? []).find((step) =>
       step.run?.includes("npx playwright test"),
     );
@@ -386,7 +500,7 @@ describe("Playwright E2E harness hardening", () => {
       path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"),
       "utf8",
     );
-    const job = workflowJob(source, "deploy");
+    const job = workflowJob(source, "build");
     const assertion = (job.steps ?? []).find((step) =>
       step.name?.startsWith("Assert the running workflow"),
     );
@@ -434,26 +548,22 @@ describe("Playwright E2E harness hardening", () => {
     ).toEqual([...specFiles].sort());
 
     // The same pattern must appear in the run step, or the two could drift.
-    const journey = (job.steps ?? []).find((step) =>
+    const journey = (workflowJob(source, "journeys").steps ?? []).find((step) =>
       step.run?.includes("npx playwright test"),
     );
     expect(journey?.run).toContain("spec_path_pattern");
   });
 
-  it("tells the operator a dispatch ref may be a branch or a tag", () => {
+  it("instructs operators to dispatch only the trusted main workflow", () => {
     const source = readFileSync(
-      path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"),
-      "utf8",
+      path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"), "utf8",
     );
-    const job = workflowJob(source, "deploy");
-    const assertion = (job.steps ?? []).find((step) =>
+    const build = workflowJob(source, "build");
+    const assertion = (build.steps ?? []).find((step) =>
       step.name?.startsWith("Assert the running workflow"),
     );
-
-    expect(assertion?.run).toContain("branch or tag");
-    expect(assertion?.run, "a workflow_dispatch ref is not always a branch").not.toMatch(
-      /--ref (?:set to )?the branch\b/,
-    );
+    expect(assertion?.run).toContain("--ref main");
+    expect(assertion?.run).toContain("never dispatch from the candidate branch");
   });
 
   // IPI-1332 · CERT-INTEGRITY-001 regression — a workflow_dispatch runs the
@@ -466,7 +576,7 @@ describe("Playwright E2E harness hardening", () => {
       path.resolve(process.cwd(), ".github/workflows/vercel-preview.yml"),
       "utf8",
     );
-    const job = workflowJob(source, "deploy");
+    const job = workflowJob(source, "build");
     const guard = (job.steps ?? []).find((step) =>
       step.name?.includes("Assert the running workflow matches the candidate SHA"),
     );

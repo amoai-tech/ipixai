@@ -32,7 +32,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
+    # Workflow code and Vercel credentials must come from protected main,
+    # even when the exact candidate commit comes from a PR branch.
+    if: github.ref == 'refs/heads/main'
+    environment: Production
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -64,14 +68,12 @@ jobs:
           git fetch --no-tags origin "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
           git merge-base --is-ancestor "$SHA" "origin/$BRANCH"
 
-      # IPI-1332 · CERT-INTEGRITY-001 — a workflow_dispatch runs the workflow
-      # file from the dispatch REF (a branch or tag), never from the candidate
-      # SHA, and `ref` cannot be a SHA (https://github.com/github/docs/issues/590).
-      # Dispatching `--ref main` while certifying a PR-branch SHA therefore ran
-      # MAIN's spec list: on 2026-09-27 that certified PR B with 3 specs while PR
-      # B intended 4, so `planner-workflows.spec.ts` was reported green having
-      # never executed. Prove the two lists agree instead of assuming they do,
-      # and make the candidate SHA's list the single source of truth for the run.
+      # IPI-1332 · CERT-INTEGRITY-001: the workflow must come from trusted
+      # main, while checkout uses the exact candidate SHA. Compare the
+      # certified spec list from both revisions and fail if they differ:
+      # neither an old main workflow nor candidate changes may silently
+      # remove a journey. Never use --ref on the candidate branch in a
+      # credential-bearing workflow.
       - name: Assert the running workflow matches the candidate SHA
         shell: bash
         env:
@@ -143,12 +145,12 @@ jobs:
           done
 
           if [ "${#running[@]}" -eq 0 ]; then
-            echo "::error::the workflow that ran (${RUNNING_REF} @ ${RUNNING_REF_SHA}) has no CERT_SPECS block, so its certified list cannot be verified. Re-dispatch with --ref on a branch or tag that carries the same declaration as ${CANDIDATE_SHA}." >&2
+            echo "::error::the workflow that ran (${RUNNING_REF} @ ${RUNNING_REF_SHA}) has no CERT_SPECS block, so its certified list cannot be verified. Update the reviewed spec list on main, then dispatch with --ref main." >&2
             exit 1
           fi
 
           if [ "${running[*]}" != "${candidate[*]}" ]; then
-            echo "::error title=Certifying a different spec list than the candidate declares::the workflow that ran came from ${RUNNING_REF} (${RUNNING_REF_SHA}), but ${CANDIDATE_SHA} declares a different spec list. Re-dispatch with --ref set to a branch or tag containing ${CANDIDATE_SHA}." >&2
+            echo "::error title=Certifying a different spec list than the candidate declares::the workflow that ran came from ${RUNNING_REF} (${RUNNING_REF_SHA}), but ${CANDIDATE_SHA} declares a different spec list. Update the reviewed spec list on main, then dispatch with --ref main; never dispatch from the candidate branch." >&2
             exit 1
           fi
           echo "OK: ${#candidate[@]} spec file(s) — running workflow equals the candidate SHA's declared list."
@@ -165,14 +167,64 @@ jobs:
         run: >-
           vercel pull --yes --environment=preview
           --git-branch="$BRANCH"
-          --token="$VERCEL_TOKEN"
 
       - name: Build exact SHA Preview artifact
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-        run: vercel build --token="$VERCEL_TOKEN"
+        run: vercel build
+
+      - name: Pack compiled artifact without Vercel environment files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .vercel/output/config.json
+          test -f .vercel/project.json
+          if find .vercel/output -type f -name '.env*' | grep -q .; then
+            echo "::error::Refusing to upload a build containing a .env file"
+            exit 1
+          fi
+          tar -C .vercel -czf "$RUNNER_TEMP/ipix-prebuilt.tar.gz" output project.json
+
+      - name: Upload compiled artifact for isolated deployment
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ipix-prebuilt-${{ inputs.sha }}
+          path: ${{ runner.temp }}/ipix-prebuilt.tar.gz
+          retention-days: 1
+          if-no-files-found: error
+
+  deploy:
+    # A fresh runner with no candidate checkout or build scripts. Candidate
+    # code cannot alter PATH/GITHUB_ENV before this job receives Vercel access.
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    outputs:
+      url: ${{ steps.verify.outputs.origin }}
+    steps:
+      - name: Use Node.js 24 for pinned Vercel CLI
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24.x
+
+      - name: Download compiled Preview artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: ipix-prebuilt-${{ inputs.sha }}
+          path: ${{ runner.temp }}
+
+      - name: Restore only Vercel build output and project linkage
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .vercel
+          tar -xzf "$RUNNER_TEMP/ipix-prebuilt.tar.gz" -C .vercel
+          test -f .vercel/output/config.json
+          test -f .vercel/project.json
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@59.23.1
 
       - name: Deploy exact SHA Preview
         id: deploy
@@ -182,20 +234,72 @@ jobs:
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
           SHA: ${{ inputs.sha }}
           BRANCH: ${{ inputs.branch }}
+        shell: bash
         run: |
           set -euo pipefail
-          deployment_url="$(vercel deploy --prebuilt \
-            --meta githubCommitSha="$SHA" \
-            --meta githubCommitRef="$BRANCH" \
-            --token="$VERCEL_TOKEN")"
+          deployment_url="$(vercel deploy --prebuilt --meta githubCommitSha="$SHA" --meta githubCommitRef="$BRANCH")"
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
-          echo "Preview: $deployment_url"
 
-      - name: Inspect deployed Preview
+      - name: Verify exact READY Preview ownership before QA
+        id: verify
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
-        run: vercel inspect "$DEPLOYMENT_URL" --token="$VERCEL_TOKEN"
+          EXPECTED_SHA: ${{ inputs.sha }}
+          EXPECTED_BRANCH: ${{ inputs.branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Inline, fixed workflow logic only: never import candidate files
+          # or run candidate scripts on a credential-bearing runner.
+          node --input-type=module <<'NODE'
+          import { appendFileSync } from "node:fs";
+          const value = process.env.DEPLOYMENT_URL;
+          const url = new URL(value);
+          if (url.protocol !== "https:" || url.origin !== value ||
+              !/^ipixai-[a-z0-9-]+-amo-agency[.]vercel[.]app$/i.test(url.hostname)) {
+            throw new Error("Expected unique, canonical amo-agency Preview URL");
+          }
+          const endpoint = new URL("https://api.vercel.com/v13/deployments/" +
+            encodeURIComponent(url.hostname));
+          endpoint.searchParams.set("teamId", process.env.VERCEL_ORG_ID);
+          const response = await fetch(endpoint, {
+            headers: { Authorization: "Bearer " + process.env.VERCEL_TOKEN },
+            signal: AbortSignal.timeout(15000),
+          });
+          if (!response.ok) throw new Error("Preview ownership API HTTP " + response.status);
+          const data = await response.json();
+          if (data.url !== url.hostname ||
+              data.projectId !== process.env.VERCEL_PROJECT_ID ||
+              data.readyState !== "READY" ||
+              data.target === "production" ||
+              data.meta?.githubCommitSha !== process.env.EXPECTED_SHA ||
+              data.meta?.githubCommitRef !== process.env.EXPECTED_BRANCH) {
+            throw new Error("Preview ownership, READY status, or commit identity mismatch");
+          }
+          appendFileSync(process.env.GITHUB_OUTPUT, "origin=" + url.origin + "\n");
+          console.log("Verified exact SHA, branch, READY status and Vercel project");
+          NODE
+
+  journeys:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Checkout exact candidate SHA for QA
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Use repository Node version
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
 
       # IPI-1344 · E2E-PREVIEW-BYPASS-001 — certifying a Preview used to depend
       # on single-use Vercel share links, which silently stopped granting access
@@ -212,12 +316,11 @@ jobs:
 
       - name: Run authenticated Planner journeys against this exact Preview
         env:
-          E2E_BASE_URL: ${{ steps.deploy.outputs.url }}
+          E2E_BASE_URL: ${{ needs.deploy.outputs.url }}
+          # A trusted, token-bearing step on a separate runner verified this
+          # exact origin with Vercel's API before providing any QA secrets.
+          E2E_VERIFIED_PREVIEW_ORIGIN: ${{ needs.deploy.outputs.url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          # Check exact Vercel project ownership before QA sign-in.
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
           COPILOTKIT_TELEMETRY_DISABLED: "true"
           E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}

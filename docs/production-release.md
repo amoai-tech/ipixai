@@ -18,6 +18,39 @@ flowchart TD
   F --> G[Certify exact Production SHA, monitor, retain rollback]
 ```
 
+### Before release — protected exact-SHA Preview
+
+The manually dispatched Preview workflow is a separate QA gate, not a
+production promotion. Its privileged workflow definition MUST come from
+reviewed main, while its sha input names the exact candidate commit.
+Never dispatch from a candidate feature branch with Vercel secrets.
+
+~~~bash
+gh workflow run vercel-preview.yml -R amoai-tech/ipixai --ref main \
+  -f sha=<exact-reviewed-candidate-SHA> -f branch=<reviewed-branch-name>
+~~~
+
+The existing Production GitHub environment requires human approval before
+the build job can download Vercel Preview variables or run paid AI QA. Review
+the candidate commit and authorize QA costs/persistent test threads before
+approving. The workflow compares the candidate's full certified spec list with
+main and stops rather than silently testing fewer specs.
+
+The builder has no Vercel token during vercel build. It uploads only compiled
+output and project linkage (one-day artifact retention). A fresh runner
+uses the token for vercel deploy --prebuilt and verifies the exact READY
+deployment, project, branch and commit through Vercel's API; another runner
+performs Playwright tests without the Vercel management token.
+
+Required credential follow-up: move repository-wide VERCEL_TOKEN into the
+reviewed Production GitHub environment secret, then remove the repository
+copy only after both Preview and Production workflows can read it.
+Repository-level secrets can be accessed by other eligible workflows,
+even when this particular Preview pipeline isolates the token. Use a
+least-privilege token. Never upload pulled .vercel environment files.
+Until token scoping and the workflow run are verified, do not treat this
+as completed security certification.
+
 ### Step 1 — Stage one exact production candidate
 
 **Destination:** `.github/workflows/ci.yml`, `vercel-production` job.
