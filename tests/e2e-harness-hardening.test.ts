@@ -268,6 +268,12 @@ describe("Playwright E2E harness hardening", () => {
     expect(journey?.env?.VERCEL_AUTOMATION_BYPASS_SECRET).toContain(
       "secrets.VERCEL_AUTOMATION_BYPASS_SECRET",
     );
+    // The ownership verifier runs during Playwright authentication setup,
+    // not during the preceding Vercel build. These trusted CI variables
+    // must reach THIS step before any QA credentials can be sent.
+    expect(journey?.env?.VERCEL_TOKEN).toContain("secrets.VERCEL_TOKEN");
+    expect(journey?.env?.VERCEL_ORG_ID).toContain("vars.VERCEL_ORG_ID");
+    expect(journey?.env?.VERCEL_PROJECT_ID).toContain("vars.VERCEL_PROJECT_ID");
 
     // IPI-1332 · CERT-INTEGRITY-001 — the certified spec list is declared once
     // at workflow level and the run step consumes it, so assert the EFFECTIVE
