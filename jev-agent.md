@@ -2,7 +2,7 @@
 
 > **Purpose:** Help iPix coding agents use Jev only when a bounded semantic judgment adds value. Jev is a judge, not a code writer, source of truth, authorization system, or substitute for tests.
 >
-> **Authority:** [AGENTS.md](AGENTS.md) owns repository-wide rules; [.claude/skills/tasks/SKILL.md](.claude/skills/tasks/SKILL.md) owns the task/PR lifecycle; [task-verifier](.claude/skills/task-verifier/SKILL.md) challenges evidence; live Linear owns task status. This guide adds no new approval, release, or task gate.
+> **Authority:** [AGENTS.md](AGENTS.md) owns repository-wide rules; [.claude/skills/tasks/SKILL.md](.agents/skills/tasks/SKILL.md) owns the task/PR lifecycle; [task-verifier](.agents/skills/task-verifier/SKILL.md) challenges evidence; live Linear owns task status. This guide adds no new approval, release, or task gate.
 
 ## Choose the simplest tool first
 
@@ -82,5 +82,5 @@ These are **usage examples, not claims that every feature has shipped**. Check [
 ## References
 
 - [Official Jev MCP CLI guide](https://github.com/shaharia-lab/jev-cli/blob/main/docs/user-guide/mcp.md)
-- [iPix repository rules](AGENTS.md) · [iPix task skill](.claude/skills/tasks/SKILL.md) · [iPix task-verifier](.claude/skills/task-verifier/SKILL.md)
+- [iPix repository rules](AGENTS.md) · [iPix task skill](.agents/skills/tasks/SKILL.md) · [iPix task-verifier](.agents/skills/task-verifier/SKILL.md)
 - [Product intent](docs/intent.md) · [Observable specification](docs/spec.md)
