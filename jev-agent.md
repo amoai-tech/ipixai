@@ -2,7 +2,7 @@
 
 > **Purpose:** Help iPix coding agents use Jev only when a bounded semantic judgment adds value. Jev is a judge, not a code writer, source of truth, authorization system, or substitute for tests.
 >
-> **Authority:** [AGENTS.md](AGENTS.md) owns repository-wide rules; [.claude/skills/tasks/SKILL.md](.agents/skills/tasks/SKILL.md) owns the task/PR lifecycle; [task-verifier](.agents/skills/task-verifier/SKILL.md) challenges evidence; live Linear owns task status. This guide adds no new approval, release, or task gate.
+> **Authority:** [AGENTS.md](AGENTS.md) owns repository-wide rules; [.agents/skills/tasks/SKILL.md](.agents/skills/tasks/SKILL.md) owns the task/PR lifecycle; [task-verifier](.agents/skills/task-verifier/SKILL.md) challenges evidence; live Linear owns task status. This guide adds no new approval, release, or task gate.
 
 ## Choose the simplest tool first
 
@@ -63,7 +63,7 @@ These are **usage examples, not claims that every feature has shipped**. Check [
 
 ## DSH port 3084 — simplest operating rule
 
-- Use **iPix**, not MDE: read `/home/sk/ipixai/AGENTS.md` and this repository's `jev-agent.md` when working in the owner's iPix checkout. Use the current repository branch, actual project data, and iPix-specific Linear issues.
+- Use **iPix**, not MDE: read this repository's `AGENTS.md` and `jev-agent.md` from the active iPix checkout. Use the current repository branch, actual project data, and iPix-specific Linear issues.
 - The 3084 local profile already configures `mcp-jev-judgments` (custom Jev) and `mcp-jev-browser`. **No second MCP installation or scheduler patch is needed to read this guide.**
 - After an **MCP tool-set change**, perform a clean, independent **3084-only** restart via its existing service controller after active work finishes. Do not run a second DSH process inside another profile. A local health result alone does not prove tool execution.
 - A quick smoke test is: native `bash` runs `echo ipix-tools-ok`; then call `mcp__jev__jev_noul` on harmless synthetic text and inspect the **actual native tool result**. If Bash fails, troubleshoot the DSH dispatcher before Jev.
