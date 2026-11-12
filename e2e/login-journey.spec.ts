@@ -30,7 +30,7 @@ test.describe("clean login journey", () => {
   // cookie, and re-running the establishment there can fail while Vercel
   // refreshes an existing cookie without adding a new one.
   test.beforeEach(async ({ context, page, baseURL }) => {
-    const headers = previewBypassHeaders(
+    const headers = await previewBypassHeaders(
       baseURL ?? "",
       process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
     );

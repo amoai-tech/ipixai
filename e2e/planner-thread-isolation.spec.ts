@@ -331,7 +331,7 @@ test("planner thread API rejects unauthenticated requests", async ({ browser, ba
     // reaches iPix — Vercel answers with its own "Protected Deployment" login
     // page (HTTP 200 HTML), a false 200 for this assertion. Clear Deployment
     // Protection only (not iPix auth), then prove no Supabase session exists.
-    const bypass = previewBypassHeaders(
+    const bypass = await previewBypassHeaders(
       baseURL ?? "",
       process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
     );
