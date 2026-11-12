@@ -59,8 +59,16 @@ describe("iPix native GenUI catalog", () => {
     expect(screen.getByText("One Look at Nature")).toBeTruthy();
 
     // A count of looks is still a business quantity, not concept vocabulary.
+    // Plural "looks" is counted even when followed by "at".
+    for (const note of [
+      "Sign off twelve looks by Friday.",
+      "The collection includes twelve looks at the beach.",
+    ]) {
+      expect(ENTRY().props.safeParse({ ...concept, note }).success).toBe(false);
+    }
+    // A singular count is not the idiom either.
     expect(
-      ENTRY().props.safeParse({ ...concept, note: "Sign off twelve looks by Friday." }).success,
+      ENTRY().props.safeParse({ ...concept, note: "One look for the editorial." }).success,
     ).toBe(false);
   });
 

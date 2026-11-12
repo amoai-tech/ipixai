@@ -15,10 +15,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 const UNSUPPORTED_BUSINESS_CLAIMS = [
   /[\d$€£¥₹₱%]/u,
   /\b(?:USD|CAD|COP|EUR|GBP|budgets?|costs?|prices?|profits?|revenue|sales|conversions?|engagement|impressions?|metrics?|ROI|ROAS|KPIs?|percent(?:age)?s?|dollars?|pesos?|approved|published|completed|delivered|paid|spent|spending|shot\s+counts?|asset\s+IDs?)\b/iu,
-  // Counted nouns. "look" also means an outfit ("One Look at Nature"), which is
-  // fashion vocabulary rather than an asset count, so the "look at" idiom is
-  // exempt while a real count ("twelve looks") is still rejected.
-  /\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|dozen|hundred|thousand|million)\s+(?:shots?|images?|assets?|photos?|deliverables?|models?|items?|looks?(?!\s+at\b))\b/iu,
+  // Counted nouns. Singular "look" also means an outfit ("One Look at Nature"),
+  // which is fashion vocabulary rather than an asset count, so only that exact
+  // idiom is exempt. Plural "looks" is always a count ("twelve looks at the
+  // beach" included), and a singular count ("one look for the editorial") still
+  // fails, so the exemption cannot hide a real quantity.
+  /\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|dozen|hundred|thousand|million)\s+(?:shots?|images?|assets?|photos?|deliverables?|models?|items?|looks|look(?!\s+at\b))\b/iu,
 ];
 
 const qualitativeText = (max: number) =>
