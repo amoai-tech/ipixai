@@ -81,6 +81,9 @@ Graphify / dependency discovery
 
 Do not redesign architecture unless evidence proves the current design cannot satisfy the requirement.
 
+**Optional Jev for coding agents (including the iPix Superagent on port 3084):** See [jev-agent.md](jev-agent.md) for bounded semantic judgments, safe tool choice, and real iPix examples. Follow this AGENTS.md, the canonical task skill, task-verifier and deterministic evidence first. The 3084 Jev servers are machine-specific; never treat a Jev verdict as permission to approve, publish, access tenant data, or declare Done. Do not add a second MCP setup or a new task/approval gate.
+
+
 ## Mermaid reasoning — required for substantial tasks
 
 For a substantial task, follow the existing [mermaid-diagrams skill](.claude/skills/mermaid-diagrams/SKILL.md) and make **one smallest useful diagram pass** for architecture, approval, dependencies, failure/recovery, or other material relationships. Use the diagram to find hidden writes, missing ownership, tenant/auth/HITL gaps, retries, races and missing proof. Do not generate a diagram per file or task section; reuse a diagram unless a new risk requires another. If none adds value, record: `Diagram: N/A — no meaningful relationship/state/sequence to model.`
