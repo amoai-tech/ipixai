@@ -380,6 +380,8 @@ Generated UI rules:
 
 No task was marked Done. The current dependency order is mostly correct. The only material factual correction is IPI-1426's transport status: it is no longer “unknown”; the gate incompatibility is reproduced.
 
+**Status update 2026-11-12 (this table is the 2026-11-10 audit snapshot):** IPI-1426 is merged on `main` as PR #334, and PR #338 now implements one read-only `ConceptComparison` catalog plus one named `planner-comparison` surface with allowlisted components and an accessible recovery fallback. The catalog is a bespoke read-only component rather than a `standardUI.omit(...)` derivation, so all 69 standard components remain deferred by policy (`ipix-standard-catalog-policy.ts`). The "no catalog code exists" and "no Surface exists" cells, and the two matching **exact next actions** for IPI-1387/IPI-1427 ("add one versioned read-only catalog and tests"; "add one bounded named target with native fallback"), are **superseded by #338**. The remaining gaps in those rows still stand and are owned elsewhere: IPI-1427 = mounting breadth and real-browser proof, IPI-1428 = trusted state, IPI-1429 = safe actions, IPI-1430 = certification; their rows and actions below are unchanged.
+
 ## 11. Premium UI/UX audit
 
 The product already has a restrained iPix system: white/near-black/gray surfaces, hairline borders, 6/10/16/20px radius tiers, Inter, a 14rem navigation rail, and an adaptive Copilot panel. Preserve it. The first GenUI components should use the existing tokens and shadcn-style primitives; do not import demo-shop styling or MDE brand/auth assets.

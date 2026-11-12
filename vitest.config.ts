@@ -15,7 +15,11 @@ export default defineConfig({
       "server-only": path.resolve(__dirname, "node_modules/server-only/empty.js"),
     },
   },
+  // Next/Tailwind PostCSS is for the app build; the real-provider test only needs CSS module resolution.
+  css: { postcss: { plugins: [] } },
   test: {
+    // Native CopilotKit provider imports a CSS file; bundle it through Vite for the real GenUI integration test.
+    server: { deps: { inline: ["@copilotkit/react-core"] } },
     environment: "node",
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx", "src/components/**/*.test.tsx", "src/lib/**/*.test.ts"],
   },
