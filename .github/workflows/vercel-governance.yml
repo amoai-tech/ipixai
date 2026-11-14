@@ -14,11 +14,13 @@ concurrency:
 
 jobs:
   audit:
+    # The Governance environment also permits only main (GitHub settings).
+    # Keep a code-side guard so non-main dispatches never request its token.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: Governance
     timeout-minutes: 5
     env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
       VERCEL_MAX_DEPLOYMENTS_24H: "3"
@@ -32,11 +34,25 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # Reference — REFERENCE ONLY: https://docs.github.com/en/rest/deployments/environments
-      # Read public GitHub environment rules with no privileged token; fail on
-      # reviewer/admin-bypass/branch drift before it can affect the next release.
-      - name: Verify Production approval policy has not drifted
-        run: node scripts/check-production-environment.mjs
-
       - name: Check Vercel deployment count and ownership
         run: node scripts/check-vercel-deployment-governance.mjs
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+  production-policy:
+    # Run the Production protection guard without Governance approval/token.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Use repository Node version
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .nvmrc
+
+      # Reference — REFERENCE ONLY: https://docs.github.com/en/rest/deployments/environments
+      - name: Verify Production approval policy has not drifted
+        run: node scripts/check-production-environment.mjs
