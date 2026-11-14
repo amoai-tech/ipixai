@@ -30,7 +30,10 @@ export function IpixGenerativeComparisonSurface() {
     !surface.model?.componentsModel?.get(GENERATIVE_UI_ROOT_ID);
 
   return (
-    <>
+    <section
+      aria-label="AI comparison"
+      data-testid="genui-comparison-region"
+    >
       <GenerativeUISurface
         id={TARGET}
         description="Read-only qualitative comparison of shoot concepts. Use one ConceptComparison with props title and 2-3 options, each exactly { name, rationale }. Use A2UI 1.0 operations only; do not use an op/component.type wrapper or measured business facts."
@@ -45,6 +48,6 @@ export function IpixGenerativeComparisonSurface() {
           We couldn't show this comparison. Ask iPix to try again.
         </p>
       ) : null}
-    </>
+    </section>
   );
 }

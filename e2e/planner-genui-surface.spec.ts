@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+import { plannerThreadStorageKey } from "../src/mastra/thread-types";
 import { ensureCopilotOpen } from "./support/copilot-panel";
 
 // One real, paid model call. This file belongs to the `chromium-ai-smoke`
@@ -13,6 +14,21 @@ test.describe("GenUI real-model Surface", () => {
   test("a real model renders the comparison card into planner-comparison", async ({
     page,
   }) => {
+    // Start from a genuinely new thread. A stored id that is not in the
+    // server's thread list makes `resolvePlannerThreadId` call randomUUID,
+    // so the assertion below cannot pass on a card persisted by an earlier
+    // test run.
+    const threadsResponse = await page.request.get("/api/planner/threads");
+    expect(threadsResponse.ok()).toBe(true);
+    const threadsBody = (await threadsResponse.json()) as { resourceId?: unknown };
+    expect(typeof threadsBody.resourceId).toBe("string");
+    await page.addInitScript(
+      (storageKey) => {
+        window.localStorage.setItem(storageKey, crypto.randomUUID());
+      },
+      plannerThreadStorageKey(threadsBody.resourceId as string),
+    );
+
     await page.goto("/app");
     await ensureCopilotOpen(page);
     await expect(

@@ -13,6 +13,8 @@ import {
   GENERATIVE_UI_ROOT_ID,
 } from "@copilotkit/shared";
 import { wrapPlannerStreamWithToolGate } from "../src/mastra/planner-tool-gate";
+import { GENUI_COMPARISON_UPDATE_COMPONENTS } from "../src/mastra/agents/production-planner-instructions";
+import { conceptComparisonSchema } from "../src/lib/copilotkit/ipix-generative-ui";
 
 const ENVELOPE = {
   "1.0": {
@@ -155,18 +157,33 @@ describe("CopilotKit GenerativeUIMiddleware → planner gate bridge", () => {
   it("emits surface activities for a valid render_ui call", async () => {
     const envelope = {
       "1.0": {
-        supportedCatalogIds: ["ipix/test@1"],
+        supportedCatalogIds: ["ipix/planner@1"],
         inlineCatalogs: [
           {
-            catalogId: "ipix/test@1",
+            catalogId: "ipix/planner@1",
             protocolVersion: "1.0",
             components: {
-              Text: {
+              ConceptComparison: {
                 props: {
-                  properties: { text: { type: "string" } },
-                  required: ["text"],
+                  properties: {
+                    title: { type: "string" },
+                    options: {
+                      type: "array",
+                      minItems: 2,
+                      maxItems: 3,
+                      items: {
+                        type: "object",
+                        properties: {
+                          name: { type: "string" },
+                          rationale: { type: "string" },
+                        },
+                        required: ["name", "rationale"],
+                      },
+                    },
+                  },
+                  required: ["title", "options"],
                 },
-                description: "A line of text.",
+                description: "A read-only concept comparison.",
               },
             },
             functions: {},
@@ -182,7 +199,7 @@ describe("CopilotKit GenerativeUIMiddleware → planner gate bridge", () => {
               id: "planner-comparison",
               kind: "inline",
               description: "Test comparison target.",
-              components: ["Text"],
+              components: ["ConceptComparison"],
             },
           ],
           copilotkit_surfaces: {},
@@ -194,14 +211,22 @@ describe("CopilotKit GenerativeUIMiddleware → planner gate bridge", () => {
     const operations = [
       {
         version: A2UI_VERSION,
-        createSurface: { surfaceId: "middleware-surface", catalogId: "ipix/test@1" },
+        createSurface: { surfaceId: "middleware-surface", catalogId: "ipix/planner@1" },
       },
       {
         version: A2UI_VERSION,
         updateComponents: {
           surfaceId: "middleware-surface",
           components: [
-            { id: GENERATIVE_UI_ROOT_ID, component: "Text", text: "Middleware works" },
+            {
+              id: GENERATIVE_UI_ROOT_ID,
+              component: "ConceptComparison",
+              title: "Middleware works",
+              options: [
+                { name: "Studio", rationale: "Controlled light." },
+                { name: "Outdoor", rationale: "Natural light." },
+              ],
+            },
           ],
         },
       },
@@ -263,4 +288,14 @@ describe("CopilotKit GenerativeUIMiddleware → planner gate bridge", () => {
     expect(payload.status).toBe("rendered");
     expect(payload.applied).toBeGreaterThan(0);
   });
-})
+
+  it("keeps the Planner instruction example valid for ConceptComparison", () => {
+    const component =
+      GENUI_COMPARISON_UPDATE_COMPONENTS.updateComponents.components[0];
+    const { id, component: name, ...props } = component;
+    expect(id).toBe(GENERATIVE_UI_ROOT_ID);
+    expect(name).toBe("ConceptComparison");
+    expect(props.options).toHaveLength(2);
+    expect(conceptComparisonSchema.safeParse(props).success).toBe(true);
+  });
+});

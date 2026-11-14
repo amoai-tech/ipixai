@@ -31,7 +31,7 @@ const qualitativeText = (max: number) =>
     "Only qualitative proposals are allowed; use authorized tools for business facts.",
   );
 
-const conceptComparisonSchema = z.object({
+export const conceptComparisonSchema = z.object({
   title: qualitativeText(120),
   options: z.array(z.object({
     name: qualitativeText(80),

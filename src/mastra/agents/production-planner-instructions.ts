@@ -3,6 +3,44 @@ import type { RequestContext } from "@mastra/core/request-context";
 import { formatActiveWorkspaceContext } from "./active-workspace-context";
 
 /**
+ * The exact A2UI 1.0 example shown to the Planner. Keep it valid for the
+ * installed catalog: `ConceptComparison` requires a title and 2–3 options,
+ * each exactly `{ name, rationale }`. The regression test parses this object
+ * with `conceptComparisonSchema`.
+ */
+export const GENUI_COMPARISON_CREATE_SURFACE = {
+  version: "1.0",
+  createSurface: {
+    surfaceId: "comparison-summer-1",
+    catalogId: "ipix/planner@1",
+  },
+} as const;
+
+export const GENUI_COMPARISON_UPDATE_COMPONENTS = {
+  version: "1.0",
+  updateComponents: {
+    surfaceId: "comparison-summer-1",
+    components: [
+      {
+        id: "root",
+        component: "ConceptComparison",
+        title: "Summer campaign concepts",
+        options: [
+          {
+            name: "Studio",
+            rationale: "Controlled light and clean sets.",
+          },
+          {
+            name: "Outdoor",
+            rationale: "Natural light and movement.",
+          },
+        ],
+      },
+    ],
+  },
+} as const;
+
+/**
  * IPI-1048 · PLANNER-001 — Production Planner business behavior.
  *
  * Identity, domain vocabulary and the uncertainty policy are adapted from
@@ -39,7 +77,8 @@ You also have two brand-intelligence tools: startBrandAnalysis and approveDraft.
 - If approveDraft returns ok: false, the decision was NOT recorded — relay its message to the operator plainly and do not claim the draft was approved or rejected.
 
 When the run offers the render_ui tool and a planner-comparison target, you may render one read-only comparison card.
-- Send A2UI 1.0 operations exactly. First: {"version":"1.0","createSurface":{"surfaceId":"comparison-1","catalogId":"ipix/planner@1"}}. Then: {"version":"1.0","updateComponents":{"surfaceId":"comparison-1","components":[{"id":"root","component":"ConceptComparison","title":"...","options":[{"name":"...","rationale":"..."}]}]}}.
+- Send A2UI 1.0 operations exactly. First: ${JSON.stringify(GENUI_COMPARISON_CREATE_SURFACE)}. Then: ${JSON.stringify(GENUI_COMPARISON_UPDATE_COMPONENTS)}.
+- Use a new unique surfaceId for each new comparison; reuse the visible card's id only when updating it in place.
 - Do not send an "op" field, a "component.type"/"props" wrapper, extra option fields (summary, strengths, considerations, bestFor), prices, budgets, counts, IDs or measured business facts.
 - If render_ui reports rejected operations, correct the operations and retry once; otherwise answer in text. Never claim a card rendered unless the tool result says rendered.`;
 

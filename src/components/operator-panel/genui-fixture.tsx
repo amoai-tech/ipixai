@@ -2,7 +2,11 @@
 
 import { useEffect } from "react";
 import { useGenerativeUIRuntime } from "@copilotkit/react-core/v2/generative-ui";
-import { A2UI_VERSION, GENERATIVE_UI_ROOT_ID } from "@copilotkit/shared";
+import {
+  A2UI_VERSION,
+  GENERATIVE_UI_ROOT_ID,
+  type A2UIOperation,
+} from "@copilotkit/shared";
 
 import { ipixGenerativeUI } from "@/lib/copilotkit/ipix-generative-ui";
 
@@ -23,13 +27,14 @@ type FixtureApi = {
   delete: () => void;
   malformed: () => void;
   switchThread: (threadId: string) => void;
+  switchScope: (scope: string) => void;
 };
 
 function surfaceIdFor(seq: number) {
   return `genui-fixture-${seq}`;
 }
 
-function createOperations(surfaceId: string, title: string) {
+function createOperations(surfaceId: string, title: string): A2UIOperation[] {
   return [
     {
       version: A2UI_VERSION,
@@ -66,13 +71,13 @@ export function GenUIFixture() {
   useEffect(() => {
     if (!runtime) return;
     const manager = runtime.manager;
-    let sequence = 1;
-    let currentSurfaceId = surfaceIdFor(sequence);
+    let sequence = 0;
+    let currentSurfaceId: string | null = null;
 
     const ingest = (
       threadId: string,
       surfaceId: string,
-      operations: unknown[],
+      operations: A2UIOperation[],
     ) => {
       manager.ingest(threadId, "default", {
         surfaceId,
@@ -80,7 +85,7 @@ export function GenUIFixture() {
         target: TARGET,
         status: "ready",
         rejected: [],
-        operations: operations as never,
+        operations,
       });
     };
 
@@ -91,15 +96,17 @@ export function GenUIFixture() {
       ingest(MAIN_THREAD, currentSurfaceId, createOperations(currentSurfaceId, title));
     };
 
-    manager.setActiveThread(MAIN_THREAD);
-    if (!manager.getSurface(MAIN_THREAD, currentSurfaceId)) {
-      ingest(MAIN_THREAD, currentSurfaceId, createOperations(currentSurfaceId, "Fixture comparison"));
-    }
+    // The default page seeds one surface. `?seed=0` is used by the reload test
+    // to prove the in-memory Surface is cleared, not rehydrated from storage.
+    const seed = new URLSearchParams(window.location.search).get("seed") !== "0";
+    if (seed) create("Fixture comparison");
 
     const api: FixtureApi = {
       create,
       update: (title) => {
+        if (!currentSurfaceId) return;
         manager.setActiveThread(MAIN_THREAD);
+        if (!manager.getSurface(MAIN_THREAD, currentSurfaceId)) return;
         ingest(MAIN_THREAD, currentSurfaceId, [
           {
             version: A2UI_VERSION,
@@ -118,10 +125,12 @@ export function GenUIFixture() {
         ]);
       },
       delete: () => {
+        if (!currentSurfaceId) return;
         manager.setActiveThread(MAIN_THREAD);
         ingest(MAIN_THREAD, currentSurfaceId, [
           { version: A2UI_VERSION, deleteSurface: { surfaceId: currentSurfaceId } },
         ]);
+        currentSurfaceId = null;
       },
       malformed: () => {
         manager.setActiveThread(BAD_THREAD);
@@ -140,6 +149,10 @@ export function GenUIFixture() {
         ]);
       },
       switchThread: (threadId) => manager.setActiveThread(threadId),
+      switchScope: (scope) =>
+        manager.setActiveThread(
+          scope === "main" ? MAIN_THREAD : `genui-fixture-scope-${scope}`,
+        ),
     };
 
     (window as unknown as { __genuiFixture?: FixtureApi }).__genuiFixture = api;
@@ -155,6 +168,13 @@ export function GenUIFixture() {
         Deterministic browser fixture. It drives the real CopilotKit provider,
         catalog and <code>planner-comparison</code> Surface without a model call.
       </p>
+      <button
+        type="button"
+        data-testid="fixture-focus-anchor"
+        className="mt-4 rounded-md border border-[var(--border)] px-3 py-1.5 text-sm"
+      >
+        Focus anchor
+      </button>
     </main>
   );
 }
