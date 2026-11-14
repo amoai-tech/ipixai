@@ -17,7 +17,7 @@ import {
   GENUI_COMPARISON_CREATE_SURFACE,
   GENUI_COMPARISON_UPDATE_COMPONENTS,
 } from "../src/mastra/agents/production-planner-instructions";
-import { conceptComparisonSchema } from "../src/lib/copilotkit/ipix-generative-ui";
+import { conceptComparisonSchema, ipixGenerativeUI } from "../src/lib/copilotkit/ipix-generative-ui";
 
 const ENVELOPE = {
   "1.0": {
@@ -278,6 +278,10 @@ describe("CopilotKit GenerativeUIMiddleware → planner gate bridge", () => {
   });
 
   it("keeps the Planner instruction example valid for ConceptComparison", () => {
+    expect(GENUI_COMPARISON_CREATE_SURFACE.createSurface.catalogId).toBe(ipixGenerativeUI.id);
+    expect(GENUI_COMPARISON_UPDATE_COMPONENTS.updateComponents.surfaceId).toBe(
+      GENUI_COMPARISON_CREATE_SURFACE.createSurface.surfaceId,
+    );
     const component =
       GENUI_COMPARISON_UPDATE_COMPONENTS.updateComponents.components[0];
     const { id, component: name, ...props } = component;

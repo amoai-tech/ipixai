@@ -7,6 +7,7 @@ type FixtureApi = {
   malformed: () => void;
   switchThread: (threadId: string) => void;
   switchScope: (scope: string) => void;
+  rejectedUpdate: () => void;
 };
 
 declare global {
@@ -73,6 +74,16 @@ test.describe("GenUI Surface fixture (deterministic)", () => {
     );
     await expect(page.getByText("Back after recovery")).toBeVisible();
 
+    // A rejected update on a live surface must be visible, not a silent stale
+    // card. The recovery status is the operator-facing signal.
+    await page.evaluate(() => window.__genuiFixture?.rejectedUpdate());
+    await expect(page.getByTestId("genui-comparison-recovery")).toBeVisible();
+    await expect(page.getByText("Back after recovery")).toHaveCount(0);
+
+    await page.evaluate(() => window.__genuiFixture?.create("After rejection"));
+    await expect(page.getByText("After rejection")).toBeVisible();
+    await expect(page.getByTestId("genui-comparison-recovery")).toHaveCount(0);
+
     await page.evaluate(() =>
       window.__genuiFixture?.switchThread("other-thread"),
     );
@@ -81,16 +92,16 @@ test.describe("GenUI Surface fixture (deterministic)", () => {
     await page.evaluate(() =>
       window.__genuiFixture?.switchThread("genui-fixture-thread"),
     );
-    await expect(page.getByText("Back after recovery")).toBeVisible();
+    await expect(page.getByText("After rejection")).toBeVisible();
 
     // Scope switch: the Surface follows the active scope and must not show a
     // stale card from the previous scope.
     await page.evaluate(() => window.__genuiFixture?.switchScope("other"));
     await expect(card).toHaveCount(0);
-    await expect(page.getByText("Back after recovery")).toHaveCount(0);
+    await expect(page.getByText("After rejection")).toHaveCount(0);
 
     await page.evaluate(() => window.__genuiFixture?.switchScope("main"));
-    await expect(page.getByText("Back after recovery")).toBeVisible();
+    await expect(page.getByText("After rejection")).toBeVisible();
 
     // The Surface manager is in-memory. A reload with `seed=0` must be empty,
     // not restored from another scope or from the previous page instance.

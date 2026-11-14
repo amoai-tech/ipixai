@@ -28,6 +28,7 @@ type FixtureApi = {
   malformed: () => void;
   switchThread: (threadId: string) => void;
   switchScope: (scope: string) => void;
+  rejectedUpdate: () => void;
 };
 
 function surfaceIdFor(seq: number) {
@@ -120,6 +121,22 @@ export function GenUIFixture() {
                   options: OPTIONS,
                 },
               ],
+            },
+          },
+        ]);
+      },
+      rejectedUpdate: () => {
+        if (!currentSurfaceId) return;
+        manager.setActiveThread(MAIN_THREAD);
+        if (!manager.getSurface(MAIN_THREAD, currentSurfaceId)) return;
+        // A live surface whose next update is invalid. The previous root
+        // remains, so the card must not silently look fresh.
+        ingest(MAIN_THREAD, currentSurfaceId, [
+          {
+            version: A2UI_VERSION,
+            updateComponents: {
+              surfaceId: currentSurfaceId,
+              components: [{ id: GENERATIVE_UI_ROOT_ID, component: "Map" }],
             },
           },
         ]);
