@@ -27,6 +27,17 @@ test.setTimeout(90_000);
  * lives in `planner-genui-surface.spec.ts` and `chromium-ai-smoke`.
  */
 test.describe("GenUI Surface fixture (deterministic)", () => {
+  // `/genui-fixture` is enabled only in development or the guarded Playwright
+  // job. A hosted Preview or production run must not select this spec: the
+  // route is 404 there and the real card proof lives in `chromium-ai-smoke`.
+  test.skip(
+    Boolean(process.env.E2E_BASE_URL) &&
+      !/^https?:\/\/(localhost|127\.0\.0\.1)(?::|\/|$)/.test(
+        process.env.E2E_BASE_URL as string,
+      ),
+    "The /genui-fixture seed route is local-only; hosted proof is IPI-1430.",
+  );
+
   test("renders, updates, deletes, recovers, scopes and reloads", async ({
     page,
   }, testInfo) => {
@@ -84,6 +95,9 @@ test.describe("GenUI Surface fixture (deterministic)", () => {
     // The Surface manager is in-memory. A reload with `seed=0` must be empty,
     // not restored from another scope or from the previous page instance.
     await page.goto("/genui-fixture?seed=0");
+    // Wait for the client effect to install the fixture before asserting the
+    // cleared state; otherwise the server HTML alone could satisfy this check.
+    await page.waitForFunction(() => Boolean(window.__genuiFixture));
     // The labelled region remains mounted even when the in-memory Surface is
     // cleared; the card itself must be gone.
     await expect(region).toBeAttached();
