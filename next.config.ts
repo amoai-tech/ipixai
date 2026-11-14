@@ -1,4 +1,4 @@
-import path from "node:path";
+import path from "path";
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
