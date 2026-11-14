@@ -39,7 +39,7 @@ setup.setTimeout(60_000);
  * only storageState and never re-send the header.
  */
 setup.beforeEach(async ({ page, context, baseURL }) => {
-  const headers = previewBypassHeaders(
+  const headers = await previewBypassHeaders(
     baseURL ?? "",
     process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
   );

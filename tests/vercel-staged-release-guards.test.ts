@@ -50,12 +50,12 @@ describe("IPI-1091 staged Production release safeguards", () => {
   });
 
   it("passes correct deployment metadata with the exact Vercel API request", async () => {
-    const staged = { id: "dpl_qa", url: "ipixai-qa-amoco.vercel.app", target: "production", readyState: "READY" };
-    const live = { url: "ipixai-old-amoco.vercel.app" };
+    const staged = { id: "dpl_qa", url: "ipixai-qa-amo-agency.vercel.app", target: "production", readyState: "READY" };
+    const live = { url: "ipixai-old-amo-agency.vercel.app" };
     const actual = { projectId: "prj_correct", meta: { githubCommitSha: "a".repeat(40) }, target: "production" };
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify(actual)));
     const args = {
-      staged, live, deploymentUrl: "https://ipixai-qa-amoco.vercel.app",
+      staged, live, deploymentUrl: "https://ipixai-qa-amo-agency.vercel.app",
       liveBefore: live.url, projectId: actual.projectId,
       orgId: "team_correct", sha: actual.meta.githubCommitSha,
       fetchImpl,
@@ -73,23 +73,23 @@ describe("IPI-1091 staged Production release safeguards", () => {
   });
 
   it("fails closed for non-ready, wrong SHA/project, API error or live-alias drift", async () => {
-    const staged = { id: "dpl_qa", url: "ipixai-qa-amoco.vercel.app", target: "production", readyState: "READY" };
-    const live = { url: "ipixai-old-amoco.vercel.app" };
+    const staged = { id: "dpl_qa", url: "ipixai-qa-amo-agency.vercel.app", target: "production", readyState: "READY" };
+    const live = { url: "ipixai-old-amo-agency.vercel.app" };
     const actual = { projectId: "prj_correct", meta: { githubCommitSha: "a".repeat(40) }, target: "production" };
     const args = {
-      staged, live, deploymentUrl: "https://ipixai-qa-amoco.vercel.app",
+      staged, live, deploymentUrl: "https://ipixai-qa-amo-agency.vercel.app",
       liveBefore: live.url, projectId: actual.projectId,
       orgId: "team_correct", sha: actual.meta.githubCommitSha,
       fetchImpl: vi.fn(async () => new Response(JSON.stringify(actual))),
     };
     await expect(inspect({ ...args, staged: { ...staged, readyState: "ERROR" } })).rejects.toThrow(/ready/i);
     await expect(inspect({ ...args, staged: { ...staged, target: "preview" } })).rejects.toThrow(/ready/i);
-    await expect(inspect({ ...args, staged: { ...staged, url: "ipixai-wrong-amoco.vercel.app" } })).rejects.toThrow(/ready/i);
+    await expect(inspect({ ...args, staged: { ...staged, url: "ipixai-wrong-amo-agency.vercel.app" } })).rejects.toThrow(/ready/i);
     await expect(inspect({ ...args, fetchImpl: async () => new Response(null, { status: 403 }) })).rejects.toThrow(/403/);
     await expect(inspect({ ...args, fetchImpl: async () => new Response(JSON.stringify({ ...actual, projectId: "prj_wrong" })) })).rejects.toThrow(/SHA\/project/);
     await expect(inspect({ ...args, fetchImpl: async () => new Response(JSON.stringify({ ...actual, meta: { githubCommitSha: "b".repeat(40) } })) })).rejects.toThrow(/SHA\/project/);
     await expect(inspect({ ...args, fetchImpl: async () => new Response(JSON.stringify({ ...actual, target: "preview" })) })).rejects.toThrow(/SHA\/project/);
-    await expect(inspect({ ...args, live: { url: "ipixai-drift-amoco.vercel.app" } })).rejects.toThrow(/alias changed/);
+    await expect(inspect({ ...args, live: { url: "ipixai-drift-amo-agency.vercel.app" } })).rejects.toThrow(/alias changed/);
     await expect(inspect({ ...args, live: { url: staged.url } })).rejects.toThrow(/alias changed/);
   });
 

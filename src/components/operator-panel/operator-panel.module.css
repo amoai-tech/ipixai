@@ -238,6 +238,21 @@
 /* Conversation + composer body. position:relative so the intelligence
    drawer can overlay just the scrollable conversation, not the composer —
    see .intelligenceDrawer's fixed bottom reserve. */
+.generativeSurface {
+  flex: 0 0 auto;
+  max-height: 42%;
+  overflow: auto;
+  padding: 0.75rem 1rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+/* CopilotKit 1.85 retains an empty root after rejecting a malformed generated
+   component. Collapse that shell instead of leaving a blank bordered strip.
+   The normal fallback renders outside this container when no surface exists. */
+.generativeSurface:has(> [data-generative-ui-root]:empty) {
+  display: none;
+}
+
 .panelBody {
   flex: 1;
   min-height: 0;

@@ -23,7 +23,9 @@ import type { WorkspaceStats } from "./workspace-stats";
 import { PlannerContextProvider, usePlannerContext } from "./planner-context";
 import { RestoreMastraHistory } from "@/components/restore-mastra-history";
 import { ComposeShootPlanRenderer } from "@/components/shoot/compose-shoot-plan-renderer";
+import { IpixGenerativeComparisonSurface } from "./ipix-generative-surface";
 import { ShootPlanReviewHitl } from "@/components/shoot/shoot-plan-review-hitl";
+import { ipixGenerativeUI } from "@/lib/copilotkit/ipix-generative-ui";
 import {
   plannerThreadStorageKey,
   resolvePlannerThreadId,
@@ -776,6 +778,7 @@ function ProductionCopilotPanel({
             the conversation subtree and its thread subscription stay alive
             the whole time the drawer is open. */}
         {runFailure && <RunFailureBanner failure={runFailure} onDismiss={dismissRunFailure} />}
+        <IpixGenerativeComparisonSurface />
         <PlannerChatDock
           pathname={pathname}
           composerContainerRef={setComposerElement}
@@ -865,6 +868,7 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
       showDevConsole={false}
       enableInspector={false}
       messageFilter={plannerRunMessageFilter}
+      generativeUI={{ ui: ipixGenerativeUI }}
       publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_PUBLIC_LICENSE_KEY}
     >
       {/* IPI-1084 · APPROVAL-001 — HITL plan review. Renders inside this

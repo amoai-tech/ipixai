@@ -28,6 +28,14 @@ const nextConfig: NextConfig = {
   // Expanding this to /home/sk would watch the whole home directory.
   turbopack: {
     root: process.cwd(),
+    // CopilotKit 1.85's GenUI entrypoint dynamically imports optional MapLibre.
+    // Our read-only ConceptComparison catalog has NO maps. Alias the optional
+    // import to an inert module rather than shipping vulnerable MapLibre 5.x
+    // (CVE-2026-85061); remove this alias only with a separately reviewed map feature.
+    // Official Next 16 optional-package fallback: turbopack.resolveAlias.
+    resolveAlias: {
+      "maplibre-gl": "./src/lib/copilotkit/maplibre-unavailable.ts",
+    },
   },
   experimental: {
     // Default is CPUs-1 (19 on this machine). That spawned a page-data worker
