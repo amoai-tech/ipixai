@@ -30,8 +30,12 @@ describe("iPix read-only GenUI optional MapLibre boundary", () => {
 
     const webpack = nextConfig.webpack;
     expect(typeof webpack).toBe("function");
-    const input = { resolve: { alias: { "@existing": "/tmp/existing" } } };
-    const output = webpack!(input as never, {} as never) as typeof input;
+    const input = {
+      resolve: { alias: { "@existing": "/tmp/existing" } as Record<string, string> },
+    };
+    const output = webpack!(input as never, {} as never) as {
+      resolve: { alias: Record<string, string> };
+    };
 
     // The webpack bundler must keep existing aliases and add the placeholder.
     expect(output.resolve.alias["@existing"]).toBe("/tmp/existing");
