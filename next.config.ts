@@ -89,9 +89,6 @@ const nextConfig: NextConfig = {
   // is the gate, so the Vercel build must not silently swallow type errors.
 };
 
-// Raw config for contract tests; Next consumes only the default export.
-export { nextConfig };
-
 export default withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
