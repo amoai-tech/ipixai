@@ -56,3 +56,48 @@ jobs:
       # Reference — REFERENCE ONLY: https://docs.github.com/en/rest/deployments/environments
       - name: Verify Production approval policy has not drifted
         run: node scripts/check-production-environment.mjs
+
+  alert-on-audit-failure:
+    needs: audit
+    # Report actual failures from trusted main without granting issue writes or
+    # repo tokens to the Vercel-secret-bearing audit job.
+    if: always() && github.ref == 'refs/heads/main' && needs.audit.result == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the human-owned Vercel governance issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="Vercel deployment governance audit requires attention"
+          body_file="$(mktemp)"
+          {
+            echo "The iPix Vercel deployment audit failed. Investigate before changing any threshold or deployment settings."
+            echo
+            printf -- '- Failing run: %s\n' "$RUN_URL"
+            echo "- Owner task: https://linear.app/amo100/issue/IPI-1369"
+            echo "- Vercel project: https://vercel.com/amo-agency/ipixai/deployments"
+            echo
+            echo "The audit counts every created deployment attempt, including failed and canceled builds."
+            echo "Check the run's attribution table, investigate the triggering source, and retain the 3-per-24h limit unless a human approves a policy change."
+          } > "$body_file"
+
+          existing="$(gh issue list --repo "$REPO" --state open --limit 100 \
+            --json number,title -q '.[] | select(.title == "Vercel deployment governance audit requires attention") | .number' | head -n 1)"
+          if [ -n "$existing" ]; then
+            # One durable issue; each new failed run notifies its existing readers.
+            gh issue comment "$existing" --repo "$REPO" --body-file "$body_file"
+            alert_url="https://github.com/$REPO/issues/$existing"
+          else
+            # The verified repository maintainer receives the initial alert.
+            alert_url="$(gh issue create --repo "$REPO" --title "$title" \
+              --assignee amoai-tech --body-file "$body_file")"
+          fi
+          printf 'Vercel governance human alert: %s\n' "$alert_url"
+          printf 'Human alert: %s\n' "$alert_url" >> "$GITHUB_STEP_SUMMARY"
