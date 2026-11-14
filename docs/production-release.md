@@ -109,3 +109,60 @@ Review the run's authenticated Planner send/Stop/reconnect/reload proof and corr
 **If Production fails:** stop further promotion, use Vercel's native rollback to the previously recorded healthy deployment, verify the customer alias again, and document the incident. Never create another rollback registry or silently redeploy a different SHA.
 
 **Release DONE only when:** exact deployed SHA, all approvals, staged QA, integrated Shoot journey, Production certification, healthy logs and rollback evidence are recorded in IPI-1091. A green unit test or staged-only notice is **not** release approval.
+
+### Vercel deployment-volume governance (IPI-1369)
+
+**Purpose:** Detect build storms and unexpected Production releases without mistaking missing Vercel source metadata for a Git-triggered or CLI-triggered action. This is an operational *creation-volume* audit, not a successful-deployment count or a new Production release gate.
+
+**Rule:** Keep `VERCEL_MAX_DEPLOYMENTS_24H: "3"`. Count every distinct deployment ID created in the rolling 24 hours, including `READY`, `ERROR`, and `CANCELED`. One SHA retried three times counts as three attempts. De-duplicate only repeated IDs across paginated API pages. A real over-limit result remains a failure and is never made green by ignoring errors or previews.
+
+### Step A — Classify from Vercel's actual response
+
+**Destination:** `scripts/check-vercel-deployment-governance.mjs` → `listDeployments24h()`, `attributeDeployment()`, `runGovernance()`.
+
+**Reference — ADAPT**
+
+- URL: https://vercel.com/docs/rest-api/reference/endpoints/deployments/list-deployments
+- Source: `GET /v7/deployments`, `since`, `until`, `pagination`, `source`, `target`, `readyState`.
+- Use: query the exact project/team with a read-only Governance token, enforce 24-hour cutoff, keep error/canceled attempts, and count each deployment ID once.
+- Do not copy: a metric that counts only `READY` builds, or assumptions that a repeated SHA is a duplicate deployment.
+- Change: report every attempt with its ID, state, creator, provider-reported source, target, and available Git commit/branch/repository metadata.
+- Verify: `tests/vercel-deployment-governance.test.ts` plus a sanitized live list response.
+
+**Reference — REFERENCE ONLY**
+
+- URL: https://github.com/vercel/sdk/blob/main/docs/models/deployments.md
+- Source: deployment `target` (nullable), `source` (optional), `readyState`, `meta` fields.
+- Use: explicit `target: null` means Preview; an absent target remains `unknown` and fails closed. Optional `source: null` means **unreported method**, not `cli` or `git`. Git SHA/ref proves code attribution only, not how the deployment was initiated.
+- Do not copy: assumptions that Git metadata alone proves a GitHub webhook or an approved release.
+- Verify: a null-source Git-referenced Preview is reported but not mistaken for an unauthorized Production release; an unreported or non-CLI Production source still fails.
+
+### Step B — Route actual audit failures to a human
+
+**Destination:** `.github/workflows/vercel-governance.yml` → `alert-on-audit-failure`.
+
+**Reference — ADAPT**
+
+- URL: https://docs.github.com/en/actions/tutorials/authenticate-with-github_token
+- Source: examples using `GITHUB_TOKEN`, job-scoped `issues: write`, and GitHub CLI issue creation.
+- Use: when the audit fails on trusted `main`, create one GitHub issue assigned to the repository maintainer `amoai-tech`; on subsequent failures, add a new run link to the same open issue. Also emit the issue URL into the job summary.
+- Do not copy: a repository-wide write token or Vercel token in the issue-reporting job. Do not make an untrusted PR-branch dispatch able to create issues or access the Governance secret.
+- Verify: YAML security contract, failing main workflow (issue exists, assigned to owner, links to exact run), repeated failure updates existing issue instead of creating another.
+
+**Reference — REFERENCE ONLY**
+
+- URL: https://docs.github.com/en/actions/concepts/workflows-and-actions/notifications-for-workflow-runs
+- Use: GitHub also supports failure-only web/email workflow notifications, but owner notification preferences are independent. A durable assigned GitHub issue is the verified in-repository human handoff; inbox delivery itself requires owner readback.
+- Do not copy: claiming notifications were read without proof, or a standalone service to deliver them.
+
+**Checkpoint:** Normal-day run passes within the configured limit; over-limit or unknown Production provenance fails and creates an owned issue. Keep separate protected Production release approval as documented in IPI-1091. IPI-1369 may only be marked Done when exact-main runtime and human alert readback are recorded.
+
+```mermaid
+flowchart LR
+  A[Scheduled audit on main] --> B[Read Vercel deployments]
+  B --> C{3 or fewer attempts and safe Production source?}
+  C -->|Yes| D[Audit passes]
+  C -->|No| E[Audit fails]
+  E --> F[Separate tokenless GitHub issue job]
+  F --> G[Assigned human reviews one tracked issue]
+```

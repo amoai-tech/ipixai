@@ -474,11 +474,40 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(source).toContain("https://api.vercel.com/v7/deployments");
     expect(source).not.toContain("https://api.vercel.com/v13/deployments/");
     expect(source).toContain("pagination?.next");
-    expect(source).toContain('searchParams.set("until", until)');
-    expect(source).toContain('method: "GET"');
+    expect(source).toMatch(/searchParams\.set\("until",\s*until\)/);
+    expect(source).toMatch(/method:\s*"GET"/);
     expect(source).not.toMatch(/method:\s*["'](?:POST|PUT|PATCH|DELETE)["']/);
-    expect(source).toContain('deployment.source !== "cli"');
+    expect(source).toMatch(/r\.target\s*===\s*"production"\s*&&\s*r\.source\s*!==\s*"cli"/);
+    expect(source).toMatch(/deployment\.target\s*===\s*null/);
+    expect(source).toContain('unreportedSources');
     expect(source).toContain("VERCEL_MAX_DEPLOYMENTS_24H");
+  });
+
+  it("routes failed main-branch audits to one assigned human issue without sharing Vercel credentials", () => {
+    const workflow = parseYaml(read(".github/workflows/vercel-governance.yml")) as {
+      jobs: Record<string, {
+        if?: string;
+        environment?: string;
+        needs?: string;
+        permissions?: Record<string, string>;
+        steps?: Array<{ name?: string; run?: string; env?: Record<string, string> }>;
+      }>;
+    };
+    const audit = workflow.jobs.audit;
+    const alert = workflow.jobs["alert-on-audit-failure"];
+    expect(audit.environment).toBe("Governance");
+    expect(audit.permissions?.issues).toBeUndefined();
+    expect(alert.needs).toBe("audit");
+    expect(alert.environment).toBeUndefined();
+    expect(alert.if).toBe("always() && github.ref == 'refs/heads/main' && needs.audit.result == 'failure'");
+    expect(alert.permissions?.issues).toBe("write");
+    const step = alert.steps?.[0];
+    expect(step?.env?.GH_TOKEN).toBe("$" + "{{ secrets.GITHUB_TOKEN }}");
+    expect(step?.env?.VERCEL_TOKEN).toBeUndefined();
+    expect(step?.run).toContain("gh issue create");
+    expect(step?.run).toContain("--assignee amoai-tech");
+    expect(step?.run).toContain("gh issue comment");
+    expect(step?.run).not.toContain("VERCEL_TOKEN");
   });
 
   it("tracks a project-scoped native Vercel usage-anomaly rule as code", () => {
