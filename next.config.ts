@@ -8,6 +8,18 @@ import { withSentryConfig } from "@sentry/nextjs/config";
 // inert placeholder for every bundler. Keep both aliases below in sync.
 const MAPLIBRE_PLACEHOLDER = "./src/lib/copilotkit/maplibre-unavailable.ts";
 
+// Minimal local webpack shape: the Next config callback is untyped, and
+// importing webpack's own types would add a direct dependency for one alias.
+type WebpackAliasValue = string | false | string[];
+type WebpackResolveConfig = {
+  alias?: Record<string, WebpackAliasValue>;
+  [key: string]: unknown;
+};
+type WebpackConfig = {
+  resolve?: WebpackResolveConfig;
+  [key: string]: unknown;
+};
+
 // IPI-1063 · MARKETING-SEO-001 — merged-page redirects from IPI-1060's
 // service-page consolidation. Static + permanent so Next emits one 308 hop
 // (no chains) and search engines consolidate ranking signal onto the target.
@@ -49,10 +61,14 @@ const nextConfig: NextConfig = {
   // fails the production build with "Module not found: Can't resolve
   // 'maplibre-gl'" (proved by Preview deployment dpl_9tSb9HQumrCZ5B3ACDVniWCKMmP4
   // on aa1989f). Keep the target identical to the Turbopack alias.
-  webpack: (config) => {
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      "maplibre-gl": path.resolve(process.cwd(), MAPLIBRE_PLACEHOLDER),
+  webpack: (config: WebpackConfig) => {
+    const resolve = config.resolve ?? {};
+    config.resolve = {
+      ...resolve,
+      alias: {
+        ...(resolve.alias ?? {}),
+        "maplibre-gl": path.resolve(process.cwd(), MAPLIBRE_PLACEHOLDER),
+      },
     };
     return config;
   },
