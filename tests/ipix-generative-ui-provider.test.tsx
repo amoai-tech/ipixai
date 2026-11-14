@@ -30,6 +30,7 @@ describe("native GenUI provider and surface integration", () => {
       <CopilotKitProvider
         runtimeUrl="/api/copilotkit"
         agentId="default"
+        useSingleEndpoint={false}
         enableInspector={false}
         generativeUI={{ ui: ipixGenerativeUI }}
       >
@@ -190,6 +191,7 @@ describe("native GenUI provider and surface integration", () => {
       <CopilotKitProvider
         runtimeUrl="/api/copilotkit"
         agentId="default"
+        useSingleEndpoint={false}
         enableInspector={false}
         generativeUI={{ ui: ipixGenerativeUI }}
       >
@@ -225,6 +227,7 @@ describe("native GenUI provider and surface integration", () => {
       <CopilotKitProvider
         runtimeUrl="/api/copilotkit"
         agentId="default"
+        useSingleEndpoint={false}
         enableInspector={false}
         generativeUI={{ ui: ipixGenerativeUI }}
       >

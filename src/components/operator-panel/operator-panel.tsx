@@ -45,11 +45,14 @@ const RUN_FAILURE_MESSAGE = "The AI run stopped before it completed";
 
 // Report generated-UI failures without logging raw model props or tenant data.
 function reportGenerativeUIError(info: GenerativeUIErrorInfo) {
+  // Do not log the error message: generated props or tenant data can end up
+  // inside it. The structured code/name is enough to triage the failure.
+  const code = (info.error as Error & { code?: unknown }).code;
   console.error("[genui] generated UI failed", {
     kind: info.kind,
     surfaceId: info.surfaceId,
     componentId: info.componentId,
-    message: info.error.message,
+    code: typeof code === "string" ? code : info.error.name,
   });
 }
 
@@ -860,11 +863,11 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
     setCopilotOpen(false);
   };
 
-  // The v2 provider auto-detects the multi-route
-  // /api/copilotkit/[[...slug]] handler from its /info response. Do not pin
-  // useSingleEndpoint; the route is multi-route. Auth remains server-side
-  // (requirePlannerResourceId re-verifies the same AUTH-002 session that
-  // already gated this page), so no client handshake is needed here.
+  // The route is multi-route; pin REST explicitly to preserve the existing
+  // transport while removing the v1 wrapper. Official auto-detection is also
+  // supported, but false is the smaller behavior change. Auth remains
+  // server-side (requirePlannerResourceId re-verifies the same AUTH-002
+  // session that already gated this page), so no client handshake is needed.
   // Inspector is explicitly off: its floating button sits at a high z-index
   // and intercepts clicks on the real page underneath.
   return (
@@ -873,6 +876,7 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
       agentId="default"
+      useSingleEndpoint={false}
       enableInspector={false}
       messageFilter={plannerRunMessageFilter}
       generativeUI={{

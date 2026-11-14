@@ -324,8 +324,8 @@ describe("OperatorPanel", () => {
     // Nothing else on the provider is filtered or replaced by this change.
     expect(copilotKitPropsMock.current?.runtimeUrl).toBe("/api/copilotkit");
     expect(copilotKitPropsMock.current?.agentId).toBe("default");
-    // Auto-detect the multi-route transport; do not pin a transport mode.
-    expect(copilotKitPropsMock.current?.useSingleEndpoint).toBeUndefined();
+    // The existing multi-route handler stays on the REST transport.
+    expect(copilotKitPropsMock.current?.useSingleEndpoint).toBe(false);
   });
 
   it("wires one native GenUI catalog and one named surface into the existing provider", async () => {
