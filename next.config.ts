@@ -1,4 +1,3 @@
-import path from "path";
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
@@ -7,6 +6,7 @@ import { withSentryConfig } from "@sentry/nextjs/config";
 // a critical XSS advisory (CVE-2026-85061), so the import is aliased to this
 // inert placeholder for every bundler. Keep both aliases below in sync.
 const MAPLIBRE_PLACEHOLDER = "./src/lib/copilotkit/maplibre-unavailable.ts";
+const MAPLIBRE_ALIAS = `${process.cwd()}/${MAPLIBRE_PLACEHOLDER.replace(/^\.\//, "")}`;
 
 // Minimal local webpack shape: the Next config callback is untyped, and
 // importing webpack's own types would add a direct dependency for one alias.
@@ -67,7 +67,7 @@ const nextConfig: NextConfig = {
       ...resolve,
       alias: {
         ...(resolve.alias ?? {}),
-        "maplibre-gl": path.resolve(process.cwd(), MAPLIBRE_PLACEHOLDER),
+        "maplibre-gl": MAPLIBRE_ALIAS,
       },
     };
     return config;
