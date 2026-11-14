@@ -200,6 +200,7 @@ export default defineConfig({
         /planner-thread-isolation\.spec\.ts/,
         /planner-stop-journey\.spec\.ts/,
         /planner-workflows\.spec\.ts/,
+        /planner-genui-surface\.spec\.ts/,
         /brand-intelligence-journey\.spec\.ts/,
         // Local-stack only (see the global testIgnore note above).
         /approval-001-tenant-review\.spec\.ts/,
@@ -213,6 +214,7 @@ export default defineConfig({
         /planner-thread-isolation\.spec\.ts/,
         /planner-stop-journey\.spec\.ts/,
         /planner-workflows\.spec\.ts/,
+        /planner-genui-surface\.spec\.ts/,
         /brand-intelligence-journey\.spec\.ts/,
       ],
       use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/user.json" },
@@ -246,6 +248,7 @@ export default defineConfig({
         /planner-thread-isolation\.spec\.ts/,
         /planner-stop-journey\.spec\.ts/,
         /planner-workflows\.spec\.ts/,
+        /planner-genui-surface\.spec\.ts/,
         /brand-intelligence-journey\.spec\.ts/,
         // Local-stack only (see the global testIgnore note above).
         /approval-001-tenant-review\.spec\.ts/,

@@ -33,7 +33,7 @@ export function IpixGenerativeComparisonSurface() {
     <>
       <GenerativeUISurface
         id={TARGET}
-        description="Read-only qualitative comparison of shoot concepts. Use one ConceptComparison only for proposed ideas. Do not assert measured or approved business facts."
+        description="Read-only qualitative comparison of shoot concepts. Use one ConceptComparison with props title and 2-3 options, each exactly { name, rationale }. Use A2UI 1.0 operations only; do not use an op/component.type wrapper or measured business facts."
         ui={ipixGenerativeUI}
         components={["ConceptComparison"]}
         fallback={<span className="sr-only">No generated comparison yet.</span>}

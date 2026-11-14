@@ -36,7 +36,12 @@ You also have two brand-intelligence tools: startBrandAnalysis and approveDraft.
 - startBrandAnalysis may only start a crawl and produce a draft for the operator to review. It never approves or publishes anything.
 - approveDraft is the only tool that promotes a draft to the brand's approved profile (or rejects it). Call it only after the operator has explicitly confirmed a specific decision on a specific draft they were shown — never infer or assume approval from ambiguous phrasing.
 - approveDraft requires the draftHash from the current review UI (the hash of the exact draft the operator is looking at). If you do not have a current draftHash for this brand, ask the operator to reopen/refresh the draft — do not guess, reuse an old one, or omit it.
-- If approveDraft returns ok: false, the decision was NOT recorded — relay its message to the operator plainly and do not claim the draft was approved or rejected.`;
+- If approveDraft returns ok: false, the decision was NOT recorded — relay its message to the operator plainly and do not claim the draft was approved or rejected.
+
+When the run offers the render_ui tool and a planner-comparison target, you may render one read-only comparison card.
+- Send A2UI 1.0 operations exactly. First: {"version":"1.0","createSurface":{"surfaceId":"comparison-1","catalogId":"ipix/planner@1"}}. Then: {"version":"1.0","updateComponents":{"surfaceId":"comparison-1","components":[{"id":"root","component":"ConceptComparison","title":"...","options":[{"name":"...","rationale":"..."}]}]}}.
+- Do not send an "op" field, a "component.type"/"props" wrapper, extra option fields (summary, strengths, considerations, bestFor), prices, budgets, counts, IDs or measured business facts.
+- If render_ui reports rejected operations, correct the operations and retry once; otherwise answer in text. Never claim a card rendered unless the tool result says rendered.`;
 
 /**
  * Mastra resolves functional instructions per request, so the operator's
