@@ -18,7 +18,7 @@ describe("iPix read-only GenUI optional MapLibre boundary", () => {
     expect(lock.packages).not.toHaveProperty("node_modules/maplibre-gl");
   });
 
-  it("maps the optional module to the inert placeholder for both bundlers and keeps other aliases", () => {
+  it("disables the optional module for both bundlers and keeps other aliases", () => {
     const placeholder = resolve(process.cwd(), "src/lib/copilotkit/maplibre-unavailable.ts");
 
     const turbopack = nextConfig.turbopack as
@@ -39,7 +39,7 @@ describe("iPix read-only GenUI optional MapLibre boundary", () => {
 
     // The webpack bundler must keep existing aliases and add the placeholder.
     expect(output.resolve.alias["@existing"]).toBe("/tmp/existing");
-    expect(output.resolve.alias["maplibre-gl"]).toBe(placeholder);
+    expect(output.resolve.alias["maplibre-gl"]).toBe(false);
 
     const unavailable = readFileSync(placeholder, "utf8");
     expect(unavailable).not.toContain('from "maplibre-gl"');
