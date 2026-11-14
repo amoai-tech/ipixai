@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { resolve } from "node:path";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
 // IPI-1063 · MARKETING-SEO-001 — merged-page redirects from IPI-1060's
@@ -36,6 +37,17 @@ const nextConfig: NextConfig = {
     resolveAlias: {
       "maplibre-gl": "./src/lib/copilotkit/maplibre-unavailable.ts",
     },
+  },
+  // Next.js Webpack builds ignore turbopack.resolveAlias above. Keep the
+  // same optional MapLibre import disabled for client, Node, and Edge builds.
+  // Do not install vulnerable MapLibre 5.x: this read-only GenUI catalog has no Map.
+  webpack(config) {
+    config.resolve ??= {};
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "maplibre-gl": resolve(process.cwd(), "src/lib/copilotkit/maplibre-unavailable.ts"),
+    };
+    return config;
   },
   experimental: {
     // Default is CPUs-1 (19 on this machine). That spawned a page-data worker
