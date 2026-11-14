@@ -38,7 +38,7 @@ const nextConfig: NextConfig = {
       "maplibre-gl": "./src/lib/copilotkit/maplibre-unavailable.ts",
     },
   },
-  // `next build --webpack` ignores turbopack.resolveAlias above. Keep the
+  // Next.js Webpack builds ignore turbopack.resolveAlias above. Keep the
   // same optional MapLibre import disabled for client, Node, and Edge builds.
   // Do not install vulnerable MapLibre 5.x: this read-only GenUI catalog has no Map.
   webpack(config) {
