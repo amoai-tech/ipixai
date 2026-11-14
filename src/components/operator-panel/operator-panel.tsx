@@ -5,11 +5,12 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type Ref } from "react";
 import {
   CopilotChat,
-  CopilotKit,
+  CopilotKitProvider,
   useAgent,
   useCopilotKit,
   type CopilotKitMessageFilter,
 } from "@copilotkit/react-core/v2";
+import type { GenerativeUIErrorInfo } from "@copilotkit/react-core/v2/generative-ui";
 import type { AbstractAgent } from "@ag-ui/client";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -62,6 +63,20 @@ const RUN_FAILURE_MESSAGE = "The AI run stopped before it completed";
  */
 export const plannerRunMessageFilter: CopilotKitMessageFilter = (messages) =>
   messages.slice(-1);
+
+/**
+ * Generated UI can carry model- or tenant-supplied text in its props, so the
+ * failure report keeps only identifiers: the failure kind, the surface and
+ * component ids, and the error class name. Never the message or the props.
+ */
+function reportGenUiError({ kind, surfaceId, componentId, error }: GenerativeUIErrorInfo) {
+  console.warn("[genui] generated UI failure", {
+    kind,
+    surfaceId,
+    componentId: componentId ?? null,
+    errorName: error.name,
+  });
+}
 
 /** Single source of truth for "N brand(s) · N shoot(s)" — the pinned bar and
  *  the chat welcome each rendered their own brandNoun/shootNoun before this,
@@ -862,13 +877,20 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
   return (
     <PlannerContextProvider>
     <WorkspaceStatsProvider>
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
       useSingleEndpoint={false}
       showDevConsole={false}
       enableInspector={false}
       messageFilter={plannerRunMessageFilter}
-      generativeUI={{ ui: ipixGenerativeUI }}
+      // Scope the catalog to the Planner agent: a future second agent must not
+      // silently receive the GenUI catalog. `errorBoundary` reports failures
+      // without the generated props (see reportGenUiError).
+      generativeUI={{
+        ui: ipixGenerativeUI,
+        agentIds: ["default"],
+        errorBoundary: { onError: reportGenUiError },
+      }}
       publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_PUBLIC_LICENSE_KEY}
     >
       {/* IPI-1084 · APPROVAL-001 — HITL plan review. Renders inside this
@@ -963,7 +985,7 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
 
       <ProductionCopilotPanel pathname={pathname} open={copilotOpen} onClose={closeCopilot} />
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
     </WorkspaceStatsProvider>
     </PlannerContextProvider>
   );
