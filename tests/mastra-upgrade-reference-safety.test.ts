@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const root = new URL("../.claude/skills/mastra/", import.meta.url);
+const root = new URL("../.agents/skills/mastra/", import.meta.url);
 const read = (path: string) => readFileSync(new URL(path, root), "utf8");
 
 describe("IPI-1419 — Mastra 1.82 reference migration safety", () => {

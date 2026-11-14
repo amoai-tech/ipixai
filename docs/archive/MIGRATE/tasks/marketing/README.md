@@ -49,7 +49,7 @@ Operator **DASH-MAIN-001** (`/app`) lives in [`../dash-backend/IPI-1066-Dash-mai
 | Issue | Owner |
 | --- | --- |
 | Next.js **16.1.2 → ≥16.3.3** | Dedicated dependency/security task — not a marketing PR |
-| `ponytail` in Linear skills lists | Prefer **lean / cheapest-proof-first**; Cursor rule ≠ always `.claude/skills` |
+| `ponytail` in Linear skills lists | Prefer **lean / cheapest-proof-first**; Cursor rule ≠ always `.agents/skills` |
 | Stale `amo-tech-ai/lumina-studio` attachments | Prefer **`amoai-tech/luminaai`** |
 
 ---

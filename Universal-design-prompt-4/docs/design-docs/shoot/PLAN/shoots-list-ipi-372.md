@@ -323,7 +323,7 @@ Compare HTML → React side by side (DC server `:8765` vs app `:3002`).
 | Performance | | |
 | **Overall (average)** | | |
 
-Fill [`report-template.md`](../../../../.claude/skills/design-to-production/references/report-template.md) at ship time.
+Fill [`report-template.md`](../../../../.agents/skills/design-to-production/references/report-template.md) at ship time.
 
 ---
 

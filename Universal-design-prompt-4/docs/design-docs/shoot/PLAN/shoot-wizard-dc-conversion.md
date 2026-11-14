@@ -418,7 +418,7 @@ gh pr list --head <branch>                  # no stale/superseding PR
 | Performance | | |
 | **Overall** | | |
 
-Fill [`report-template.md`](../../../../.claude/skills/design-to-production/references/report-template.md); attach both DC and React screenshots; readiness 🟢/🟡/🔴; honest known gaps.
+Fill [`report-template.md`](../../../../.agents/skills/design-to-production/references/report-template.md); attach both DC and React screenshots; readiness 🟢/🟡/🔴; honest known gaps.
 
 ---
 
@@ -428,4 +428,4 @@ Fill [`report-template.md`](../../../../.claude/skills/design-to-production/refe
 - [`shoots-list-dc-conversion.md`](./shoots-list-dc-conversion.md) · [`shoot-detail-dc-conversion.md`](./shoot-detail-dc-conversion.md)
 - [`../../audit/checklist.md`](../../audit/checklist.md) — IPI-383 mistakes folded into §0.1
 - [`lessons-from-brand-parity.md`](../lessons-from-brand-parity.md)
-- [`.claude/skills/design-to-production/SKILL.md`](../../../../.claude/skills/design-to-production/SKILL.md)
+- [`.agents/skills/design-to-production/SKILL.md`](../../../../.agents/skills/design-to-production/SKILL.md)

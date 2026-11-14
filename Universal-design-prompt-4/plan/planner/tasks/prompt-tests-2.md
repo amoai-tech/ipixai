@@ -16,10 +16,10 @@ Repository:
 Required skills:
 
 ```text
-/home/sk/ipix/.claude/skills/ipix-supabase/SKILL.md
-/home/sk/ipix/.claude/skills/task-verifier/SKILL.md
-/home/sk/ipix/.claude/skills/gen-test/SKILL.md
-/home/sk/ipix/.claude/skills/pr-workflow/SKILL.md
+/home/sk/ipix/.agents/skills/ipix-supabase/SKILL.md
+/home/sk/ipix/.agents/skills/task-verifier/SKILL.md
+/home/sk/ipix/.agents/skills/gen-test/SKILL.md
+/home/sk/ipix/.agents/skills/pr-workflow/SKILL.md
 ```
 
 Use Supabase MCP for live schema, migrations, RLS, functions, grants, and advisor checks.
@@ -103,10 +103,10 @@ Run:
 ```bash
 cd /home/sk/ipix
 
-cat .claude/skills/ipix-supabase/SKILL.md
-cat .claude/skills/task-verifier/SKILL.md
-cat .claude/skills/gen-test/SKILL.md
-cat .claude/skills/tasks/SKILL.md
+cat .agents/skills/ipix-supabase/SKILL.md
+cat .agents/skills/task-verifier/SKILL.md
+cat .agents/skills/gen-test/SKILL.md
+cat .agents/skills/tasks/SKILL.md
 
 git status --short
 git branch --show-current

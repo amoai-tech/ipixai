@@ -1,6 +1,6 @@
 # SCR-11 wireframe — Onboarding
 
-> **SSOT:** [`Onboarding.v2.zeely.dc.html`](../../../Pages/Onboarding.v2.zeely.dc.html) · Method: [`ipix-wireframe`](../../../../.claude/skills/ipix-wireframe/SKILL.md)  
+> **SSOT:** [`Onboarding.v2.zeely.dc.html`](../../../Pages/Onboarding.v2.zeely.dc.html) · Method: [`ipix-wireframe`](../../../../.agents/skills/ipix-wireframe/SKILL.md)
 > **Rule:** ASCII zones must match DC `grid-template-columns` and Workspace blocks — not invented layout.
 
 ## Shell archetype

@@ -1,6 +1,6 @@
 # SCR-20 wireframe — Talent Profile
 
-> **SSOT:** [`SCR-20-Talent-Profile.dc.html`](../../../Pages/SCR-20-Talent-Profile.dc.html) · Method: [`ipix-wireframe`](../../../../.claude/skills/ipix-wireframe/SKILL.md)  
+> **SSOT:** [`SCR-20-Talent-Profile.dc.html`](../../../Pages/SCR-20-Talent-Profile.dc.html) · Method: [`ipix-wireframe`](../../../../.agents/skills/ipix-wireframe/SKILL.md)
 > **Rule:** ASCII zones must match DC `grid-template-columns` and Workspace blocks — not invented layout.
 
 ## Shell archetype

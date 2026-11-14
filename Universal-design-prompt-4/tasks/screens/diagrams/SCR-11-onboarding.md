@@ -1,6 +1,6 @@
 # SCR-11 diagrams — Onboarding
 
-> **SSOT:** [`Onboarding.v2.zeely.dc.html`](../../../Pages/Onboarding.v2.zeely.dc.html) · Skill: [`mermaid-diagrams`](../../../../.claude/skills/mermaid-diagrams/SKILL.md)
+> **SSOT:** [`Onboarding.v2.zeely.dc.html`](../../../Pages/Onboarding.v2.zeely.dc.html) · Skill: [`mermaid-diagrams`](../../../../.agents/skills/mermaid-diagrams/SKILL.md)
 
 ## Layout block (matches DC shell)
 

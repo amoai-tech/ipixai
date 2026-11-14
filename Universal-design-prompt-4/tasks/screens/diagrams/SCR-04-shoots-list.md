@@ -1,6 +1,6 @@
 # SCR-04 diagrams — Shoots List
 
-> **SSOT:** [`Shoots List.v2.image-first.dc.html`](../../../Pages/Shoots List.v2.image-first.dc.html) · Skill: [`mermaid-diagrams`](../../../../.claude/skills/mermaid-diagrams/SKILL.md)
+> **SSOT:** [`Shoots List.v2.image-first.dc.html`](../../../Pages/Shoots List.v2.image-first.dc.html) · Skill: [`mermaid-diagrams`](../../../../.agents/skills/mermaid-diagrams/SKILL.md)
 
 ## Layout block (matches DC shell)
 

@@ -41,7 +41,7 @@ tags: mastra, docs, llms.txt, links
 - [Reference — tools, auth](#reference--tools-auth)
 
 
-Single bookmark page for `.claude/skills/mastra`. **Task → section mapping:** [`references/topic-routing.md`](references/topic-routing.md). **Authoritative full tree:** [mastra.ai/llms.txt](https://mastra.ai/llms.txt) (regenerate this file when major nav sections change).
+Single bookmark page for `.agents/skills/mastra`. **Task → section mapping:** [`references/topic-routing.md`](references/topic-routing.md). **Authoritative full tree:** [mastra.ai/llms.txt](https://mastra.ai/llms.txt) (regenerate this file when major nav sections change).
 
 **Version-accurate code:** with packages installed, prefer **embedded** docs under `node_modules/@mastra/*/dist/docs/` (see [references/embedded-docs.md](references/embedded-docs.md)).
 

@@ -1,10 +1,9 @@
-import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const agentsRoot = resolve(repoRoot, ".agents/skills");
-export const claudeRoot = resolve(repoRoot, ".claude/skills");
 export const registryPath = resolve(agentsRoot, "registry.json");
 export const MAX_ROUTING_PROMPT_LENGTH = 20_000; // Bound raw input before normalization to cap routing work.
 
@@ -42,14 +41,6 @@ export function canonicalSkillNames() {
     .sort();
 }
 
-export function claudeOnlySkillNames() {
-  return readdirSync(claudeRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && !lstatSync(resolve(claudeRoot, entry.name)).isSymbolicLink())
-    .filter((entry) => existsSync(resolve(claudeRoot, entry.name, "SKILL.md")))
-    .map((entry) => entry.name)
-    .sort();
-}
-
 export function validateRegistry(registry = loadRegistry()) {
   const errors = [];
   const actual = canonicalSkillNames();
@@ -62,8 +53,7 @@ export function validateRegistry(registry = loadRegistry()) {
   }
 
   const requiredArrays = ["modes", "delegates_to", "do_not_use_for"];
-  const claudeOnly = new Set(claudeOnlySkillNames());
-  const knownOwners = new Set([...Object.keys(registry.skills), ...claudeOnly]);
+  const knownOwners = new Set(Object.keys(registry.skills));
   const aliasClaims = new Map();
   const claimAlias = (alias, owner) => {
     const prior = aliasClaims.get(alias);
@@ -75,7 +65,7 @@ export function validateRegistry(registry = loadRegistry()) {
   }
   for (const [alias, target] of Object.entries(registry.deprecated_aliases ?? {})) {
     claimAlias(alias, target);
-    const aliasExists = [resolve(agentsRoot, alias), resolve(claudeRoot, alias)].some(pathEntryExists);
+    const aliasExists = pathEntryExists(resolve(agentsRoot, alias));
     if (knownOwners.has(alias) || aliasExists) errors.push(`deprecated alias still exists as a live skill: ${alias}`);
     if (!knownOwners.has(target)) errors.push(`deprecated alias ${alias} points to unknown owner ${target}`);
   }
@@ -85,29 +75,14 @@ export function validateRegistry(registry = loadRegistry()) {
     for (const field of ["routing_phrases", "replaces"]) {
       if (entry[field] !== undefined && !Array.isArray(entry[field])) errors.push(`${name}: ${field} must be an array`);
     }
-    if (typeof entry.claude_exposed !== "boolean") errors.push(`${name}: claude_exposed must be boolean`);
     if (entry.canonical !== `.agents/skills/${name}`) errors.push(`${name}: canonical must be .agents/skills/${name}`);
-
-    const canonicalPath = resolve(agentsRoot, name);
-    const canonicalExists = pathEntryExists(canonicalPath);
-    const claudePath = resolve(claudeRoot, name);
-    const claudeStat = lstatSync(claudePath, { throwIfNoEntry: false });
-    const exposed = claudeStat?.isSymbolicLink() ?? false;
-    if (exposed !== entry.claude_exposed) errors.push(`${name}: claude_exposed=${entry.claude_exposed} but symlink=${exposed}`);
-    if (entry.claude_exposed && !canonicalExists) errors.push(`${name}: canonical skill directory missing`);
-    if (exposed && canonicalExists) {
-      try {
-        if (realpathSync(claudePath) !== realpathSync(canonicalPath)) errors.push(`${name}: Claude symlink targets the wrong canonical skill`);
-      } catch {
-        errors.push(`${name}: Claude symlink target cannot be resolved`);
-      }
-    }
+    if (!pathEntryExists(resolve(agentsRoot, name))) errors.push(`${name}: canonical skill directory missing`);
 
     for (const delegate of entry.delegates_to ?? []) {
-      if (!Object.hasOwn(registry.skills, delegate) && !claudeOnly.has(delegate)) errors.push(`${name}: unknown delegate ${delegate}`);
+      if (!Object.hasOwn(registry.skills, delegate)) errors.push(`${name}: unknown delegate ${delegate}`);
     }
     for (const replaced of Array.isArray(entry.replaces) ? entry.replaces : []) {
-      if (pathEntryExists(resolve(agentsRoot, replaced)) || pathEntryExists(resolve(claudeRoot, replaced))) errors.push(`${name}: replaced skill still exists: ${replaced}`);
+      if (pathEntryExists(resolve(agentsRoot, replaced))) errors.push(`${name}: replaced skill still exists: ${replaced}`);
     }
     for (const phrase of Array.isArray(entry.routing_phrases) ? entry.routing_phrases : []) {
       if (typeof phrase !== "string" || !phrase.trim()) {

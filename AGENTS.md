@@ -5,7 +5,7 @@ Canonical repository instructions for coding agents working on [amoai-tech/ipixa
 **Precedence, highest first:**
 
 1. an explicit instruction from the user in chat — it overrides everything below;
-2. the closest `AGENTS.md` to the file being edited. Nested files exist today: `.claude/skills/vercel-react-best-practices/AGENTS.md` governs that skill's subtree, not this root file;
+2. the closest `AGENTS.md` to the file being edited. Nested files exist today: `.agents/skills/vercel-react-best-practices/AGENTS.md` governs that skill's subtree, not this root file;
 3. **this root file** — the repository-wide agent contract;
 4. Claude-specific overlays apply only within their scope and may add Claude-specific detail, but they must not restate or override rules 2–3:
    - `CLAUDE.md` at the repository root — the Claude-only overlay;
@@ -25,7 +25,7 @@ Choose the smallest useful path:
 
 For every path: inspect existing implementation first, make the smallest safe change, run risk-matched verification, and record the current branch/SHA, result, blocker, and exact next action in Linear. **Do not treat draft files as permission for a production write or merge.**
 
-`AGENTS.md` remains the engineering contract, live Linear owns task state and progress, and `.claude/skills/tasks/SKILL.md` remains the only task/PR lifecycle skill.
+`AGENTS.md` remains the engineering contract, live Linear owns task state and progress, and `.agents/skills/tasks/SKILL.md` remains the only task/PR lifecycle skill.
 
 ## Canonical engineering workflow
 
@@ -33,7 +33,7 @@ For every substantial executable `IPI-*` task:
 
 ```text
 live Linear task
-→ .claude/skills/tasks/SKILL.md
+→ .agents/skills/tasks/SKILL.md
 → relevant domain skill(s)
 → verify current origin/main + runtime
 → Mermaid reasoning pass
@@ -85,7 +85,7 @@ Do not redesign architecture unless evidence proves the current design cannot sa
 
 ## Mermaid reasoning — required for substantial tasks
 
-For a substantial task, follow the existing [mermaid-diagrams skill](.claude/skills/mermaid-diagrams/SKILL.md) and make **one smallest useful diagram pass** for architecture, approval, dependencies, failure/recovery, or other material relationships. Use the diagram to find hidden writes, missing ownership, tenant/auth/HITL gaps, retries, races and missing proof. Do not generate a diagram per file or task section; reuse a diagram unless a new risk requires another. If none adds value, record: `Diagram: N/A — no meaningful relationship/state/sequence to model.`
+For a substantial task, follow the existing [mermaid-diagrams skill](.agents/skills/mermaid-diagrams/SKILL.md) and make **one smallest useful diagram pass** for architecture, approval, dependencies, failure/recovery, or other material relationships. Use the diagram to find hidden writes, missing ownership, tenant/auth/HITL gaps, retries, races and missing proof. Do not generate a diagram per file or task section; reuse a diagram unless a new risk requires another. If none adds value, record: `Diagram: N/A — no meaningful relationship/state/sequence to model.`
 
 A diagram clarifies a claim; only tests/runtime evidence prove it. Correct a real blocker before coding.
 
@@ -246,9 +246,9 @@ Do not autonomously publish, pay, delete, or commit sensitive business state.
 - One concern per commit/PR; do not mix unrelated cleanup.
 - Full Linear names: `IPI-NNN · TASK-ID — Full title`, where `TASK-ID` is the real spec identifier such as `BRAND-001`, `DASH-MAIN-002`, or `MIGRATE-TEMPLATE`.
 
-Rules: `.cursor/rules/`. Canonical skill source tree: `.agents/skills/`. Claude discovers shared skills through symlinks under `.claude/skills/` — but **not every canonical skill is exposed, and that is deliberate**: `claude_exposed: true` in the registry marks the skills that get a Claude symlink, and the rest stay `.agents`-only until a Claude workflow needs one (`tests/skill-tree-contract.test.ts` enforces the correspondence, so a missing symlink is not automatically a defect and an unexpected one is). `.cursor/skills` may point at the Claude discovery layer. Registry SSOT: `.agents/skills/registry.json`. The index `.claude/skills/index-skills.md` is generated from that registry; update it with `npm run skills:index`, never by hand.
+Rules: .cursor/rules/. Skills have only one home: .agents/skills/. Its registry.json is the inventory source of truth, and index-skills.md is generated with npm run skills:index. Codex and Cursor discover them natively. Claude Code loads the same directory as the ipix plugin via npm run agent:claude.
 
-**One-real-copy rule:** by default, a skill has one real directory in the repository. Shared/cross-agent skills belong in `.agents/skills/<skill>/`; `.claude/skills/<skill>` must be a symlink to that canonical directory. Do not maintain copied skill directories in both trees. The Claude-only migration backlog is closed: `.claude/skills/` now contains discovery symlinks, not real skill directories. Treat any newly encountered real directory there as an exception requiring explicit approval and documentation, not as an expected migration backlog. Any other temporary exception must be explicitly approved and documented in the owning task/PR with the authoritative copy, reason, and removal checkpoint; otherwise stop instead of creating a duplicate. New shared skills and migrated skills must use `.agents/skills/` as their real home.
+**One-real-copy rule:** every skill has exactly one directory at .agents/skills/<skill>/. No secondary skill aliases are committed. The registry, index, and skill-tree tests enforce this. Claude's plugin command namespace is /ipix:<skill>; plain claude without --plugin-dir .agents does not discover the repository skills automatically.
 
 **Vendored skills are hash-locked — do not edit them in place.** `skills-lock.json` records 18 skills vendored from upstream (`testomatio/skills`, `mattpocock/skills`, `DietrichGebert/ponytail`) with a `computedHash`. Reference trees carrying an `UPSTREAM.md` are vendor snapshots too. Edit the upstream source and re-vendor; local edits to a vendored tree invalidate its provenance record and are silently lost on the next sync.
 
@@ -261,7 +261,7 @@ Rules: `.cursor/rules/`. Canonical skill source tree: `.agents/skills/`. Claude 
 - Exact-head evidence only: after every push, re-check required CI and review findings against the new head.
 - Review comments are hypotheses until verified against current code/runtime.
 - No unresolved BLOCKER/HIGH before merge.
-- Merge ≠ Done. Canonical post-merge rules: `.claude/skills/tasks/references/post-merge.md`.
+- Merge ≠ Done. Canonical post-merge rules: `.agents/skills/tasks/references/post-merge.md`.
 - After merge, safely synchronize local `main` with `origin/main` before creating the next task branch/worktree; preserve local-only commits first, and do not reset them silently. If synchronization cannot be completed safely — or the fetch itself fails — hand it to the human owner rather than starting the next task on an unverified base.
 
 ### Merge authority — human approval is mandatory
@@ -278,11 +278,11 @@ If any gate cannot be satisfied — including when a required check cannot run b
 
 ## Linear task execution
 
-For substantial executable `IPI-*` work, load `.claude/skills/tasks/SKILL.md` before planning or implementation and only the domain skills relevant to the task.
+For substantial executable `IPI-*` work, load `.agents/skills/tasks/SKILL.md` before planning or implementation and only the domain skills relevant to the task.
 
 ### Linear template routing — mandatory
 
-The existing [tasks skill](.claude/skills/tasks/SKILL.md) owns **all** task creation, templates, PR follow-up and evidence. Search current Linear first; keep a reusable issue rather than creating a duplicate merely to change template metadata.
+The existing [tasks skill](.agents/skills/tasks/SKILL.md) owns **all** task creation, templates, PR follow-up and evidence. Search current Linear first; keep a reusable issue rather than creating a duplicate merely to change template metadata.
 
 - Normal feature/fix → `Universal Engineering Task`
 - Audit/research only; no implementation → `iPix Task Audit & Implementation Plan`
@@ -295,7 +295,7 @@ Before implementation, use one of two explicit paths:
 - **Standard path:** verify template/type, project/milestone, dependencies/blockers, relations, observable outcome, acceptance criteria, verification plan, and exact next action.
 - **Exception path:** document why an approved template cannot apply; keep the same outcome/evidence fields.
 
-If Linear is temporarily unavailable, use `todo.md` only as a temporary handoff with current proof and next action; **reconcile that handoff back into Linear before marking the issue Done**. Follow the [historical tooling fallback](.claude/skills/tasks/references/linear-tooling-compatibility.md) *only if* the current integration cannot set a template. The live Linear issue and tasks skill still own progress and post-merge certification.
+If Linear is temporarily unavailable, use `todo.md` only as a temporary handoff with current proof and next action; **reconcile that handoff back into Linear before marking the issue Done**. Follow the [historical tooling fallback](.agents/skills/tasks/references/linear-tooling-compatibility.md) *only if* the current integration cannot set a template. The live Linear issue and tasks skill still own progress and post-merge certification.
 
 After opening or updating a PR, follow the **PR follow-up loop** in the tasks skill; verify comments against current code, run exact-head gates and require authorized merge approval.
 

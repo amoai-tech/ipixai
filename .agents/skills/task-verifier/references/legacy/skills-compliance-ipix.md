@@ -6,7 +6,7 @@ Run **after** Phase 1 (source-of-truth), **before** Phase 4 (scope). Fail closed
 
 ## Harness note
 
-If `Skill("ipix-supabase")` or any hub returns **Unknown skill**, `Read` `.claude/skills/<slug>/SKILL.md` directly — directory on disk is authoritative.
+If `Skill("ipix-supabase")` or any hub returns **Unknown skill**, `Read` `.agents/skills/<slug>/SKILL.md` directly — directory on disk is authoritative.
 
 ---
 
@@ -29,7 +29,7 @@ Split **required** (✅ / explicit in map) vs **optional** (— / "if Client").
 
 ```bash
 SLUG="<fill-in-skill-slug>"
-test -f ".claude/skills/${SLUG}/SKILL.md" && echo OK || echo MISSING
+test -f ".agents/skills/${SLUG}/SKILL.md" && echo OK || echo MISSING
 ```
 
 | Result | Severity |

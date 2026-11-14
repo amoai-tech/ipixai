@@ -63,52 +63,52 @@
       "files": 1,
       "hash": "414dd5a96672b064da8dd2b6692a9ec84e43d090520b972c7ebad11e34462958"
     },
-    ".claude/skills/cloudinary/references/node": {
+    ".agents/skills/cloudinary/references/node": {
       "reason": "every markdown file declares upstream author/hub (\"cloudinary\")",
       "files": 8,
       "hash": "fe9d01c57fac5e056926664267ba62c0d1467c08987dc2d5fe5814f351b18c31"
     },
-    ".claude/skills/cloudinary/references/official": {
+    ".agents/skills/cloudinary/references/official": {
       "reason": "carries UPSTREAM.md (vendor snapshot manifest)",
       "files": 40,
       "hash": "32d93da92b4d1281d8b417b7c53456239033a0c7d2bdad3109f486fbbfacf12e"
     },
-    ".claude/skills/code-review": {
+    ".agents/skills/code-review": {
       "reason": "listed in skills-lock.json",
       "files": 2,
       "hash": "c1a2868d3161ea68a1a8d53b2c617daf9901df257c039216638c162edc15c09a"
     },
-    ".claude/skills/diagnosing-bugs": {
+    ".agents/skills/diagnosing-bugs": {
       "reason": "listed in skills-lock.json",
       "files": 4,
       "hash": "cba667a7e139094d1fbb2e518df8c5ffaa37cd329ff372b8534ba97440051f10"
     },
-    ".claude/skills/nextjs-developer": {
+    ".agents/skills/nextjs-developer": {
       "reason": "pure vendor snapshot (author \"https://github.com/Jeffallan\", no -ipix version)",
       "files": 7,
       "hash": "a71bae67f1b25073aeffa6967198c53b6ae8ccf139cc816a7ca577db28110db4"
     },
-    ".claude/skills/ponytail": {
+    ".agents/skills/ponytail": {
       "reason": "listed in skills-lock.json",
       "files": 1,
       "hash": "dd429fa21b1da40c60ba6733ba680c3048bf25f5b6d4299290b7c12afd3ae9d6"
     },
-    ".claude/skills/research": {
+    ".agents/skills/research": {
       "reason": "listed in skills-lock.json",
       "files": 2,
       "hash": "79fa282ed122cbdc6c0ee82fc067dc9a01cbef5c34715438cd320b0a747ed6c7"
     },
-    ".claude/skills/tdd": {
+    ".agents/skills/tdd": {
       "reason": "listed in skills-lock.json",
       "files": 4,
       "hash": "f6d35e7a9a1656157d94fbaee59dea5e5f08554fbecc5b481ad4793f965addf6"
     },
-    ".claude/skills/to-spec": {
+    ".agents/skills/to-spec": {
       "reason": "listed in skills-lock.json",
       "files": 2,
       "hash": "93c04c67fd190117274caa8f10fef0664c5c4a1cf5b7afd6ace81c9681dd3fb1"
     },
-    ".claude/skills/vercel-react-best-practices": {
+    ".agents/skills/vercel-react-best-practices": {
       "reason": "pure vendor snapshot (author \"vercel\", no -ipix version)",
       "files": 76,
       "hash": "1194d886feb52e5c49ea6625bf8d9db636df8405e13f2ca5e0ce5b182cd1d0ce"

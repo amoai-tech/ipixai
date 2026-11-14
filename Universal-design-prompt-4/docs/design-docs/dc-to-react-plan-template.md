@@ -306,7 +306,7 @@ A single "92%" hides which dimension is actually broken. Score each:
 | Performance | | |
 | **Overall (average)** | | |
 
-Fill [`references/report-template.md`](../../.claude/skills/design-to-production/references/report-template.md)
+Fill [`references/report-template.md`](../../.agents/skills/design-to-production/references/report-template.md)
 from the `design-to-production` skill using this table in place of a single score. Include: files
 changed, screenshot paths (§17), known gaps (honest, not overstated), readiness 🟢/🟡/🔴.
 
@@ -317,5 +317,5 @@ changed, screenshot paths (§17), known gaps (honest, not overstated), readiness
 - [`designtoreact.md`](../designtoreact.md) — full build order and skill routing this template implements
 - [`lessons.md`](./lessons.md)
 - [`shoot/implementation-checklist.md`](./shoot/implementation-checklist.md)
-- [`.claude/skills/design-to-production/SKILL.md`](../../.claude/skills/design-to-production/SKILL.md)
-- [`design-to-production/references/report-template.md`](../../.claude/skills/design-to-production/references/report-template.md)
+- [`.agents/skills/design-to-production/SKILL.md`](../../.agents/skills/design-to-production/SKILL.md)
+- [`design-to-production/references/report-template.md`](../../.agents/skills/design-to-production/references/report-template.md)

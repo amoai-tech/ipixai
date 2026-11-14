@@ -8,8 +8,8 @@ PR: $ARGUMENTS
 
 Use:
 
-* `.claude/skills/tasks/SKILL.md`
-* `.claude/skills/task-verifier/SKILL.md`
+* `.agents/skills/tasks/SKILL.md`
+* `.agents/skills/task-verifier/SKILL.md`
 * the affected domain skills only
 * current Linear task
 * exact PR head/diff

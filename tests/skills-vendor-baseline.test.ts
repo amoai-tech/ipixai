@@ -118,7 +118,7 @@ describe("reference-pack discovery reads every markdown file", () => {
   });
 
   it("does not classify a mixed directory, which would freeze iPix-authored siblings", () => {
-    // The real case: `.claude/skills/ipix-supabase/references/` holds one upstream
+    // The real case: `.agents/skills/ipix-supabase/references/` holds one upstream
     // snapshot (`postgres-best-practices.md`, `metadata.author: supabase`) beside
     // three iPix-authored files. Treating the directory as a pack would put those
     // three behind the drift guard and drop them from the anchor guard too.

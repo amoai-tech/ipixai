@@ -234,7 +234,7 @@ Product bootstrap must still reach ONBOARD. **Do not** change AUTH-002 so Planne
 | Browser agent | REFERENCE / later | template-browser-agent | — | Not 1076 |
 | MCP | REFERENCE / later | showcase MCP | open-mcp-client | After Foundation exam |
 | Long-term / observational memory | DO NOT USE (Foundation) | observational-memory-workshop | — | M4 later |
-| Skills docs | REFERENCE | [mastra-ai/skills](https://github.com/mastra-ai/skills) already in `.claude/skills/mastra` | — | Before cloning more starters |
+| Skills docs | REFERENCE | [mastra-ai/skills](https://github.com/mastra-ai/skills) already in `.agents/skills/mastra` | — | Before cloning more starters |
 | AG-UI Dojo | REFERENCE | [mastra-agui-dojo](https://github.com/mastra-ai/mastra-agui-dojo) | ui-dojo | Debug only |
 
 **Already the runtime (do not copy again into dashboard pages):** [examples/integrations/mastra](https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra).

@@ -59,7 +59,7 @@ Env (server-only): `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_AP
 | `channel-tiktok` | Channel Preview | 9:16 crop | ⚪ |
 | `hitl-diff` | Approval before/after | side-by-side URLs | ⚪ |
 
-Align naming with [cloudinary skill](../../../.claude/skills/cloudinary/SKILL.md) when presets ship.
+Align naming with [cloudinary skill](../../../.agents/skills/cloudinary/SKILL.md) when presets ship.
 
 ---
 
