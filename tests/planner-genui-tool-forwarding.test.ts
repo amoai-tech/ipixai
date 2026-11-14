@@ -270,7 +270,11 @@ describe("CopilotKit GenerativeUIMiddleware → planner gate bridge", () => {
     expect(result?.content).toBeTruthy();
     const payload = JSON.parse(result!.content!);
     expect(payload.status).toBe("rendered");
-    expect(payload.applied).toBeGreaterThan(0);
+    // Both the createSurface and the ConceptComparison update must apply.
+    // A rejected update would otherwise leave applied at 1 and hide a card
+    // that never renders.
+    expect(payload.applied).toBe(operations.length);
+    expect(payload.rejected).toEqual([]);
   });
 
   it("keeps the Planner instruction example valid for ConceptComparison", () => {
