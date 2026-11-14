@@ -129,7 +129,7 @@ const copilotKitPropsMock = vi.hoisted(() => ({
 }));
 
 vi.mock("@copilotkit/react-core/v2", () => ({
-  CopilotKit: (props: { children: React.ReactNode } & Record<string, unknown>) => {
+  CopilotKitProvider: (props: { children: React.ReactNode } & Record<string, unknown>) => {
     copilotKitPropsMock.current = props;
     return <>{props.children}</>;
   },
@@ -323,7 +323,9 @@ describe("OperatorPanel", () => {
     expect(plannerRunMessageFilter(transcript, { agentId: "default" })).toEqual([transcript[2]]);
     // Nothing else on the provider is filtered or replaced by this change.
     expect(copilotKitPropsMock.current?.runtimeUrl).toBe("/api/copilotkit");
-    expect(copilotKitPropsMock.current?.useSingleEndpoint).toBe(false);
+    expect(copilotKitPropsMock.current?.agentId).toBe("default");
+    // Auto-detect the multi-route transport; do not pin a transport mode.
+    expect(copilotKitPropsMock.current?.useSingleEndpoint).toBeUndefined();
   });
 
   it("wires one native GenUI catalog and one named surface into the existing provider", async () => {
