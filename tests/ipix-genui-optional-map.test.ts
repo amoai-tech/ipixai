@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+
+import { nextConfig } from "../next.config";
 
 // CopilotKit 1.85 ships an optional dynamic import of maplibre-gl in the native
 // Generative UI entrypoint, even when the iPix catalog uses no Map component.
@@ -16,20 +18,26 @@ describe("iPix read-only GenUI optional MapLibre boundary", () => {
     expect(lock.packages).not.toHaveProperty("node_modules/maplibre-gl");
   });
 
-  it("aliases the optional module for both Turbopack and webpack, never a real Map implementation", () => {
-    const config = readFileSync(join(process.cwd(), "next.config.ts"), "utf8");
-    // One placeholder, referenced by both bundlers. The Vercel project builds
-    // with --webpack, where turbopack.resolveAlias does not apply; the webpack
-    // alias is what keeps that build from failing on the optional import.
-    expect(config).toContain(
-      'const MAPLIBRE_PLACEHOLDER = "./src/lib/copilotkit/maplibre-unavailable.ts";',
+  it("maps the optional module to the inert placeholder for both bundlers and keeps other aliases", () => {
+    const placeholder = resolve(process.cwd(), "src/lib/copilotkit/maplibre-unavailable.ts");
+
+    const turbopack = nextConfig.turbopack as
+      | { resolveAlias?: Record<string, string> }
+      | undefined;
+    expect(turbopack?.resolveAlias?.["maplibre-gl"]).toBe(
+      "./src/lib/copilotkit/maplibre-unavailable.ts",
     );
-    expect(config).toContain('"maplibre-gl": MAPLIBRE_PLACEHOLDER');
-    expect(config).toContain("webpack: (config)");
-    expect(config).toContain("path.resolve(process.cwd(), MAPLIBRE_PLACEHOLDER)");
-    const unavailable = readFileSync(
-      join(process.cwd(), "src/lib/copilotkit/maplibre-unavailable.ts"), "utf8",
-    );
+
+    const webpack = nextConfig.webpack;
+    expect(typeof webpack).toBe("function");
+    const input = { resolve: { alias: { "@existing": "/tmp/existing" } } };
+    const output = webpack!(input as never, {} as never) as typeof input;
+
+    // The webpack bundler must keep existing aliases and add the placeholder.
+    expect(output.resolve.alias["@existing"]).toBe("/tmp/existing");
+    expect(output.resolve.alias["maplibre-gl"]).toBe(placeholder);
+
+    const unavailable = readFileSync(placeholder, "utf8");
     expect(unavailable).not.toContain('from "maplibre-gl"');
     expect(unavailable).toContain("export {};");
   });

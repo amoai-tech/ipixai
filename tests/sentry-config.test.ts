@@ -42,7 +42,9 @@ describe("Sentry production configuration", () => {
     expect(config).toContain("withSentryConfig");
     expect(config).toContain("SERVICE_REDIRECTS");
     expect(config).toContain("root: process.cwd()");
-    expect(config).toContain("cpus: 4");
+    // Two workers leave room for the main webpack process on Vercel's 8 GB
+    // Standard build machine now that GenUI is in the graph.
+    expect(config).toContain("cpus: 2");
   });
 
   it("passes conservative privacy and replay options to the client SDK", async () => {

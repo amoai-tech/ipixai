@@ -44,7 +44,7 @@ const nextConfig: NextConfig = {
       "maplibre-gl": MAPLIBRE_PLACEHOLDER,
     },
   },
-  // The Vercel project builds with `next build --webpack`, where
+  // The Vercel project builds with Next's webpack bundler, where
   // turbopack.resolveAlias does not apply. Without this, the optional import
   // fails the production build with "Module not found: Can't resolve
   // 'maplibre-gl'" (proved by Preview deployment dpl_9tSb9HQumrCZ5B3ACDVniWCKMmP4
@@ -59,9 +59,9 @@ const nextConfig: NextConfig = {
   experimental: {
     // Default is CPUs-1 (19 on this machine). That spawned a page-data worker
     // storm during `next build` and contributed to global OOM. Cap it.
-    // Vercel's trial/Standard machine is 4 cores / 8 GB; four workers plus the
-    // main webpack process does not fit once GenUI is in the graph, so the
-    // Vercel build runs two (see vercel.json's buildCommand heap cap too).
+    // Vercel's Standard machine is 4 cores / 8 GB; four workers plus the main
+    // webpack process does not fit once GenUI is in the graph, so the build
+    // runs two. The heap cap lives on the Vercel project build command.
     cpus: 2,
     memoryBasedWorkersCount: true,
   },
@@ -71,6 +71,9 @@ const nextConfig: NextConfig = {
   // secret read. No `typescript.ignoreBuildErrors` either — CI `npm run typecheck`
   // is the gate, so the Vercel build must not silently swallow type errors.
 };
+
+// Raw config for contract tests; Next consumes only the default export.
+export { nextConfig };
 
 export default withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,

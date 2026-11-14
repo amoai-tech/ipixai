@@ -2,6 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
     "deploymentEnabled": false
-  },
-  "buildCommand": "NODE_OPTIONS=--max-old-space-size=6144 npx next build --webpack"
+  }
 }

@@ -47,6 +47,7 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Fixed
 
+- IPI-1387 · GENUI-CATALOG-003 — Made the Vercel production build pass for the GenUI slice. The optional `maplibre-gl` peer is now aliased to the existing inert placeholder for the webpack bundler as well as Turbopack (Vercel builds with webpack, so the Turbopack-only alias left `Module not found: Can't resolve 'maplibre-gl'`), and the Vercel project build runs with a 6 GB heap and two Next workers to fit its 8 GB Standard machine. No dependency added; the package stays out of the bundle. Verified with a Git-sourced Vercel Preview that reached READY on `f9844a4`.
 - fix(ci): Keep the official Deno 2.9.2 installer as primary and add a checksum-verified vendor CDN fallback for GitHub Releases HTTP 504; preserve exact-version, Edge tests and typecheck gates (IPI-1423, #324)
 - IPI-1422 · CI-COVERAGE-001 — Changed the pinned, SHA256-verified Codacy 14.1.3 coverage reporter download from GitHub Releases (repeated HTTP 504 after passing tests) to Codacy’s official artifact CDN with bounded retries; preserved the hash, existing upload token scope and no remote-script execution. Added targeted regression coverage; no runtime or deployment changes.
 - fix(planner): coordinate exact-run Stop across Vercel instances with private tenant-scoped Realtime, bounded and sequenced replay, transport failure handling, a terminal fallback on **controlled** owner close, and pre-run refresh of near-expiry JWTs via the existing SSR Proxy (IPI-1117, #310)
