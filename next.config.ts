@@ -1,6 +1,24 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
+// CopilotKit 1.85's GenUI entrypoint dynamically imports the optional
+// maplibre-gl peer. iPix has no Map component, and the compatible 5.x line has
+// a critical XSS advisory (CVE-2026-85061), so the import is aliased to this
+// inert placeholder for every bundler. Keep both aliases below in sync.
+const MAPLIBRE_PLACEHOLDER = "./src/lib/copilotkit/maplibre-unavailable.ts";
+
+// Minimal local webpack shape: the Next config callback is untyped, and
+// importing webpack's own types would add a direct dependency for one alias.
+type WebpackAliasValue = string | false | string[];
+type WebpackResolveConfig = {
+  alias?: Record<string, WebpackAliasValue>;
+  [key: string]: unknown;
+};
+type WebpackConfig = {
+  resolve?: WebpackResolveConfig;
+  [key: string]: unknown;
+};
+
 // IPI-1063 · MARKETING-SEO-001 — merged-page redirects from IPI-1060's
 // service-page consolidation. Static + permanent so Next emits one 308 hop
 // (no chains) and search engines consolidate ranking signal onto the target.
@@ -34,13 +52,37 @@ const nextConfig: NextConfig = {
     // (CVE-2026-85061); remove this alias only with a separately reviewed map feature.
     // Official Next 16 optional-package fallback: turbopack.resolveAlias.
     resolveAlias: {
-      "maplibre-gl": "./src/lib/copilotkit/maplibre-unavailable.ts",
+      "maplibre-gl": MAPLIBRE_PLACEHOLDER,
     },
   },
+  // The Vercel project builds with Next's webpack bundler, where
+  // turbopack.resolveAlias does not apply. Without this, the optional import
+  // fails the production build with "Module not found: Can't resolve
+  // 'maplibre-gl'" (proved by Preview deployment dpl_9tSb9HQumrCZ5B3ACDVniWCKMmP4
+  // on aa1989f). Keep the target identical to the Turbopack alias.
+  webpack: (config: WebpackConfig) => {
+    const resolve = config.resolve ?? {};
+    config.resolve = {
+      ...resolve,
+      alias: {
+        ...(resolve.alias ?? {}),
+        // Webpack's standard "ignore this optional module" value. The
+        // Turbopack alias above uses the inert placeholder module.
+        "maplibre-gl": false,
+      },
+    };
+    return config;
+  },
   experimental: {
+    // Official Next.js memory optimization reduces peak Webpack memory usage.
+    // Keep this as a Preview experiment until repeated exact-SHA builds pass.
+    webpackMemoryOptimizations: true,
     // Default is CPUs-1 (19 on this machine). That spawned a page-data worker
     // storm during `next build` and contributed to global OOM. Cap it.
-    cpus: 4,
+    // Vercel's Standard machine is 4 cores / 8 GB; four workers plus the main
+    // webpack process does not fit once GenUI is in the graph, so the build
+    // runs two. The heap cap lives on the Vercel project build command.
+    cpus: 2,
     memoryBasedWorkersCount: true,
   },
   // No `env` block: it previously derived a dead NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED
