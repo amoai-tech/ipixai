@@ -1,16 +1,16 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { pathEntryExists } from "../scripts/skill-registry.mjs";
 
 const repoRoot = resolve(import.meta.dirname, "..");
-const skill = (name: string) => resolve(repoRoot, ".agents/skills", name, "SKILL.md");
-const claudeSkill = (name: string) => resolve(repoRoot, ".agents/skills", name, "SKILL.md");
+const canonicalSkill = (name: string) => resolve(repoRoot, ".agents/skills", name, "SKILL.md");
 const read = (path: string) => readFileSync(resolve(repoRoot, path), "utf8");
 
 describe("skill consolidation contract", () => {
   it("uses one QA review skill and one PR analysis skill", () => {
-    expect(existsSync(skill("qa-review"))).toBe(true);
-    expect(existsSync(skill("qa-pr-analysis"))).toBe(true);
+    expect(existsSync(canonicalSkill("qa-review"))).toBe(true);
+    expect(existsSync(canonicalSkill("qa-pr-analysis"))).toBe(true);
 
     for (const removed of [
       "qa-review-pr",
@@ -28,7 +28,7 @@ describe("skill consolidation contract", () => {
   });
 
   it("uses one Explorbot skill", () => {
-    expect(existsSync(skill("explorbot"))).toBe(true);
+    expect(existsSync(canonicalSkill("explorbot"))).toBe(true);
     for (const removed of ["explorbot-setup", "explorbot-plan", "explorbot-fundamentals"]) {
       expect(existsSync(resolve(repoRoot, ".agents/skills", removed)), `${removed} directory should be removed`).toBe(false);
     }
@@ -36,7 +36,7 @@ describe("skill consolidation contract", () => {
 
 
   it("uses one Testomat.io integration skill with reference workflows", () => {
-    expect(existsSync(skill("testomatio"))).toBe(true);
+    expect(existsSync(canonicalSkill("testomatio"))).toBe(true);
 
     for (const ref of ["reporting.md", "sync.md", "mcp.md", "runs.md", "pr-testing.md"]) {
       expect(
@@ -64,7 +64,8 @@ describe("skill consolidation contract", () => {
   });
 
   it("routes fastest-path requests through tasks without a standalone fastest skill", () => {
-    expect(existsSync(claudeSkill("fastest"))).toBe(false);
+    expect(existsSync(canonicalSkill("fastest"))).toBe(false);
+    expect(pathEntryExists(resolve(repoRoot, ".claude/skills/fastest"))).toBe(false);
 
     const fastestMode = read(".agents/skills/tasks/references/fastest-path.md");
     expect(fastestMode).toContain("Verified fastest-path mode");
@@ -101,15 +102,14 @@ describe("skill consolidation contract", () => {
   });
 
   it("uses diagnosing-bugs as the single automated-test debugging owner", () => {
-    expect(existsSync(skill("diagnosing-bugs"))).toBe(true);
+    expect(existsSync(canonicalSkill("diagnosing-bugs"))).toBe(true);
     expect(existsSync(resolve(repoRoot, ".agents/skills/diagnosing-bugs/references/automated-test-debugging.md"))).toBe(true);
     expect(existsSync(resolve(repoRoot, ".agents/skills/debug-fix-failed-flaky-autotests"))).toBe(false);
     expect(read(".agents/skills/testing-workflow/SKILL.md")).toContain("`diagnosing-bugs` in **automated-test mode**");
   });
 
   it("uses one requirements skill for epic, user-story, and QA requirements work", () => {
-    expect(existsSync(skill("requirements"))).toBe(true);
-    expect(existsSync(claudeSkill("requirements"))).toBe(true);
+    expect(existsSync(canonicalSkill("requirements"))).toBe(true);
 
     for (const removed of [
       "epic-requirements-specification",
@@ -117,7 +117,7 @@ describe("skill consolidation contract", () => {
       "qa-requirement-reviewer",
     ]) {
       expect(existsSync(resolve(repoRoot, ".agents/skills", removed)), `${removed} directory should be removed`).toBe(false);
-      expect(existsSync(resolve(repoRoot, ".agents/skills", removed)), `${removed} Claude alias should be removed`).toBe(false);
+      expect(pathEntryExists(resolve(repoRoot, ".claude/skills", removed)), `${removed} Claude alias should be removed`).toBe(false);
     }
 
     const requirements = read(".agents/skills/requirements/SKILL.md");
