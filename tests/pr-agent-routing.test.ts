@@ -36,6 +36,8 @@ describe("IPI-1246 PR-Agent changed-file routing", () => {
     expect(names(["src/mastra/agents/planner.ts"])).toEqual(["code-review", "mastra"]);
     expect(names(["src/app/api/copilotkit/route.ts"])).toEqual(["code-review", "copilotkit", "nextjs-developer"]);
     expect(names(["src/components/operator-panel/ipix-generative-surface.tsx"])).toEqual(["code-review", "copilotkit"]);
+    expect(names(["src/components/operator-panel/genui-fixture.tsx"])).toEqual(["code-review", "copilotkit"]);
+    expect(names(["src/components/operator-panel/genui-fixture-harness.tsx"])).toEqual(["code-review", "copilotkit"]);
   });
 
   it("routes every current direct CopilotKit or AG-UI source owner", () => {
