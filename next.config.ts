@@ -59,7 +59,10 @@ const nextConfig: NextConfig = {
   experimental: {
     // Default is CPUs-1 (19 on this machine). That spawned a page-data worker
     // storm during `next build` and contributed to global OOM. Cap it.
-    cpus: 4,
+    // Vercel's trial/Standard machine is 4 cores / 8 GB; four workers plus the
+    // main webpack process does not fit once GenUI is in the graph, so the
+    // Vercel build runs two (see vercel.json's buildCommand heap cap too).
+    cpus: 2,
     memoryBasedWorkersCount: true,
   },
   // No `env` block: it previously derived a dead NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED
