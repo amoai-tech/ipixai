@@ -45,6 +45,8 @@ describe("Sentry production configuration", () => {
     // Two workers leave room for the main webpack process on Vercel's 8 GB
     // Standard build machine now that GenUI is in the graph.
     expect(config).toContain("cpus: 2");
+    // The Preview build must retain the official peak-memory optimization.
+    expect(config).toContain("webpackMemoryOptimizations: true");
   });
 
   it("passes conservative privacy and replay options to the client SDK", async () => {
