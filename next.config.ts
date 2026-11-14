@@ -1,5 +1,12 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
+
+// CopilotKit 1.85's GenUI entrypoint dynamically imports the optional
+// maplibre-gl peer. iPix has no Map component, and the compatible 5.x line has
+// a critical XSS advisory (CVE-2026-85061), so the import is aliased to this
+// inert placeholder for every bundler. Keep both aliases below in sync.
+const MAPLIBRE_PLACEHOLDER = "./src/lib/copilotkit/maplibre-unavailable.ts";
 
 // IPI-1063 · MARKETING-SEO-001 — merged-page redirects from IPI-1060's
 // service-page consolidation. Static + permanent so Next emits one 308 hop
@@ -34,8 +41,20 @@ const nextConfig: NextConfig = {
     // (CVE-2026-85061); remove this alias only with a separately reviewed map feature.
     // Official Next 16 optional-package fallback: turbopack.resolveAlias.
     resolveAlias: {
-      "maplibre-gl": "./src/lib/copilotkit/maplibre-unavailable.ts",
+      "maplibre-gl": MAPLIBRE_PLACEHOLDER,
     },
+  },
+  // The Vercel project builds with `next build --webpack`, where
+  // turbopack.resolveAlias does not apply. Without this, the optional import
+  // fails the production build with "Module not found: Can't resolve
+  // 'maplibre-gl'" (proved by Preview deployment dpl_9tSb9HQumrCZ5B3ACDVniWCKMmP4
+  // on aa1989f). Keep the target identical to the Turbopack alias.
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "maplibre-gl": path.resolve(process.cwd(), MAPLIBRE_PLACEHOLDER),
+    };
+    return config;
   },
   experimental: {
     // Default is CPUs-1 (19 on this machine). That spawned a page-data worker

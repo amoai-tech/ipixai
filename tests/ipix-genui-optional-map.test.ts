@@ -16,9 +16,17 @@ describe("iPix read-only GenUI optional MapLibre boundary", () => {
     expect(lock.packages).not.toHaveProperty("node_modules/maplibre-gl");
   });
 
-  it("uses Next 16's explicit optional-module alias, never a real Map implementation", () => {
+  it("aliases the optional module for both Turbopack and webpack, never a real Map implementation", () => {
     const config = readFileSync(join(process.cwd(), "next.config.ts"), "utf8");
-    expect(config).toContain('"maplibre-gl": "./src/lib/copilotkit/maplibre-unavailable.ts"');
+    // One placeholder, referenced by both bundlers. The Vercel project builds
+    // with --webpack, where turbopack.resolveAlias does not apply; the webpack
+    // alias is what keeps that build from failing on the optional import.
+    expect(config).toContain(
+      'const MAPLIBRE_PLACEHOLDER = "./src/lib/copilotkit/maplibre-unavailable.ts";',
+    );
+    expect(config).toContain('"maplibre-gl": MAPLIBRE_PLACEHOLDER');
+    expect(config).toContain("webpack: (config)");
+    expect(config).toContain("path.resolve(process.cwd(), MAPLIBRE_PLACEHOLDER)");
     const unavailable = readFileSync(
       join(process.cwd(), "src/lib/copilotkit/maplibre-unavailable.ts"), "utf8",
     );
