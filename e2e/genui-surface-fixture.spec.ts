@@ -98,6 +98,11 @@ test.describe("GenUI Surface fixture (deterministic)", () => {
     // Wait for the client effect to install the fixture before asserting the
     // cleared state; otherwise the server HTML alone could satisfy this check.
     await page.waitForFunction(() => Boolean(window.__genuiFixture));
+    // Select the thread that held the card before reload; the in-memory
+    // Surface must still be gone under that thread.
+    await page.evaluate(() =>
+      window.__genuiFixture?.switchThread("genui-fixture-thread"),
+    );
     // The labelled region remains mounted even when the in-memory Surface is
     // cleared; the card itself must be gone.
     await expect(region).toBeAttached();

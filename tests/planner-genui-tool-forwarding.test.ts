@@ -13,7 +13,10 @@ import {
   GENERATIVE_UI_ROOT_ID,
 } from "@copilotkit/shared";
 import { wrapPlannerStreamWithToolGate } from "../src/mastra/planner-tool-gate";
-import { GENUI_COMPARISON_UPDATE_COMPONENTS } from "../src/mastra/agents/production-planner-instructions";
+import {
+  GENUI_COMPARISON_CREATE_SURFACE,
+  GENUI_COMPARISON_UPDATE_COMPONENTS,
+} from "../src/mastra/agents/production-planner-instructions";
 import { conceptComparisonSchema } from "../src/lib/copilotkit/ipix-generative-ui";
 
 const ENVELOPE = {
@@ -209,27 +212,8 @@ describe("CopilotKit GenerativeUIMiddleware → planner gate bridge", () => {
     };
 
     const operations = [
-      {
-        version: A2UI_VERSION,
-        createSurface: { surfaceId: "middleware-surface", catalogId: "ipix/planner@1" },
-      },
-      {
-        version: A2UI_VERSION,
-        updateComponents: {
-          surfaceId: "middleware-surface",
-          components: [
-            {
-              id: GENERATIVE_UI_ROOT_ID,
-              component: "ConceptComparison",
-              title: "Middleware works",
-              options: [
-                { name: "Studio", rationale: "Controlled light." },
-                { name: "Outdoor", rationale: "Natural light." },
-              ],
-            },
-          ],
-        },
-      },
+      GENUI_COMPARISON_CREATE_SURFACE,
+      GENUI_COMPARISON_UPDATE_COMPONENTS,
     ];
 
     const stream = [
