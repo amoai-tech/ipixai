@@ -74,6 +74,9 @@ const nextConfig: NextConfig = {
     return config;
   },
   experimental: {
+    // Official Next.js memory optimization reduces peak Webpack memory usage.
+    // Keep this as a Preview experiment until repeated exact-SHA builds pass.
+    webpackMemoryOptimizations: true,
     // Default is CPUs-1 (19 on this machine). That spawned a page-data worker
     // storm during `next build` and contributed to global OOM. Cap it.
     // Vercel's Standard machine is 4 cores / 8 GB; four workers plus the main
