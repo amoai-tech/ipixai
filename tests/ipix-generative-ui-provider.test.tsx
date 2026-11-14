@@ -42,11 +42,13 @@ describe("native GenUI provider and surface integration", () => {
     expect(screen.getByText("No generated comparison yet.")).toBeTruthy();
     await waitFor(() => {
       expect(capturedRuntime?.ui).toBe(ipixGenerativeUI);
-      expect(capturedRuntime?.manager.getMountedTargets()).toContainEqual({
-        id: "planner-comparison",
-        description: "Read-only qualitative comparison of shoot concepts. Use one ConceptComparison only for proposed ideas. Do not assert measured or approved business facts.",
-        components: ["ConceptComparison"],
-      });
+      const target = capturedRuntime?.manager.getMountedTargets().find(
+        (entry) => entry.id === "planner-comparison",
+      );
+      expect(target?.components).toEqual(["ConceptComparison"]);
+      // Assert the model-facing contract, not incidental description wording.
+      expect(target?.description).toContain("each exactly { name, rationale }");
+      expect(target?.description).toContain("A2UI 1.0 operations only");
     });
 
     const manager = capturedRuntime!.manager;

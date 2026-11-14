@@ -31,7 +31,7 @@ const qualitativeText = (max: number) =>
     "Only qualitative proposals are allowed; use authorized tools for business facts.",
   );
 
-const conceptComparisonSchema = z.object({
+export const conceptComparisonSchema = z.object({
   title: qualitativeText(120),
   options: z.array(z.object({
     name: qualitativeText(80),
@@ -93,7 +93,7 @@ export const ipixGenerativeUI = createGenerativeUI({
     ConceptComparison: {
       component: ConceptComparison,
       description:
-        "A read-only qualitative comparison of two or three shoot concepts. Use only concept names and short rationales. Never include prices, budgets, shot counts, asset IDs or other measured business facts.",
+        "A read-only qualitative comparison of two or three shoot concepts. Props are exactly: title (string); options (2-3 objects, each with exactly name and rationale); optional note. Do not add summary, strengths, considerations, bestFor, prices, budgets, counts, IDs or other measured facts.",
       props: conceptComparisonSchema,
     },
   },

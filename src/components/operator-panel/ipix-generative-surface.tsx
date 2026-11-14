@@ -27,13 +27,18 @@ export function IpixGenerativeComparisonSurface() {
   );
   const surface = runtime?.manager.getSurfaceForTarget(TARGET);
   const showRecovery = surface?.status === "ready" &&
-    !surface.model?.componentsModel?.get(GENERATIVE_UI_ROOT_ID);
+    (!surface.model?.componentsModel?.get(GENERATIVE_UI_ROOT_ID) ||
+      surface.serverRejected.length > 0 ||
+      surface.clientRejected.length > 0);
 
   return (
-    <>
+    <section
+      aria-label="AI comparison"
+      data-testid="genui-comparison-region"
+    >
       <GenerativeUISurface
         id={TARGET}
-        description="Read-only qualitative comparison of shoot concepts. Use one ConceptComparison only for proposed ideas. Do not assert measured or approved business facts."
+        description="Read-only qualitative comparison of shoot concepts. Use one ConceptComparison with props title and 2-3 options, each exactly { name, rationale }. Use A2UI 1.0 operations only; do not use an op/component.type wrapper or measured business facts."
         ui={ipixGenerativeUI}
         components={["ConceptComparison"]}
         fallback={<span className="sr-only">No generated comparison yet.</span>}
@@ -45,6 +50,6 @@ export function IpixGenerativeComparisonSurface() {
           We couldn't show this comparison. Ask iPix to try again.
         </p>
       ) : null}
-    </>
+    </section>
   );
 }
