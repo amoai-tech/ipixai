@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type Ref } from "react";
 import {
   CopilotChat,
-  CopilotKit,
+  CopilotKitProvider,
   useAgent,
   useCopilotKit,
   type CopilotKitMessageFilter,
@@ -26,6 +26,7 @@ import { ComposeShootPlanRenderer } from "@/components/shoot/compose-shoot-plan-
 import { IpixGenerativeComparisonSurface } from "./ipix-generative-surface";
 import { ShootPlanReviewHitl } from "@/components/shoot/shoot-plan-review-hitl";
 import { ipixGenerativeUI } from "@/lib/copilotkit/ipix-generative-ui";
+import type { GenerativeUIErrorInfo } from "@copilotkit/react-core/v2/generative-ui";
 import {
   plannerThreadStorageKey,
   resolvePlannerThreadId,
@@ -41,6 +42,19 @@ const MOBILE_NAV = "(max-width: 767px)";
 // only the Copilot panel reacts to this breakpoint, not the nav.
 const COPILOT_COMPACT = "(max-width: 1023px)";
 const RUN_FAILURE_MESSAGE = "The AI run stopped before it completed";
+
+// Report generated-UI failures without logging raw model props or tenant data.
+function reportGenerativeUIError(info: GenerativeUIErrorInfo) {
+  // Do not log the error message: generated props or tenant data can end up
+  // inside it. The structured code/name is enough to triage the failure.
+  const code = (info.error as Error & { code?: unknown }).code;
+  console.error("[genui] generated UI failed", {
+    kind: info.kind,
+    surfaceId: info.surfaceId,
+    componentId: info.componentId,
+    code: typeof code === "string" ? code : info.error.name,
+  });
+}
 
 /**
  * IPI-1339 · PLANNER-PAYLOAD-001 — the Planner's Mastra agent already owns the
@@ -849,26 +863,26 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
     setCopilotOpen(false);
   };
 
-  // useSingleEndpoint={false} matches the multi-route
-  // /api/copilotkit/[[...slug]] handler — the v1-compat bridge otherwise
-  // defaults to a single transport and 404s. Auth is server-side on the route itself
-  // (requirePlannerResourceId re-verifies the same AUTH-002 session that
-  // already gated this page), so no client handshake is needed here.
-  // showDevConsole / enableInspector explicitly off: their default dev-
-  // mode toast + floating inspector button sit at a high z-index and
-  // intercept clicks on the real page underneath (caught by an
-  // authenticated e2e smoke run — Quick Links stopped navigating with
-  // the CopilotKit provider mounted and these left on their default).
+  // The route is multi-route; pin REST explicitly to preserve the existing
+  // transport while removing the v1 wrapper. Official auto-detection is also
+  // supported, but false is the smaller behavior change. Auth remains
+  // server-side (requirePlannerResourceId re-verifies the same AUTH-002
+  // session that already gated this page), so no client handshake is needed.
+  // Inspector is explicitly off: its floating button sits at a high z-index
+  // and intercepts clicks on the real page underneath.
   return (
     <PlannerContextProvider>
     <WorkspaceStatsProvider>
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
+      agentId="default"
       useSingleEndpoint={false}
-      showDevConsole={false}
       enableInspector={false}
       messageFilter={plannerRunMessageFilter}
-      generativeUI={{ ui: ipixGenerativeUI }}
+      generativeUI={{
+        ui: ipixGenerativeUI,
+        errorBoundary: { onError: reportGenerativeUIError },
+      }}
       publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_PUBLIC_LICENSE_KEY}
     >
       {/* IPI-1084 · APPROVAL-001 — HITL plan review. Renders inside this
@@ -963,7 +977,7 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
 
       <ProductionCopilotPanel pathname={pathname} open={copilotOpen} onClose={closeCopilot} />
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
     </WorkspaceStatsProvider>
     </PlannerContextProvider>
   );

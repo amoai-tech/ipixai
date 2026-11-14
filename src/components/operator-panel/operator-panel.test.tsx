@@ -129,7 +129,7 @@ const copilotKitPropsMock = vi.hoisted(() => ({
 }));
 
 vi.mock("@copilotkit/react-core/v2", () => ({
-  CopilotKit: (props: { children: React.ReactNode } & Record<string, unknown>) => {
+  CopilotKitProvider: (props: { children: React.ReactNode } & Record<string, unknown>) => {
     copilotKitPropsMock.current = props;
     return <>{props.children}</>;
   },
@@ -323,6 +323,8 @@ describe("OperatorPanel", () => {
     expect(plannerRunMessageFilter(transcript, { agentId: "default" })).toEqual([transcript[2]]);
     // Nothing else on the provider is filtered or replaced by this change.
     expect(copilotKitPropsMock.current?.runtimeUrl).toBe("/api/copilotkit");
+    expect(copilotKitPropsMock.current?.agentId).toBe("default");
+    // The existing multi-route handler stays on the REST transport.
     expect(copilotKitPropsMock.current?.useSingleEndpoint).toBe(false);
   });
 
