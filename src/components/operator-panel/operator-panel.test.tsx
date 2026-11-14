@@ -129,7 +129,7 @@ const copilotKitPropsMock = vi.hoisted(() => ({
 }));
 
 vi.mock("@copilotkit/react-core/v2", () => ({
-  CopilotKit: (props: { children: React.ReactNode } & Record<string, unknown>) => {
+  CopilotKitProvider: (props: { children: React.ReactNode } & Record<string, unknown>) => {
     copilotKitPropsMock.current = props;
     return <>{props.children}</>;
   },
@@ -336,8 +336,14 @@ describe("OperatorPanel", () => {
 
     const generativeUI = copilotKitPropsMock.current?.generativeUI as {
       ui?: { id?: string };
+      agentIds?: string[];
+      errorBoundary?: { onError?: unknown };
     };
     expect(generativeUI?.ui?.id).toBe("ipix/planner@1");
+    // The catalog is scoped to the Planner agent, not every agent.
+    expect(generativeUI?.agentIds).toEqual(["default"]);
+    // Failures are reported through the provider's documented error boundary.
+    expect(typeof generativeUI?.errorBoundary?.onError).toBe("function");
     expect(screen.getByTestId("generative-ui-surface-stub").dataset.surfaceId).toBe(
       "planner-comparison",
     );
