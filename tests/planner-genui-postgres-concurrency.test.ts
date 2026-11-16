@@ -82,7 +82,50 @@ suite("IPI-1449 real PostgreSQL cross-writer atomicity", () => {
     expect(success).toEqual([true,true]);
     const saved = await recallPlannerHistory(memory,{ threadId, resourceId });
     expect(saved.genui?.operations).toHaveLength(4);
+    const changes = saved.genui?.operations.slice(2).map((op) => {
+      if (!("updateDataModel" in op) || !op.updateDataModel) return null;
+      const value = op.updateDataModel.value as { text?: string };
+      return value.text ?? null;
+    });
+    expect(changes?.sort()).toEqual(["outdoor", "studio"]);
   });
+  it("retries an ordered snapshot after CAS loses to an earlier run", async () => {
+    const threadId = await make();
+    const stale = await memory.getThreadById({ threadId });
+    expect(stale).toBeTruthy();
+    // An earlier run commits after the newer run read its old expected key.
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, runSequence: "2000", activity,
+    }, { pool })).toBe(true);
+    const newerSurface = "comparison-newer";
+    const newerActivity = {
+      ...activity, surfaceId: newerSurface,
+      operations: activity.operations.map((op) => {
+        if ("createSurface" in op && op.createSurface) {
+          return { ...op, createSurface: { ...op.createSurface, surfaceId: newerSurface } };
+        }
+        if ("updateComponents" in op && op.updateComponents) {
+          return { ...op, updateComponents: { ...op.updateComponents, surfaceId: newerSurface } };
+        }
+        return op;
+      }),
+    };
+    const fetch = memory.getThreadById.bind(memory);
+    const spy = vi.spyOn(memory, "getThreadById")
+      .mockImplementationOnce(async () => stale)
+      .mockImplementation((args) => fetch(args));
+    try {
+      expect(await savePlannerGenUIActivity(memory, {
+        threadId, resourceId, runSequence: "2001", activity: newerActivity,
+      }, { pool })).toBe(true);
+      expect(spy).toHaveBeenCalledTimes(2); // CAS miss -> fresh read -> successful commit
+    } finally {
+      spy.mockRestore();
+    }
+    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui?.surfaceId)
+      .toBe(newerSurface);
+  });
+
   it("distinguishes an absent JSON key from a key containing JSON null", async () => {
     const threadId = crypto.randomUUID();
     ids.push(threadId);
@@ -214,6 +257,25 @@ suite("IPI-1449 real PostgreSQL cross-writer atomicity", () => {
     const restored = await recallPlannerHistory(memory, { threadId, resourceId });
     expect(restored.genui).toBeNull();
     expect(restored.genuiRecovery).toBeUndefined(); // intentional deletion is not an error
+  });
+
+  it("proves why the rollout must drain pre-CAS application instances", async () => {
+    const threadId = await make();
+    const before = await pool.query(
+      'SELECT metadata FROM mastra.mastra_threads WHERE id=$1', [threadId],
+    );
+    // This is the old PR #343 persistence path: ordinary Mastra metadata
+    // update returns success but the installed guard must reject the change.
+    const obsolete = { deleted: true, scopeKey: "workspace", reason: "delete" };
+    await memory.updateThread({
+      id: threadId,
+      metadata: { ipixGenUI: obsolete },
+    });
+    const after = await pool.query(
+      'SELECT metadata FROM mastra.mastra_threads WHERE id=$1', [threadId],
+    );
+    expect(after.rows[0].metadata.ipixGenUI).toEqual(before.rows[0].metadata.ipixGenUI);
+    expect(after.rows[0].metadata.ipixGenUI).not.toEqual(obsolete);
   });
 
   it("does not let Mastra's stale whole-metadata writer erase a newer GenUI change", async () => {

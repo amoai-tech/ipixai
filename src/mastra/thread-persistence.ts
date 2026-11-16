@@ -285,10 +285,11 @@ export async function savePlannerGenUIActivity(
           next,
         });
         if (written) return true;
-        // Only a same-surface delta may be revalidated and appended to the
-        // newly committed version. A full snapshot or delete may be stale;
-        // never replay it over a newer version without a run-order proof.
-        if (!("update" in input)) {
+        // Revalidate an ordered run on a new snapshot. A newer generation
+        // may legitimately replace an older run that won the first CAS;
+        // the next iteration rejects the retry if a still newer run won.
+        // Legacy unsequenced full snapshots/deletes remain fail-closed.
+        if (!("update" in input) && !input.runSequence) {
           console.warn("planner.genui.persist_conflict");
           return false;
         }

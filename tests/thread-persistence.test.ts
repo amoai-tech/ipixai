@@ -403,6 +403,7 @@ describe("persisted GenUI metadata", () => {
         }] },
       })).toBe(true);
     }
+    const before = await recallPlannerHistory(memory, { threadId, resourceId });
     expect(await savePlannerGenUIActivity(memory, {
       threadId, resourceId,
       update: { surfaceId: "comparison-1", operations: [{
@@ -412,6 +413,7 @@ describe("persisted GenUI metadata", () => {
       }] },
     })).toBe(false);
     const saved = await recallPlannerHistory(memory, { threadId, resourceId });
+    expect(saved.genui?.operations).toEqual(before.genui?.operations);
     expect(saved.genui?.operations).toHaveLength(20);
     expect(saved.genuiRecovery).toBeUndefined();
   });

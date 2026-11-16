@@ -249,18 +249,34 @@ export function capturePlannerGenUIStream(
     }
   };
 
+  // Find SSE blank-line delimiters. CRLF is a single newline, even when
+  // the CR and LF arrive in separate network chunks. A backtracking regex
+  // can incorrectly treat CRLF as two blank lines and release RUN_FINISHED
+  // before the save has completed.
+  const eventBoundary = (text: string, atEnd: boolean): number | null => {
+    let lineStart = 0;
+    for (let i = 0; i < text.length;) {
+      const char = text[i];
+      if (char !== "\r" && char !== "\n") {
+        i += 1;
+        continue;
+      }
+      if (char === "\r" && i + 1 === text.length && !atEnd) return null;
+      const after = char === "\r" && text[i + 1] === "\n" ? i + 2 : i + 1;
+      if (i === lineStart) return after;
+      lineStart = after;
+      i = after;
+    }
+    return null;
+  };
+
   const flushBlocks = (
     controller: ReadableStreamDefaultController<Uint8Array>,
     atEnd = false,
   ): boolean => {
     let delivered = false;
-    const separator = /(?:\r\n|\r|\n){2}/;
-    let match = separator.exec(pending);
-    while (match) {
-      // A trailing CR could be the first half of a split CRLF pair.
-      if (!atEnd && match.index + match[0].length === pending.length &&
-          pending.endsWith("\r")) break;
-      const boundary = match.index + match[0].length;
+    let boundary = eventBoundary(pending, atEnd);
+    while (boundary !== null) {
       const block = pending.slice(0, boundary);
       pending = pending.slice(boundary);
       if (isRunFinished(block)) terminal = block;
@@ -268,7 +284,7 @@ export function capturePlannerGenUIStream(
         controller.enqueue(encoder.encode(block));
         delivered = true;
       }
-      match = separator.exec(pending);
+      boundary = eventBoundary(pending, atEnd);
     }
     // The collector already bounds incomplete event data. Prevent this
     // transport parser from adding an independent unbounded memory buffer.

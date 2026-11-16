@@ -332,6 +332,35 @@ describe("capturePlannerGenUIStream", () => {
     }
   });
 
+  it("holds CRLF terminal frames split between the two newline pairs", async () => {
+    const payload = acceptedSse().replace(/\n/g, "\r\n");
+    const terminalIndex = payload.lastIndexOf("RUN_FINISHED");
+    const delimiter = payload.indexOf("\r\n\r\n", terminalIndex);
+    expect(delimiter).toBeGreaterThan(terminalIndex);
+    const pieces = [
+      payload.slice(0, delimiter + 2),
+      payload.slice(delimiter + 2, delimiter + 3),
+      payload.slice(delimiter + 3),
+    ];
+    const response = new Response(new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const part of pieces) controller.enqueue(new TextEncoder().encode(part));
+        controller.close();
+      },
+    }), { headers: { "content-type": "text/event-stream" } });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const output = await capturePlannerGenUIStream(response, {
+        save: async () => { throw new Error("sensitive failure"); },
+      }).text();
+      expect(output).not.toContain('"type":"RUN_FINISHED"');
+      expect(output).toContain('"type":"RUN_ERROR"');
+      expect(output).not.toContain("sensitive failure");
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it("passes SSE bytes through unchanged and persists the accepted activity", async () => {
     const payload = acceptedSse();
     const encoded = new TextEncoder().encode(payload);
