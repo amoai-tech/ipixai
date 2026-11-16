@@ -14,6 +14,8 @@ import {
   listMastraThreadsForResource,
   mastraMessagesToChat,
   recallPlannerChatMessages,
+  recallPlannerHistory,
+  savePlannerGenUIActivity,
   splitRunThreadIds,
 } from "../src/mastra/thread-persistence";
 import { describeProductionPlanCard } from "../src/lib/shoot/compose-shoot-plan-card-view";
@@ -258,6 +260,69 @@ describe("resolvePlannerThreadId", () => {
     expect(plannerThreadStorageKey("org:a::user:u")).toBe(
       "ipix.planner.threadId:org:a::user:u",
     );
+  });
+});
+
+describe("persisted GenUI metadata", () => {
+  const activity = {
+    target: "planner-comparison" as const,
+    surfaceId: "comparison-1",
+    catalogId: "ipix/planner@1",
+    operations: [
+      {
+        version: "1.0" as const,
+        createSurface: { surfaceId: "comparison-1", catalogId: "ipix/planner@1" },
+      },
+      {
+        version: "1.0" as const,
+        updateComponents: {
+          surfaceId: "comparison-1",
+          components: [{
+            id: "root",
+            component: "ConceptComparison",
+            title: "Saved comparison",
+            options: [
+              { name: "Studio", rationale: "Controlled light." },
+              { name: "Outdoor", rationale: "Natural light." },
+            ],
+          }],
+        },
+      },
+    ],
+  };
+
+  it("round-trips an accepted activity and rejects a foreign resource", async () => {
+    const memory = isolatedMemory();
+    const threadId = crypto.randomUUID();
+    const resourceId = "org:a::user:u";
+    await ensureMastraThread(memory, { threadId, resourceId });
+
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId,
+      resourceId,
+      activity,
+    })).toBe(true);
+    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui).toEqual(activity);
+
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId,
+      resourceId: "org:b::user:v",
+      activity: null,
+    })).toBe(false);
+    expect((await recallPlannerHistory(memory, {
+      threadId,
+      resourceId: "org:b::user:v",
+    })).genui).toBeNull();
+  });
+
+  it("records a deletion marker that suppresses older history", async () => {
+    const memory = isolatedMemory();
+    const threadId = crypto.randomUUID();
+    const resourceId = "org:a::user:u";
+    await ensureMastraThread(memory, { threadId, resourceId });
+    await savePlannerGenUIActivity(memory, { threadId, resourceId, activity });
+    await savePlannerGenUIActivity(memory, { threadId, resourceId, activity: null });
+    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui).toBeNull();
   });
 });
 

@@ -15,6 +15,12 @@ import {
   TenantAbortRunner,
 } from "@/lib/copilotkit/tenant-abort-runner";
 import { createPlannerRunControl } from "@/lib/copilotkit/planner-run-control-supabase";
+import { capturePlannerGenUIStream } from "@/lib/copilotkit/genui-activity-persist";
+import {
+  canonicalizePlannerThreadId,
+  getPlannerMemory,
+  savePlannerGenUIActivity,
+} from "@/mastra/thread-persistence";
 
 // IPI-1329 · MASTRA-INPROC-001 — the Product Planner always runs in this
 // process: server-derived org+user resourceId → createLocalAgents →
@@ -28,6 +34,17 @@ async function handleCopilot(request: Request) {
   if (!session.ok) return session.response;
 
   const resourceId = session.resourceId;
+  // The run body carries the thread the activity belongs to. Clone first so
+  // the runtime still receives the untouched request stream.
+  let captureThreadId: string | undefined;
+  if (request.method === "POST") {
+    try {
+      const body = (await request.clone().json()) as { threadId?: unknown };
+      captureThreadId = canonicalizePlannerThreadId(body.threadId) ?? undefined;
+    } catch {
+      captureThreadId = undefined;
+    }
+  }
   // The authorization boundary provides this trusted tenant directly.
   // Changes to memory-key formatting must never disable stream revocation.
   const orgId = session.orgId;
@@ -111,6 +128,21 @@ async function handleCopilot(request: Request) {
   } catch (error) {
     cleanupMembershipWatchdog();
     throw error;
+  }
+  if (captureThreadId && response.ok) {
+    const threadId = captureThreadId;
+    response = capturePlannerGenUIStream(response, {
+      threadId,
+      save: async (activity) => {
+        const memory = await getPlannerMemory();
+        if (!memory) return;
+        await savePlannerGenUIActivity(memory, {
+          threadId,
+          resourceId,
+          activity,
+        });
+      },
+    });
   }
   if (!membershipWatchdog) return response;
   return guardPlannerResponseStream(response, membershipController.signal, cleanupMembershipWatchdog);

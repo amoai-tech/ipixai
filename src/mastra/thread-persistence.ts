@@ -160,6 +160,52 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+/** Validate the replay contract shared by message history and persisted
+ *  metadata: planner target, known catalog, bounded 1.0 operations, a
+ *  ConceptComparison root, and no delete/failed content. */
+export function normalizePlannerGenUIActivity(
+  value: unknown,
+): PlannerGenUIActivity | null {
+  const row = asRecord(value);
+  if (!row || row.target !== GENUI_TARGET) return null;
+  const operations = row.operations;
+  if (!Array.isArray(operations) || operations.length === 0 || operations.length > GENUI_MAX_OPERATIONS) return null;
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(operations);
+  } catch {
+    return null;
+  }
+  if (serialized.length > GENUI_MAX_SERIALIZED_BYTES) return null;
+  const ops = operations.filter((op): op is Record<string, unknown> => Boolean(op) && typeof op === "object" && !Array.isArray(op));
+  if (ops.length !== operations.length) return null;
+  if (!ops.every((op) => op.version === "1.0")) return null;
+  if (ops.some((op) => "deleteSurface" in op)) return null;
+  const create = ops.find((op) => {
+    const candidate = op.createSurface;
+    return candidate && typeof candidate === "object" && !Array.isArray(candidate);
+  })?.createSurface as Record<string, unknown> | undefined;
+  if (!create) return null;
+  if (typeof create.surfaceId !== "string" || create.surfaceId.length === 0) return null;
+  if (create.catalogId !== GENUI_CATALOG_ID) return null;
+  const hasRoot = ops.some((op) => {
+    const update = op.updateComponents;
+    if (!update || typeof update !== "object" || Array.isArray(update)) return false;
+    const components = (update as Record<string, unknown>).components;
+    return Array.isArray(components) && components.some((component) => {
+      const c = component as Record<string, unknown> | null;
+      return c?.id === "root" && c?.component === "ConceptComparison";
+    });
+  });
+  if (!hasRoot) return null;
+  return {
+    target: GENUI_TARGET,
+    surfaceId: create.surfaceId,
+    catalogId: create.catalogId,
+    operations: ops as unknown as A2UIOperation[],
+  };
+}
+
 /** Extract only the last render_ui call the runtime itself marked rendered.
  *  The operations are already validated by GenerativeUIMiddleware before it
  *  emits the activity; this second pass enforces the bounded replay contract
@@ -182,49 +228,63 @@ export function extractPlannerGenUIActivity(
       if (typeof result.applied !== "number" || result.applied <= 0) continue;
       if (!Array.isArray(result.rejected) || result.rejected.length > 0) continue;
 
-      const operations = args.operations;
-      if (!Array.isArray(operations) || operations.length === 0 || operations.length > GENUI_MAX_OPERATIONS) continue;
-      let serialized: string;
-      try {
-        serialized = JSON.stringify(operations);
-      } catch {
-        continue;
-      }
-      if (serialized.length > GENUI_MAX_SERIALIZED_BYTES) continue;
-
-      const ops = operations.filter((op): op is Record<string, unknown> => Boolean(op) && typeof op === "object" && !Array.isArray(op));
-      if (ops.length !== operations.length) continue;
-      if (!ops.every((op) => op.version === "1.0")) continue;
-      if (ops.some((op) => "deleteSurface" in op)) {
-        latest = null;
-        continue;
-      }
-      const create = ops.find((op) => {
-        const value = op.createSurface;
-        return value && typeof value === "object" && !Array.isArray(value);
-      })?.createSurface as Record<string, unknown> | undefined;
-      if (!create) continue;
-      if (typeof create.surfaceId !== "string" || create.surfaceId.length === 0) continue;
-      if (create.catalogId !== GENUI_CATALOG_ID) continue;
-      const hasRoot = ops.some((op) => {
-        const update = op.updateComponents;
-        if (!update || typeof update !== "object" || Array.isArray(update)) return false;
-        const components = (update as Record<string, unknown>).components;
-        return Array.isArray(components) && components.some((component) => {
-          const value = component as Record<string, unknown> | null;
-          return value?.id === "root" && value?.component === "ConceptComparison";
-        });
+      latest = normalizePlannerGenUIActivity({
+        target: args.target,
+        operations: args.operations,
       });
-      if (!hasRoot) continue;
-      latest = {
-        target: GENUI_TARGET,
-        surfaceId: create.surfaceId,
-        catalogId: create.catalogId,
-        operations: ops as unknown as A2UIOperation[],
-      };
     }
   }
   return latest;
+}
+
+const GENUI_METADATA_KEY = "ipixGenUI";
+
+/** Persist only a server-validated, final accepted activity in the existing
+ *  thread metadata. Ownership/resource are checked here, not trusted from the
+ *  browser. A null activity records a deletion marker so an older message
+ *  cannot resurrect a deleted card. */
+export async function savePlannerGenUIActivity(
+  memory: MastraMemory,
+  input: {
+    threadId: string;
+    resourceId: string;
+    activity: PlannerGenUIActivity | null;
+  },
+): Promise<boolean> {
+  const thread = await findMastraThread(memory, input.threadId);
+  if (!thread || thread.resourceId !== input.resourceId) return false;
+  const existing = thread.metadata && typeof thread.metadata === "object"
+    ? thread.metadata
+    : {};
+  try {
+    await memory.updateThread({
+      id: thread.id,
+      ...(thread.title ? { title: thread.title } : {}),
+      metadata: {
+        ...existing,
+        [GENUI_METADATA_KEY]: input.activity ?? { deleted: true },
+      },
+    });
+    return true;
+  } catch (error) {
+    console.error("planner.genui.persist failed", {
+      threadId: thread.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
+}
+
+function readPersistedGenUIActivity(
+  metadata: Record<string, unknown> | undefined,
+): { present: boolean; activity: PlannerGenUIActivity | null } {
+  if (!metadata || !Object.prototype.hasOwnProperty.call(metadata, GENUI_METADATA_KEY)) {
+    return { present: false, activity: null };
+  }
+  return {
+    present: true,
+    activity: normalizePlannerGenUIActivity(metadata[GENUI_METADATA_KEY]),
+  };
 }
 
 export async function recallPlannerHistory(
@@ -241,9 +301,10 @@ export async function recallPlannerHistory(
     perPage: false,
   });
   const raw = (recalled.messages ?? []) as HistoryMessage[];
+  const persisted = readPersistedGenUIActivity(thread.metadata);
   return {
     messages: mastraMessagesToChat(raw),
-    genui: extractPlannerGenUIActivity(raw),
+    genui: persisted.present ? persisted.activity : extractPlannerGenUIActivity(raw),
   };
 }
 
