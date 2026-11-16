@@ -40,9 +40,12 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
   production-policy:
-    # Run the Production protection guard without Governance approval/token.
+    # Read GitHub settings with a scoped Actions token; no Governance/Vercel token.
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -56,3 +59,52 @@ jobs:
       # Reference — REFERENCE ONLY: https://docs.github.com/en/rest/deployments/environments
       - name: Verify Production approval policy has not drifted
         run: node scripts/check-production-environment.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  alert-on-audit-failure:
+    needs: audit
+    # Report actual failures from trusted main without granting issue writes or
+    # repo tokens to the Vercel-secret-bearing audit job.
+    if: always() && github.ref == 'refs/heads/main' && needs.audit.result == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the human-owned Vercel governance issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="Vercel deployment governance audit requires attention"
+          body_file="$(mktemp)"
+          {
+            echo "The iPix Vercel deployment audit failed. Investigate before changing any threshold or deployment settings."
+            echo
+            printf -- '- Failing run: %s\n' "$RUN_URL"
+            echo "- Owner task: https://linear.app/amo100/issue/IPI-1369"
+            echo "- Vercel project: https://vercel.com/amo-agency/ipixai/deployments"
+            echo
+            echo "The audit counts every created deployment attempt, including failed and canceled builds."
+            echo "Check the run's attribution table, investigate the triggering source, and retain the 3-per-24h limit unless a human approves a policy change."
+          } > "$body_file"
+
+          # The maintainer-owned tracking issue already exists as #348. Look
+          # it up directly, not in the first N open issues (which can grow).
+          # Fail closed if it is absent/repurposed; never create duplicates.
+          issue_state="$(gh issue view 348 --repo "$REPO" --json number,title,state \
+            -q 'select(.number == 348 and .title == "Vercel deployment governance audit requires attention") | .state')"
+          case "$issue_state" in
+            OPEN) ;;
+            CLOSED) gh issue reopen 348 --repo "$REPO" ;;
+            *) echo "::error::Vercel governance tracking issue #348 is missing or changed" >&2; exit 1 ;;
+          esac
+          # One durable issue; each failed run notifies its existing readers.
+          gh issue comment 348 --repo "$REPO" --body-file "$body_file"
+          alert_url="https://github.com/$REPO/issues/348"
+          printf 'Vercel governance human alert: %s\n' "$alert_url"
+          printf 'Human alert: %s\n' "$alert_url" >> "$GITHUB_STEP_SUMMARY"

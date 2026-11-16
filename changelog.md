@@ -6,6 +6,7 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Security
 
+- IPI-1369 — Kept the three-per-day Vercel deployment-attempt limit; correctly classified Preview and unreported sources, protected Production-only CLI ownership, and routed recurring governance failures into one GitHub issue assigned to a maintainer.
 - IPI-1440 — Restricted Vercel governance token access to main-only audit runs; moved the Production policy drift check into a tokenless job and added a workflow contract test.
 - IPI-1091 / PR #339 — Hardened manual exact-SHA Vercel Preview certification: tokenless candidate build and browser tests, isolated compiled-artifact deploy runner, exact READY project/SHA ownership check before QA, protected main-ref workflow dispatch, and focused regression tests. Live pipeline certification and environment-scoped token migration remain required.
 - security(deps): patch the next/og RCE and clear all critical advisories; next 16.4.5, dompurify 3.4.17, proxy-addr 2.0.8, shell-quote 1.12.0, undici 6.29.1/8.12.4 by consumer, @fastify/busboy 3.2.5; npm audit critical 5 -> 0, high 49 -> 46 (IPI-1421, #322)
