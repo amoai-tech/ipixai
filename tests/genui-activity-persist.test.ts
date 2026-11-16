@@ -297,12 +297,38 @@ describe("capturePlannerGenUIStream", () => {
         headers: { "content-type": "text/event-stream" },
       });
       const captured = capturePlannerGenUIStream(response, { save });
-      expect(await captured.text()).toBe(acceptedSse());
+      const output = await captured.text();
+      expect(output).not.toContain('"type":"RUN_FINISHED"');
+      expect(output).toContain('"type":"RUN_ERROR"');
+      expect(output).toContain('"code":"GENUI_PERSIST_FAILED"');
+      expect(output).not.toContain("secret payload");
       expect(save).toHaveBeenCalledTimes(1);
       expect(error).toHaveBeenCalledWith("planner.genui.capture_failed");
       expect(JSON.stringify(error.mock.calls)).not.toContain("secret payload");
     } finally {
       error.mockRestore();
+    }
+  });
+
+  it("preserves AG-UI terminal ordering for CR-only SSE split into tiny chunks", async () => {
+    const raw = new TextEncoder().encode(acceptedSse().replace(/\n/g, "\r"));
+    const response = new Response(new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let i = 0; i < raw.length; i += 7) controller.enqueue(raw.slice(i, i + 7));
+        controller.close();
+      },
+    }), { headers: { "content-type": "text/event-stream" } });
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const captured = capturePlannerGenUIStream(response, {
+        save: async () => { throw new Error("private error"); },
+      });
+      const text = await captured.text();
+      expect(text).toContain('"type":"RUN_ERROR"');
+      expect(text).not.toContain('"type":"RUN_FINISHED"');
+      expect(text).not.toContain("private error");
+    } finally {
+      spy.mockRestore();
     }
   });
 

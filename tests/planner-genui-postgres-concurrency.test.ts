@@ -21,20 +21,28 @@ const activity = {
 };
 suite("IPI-1449 real PostgreSQL cross-writer atomicity", () => {
   let pool: Pool;
+  let otherPool: Pool;
   let store: PostgresStore;
   let memory: Memory;
+  let otherMemory: Memory;
   const ids: string[] = [];
   beforeAll(async () => {
     pool = new Pool({ connectionString: url, max: 5 });
     store = new PostgresStore({ id: "ipi-1449-test", pool, schemaName: "mastra", disableInit: true });
     await store.init();
     memory = new Memory({ storage: store });
+    // Simulates another Vercel process: separate pool and separate Mastra store.
+    otherPool = new Pool({ connectionString: url, max: 2 });
+    otherMemory = new Memory({ storage: new PostgresStore({
+      id: "ipi-1449-other-instance", pool: otherPool, schemaName: "mastra", disableInit: true,
+    }) });
   }, 30000);
   afterAll(async () => {
     if (pool) {
       for (const id of ids) await pool.query('DELETE FROM mastra.mastra_threads WHERE id = $1', [id]);
       await pool.end();
     }
+    if (otherPool) await otherPool.end();
   });
   const make = async () => {
     const threadId = crypto.randomUUID();
@@ -75,6 +83,79 @@ suite("IPI-1449 real PostgreSQL cross-writer atomicity", () => {
     const saved = await recallPlannerHistory(memory,{ threadId, resourceId });
     expect(saved.genui?.operations).toHaveLength(4);
   });
+  it("distinguishes an absent JSON key from a key containing JSON null", async () => {
+    const threadId = crypto.randomUUID();
+    ids.push(threadId);
+    await ensureMastraThread(memory, { threadId, resourceId });
+    const marker = { deleted: true, scopeKey: "workspace", surfaceId: "comparison-1", reason: "delete" };
+    expect(await writePlannerGenUIKey(pool, { threadId, resourceId, previous: null, next: marker })).toBe(false);
+    expect(await writePlannerGenUIKey(pool, { threadId, resourceId, previous: undefined, next: null })).toBe(true);
+    expect(await writePlannerGenUIKey(pool, { threadId, resourceId, previous: undefined, next: marker })).toBe(false);
+    expect(await writePlannerGenUIKey(pool, { threadId, resourceId, previous: null, next: marker })).toBe(true);
+  });
+
+  it("orders two independent Mastra instances and denies stale writes after deletion", async () => {
+    const threadId = await make();
+    const [a, b] = await Promise.all([pool.connect(), otherPool.connect()]);
+    try {
+      const first = await a.query("SELECT txid_current()::text AS seq");
+      const second = await b.query("SELECT txid_current()::text AS seq");
+      const older = first.rows[0].seq as string;
+      const newer = second.rows[0].seq as string;
+      expect(BigInt(newer)).toBeGreaterThan(BigInt(older));
+      const newActivity = {
+        ...activity,
+        surfaceId: "comparison-2",
+        operations: activity.operations.map((op) => {
+          if ("createSurface" in op && op.createSurface) {
+            return { ...op, createSurface: { ...op.createSurface, surfaceId: "comparison-2" } };
+          }
+          if ("updateComponents" in op && op.updateComponents) {
+            return { ...op, updateComponents: { ...op.updateComponents, surfaceId: "comparison-2" } };
+          }
+          return op;
+        }),
+      };
+      expect(await savePlannerGenUIActivity(otherMemory, {
+        threadId, resourceId, runSequence: newer, activity: newActivity,
+      }, { pool: otherPool })).toBe(true);
+      expect(await savePlannerGenUIActivity(memory, {
+        threadId, resourceId, runSequence: older, activity,
+      }, { pool })).toBe(false);
+      expect(await savePlannerGenUIActivity(memory, {
+        threadId, resourceId: "org:another::user:other", runSequence: newer, activity,
+      }, { pool })).toBe(false);
+      expect(await savePlannerGenUIActivity(otherMemory, {
+        threadId, resourceId, runSequence: newer, activity: null, surfaceId: "comparison-2",
+      }, { pool: otherPool })).toBe(true);
+      expect(await savePlannerGenUIActivity(memory, {
+        threadId, resourceId, runSequence: older, activity,
+      }, { pool })).toBe(false);
+      expect((await recallPlannerHistory(otherMemory, { threadId, resourceId })).genui).toBeNull();
+    } finally {
+      a.release();
+      b.release();
+    }
+  });
+
+  it("keeps run retries idempotent while allowing a newer run to intentionally revert", async () => {
+    const threadId = await make();
+    const delta = (text: string, seq: string) => ({
+      threadId, resourceId, runSequence: seq,
+      update: { surfaceId: "comparison-1", operations: [
+        { version: "1.0" as const, updateDataModel: {
+          surfaceId: "comparison-1", path: "/data", value: { text },
+        } },
+      ] },
+    });
+    expect(await savePlannerGenUIActivity(memory, delta("Studio", "501"), { pool })).toBe(true);
+    expect(await savePlannerGenUIActivity(otherMemory, delta("Outdoor", "502"), { pool: otherPool })).toBe(true);
+    expect(await savePlannerGenUIActivity(memory, delta("Studio", "501"), { pool })).toBe(true);
+    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui?.operations).toHaveLength(4);
+    expect(await savePlannerGenUIActivity(otherMemory, delta("Studio", "503"), { pool: otherPool })).toBe(true);
+    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui?.operations).toHaveLength(5);
+  });
+
   it("requires the installed guard and rejects an unauthorized direct SQL write", async () => {
     const threadId = await make();
     const before = await pool.query('SELECT metadata FROM mastra.mastra_threads WHERE id=$1', [threadId]);

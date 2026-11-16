@@ -5,7 +5,10 @@ import type { A2UIOperation } from "@copilotkit/shared";
 
 import { getMastra } from "@/mastra/runtime";
 import type { PlannerChatMessage, PlannerThreadRow } from "@/mastra/thread-types";
-import { asRecord, normalizePlannerGenUIActivity, type PlannerGenUIActivity } from "./planner-genui-activity";
+import {
+  asRecord, GENUI_MAX_OPERATIONS, GENUI_MAX_SERIALIZED_BYTES,
+  normalizePlannerGenUIActivity, type PlannerGenUIActivity,
+} from "./planner-genui-activity";
 import { getMastraPgPool, requireMastraPostgresUrl } from "./pg-store";
 import { writePlannerGenUIKey } from "./planner-genui-atomic-save";
 
@@ -135,6 +138,30 @@ type HistoryMessage = {
 
 const GENUI_METADATA_KEY = "ipixGenUI";
 
+/** Reserve a globally ordered generation from PostgreSQL before the agent
+ * starts. The DB, not a Vercel process clock, determines run order across
+ * independent instances. txid_current() works with the existing pooler. */
+export async function reservePlannerGenUIRunSequence(): Promise<string> {
+  const url = requireMastraPostgresUrl();
+  if (!url) throw new Error("planner.genui.pg_url_missing");
+  const pool = getMastraPgPool(url);
+  const result = await pool.query<{ sequence: string; guard_enabled: boolean }>(
+    `SELECT txid_current()::text AS sequence,
+      EXISTS (SELECT 1 FROM pg_trigger
+        WHERE tgrelid = 'mastra.mastra_threads'::regclass
+          AND tgname = 'preserve_thread_genui_metadata'
+          AND tgenabled IN ('O', 'A')) AS guard_enabled`,
+  );
+  if (result.rows[0]?.guard_enabled !== true) {
+    throw new Error("planner.genui.atomic_guard_unavailable");
+  }
+  const sequence = result.rows[0]?.sequence;
+  if (!sequence || !/^[1-9]\d*$/.test(sequence)) {
+    throw new Error("planner.genui.run_sequence_unavailable");
+  }
+  return sequence;
+}
+
 /** Persist only a server-validated, final accepted activity in the existing
  *  thread metadata. Ownership/resource are checked here, not trusted from the
  *  browser. A null activity records a deletion marker so an older message
@@ -144,7 +171,7 @@ const GENUI_METADATA_KEY = "ipixGenUI";
  * card or cause a different Brand's card to appear after reload. */
 export async function savePlannerGenUIActivity(
   memory: MastraMemory,
-  input: { threadId: string; resourceId: string; scopeKey?: string } & (
+  input: { threadId: string; resourceId: string; scopeKey?: string; runSequence?: string } & (
     | { activity: PlannerGenUIActivity | null; surfaceId?: string; reason?: "rejected" | "delete" }
     | { update: { surfaceId: string; operations: A2UIOperation[] } }
   ),
@@ -162,30 +189,71 @@ export async function savePlannerGenUIActivity(
       : {};
     const previous = normalizePlannerGenUIActivity(existing[GENUI_METADATA_KEY]);
     const scopeKey = input.scopeKey ?? "workspace";
+    // Prevent an older run from overwriting a newer comparison or deletion,
+    // including when the two runs use different surface IDs. The run sequence
+    // is reserved by PostgreSQL *before* running the agent, never supplied by
+    // the browser or inferred from wall-clock timestamps.
+    const metadata = asRecord(existing[GENUI_METADATA_KEY]);
+    const previousSequence = metadata?.runSequence;
+    const recentRuns = Array.isArray(metadata?.appliedUpdateRuns)
+      ? metadata.appliedUpdateRuns.filter((id): id is string =>
+        typeof id === "string" && /^[1-9]\d*$/.test(id),
+      ).slice(-20)
+      : [];
+    if (input.runSequence !== undefined &&
+        !/^[1-9]\d*$/.test(input.runSequence)) return false;
+    // Repeated delivery of an already committed run is a successful no-op,
+    // including after later runs have appended their own distinct edits.
+    if (input.runSequence && "update" in input &&
+        previous?.scopeKey === scopeKey &&
+        previous.surfaceId === input.update.surfaceId &&
+        recentRuns.includes(input.runSequence)) return true;
+    if (typeof previousSequence === "string" && /^[1-9]\d*$/.test(previousSequence)) {
+      if (input.runSequence === undefined ||
+          BigInt(input.runSequence) < BigInt(previousSequence)) return false;
+    }
     let stored: PlannerGenUIActivity | {
       deleted: true;
       scopeKey: string;
       reason: "rejected" | "delete";
+      surfaceId?: string;
     };
     if ("update" in input) {
       if (!previous || previous.scopeKey !== scopeKey ||
         previous.surfaceId !== input.update.surfaceId ||
         input.update.operations.length === 0) return false;
-      // A replayed duplicate delta must not keep appending the same operations.
-      const tail = previous.operations.slice(-input.update.operations.length);
-      const identical = isDeepStrictEqual(tail, input.update.operations);
-      const merged = identical ? previous.operations :
+      // Production uses a DB-reserved run sequence for idempotency; payload
+      // equality is NOT identity (a later run can intentionally revert to X).
+      // Legacy in-memory callers without generations retain tail-only replay
+      // protection rather than incorrectly suppressing nonadjacent edits.
+      const duplicate = input.runSequence === undefined &&
+        isDeepStrictEqual(
+          previous.operations.slice(-input.update.operations.length),
+          input.update.operations,
+        );
+      const merged = duplicate ? previous.operations :
         [...previous.operations, ...input.update.operations];
+      // Bounded-storage exhaustion is NOT a user-requested deletion. Keep
+      // the last good card and report a failed save instead of persisting a
+      // rejection tombstone for an otherwise valid comparison.
+      if (merged.length > GENUI_MAX_OPERATIONS ||
+          JSON.stringify(merged).length > GENUI_MAX_SERIALIZED_BYTES) return false;
       stored = normalizePlannerGenUIActivity({
         ...previous,
         operations: merged,
-      }) ?? { deleted: true, scopeKey, reason: "rejected" };
+      }) ?? { deleted: true, scopeKey, surfaceId: input.update.surfaceId, reason: "rejected" };
     } else if (input.activity) {
       const validated = normalizePlannerGenUIActivity({
         ...input.activity,
         scopeKey,
       });
       if (!validated) return false;
+      // A stale run must never recreate a surface deliberately deleted or
+      // rejected by a newer run. New comparisons must use fresh surface IDs,
+      // as required by production-planner-instructions.ts.
+      const marker = asRecord(existing[GENUI_METADATA_KEY]);
+      if (marker?.deleted === true && marker.scopeKey === scopeKey &&
+        marker.surfaceId === validated.surfaceId) return false;
       stored = validated;
     } else {
       // A delete/rejection must address the exact currently stored surface.
@@ -195,16 +263,26 @@ export async function savePlannerGenUIActivity(
       stored = {
         deleted: true,
         scopeKey,
+        surfaceId: input.surfaceId,
         reason: input.reason === "rejected" ? "rejected" : "delete",
       };
     }
+    const next = input.runSequence
+      ? {
+        ...stored,
+        runSequence: input.runSequence,
+        appliedUpdateRuns: "update" in input
+          ? [...recentRuns, input.runSequence].slice(-20)
+          : [],
+      }
+      : stored;
     try {
       if (pool) {
         const written = await writePlannerGenUIKey(pool, {
           threadId: thread.id,
           resourceId: input.resourceId,
           previous: existing[GENUI_METADATA_KEY],
-          next: stored,
+          next,
         });
         if (written) return true;
         // Only a same-surface delta may be revalidated and appended to the
@@ -219,7 +297,7 @@ export async function savePlannerGenUIActivity(
       // In-memory tests retain Mastra's ordinary thread storage behavior.
       await memory.updateThread({
         id: thread.id,
-        metadata: { [GENUI_METADATA_KEY]: stored },
+        metadata: { [GENUI_METADATA_KEY]: next },
       });
       return true;
     } catch {

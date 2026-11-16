@@ -1,5 +1,8 @@
 -- IPI-1449: Guard the GenUI key from Mastra's stale whole-metadata rewrites.
 -- Only the trusted server-side CAS transaction intentionally changes this key.
+-- PostgreSQL 17 accepts arbitrary two-part custom settings (no ALTER SYSTEM).
+-- This transaction-local coordination flag is NOT authorization; RLS and
+-- the server-derived resourceId are the tenant security boundary.
 CREATE OR REPLACE FUNCTION mastra.preserve_thread_genui_metadata()
 RETURNS trigger
 LANGUAGE plpgsql

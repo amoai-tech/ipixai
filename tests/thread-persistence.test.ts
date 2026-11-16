@@ -318,6 +318,134 @@ describe("persisted GenUI metadata", () => {
     })).genui).toBeNull();
   });
 
+  it("rejects an older run snapshot or delete after a newer run, even with different surface IDs", async () => {
+    const memory = isolatedMemory();
+    const threadId = crypto.randomUUID();
+    const resourceId = "org:a::user:u";
+    await ensureMastraThread(memory, { threadId, resourceId });
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, runSequence: "100", activity,
+    })).toBe(true);
+    const newSurface = "comparison-new";
+    const newActivity = {
+      ...activity,
+      surfaceId: newSurface,
+      operations: activity.operations.map((op) => {
+        if ("createSurface" in op && op.createSurface) {
+          return { ...op, createSurface: { ...op.createSurface, surfaceId: newSurface } };
+        }
+        if ("updateComponents" in op && op.updateComponents) {
+          return { ...op, updateComponents: { ...op.updateComponents, surfaceId: newSurface } };
+        }
+        return op;
+      }),
+    };
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, runSequence: "102", activity: newActivity,
+    })).toBe(true);
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, runSequence: "101", activity,
+    })).toBe(false);
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, runSequence: "101", activity: null, surfaceId: newSurface,
+    })).toBe(false);
+    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui?.surfaceId).toBe(newSurface);
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, runSequence: "103", activity: null, surfaceId: newSurface,
+    })).toBe(true);
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, runSequence: "101", activity,
+    })).toBe(false);
+    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui).toBeNull();
+  });
+
+  it("deduplicates run X after Y, yet allows a NEW run to deliberately return to X", async () => {
+    const memory = isolatedMemory();
+    const threadId = crypto.randomUUID();
+    const resourceId = "org:a::user:u";
+    await ensureMastraThread(memory, { threadId, resourceId });
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, runSequence: "100", activity,
+    })).toBe(true);
+    const delta = (text: string, runSequence: string) => ({
+      threadId, resourceId, runSequence,
+      update: { surfaceId: "comparison-1", operations: [{
+        version: "1.0" as const,
+        updateDataModel: { surfaceId: "comparison-1", path: "/data", value: { text } },
+      }] },
+    });
+    expect(await savePlannerGenUIActivity(memory, delta("Studio", "101"))).toBe(true);
+    expect(await savePlannerGenUIActivity(memory, delta("Outdoor", "102"))).toBe(true);
+    expect(await savePlannerGenUIActivity(memory, delta("Studio", "101"))).toBe(true);
+    let restored = await recallPlannerHistory(memory, { threadId, resourceId });
+    expect(restored.genui?.operations).toHaveLength(activity.operations.length + 2);
+    expect(restored.genui?.operations.at(-1)).toEqual(delta("Outdoor", "102").update.operations[0]);
+    // The SAME payload in a genuinely newer run is an intentional new edit.
+    expect(await savePlannerGenUIActivity(memory, delta("Studio", "103"))).toBe(true);
+    restored = await recallPlannerHistory(memory, { threadId, resourceId });
+    expect(restored.genui?.operations).toHaveLength(activity.operations.length + 3);
+    expect(restored.genui?.operations.at(-1)).toEqual(delta("Studio", "103").update.operations[0]);
+  });
+
+  it("keeps the last good comparison when too many valid deltas exceed the storage bound", async () => {
+    const memory = isolatedMemory();
+    const threadId = crypto.randomUUID();
+    const resourceId = "org:a::user:u";
+    await ensureMastraThread(memory, { threadId, resourceId });
+    expect(await savePlannerGenUIActivity(memory, { threadId, resourceId, activity })).toBe(true);
+    for (let i = 0; i < 18; i++) {
+      expect(await savePlannerGenUIActivity(memory, {
+        threadId, resourceId,
+        update: { surfaceId: "comparison-1", operations: [{
+          version: "1.0", updateDataModel: {
+            surfaceId: "comparison-1", path: "/data", value: { iteration: i },
+          },
+        }] },
+      })).toBe(true);
+    }
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId,
+      update: { surfaceId: "comparison-1", operations: [{
+        version: "1.0", updateDataModel: {
+          surfaceId: "comparison-1", path: "/data", value: { iteration: 18 },
+        },
+      }] },
+    })).toBe(false);
+    const saved = await recallPlannerHistory(memory, { threadId, resourceId });
+    expect(saved.genui?.operations).toHaveLength(20);
+    expect(saved.genuiRecovery).toBeUndefined();
+  });
+
+  it("rejects a stale snapshot for a deleted surface but accepts a new surface ID", async () => {
+    const memory = isolatedMemory();
+    const threadId = crypto.randomUUID();
+    const resourceId = "org:a::user:u";
+    await ensureMastraThread(memory, { threadId, resourceId });
+    expect(await savePlannerGenUIActivity(memory, { threadId, resourceId, activity })).toBe(true);
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, activity: null, surfaceId: "comparison-1",
+    })).toBe(true);
+    expect(await savePlannerGenUIActivity(memory, { threadId, resourceId, activity })).toBe(false);
+    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui).toBeNull();
+    const nextId = "comparison-new-run";
+    const newActivity = {
+      ...activity, surfaceId: nextId,
+      operations: activity.operations.map((op) => {
+        if ("createSurface" in op && op.createSurface) {
+          return { ...op, createSurface: { ...op.createSurface, surfaceId: nextId } };
+        }
+        if ("updateComponents" in op && op.updateComponents) {
+          return { ...op, updateComponents: { ...op.updateComponents, surfaceId: nextId } };
+        }
+        return op;
+      }),
+    };
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, activity: newActivity,
+    })).toBe(true);
+    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui?.surfaceId).toBe(nextId);
+  });
+
   it("records a deletion marker that suppresses older history", async () => {
     const memory = isolatedMemory();
     const threadId = crypto.randomUUID();

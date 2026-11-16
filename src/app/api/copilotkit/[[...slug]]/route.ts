@@ -19,6 +19,7 @@ import { authorizePlannerGenUIScope, capturePlannerGenUIStream, plannerRunScope 
 import {
   canonicalizePlannerThreadId,
   getPlannerMemory,
+  reservePlannerGenUIRunSequence,
   savePlannerGenUIActivity,
 } from "@/mastra/thread-persistence";
 
@@ -106,6 +107,18 @@ async function handleCopilot(request: Request) {
       once: true,
     });
 
+  // One PostgreSQL-assigned generation per run. Cross-instance ordering
+  // cannot depend on the timestamps of separate Vercel processes.
+  let genuiRunSequence: string | undefined;
+  if (captureThreadId && captureScopeKey && process.env.MASTRA_DATABASE_URL) {
+    try {
+      genuiRunSequence = await reservePlannerGenUIRunSequence();
+    } catch {
+      cleanupMembershipWatchdog();
+      return new Response("Planner comparison persistence unavailable", { status: 503 });
+    }
+  }
+
   let response: Response;
   try {
     const runtime = new CopilotRuntime({
@@ -147,23 +160,23 @@ async function handleCopilot(request: Request) {
         let saved: boolean;
         if (change.kind === "activity") {
           saved = await savePlannerGenUIActivity(memory, {
-            threadId, resourceId, scopeKey, activity: change.activity,
+            threadId, resourceId, scopeKey, runSequence: genuiRunSequence, activity: change.activity,
           });
         } else if (change.kind === "update") {
           saved = await savePlannerGenUIActivity(memory, {
-            threadId, resourceId, scopeKey,
+            threadId, resourceId, scopeKey, runSequence: genuiRunSequence,
             update: { surfaceId: change.surfaceId, operations: change.operations },
           });
         } else {
           saved = await savePlannerGenUIActivity(memory, {
-            threadId, resourceId, scopeKey,
+            threadId, resourceId, scopeKey, runSequence: genuiRunSequence,
             activity: null, surfaceId: change.surfaceId,
             reason: change.kind === "rejected" ? "rejected" : "delete",
           });
         }
         // A false result means the activity was NOT saved: propagate the
         // failure to the stream's privacy-safe diagnostic, never claim durability.
-        if (!saved) throw new Error("planner.genui.persist_unsaved");
+        if (!saved) throw new Error("planner.genui.capture_failed");
       },
     });
   }

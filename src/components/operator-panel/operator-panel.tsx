@@ -578,14 +578,29 @@ function useAgentRunError(agent: AbstractAgent): {
  *  wraps. Never shows a raw provider payload or raw Error message. The UI
  *  exposes only a stable error code (when available), a generic recovery-safe
  *  message, and a short run reference for support correlation. */
-function RunFailureBanner({ failure, onDismiss }: { failure: RunFailure; onDismiss: () => void }) {
+function RunFailureBanner({
+  failure, onDismiss, onRetry, retryDisabled = false,
+}: {
+  failure: RunFailure;
+  onDismiss: () => void;
+  onRetry?: () => void;
+  retryDisabled?: boolean;
+}) {
   return (
     <Alert variant="destructive" data-testid="copilot-run-failure" className={styles.runFailureBanner}>
       <AlertTitle>{failure.code ? `Run failed (${failure.code})` : "Run failed"}</AlertTitle>
       <AlertDescription>
-        {RUN_FAILURE_MESSAGE}
+        {failure.code === "GENUI_PERSIST_FAILED"
+          ? "The AI comparison could not be saved. Ask iPix to generate it again."
+          : RUN_FAILURE_MESSAGE}
         {failure.runId ? ` · run ${failure.runId.slice(0, 8)}` : ""}
       </AlertDescription>
+      {failure.code === "GENUI_PERSIST_FAILED" && onRetry ? (
+        <button type="button" disabled={retryDisabled} onClick={onRetry}
+          className={styles.runFailureDismiss}>
+          Regenerate comparison
+        </button>
+      ) : null}
       <button type="button" className={styles.runFailureDismiss} onClick={onDismiss}>
         Dismiss
       </button>
@@ -794,7 +809,17 @@ function ProductionCopilotPanel({
             unmounted for the drawer — the drawer overlays it instead — so
             the conversation subtree and its thread subscription stay alive
             the whole time the drawer is open. */}
-        {runFailure && <RunFailureBanner failure={runFailure} onDismiss={dismissRunFailure} />}
+        {runFailure && (
+          <RunFailureBanner
+            failure={runFailure}
+            onDismiss={dismissRunFailure}
+            retryDisabled={!chatReady || agent.isRunning}
+            onRetry={() => ask(
+              "Please regenerate the last AI comparison from our current conversation. " +
+              "The previous card could not be saved, so do not assume it is persisted.",
+            )}
+          />
+        )}
         <IpixGenerativeComparisonSurface
           scopeKey={plannerContext?.scopeKey ?? "workspace"}
           runActive={Boolean(agent.isRunning)}
