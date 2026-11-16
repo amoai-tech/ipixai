@@ -58,6 +58,7 @@ export function plannerRunScope(
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
   const context = (input as { context?: unknown }).context;
   if (!Array.isArray(context)) return null;
+  let selectedScope: string | null = null;
   for (const row of context) {
     if (!row || typeof row !== "object") continue;
     let value = (row as { value?: unknown }).value;
@@ -66,9 +67,11 @@ export function plannerRunScope(
     }
     if (!value || typeof value !== "object" || Array.isArray(value)) continue;
     if (!Object.prototype.hasOwnProperty.call(value, "scopeKey")) continue;
-    // Malformed or foreign-tenant scope fails closed, even if other contexts
-    // would happen to contain a usable scope later in the array.
-    return plannerScopeForOrg((value as { scopeKey?: unknown }).scopeKey, trustedOrgId);
+    // Every explicit locator must be valid and agree with earlier locators.
+    // A conflicting/malformed entry fails closed regardless of its position.
+    const current = plannerScopeForOrg((value as { scopeKey?: unknown }).scopeKey, trustedOrgId);
+    if (!current || (selectedScope !== null && current !== selectedScope)) return null;
+    selectedScope = current;
   }
-  return null;
+  return selectedScope;
 }

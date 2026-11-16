@@ -53,21 +53,23 @@ export class GenUIActivityCollector {
       chunk = chunk.slice(0, -1);
     }
     this.buffer += chunk.replace(/\r\n?|\n/g, "\n");
-    // A huge/truncated SSE event cannot consume unbounded Vercel memory.
-    if (this.buffer.length > 256_000) {
-      this.disabled = true;
-      this.buffer = "";
-      this.activities.clear();
-      // Emit one diagnostic without leaking tenant prompts or event bytes.
-      console.warn("planner.genui.buffer_exceeded", { limit: 256000 });
-      return;
-    }
+    // Process every complete SSE event before enforcing the cap. A single
+    // transport chunk may contain many small, valid events; only an
+    // incomplete event should count against the pending-buffer limit.
     let boundary = this.buffer.indexOf("\n\n");
     while (boundary !== -1) {
       const block = this.buffer.slice(0, boundary);
       this.buffer = this.buffer.slice(boundary + 2);
       this.handleBlock(block);
       boundary = this.buffer.indexOf("\n\n");
+    }
+    // An oversized/truncated individual event must not consume unbounded
+    // memory. Log only the limit, never the private event contents.
+    if (this.buffer.length > 256_000) {
+      this.disabled = true;
+      this.buffer = "";
+      this.activities.clear();
+      console.warn("planner.genui.buffer_exceeded", { limit: 256000 });
     }
   }
 

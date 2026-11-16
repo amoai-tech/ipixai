@@ -119,6 +119,17 @@ describe("GenUIActivityCollector", () => {
     expect(collector.finish().kind).toBe("none");
   });
 
+  it("parses large chunks containing many complete events without dropping a valid card", () => {
+    const collector = new GenUIActivityCollector();
+    const unrelated = event({ type: "CUSTOM", padding: "x".repeat(1024) });
+    const stream = acceptedSse() + unrelated.repeat(300);
+    expect(stream.length).toBeGreaterThan(256_000);
+    collector.push(stream);
+    expect(collector.finish()).toMatchObject({
+      kind: "activity", activity: { surfaceId: "comparison-1" },
+    });
+  });
+
   it("warns once without logging event content when buffering exceeds 256 KB", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
@@ -322,5 +333,13 @@ describe("Planner scope identity for stored GenUI", () => {
     expect(plannerRunScope({ context }, "another-org")).toBeNull();
     expect(plannerRunScope({ context: [{ value: JSON.stringify({ scopeKey: "workspace" }) }] }, org)).toBe("workspace");
     expect(plannerRunScope({ context: [] }, org)).toBeNull();
+    const another = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const scopeA = { value: { scopeKey: `brand:${org}:${brand}` } };
+    const scopeB = { value: JSON.stringify({ scopeKey: `brand:${org}:${another}` }) };
+    expect(plannerRunScope({ context: [scopeA, scopeA] }, org)).toBe(`brand:${org}:${brand}`);
+    expect(plannerRunScope({ context: [scopeA, scopeB] }, org)).toBeNull();
+    expect(plannerRunScope({ context: [scopeB, scopeA] }, org)).toBeNull();
+    expect(plannerRunScope({ context: [scopeA, { value: { scopeKey: "brand:other:" + brand } }] }, org)).toBeNull();
+    expect(plannerRunScope({ context: [scopeA, { value: { scopeKey: null } }] }, org)).toBeNull();
   });
 });

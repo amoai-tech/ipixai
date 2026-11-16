@@ -154,6 +154,7 @@ describe("RestoreMastraHistory", () => {
     await waitFor(() => expect(onSettled).toHaveBeenCalledTimes(1));
     expect(screen.getByLabelText("Restored conversation")).toBeDefined();
     expect(screen.queryByTestId("error-state")).toBeNull();
+    expect(screen.getByTestId("genui-history-recovery")).toBeDefined();
   });
 
   it("restores a rejected comparison as recovery, never an obsolete card", async () => {

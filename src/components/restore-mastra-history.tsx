@@ -160,7 +160,10 @@ export function RestoreMastraHistory({
         try {
           const genui = isGenUIActivity(body.genui) &&
             body.genui.scopeKey === scopeKey ? body.genui : null;
-          if (genui && runtime?.manager) {
+          if (genui && !runtime?.manager) {
+            setGenUIRecovery(true);
+            console.warn("planner.genui.restore_failed");
+          } else if (genui && runtime?.manager) {
             const manager = runtime.manager;
             manager.setActiveThread(threadId);
             if (!manager.getSurface(threadId, genui.surfaceId)) {
@@ -178,6 +181,7 @@ export function RestoreMastraHistory({
           // The saved conversation remains available even if optional GenUI
           // hydration cannot be applied to this browser/runtime version.
           console.warn("planner.genui.restore_failed");
+          setGenUIRecovery(true);
         }
         onSettledRef.current?.();
       } catch {

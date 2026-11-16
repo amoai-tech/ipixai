@@ -477,6 +477,29 @@ describe("persisted GenUI metadata", () => {
     expect(history.genuiRecovery).toBe(true);
   });
 
+  it("rejects cross-surface delta updates and records recovery without saving foreign operations", async () => {
+    const memory = isolatedMemory();
+    const threadId = crypto.randomUUID();
+    const resourceId = "org:a::user:u";
+    await ensureMastraThread(memory, { threadId, resourceId });
+    expect(await savePlannerGenUIActivity(memory, { threadId, resourceId, activity })).toBe(true);
+
+    const foreignDelta = {
+      version: "1.0" as const,
+      updateDataModel: { surfaceId: "foreign-surface", path: "/data", value: { state: "bad" } },
+    };
+    // The request is handled by writing a rejection marker, not the foreign delta.
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, update: { surfaceId: "comparison-1", operations: [foreignDelta] },
+    })).toBe(true);
+
+    const restored = await recallPlannerHistory(memory, { threadId, resourceId });
+    // The existing contract deliberately invalidates a rejected update so
+    // an old comparison does not masquerade as the new AI result.
+    expect(restored.genui).toBeNull();
+    expect(restored.genuiRecovery).toBe(true);
+  });
+
   it("never persists a create/update pair targeting two different surfaces", async () => {
     const memory = isolatedMemory();
     const threadId = crypto.randomUUID();
