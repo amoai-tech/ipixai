@@ -361,6 +361,23 @@ describe("capturePlannerGenUIStream", () => {
     }
   });
 
+  it("never sends double terminal events if RUN_FINISHED lacks a trailing blank line", async () => {
+    const payload = acceptedSse().replace(/\n\n$/, "");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const result = capturePlannerGenUIStream(
+        new Response(payload, { headers: { "content-type": "text/event-stream" } }),
+        { save: async () => { throw new Error("private database error"); } },
+      );
+      const output = await result.text();
+      expect(output).not.toContain('"type":"RUN_FINISHED"');
+      expect(output.match(/"type":"RUN_ERROR"/g)).toHaveLength(1);
+      expect(output).not.toContain("private database error");
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it("passes SSE bytes through unchanged and persists the accepted activity", async () => {
     const payload = acceptedSse();
     const encoded = new TextEncoder().encode(payload);

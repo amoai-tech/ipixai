@@ -114,8 +114,10 @@ async function handleCopilot(request: Request) {
     try {
       genuiRunSequence = await reservePlannerGenUIRunSequence();
     } catch {
-      cleanupMembershipWatchdog();
-      return new Response("Planner comparison persistence unavailable", { status: 503 });
+      // Ordinary Planner text runs must not fail when optional GenUI
+      // persistence is unavailable. Actual GenUI saves fail closed and
+      // surface a sanitized RUN_ERROR to the operator instead.
+      console.warn("planner.genui.run_sequence_unavailable");
     }
   }
 

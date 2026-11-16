@@ -325,7 +325,17 @@ export function capturePlannerGenUIStream(
             collector.push(tail);
             pending += tail;
             flushBlocks(controller, true);
-            if (pending) controller.enqueue(encoder.encode(pending));
+            if (pending) {
+              // An upstream RUN_FINISHED without its final blank line must
+              // still be withheld. Forwarding it here would create two
+              // terminal events if the durable save subsequently failed.
+              if (isRunFinished(pending)) {
+                terminal = pending + (pending.endsWith("\n") || pending.endsWith("\r")
+                  ? "\n" : "\n\n");
+              } else {
+                controller.enqueue(encoder.encode(pending));
+              }
+            }
             pending = "";
             const saveFailed = await finish();
             if (saveFailed && !cancelled) {

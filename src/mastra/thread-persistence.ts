@@ -181,6 +181,10 @@ export async function savePlannerGenUIActivity(
   // Injection is exclusively for the isolated PostgreSQL integration test.
   const url = options?.pool ? undefined : requireMastraPostgresUrl();
   const pool = options?.pool ?? (url ? getMastraPgPool(url) : undefined);
+  // Never let a hosted GenUI save proceed without the DB-reserved sequence.
+  // Injected pools exist only in isolated integration tests, which also cover
+  // the pre-generation legacy writer and its migration compatibility.
+  if (url && !input.runSequence) return false;
   for (let attempt = 0; attempt < (pool ? 3 : 1); attempt += 1) {
     const thread = await findMastraThread(memory, input.threadId);
     if (!thread || thread.resourceId !== input.resourceId) return false;

@@ -22,6 +22,35 @@ describe("AG-UI client terminal event is a durability outcome", () => {
     expect(finished).not.toHaveBeenCalled();
   });
 
+  it("rejects an unterminated upstream terminal without confusing the real AG-UI client", async () => {
+    const body = new Response(
+      'data: {"type":"RUN_STARTED","threadId":"a","runId":"b"}\n\n' +
+      'data: {"type":"ACTIVITY_SNAPSHOT","messageId":"m","activityType":"generative-ui-surface","content":{"surfaceId":"card-1","target":"planner-comparison","catalogId":"ipix/planner@1","operations":[{"version":"1.0","createSurface":{"surfaceId":"card-1","catalogId":"ipix/planner@1"}},{"version":"1.0","updateComponents":{"surfaceId":"card-1","components":[{"id":"root","component":"ConceptComparison","title":"Compare","options":[{"name":"Studio","rationale":"Indoor"},{"name":"Outdoor","rationale":"Light"}]}]}}],"status":"ready","rejected":[]}}\n\n' +
+      'data: {"type":"RUN_FINISHED","threadId":"a","runId":"b"}',
+      { headers: { "content-type": "text/event-stream" } },
+    );
+    const errors = vi.fn();
+    const finished = vi.fn();
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const agent = new HttpAgent({
+        url: "http://local.test",
+        fetch: async () => capturePlannerGenUIStream(body, {
+          save: async () => { throw new Error("must not leak"); },
+        }),
+      });
+      agent.subscribe({
+        onRunErrorEvent: ({ event }) => errors(event.code),
+        onRunFinishedEvent: () => finished(),
+      });
+      await agent.runAgent({ runId: "b" });
+      expect(errors).toHaveBeenCalledWith("GENUI_PERSIST_FAILED");
+      expect(finished).not.toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it("forwards a successful terminal event unmodified when no card needs saving", async () => {
     const upstream = new Response(
       'data: {"type":"RUN_STARTED","threadId":"a","runId":"b"}\n\n' +
