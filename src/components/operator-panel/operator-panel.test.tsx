@@ -338,11 +338,67 @@ describe("OperatorPanel", () => {
 
     const generativeUI = copilotKitPropsMock.current?.generativeUI as {
       ui?: { id?: string };
+      agentIds?: string[];
+      errorBoundary?: { onError?: unknown };
     };
     expect(generativeUI?.ui?.id).toBe("ipix/planner@1");
+    // A newly registered agent never inherits this catalog by default.
+    expect(generativeUI?.agentIds).toEqual(["default"]);
+    expect(generativeUI?.agentIds).not.toContain("commerce");
+    expect(typeof generativeUI?.errorBoundary?.onError).toBe("function");
     expect(screen.getByTestId("generative-ui-surface-stub").dataset.surfaceId).toBe(
       "planner-comparison",
     );
+  });
+
+  it("redacts model-controlled identifiers and errors in GenUI diagnostics", async () => {
+    render(
+      <OperatorPanel>
+        <p>Workspace body</p>
+      </OperatorPanel>,
+    );
+    await waitFor(() => expect(screen.getByTestId("copilot-chat-stub")).toBeDefined());
+
+    const generativeUI = copilotKitPropsMock.current?.generativeUI as {
+      errorBoundary?: {
+        onError?: (info: {
+          kind: string;
+          surfaceId: string;
+          componentId?: string;
+          error: Error;
+        }) => void;
+      };
+    };
+    const onError = generativeUI?.errorBoundary?.onError;
+    expect(typeof onError).toBe("function");
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      onError?.({
+        kind: "render",
+        surfaceId: "PRIVATE_BRAND_TOKEN",
+        componentId: "PRIVATE_COMPONENT_TEXT",
+        error: Object.assign(new Error("PRIVATE_MESSAGE_TEXT"), {
+          name: "PRIVATE_ERROR_NAME",
+          code: "PRIVATE_ERROR_CODE",
+        }),
+      });
+      onError?.({
+        kind: "operation",
+        surfaceId: "comparison-1",
+        componentId: "root",
+        error: new TypeError("PRIVATE_SECOND_MESSAGE"),
+      });
+      expect(spy).toHaveBeenCalledTimes(2);
+      const logged = JSON.stringify(spy.mock.calls);
+      expect(logged).not.toContain("PRIVATE_");
+      expect(logged).toContain('"kind":"render"');
+      expect(logged).toContain('"kind":"operation"');
+      expect(logged).toContain('"component":"root"');
+      expect(logged).toContain('"errorCategory":"type"');
+      expect(logged).toContain('"errorCategory":"other"');
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("opens and closes the Production Copilot panel without remounting the chat", async () => {
