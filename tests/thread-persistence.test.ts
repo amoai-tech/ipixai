@@ -319,7 +319,7 @@ describe("extractPlannerGenUIActivity", () => {
     expect(extractPlannerGenUIActivity(assistant(rendered("chat")))).toBeNull();
     expect(extractPlannerGenUIActivity(assistant(rendered("planner-comparison", 0)))).toBeNull();
     const deleted = assistant(rendered());
-    deleted[0].content.parts[0].toolInvocation.args.operations = [{
+    (deleted[0].content.parts[0].toolInvocation.args as { operations: unknown[] }).operations = [{
       version: "1.0",
       deleteSurface: { surfaceId: "comparison-1" },
     }];

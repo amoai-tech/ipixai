@@ -11,7 +11,7 @@ const agent = {
 
 const genuiManager = {
   setActiveThread: vi.fn(),
-  getSurface: vi.fn(() => undefined),
+  getSurface: vi.fn((): { status: string } | undefined => undefined),
   ingest: vi.fn(),
 };
 
