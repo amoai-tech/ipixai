@@ -504,10 +504,82 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     const step = alert.steps?.[0];
     expect(step?.env?.GH_TOKEN).toBe("$" + "{{ secrets.GITHUB_TOKEN }}");
     expect(step?.env?.VERCEL_TOKEN).toBeUndefined();
-    expect(step?.run).toContain("gh issue create");
-    expect(step?.run).toContain("--assignee amoai-tech");
-    expect(step?.run).toContain("gh issue comment");
+    expect(step?.run).toContain("gh issue view 348");
+    expect(step?.run).toContain("gh issue comment 348");
+    expect(step?.run).toContain("gh issue reopen 348");
+    expect(step?.run).not.toContain("gh issue list");
+    expect(step?.run).not.toContain("gh issue create");
     expect(step?.run).not.toContain("VERCEL_TOKEN");
+  });
+
+  it("updates only designated issue #348 or fails closed when the tracker is invalid", () => {
+    const workflow = parseYaml(read(".github/workflows/vercel-governance.yml")) as {
+      jobs: Record<string, { steps?: Array<{ run?: string }> }>;
+    };
+    const run = workflow.jobs["alert-on-audit-failure"].steps?.[0]?.run;
+    expect(run).toBeTruthy();
+    const dir = mkdtempSync(path.join(tmpdir(), "ipix-governance-gh-"));
+    try {
+      const gh = path.join(dir, "gh");
+      const log = path.join(dir, "gh.log");
+      const summary = path.join(dir, "summary.md");
+      writeFileSync(gh, [
+        "#!/usr/bin/env bash",
+        'printf "%s\n" "$*" >> "$GH_MOCK_LOG"',
+        'case "$1 $2" in',
+        '  "issue view")',
+        '    [ "$3" = "348" ] || exit 99',
+        '    [ "$MOCK_ISSUE_STATE" != "missing" ] || exit 1',
+        '    [ "$MOCK_ISSUE_STATE" != "renamed" ] || exit 0',
+        '    printf "%s\n" "$MOCK_ISSUE_STATE"',
+        '    ;;',
+        '  "issue reopen"|"issue comment") [ "$3" = "348" ] || exit 99 ;;',
+        '  *) exit 99 ;;',
+        'esac',
+      ].join("\n") + "\n");
+      chmodSync(gh, 0o700);
+      const execute = (state: string) => {
+        writeFileSync(log, "");
+        writeFileSync(summary, "");
+        const result = spawnSync("bash", ["-c", run!], {
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            PATH: dir + path.delimiter + process.env.PATH,
+            GH_TOKEN: "test-token",
+            REPO: "amoai-tech/ipixai",
+            RUN_URL: "https://github.com/amoai-tech/ipixai/actions/runs/123",
+            GITHUB_STEP_SUMMARY: summary,
+            GH_MOCK_LOG: log,
+            MOCK_ISSUE_STATE: state,
+          },
+        });
+        return { result, calls: readFileSync(log, "utf8"), summary: readFileSync(summary, "utf8") };
+      };
+
+      const open = execute("OPEN");
+      expect(open.result.status).toBe(0);
+      expect(open.calls).toContain("issue view 348");
+      expect(open.calls).toContain("issue comment 348");
+      expect(open.calls).not.toContain("issue reopen");
+      expect(open.calls).not.toContain("issue list");
+      expect(open.calls).not.toContain("issue create");
+      expect(open.summary).toContain("https://github.com/amoai-tech/ipixai/issues/348");
+
+      const closed = execute("CLOSED");
+      expect(closed.result.status).toBe(0);
+      expect(closed.calls).toContain("issue reopen 348");
+      expect(closed.calls).toContain("issue comment 348");
+
+      for (const state of ["missing", "renamed"]) {
+        const invalid = execute(state);
+        expect(invalid.result.status, state).not.toBe(0);
+        expect(invalid.calls).not.toContain("issue create");
+        expect(invalid.calls).not.toContain("issue comment");
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("tracks a project-scoped native Vercel usage-anomaly rule as code", () => {

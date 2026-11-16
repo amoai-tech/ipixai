@@ -88,16 +88,18 @@ jobs:
             echo "Check the run's attribution table, investigate the triggering source, and retain the 3-per-24h limit unless a human approves a policy change."
           } > "$body_file"
 
-          existing="$(gh issue list --repo "$REPO" --state open --limit 100 \
-            --json number,title -q '.[] | select(.title == "Vercel deployment governance audit requires attention") | .number' | head -n 1)"
-          if [ -n "$existing" ]; then
-            # One durable issue; each new failed run notifies its existing readers.
-            gh issue comment "$existing" --repo "$REPO" --body-file "$body_file"
-            alert_url="https://github.com/$REPO/issues/$existing"
-          else
-            # The verified repository maintainer receives the initial alert.
-            alert_url="$(gh issue create --repo "$REPO" --title "$title" \
-              --assignee amoai-tech --body-file "$body_file")"
-          fi
+          # The maintainer-owned tracking issue already exists as #348. Look
+          # it up directly, not in the first N open issues (which can grow).
+          # Fail closed if it is absent/repurposed; never create duplicates.
+          issue_state="$(gh issue view 348 --repo "$REPO" --json number,title,state \
+            -q 'select(.number == 348 and .title == "Vercel deployment governance audit requires attention") | .state')"
+          case "$issue_state" in
+            OPEN) ;;
+            CLOSED) gh issue reopen 348 --repo "$REPO" ;;
+            *) echo "::error::Vercel governance tracking issue #348 is missing or changed" >&2; exit 1 ;;
+          esac
+          # One durable issue; each failed run notifies its existing readers.
+          gh issue comment 348 --repo "$REPO" --body-file "$body_file"
+          alert_url="https://github.com/$REPO/issues/348"
           printf 'Vercel governance human alert: %s\n' "$alert_url"
           printf 'Human alert: %s\n' "$alert_url" >> "$GITHUB_STEP_SUMMARY"

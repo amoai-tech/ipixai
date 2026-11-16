@@ -115,6 +115,24 @@ describe("Vercel deployment governance", () => {
     });
   });
 
+  it("classifies Vercel v7 customEnvironment.id separately from ordinary null-target Preview", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({
+      deployments: [
+        { uid: "dpl_custom", source: "cli", target: null, created: NOW - 1000,
+          customEnvironment: { id: "env_123", slug: "qa" } },
+        { uid: "dpl_preview", source: "cli", target: null, created: NOW - 1000 },
+      ],
+      pagination: { next: null },
+    })));
+    const result = await runGovernance({ env: baseEnv, now: NOW, log: () => {}, error: () => {} });
+    expect(result.exitCode).toBe(0);
+    expect(result.summary?.byTarget).toEqual({ custom: 1, preview: 1 });
+    expect(result.summary?.attempts).toEqual([
+      expect.objectContaining({ id: "dpl_custom", target: "custom" }),
+      expect.objectContaining({ id: "dpl_preview", target: "preview" }),
+    ]);
+  });
+
   it("allows a Git-referenced Preview within budget but logs missing source clearly", async () => {
     const logs: string[] = [];
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({

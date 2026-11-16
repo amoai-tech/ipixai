@@ -60,7 +60,7 @@ export async function listDeployments24h({fetchImpl, token, teamId, projectId, s
 export function attributeDeployment(deployment) {
   // Vercel uses null target for Preview. Absent target property != null.
   const target=deployment.target===null
-    ? (deployment.customEnvironmentId ? "custom" : "preview")
+    ? (deployment.customEnvironment?.id ? "custom" : "preview")
     : (typeof deployment.target==="string" && deployment.target ? deployment.target : "unknown");
   const source=typeof deployment.source==="string" && deployment.source ? deployment.source : "unreported";
   const meta=deployment.meta ?? {};
