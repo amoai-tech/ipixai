@@ -49,9 +49,7 @@ export function normalizePlannerGenUIActivity(
   if (!ops.every((op) => op.version === "1.0")) return null;
   const creates = ops.filter((op) => op.createSurface !== undefined);
   if (creates.length !== 1) return null;
-  const firstCreate = creates[0];
-  if (!firstCreate) return null;
-  const create = asRecord(firstCreate.createSurface);
+  const create = asRecord(creates.at(0)?.createSurface);
   if (!create || typeof create.surfaceId !== "string" || !create.surfaceId) return null;
   if (create.catalogId !== GENUI_CATALOG_ID) return null;
   const selected: Record<string, unknown>[] = [];
