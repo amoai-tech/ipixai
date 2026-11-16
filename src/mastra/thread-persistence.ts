@@ -111,6 +111,8 @@ export async function listMastraThreadsForResource(
 }
 
 export type PlannerGenUIActivity = {
+  /** A locator, NOT authorization; the resourceId and thread owner are checked server-side. */
+  scopeKey?: string;
   target: "planner-comparison";
   surfaceId: string;
   catalogId: string;
@@ -120,6 +122,7 @@ export type PlannerGenUIActivity = {
 export type PlannerHistory = {
   messages: PlannerChatMessage[];
   genui: PlannerGenUIActivity | null;
+  genuiRecovery?: boolean;
 };
 
 const GENUI_TARGET = "planner-comparison";
@@ -127,23 +130,12 @@ const GENUI_CATALOG_ID = "ipix/planner@1";
 const GENUI_MAX_OPERATIONS = 20;
 const GENUI_MAX_SERIALIZED_BYTES = 64_000;
 
-type HistoryToolInvocation = {
-  type?: string;
-  toolInvocation?: {
-    state?: string;
-    toolCallId?: string;
-    toolName?: string;
-    args?: unknown;
-    result?: unknown;
-  };
-};
-
 type HistoryMessage = {
   id?: string;
   role?: string;
   content?: {
     content?: unknown;
-    parts?: Array<{ type?: string; text?: string } & HistoryToolInvocation>;
+    parts?: Array<{ type?: string; text?: string } & ToolInvocationPart>;
   };
 };
 
@@ -180,61 +172,47 @@ export function normalizePlannerGenUIActivity(
   const ops = operations.filter((op): op is Record<string, unknown> => Boolean(op) && typeof op === "object" && !Array.isArray(op));
   if (ops.length !== operations.length) return null;
   if (!ops.every((op) => op.version === "1.0")) return null;
-  if (ops.some((op) => "deleteSurface" in op)) return null;
-  const create = ops.find((op) => {
-    const candidate = op.createSurface;
-    return candidate && typeof candidate === "object" && !Array.isArray(candidate);
-  })?.createSurface as Record<string, unknown> | undefined;
-  if (!create) return null;
-  if (typeof create.surfaceId !== "string" || create.surfaceId.length === 0) return null;
+  const creates = ops.filter((op) => op.createSurface !== undefined);
+  if (creates.length !== 1) return null;
+  const create = asRecord(creates[0]!.createSurface);
+  if (!create || typeof create.surfaceId !== "string" || !create.surfaceId) return null;
   if (create.catalogId !== GENUI_CATALOG_ID) return null;
-  const hasRoot = ops.some((op) => {
-    const update = op.updateComponents;
-    if (!update || typeof update !== "object" || Array.isArray(update)) return false;
-    const components = (update as Record<string, unknown>).components;
+  const selected: Record<string, unknown>[] = [];
+  for (const op of ops) {
+    const del = op.deleteSurface === undefined ? null : asRecord(op.deleteSurface);
+    if (del) {
+      if (typeof del.surfaceId !== "string") return null;
+      // A cleanup delete for an older surface cannot delete the current card;
+      // it also should not be re-applied when rebuilding a fresh manager.
+      if (del.surfaceId === create.surfaceId) return null;
+      continue;
+    }
+    if (op.createSurface !== undefined) {
+      if (!asRecord(op.createSurface)) return null;
+    } else {
+      const update = asRecord(op.updateComponents ?? op.updateDataModel);
+      // Every appended update must target the single surface being restored.
+      if (!update || update.surfaceId !== create.surfaceId) return null;
+    }
+    selected.push(op);
+  }
+  const hasRoot = selected.some((op) => {
+    const update = asRecord(op.updateComponents);
+    if (!update) return false;
+    const components = update.components;
     return Array.isArray(components) && components.some((component) => {
-      const c = component as Record<string, unknown> | null;
+      const c = asRecord(component);
       return c?.id === "root" && c?.component === "ConceptComparison";
     });
   });
   if (!hasRoot) return null;
   return {
+    ...(typeof row.scopeKey === "string" ? { scopeKey: row.scopeKey } : {}),
     target: GENUI_TARGET,
     surfaceId: create.surfaceId,
     catalogId: create.catalogId,
-    operations: ops as unknown as A2UIOperation[],
+    operations: selected as unknown as A2UIOperation[],
   };
-}
-
-/** Extract only the last render_ui call the runtime itself marked rendered.
- *  The operations are already validated by GenerativeUIMiddleware before it
- *  emits the activity; this second pass enforces the bounded replay contract
- *  and rejects failed, partial, deleted or foreign-target history. */
-export function extractPlannerGenUIActivity(
-  messages: HistoryMessage[],
-): PlannerGenUIActivity | null {
-  let latest: PlannerGenUIActivity | null = null;
-  for (const message of messages) {
-    if (message.role !== "assistant") continue;
-    for (const part of message.content?.parts ?? []) {
-      if (part.type !== "tool-invocation") continue;
-      const invocation = part.toolInvocation;
-      if (!invocation || invocation.state !== "result" || invocation.toolName !== "render_ui") continue;
-      const args = asRecord(invocation.args);
-      const result = asRecord(invocation.result);
-      if (!args || !result) continue;
-      if (args.target !== GENUI_TARGET) continue;
-      if (result.status !== "rendered") continue;
-      if (typeof result.applied !== "number" || result.applied <= 0) continue;
-      if (!Array.isArray(result.rejected) || result.rejected.length > 0) continue;
-
-      latest = normalizePlannerGenUIActivity({
-        target: args.target,
-        operations: args.operations,
-      });
-    }
-  }
-  return latest;
 }
 
 const GENUI_METADATA_KEY = "ipixGenUI";
@@ -243,34 +221,74 @@ const GENUI_METADATA_KEY = "ipixGenUI";
  *  thread metadata. Ownership/resource are checked here, not trusted from the
  *  browser. A null activity records a deletion marker so an older message
  *  cannot resurrect a deleted card. */
+/** Save one verified surface per Planner thread. A delta-only update must
+ * build on an already persisted, same-scope surface: it cannot invent a new
+ * card or cause a different Brand's card to appear after reload. */
 export async function savePlannerGenUIActivity(
   memory: MastraMemory,
-  input: {
-    threadId: string;
-    resourceId: string;
-    activity: PlannerGenUIActivity | null;
-  },
+  input: { threadId: string; resourceId: string; scopeKey?: string } & (
+    | { activity: PlannerGenUIActivity | null; surfaceId?: string; reason?: "rejected" | "delete" }
+    | { update: { surfaceId: string; operations: A2UIOperation[] } }
+  ),
 ): Promise<boolean> {
   const thread = await findMastraThread(memory, input.threadId);
   if (!thread || thread.resourceId !== input.resourceId) return false;
   const existing = thread.metadata && typeof thread.metadata === "object"
     ? thread.metadata
     : {};
+  const previous = normalizePlannerGenUIActivity(existing[GENUI_METADATA_KEY]);
+  const scopeKey = input.scopeKey ?? "workspace";
+  let stored: PlannerGenUIActivity | {
+    deleted: true;
+    scopeKey: string;
+    reason: "rejected" | "delete";
+  };
+  if ("update" in input) {
+    if (!previous || previous.scopeKey !== scopeKey ||
+      previous.surfaceId !== input.update.surfaceId ||
+      input.update.operations.length === 0) return false;
+    // A replayed duplicate delta must not keep appending the same operations.
+    const tail = previous.operations.slice(-input.update.operations.length);
+    const identical = JSON.stringify(tail) === JSON.stringify(input.update.operations);
+    const merged = identical ? previous.operations :
+      [...previous.operations, ...input.update.operations];
+    stored = normalizePlannerGenUIActivity({
+      ...previous,
+      operations: merged,
+    }) ?? { deleted: true, scopeKey, reason: "rejected" };
+  } else if (input.activity) {
+    const validated = normalizePlannerGenUIActivity({
+      ...input.activity,
+      scopeKey,
+    });
+    if (!validated) return false;
+    stored = validated;
+  } else {
+    // A late delete/rejection from Brand A must never erase Brand B's card.
+    if (input.surfaceId && (
+      !previous || previous.scopeKey !== scopeKey ||
+      previous.surfaceId !== input.surfaceId
+    )) return false;
+    stored = {
+      deleted: true,
+      scopeKey,
+      reason: input.reason === "rejected" ? "rejected" : "delete",
+    };
+  }
   try {
     await memory.updateThread({
       id: thread.id,
-      ...(thread.title ? { title: thread.title } : {}),
-      metadata: {
-        ...existing,
-        [GENUI_METADATA_KEY]: input.activity ?? { deleted: true },
-      },
+      // Do not provide a possibly stale title from the initial read:
+      // Mastra preserves the existing title when only metadata is updated.
+      // Mastra Postgres updateThread merges partial metadata with the
+      // latest stored row. Passing a whole earlier snapshot would overwrite
+      // unrelated working-memory metadata written after our owner read.
+      metadata: { [GENUI_METADATA_KEY]: stored },
     });
     return true;
-  } catch (error) {
-    console.error("planner.genui.persist failed", {
-      threadId: thread.id,
-      error: error instanceof Error ? error.message : String(error),
-    });
+  } catch {
+    // No model-generated or tenant-derived payloads in production logs.
+    console.error("planner.genui.persist failed");
     return false;
   }
 }
@@ -289,7 +307,7 @@ function readPersistedGenUIActivity(
 
 export async function recallPlannerHistory(
   memory: MastraMemory,
-  input: { threadId: string; resourceId: string },
+  input: { threadId: string; resourceId: string; scopeKey?: string },
 ): Promise<PlannerHistory> {
   const thread = await findMastraThread(memory, input.threadId);
   if (!thread || thread.resourceId !== input.resourceId) {
@@ -302,9 +320,17 @@ export async function recallPlannerHistory(
   });
   const raw = (recalled.messages ?? []) as HistoryMessage[];
   const persisted = readPersistedGenUIActivity(thread.metadata);
+  const currentScope = input.scopeKey ?? "workspace";
+  const marker = asRecord(thread.metadata?.[GENUI_METADATA_KEY]);
   return {
     messages: mastraMessagesToChat(raw),
-    genui: persisted.present ? persisted.activity : extractPlannerGenUIActivity(raw),
+    // Never recover data for a different Brand/Shoot or resurrect history
+    // with no trusted saved scope.
+    genui: persisted.activity?.scopeKey === currentScope
+      ? persisted.activity
+      : null,
+    ...(marker?.deleted === true && marker.scopeKey === currentScope &&
+      marker.reason === "rejected" ? { genuiRecovery: true } : {}),
   };
 }
 

@@ -70,6 +70,7 @@ describe("RestoreMastraHistory", () => {
   it("replays the saved GenUI surface after restoring messages", async () => {
     const genui = {
       target: "planner-comparison",
+      scopeKey: "workspace",
       surfaceId: "comparison-1",
       catalogId: "ipix/planner@1",
       operations: [{
@@ -101,6 +102,75 @@ describe("RestoreMastraHistory", () => {
     );
   });
 
+  it("never replays a card stored for another Brand scope", async () => {
+    const brandA = "brand:org-a:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const brandB = "brand:org-a:bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        messages: history,
+        genui: {
+          target: "planner-comparison",
+          scopeKey: brandA,
+          surfaceId: "comparison-1",
+          catalogId: "ipix/planner@1",
+          operations: [{ version: "1.0", createSurface: {
+            surfaceId: "comparison-1", catalogId: "ipix/planner@1",
+          } }],
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<RestoreMastraHistory threadId="thread-a" scopeKey={brandB} />);
+    await waitFor(() => expect(screen.getByLabelText("Restored conversation")).toBeDefined());
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/planner/threads/thread-a/messages?scope=${encodeURIComponent(brandB)}`,
+      expect.objectContaining({ credentials: "include" }),
+    );
+    expect(genuiManager.ingest).not.toHaveBeenCalled();
+  });
+
+  it("keeps restored conversation interactive when optional GenUI replay throws", async () => {
+    const onSettled = vi.fn();
+    genuiManager.ingest.mockImplementationOnce(() => {
+      throw new Error("Surface manager unavailable");
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        messages: history,
+        genui: {
+          target: "planner-comparison",
+          scopeKey: "workspace",
+          surfaceId: "comparison-1",
+          catalogId: "ipix/planner@1",
+          operations: [{ version: "1.0", createSurface: {
+            surfaceId: "comparison-1", catalogId: "ipix/planner@1",
+          } }],
+        },
+      }),
+    }));
+    render(<RestoreMastraHistory threadId="thread-a" onSettled={onSettled} />);
+    await waitFor(() => expect(onSettled).toHaveBeenCalledTimes(1));
+    expect(screen.getByLabelText("Restored conversation")).toBeDefined();
+    expect(screen.queryByTestId("error-state")).toBeNull();
+  });
+
+  it("restores a rejected comparison as recovery, never an obsolete card", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        messages: history,
+        genui: null,
+        genuiRecovery: true,
+      }),
+    }));
+    render(<RestoreMastraHistory threadId="thread-a" />);
+    await waitFor(() => expect(screen.getByTestId("genui-history-recovery")).toBeDefined());
+    expect(screen.getByLabelText("Restored conversation")).toBeDefined();
+    expect(genuiManager.ingest).not.toHaveBeenCalled();
+  });
+
   it("does not ingest a surface that already exists", async () => {
     genuiManager.getSurface.mockReturnValue({ status: "ready" });
     vi.stubGlobal(
@@ -111,6 +181,7 @@ describe("RestoreMastraHistory", () => {
           messages: history,
           genui: {
             target: "planner-comparison",
+            scopeKey: "workspace",
             surfaceId: "comparison-1",
             catalogId: "ipix/planner@1",
             operations: [{ version: "1.0", createSurface: { surfaceId: "comparison-1", catalogId: "ipix/planner@1" } }],

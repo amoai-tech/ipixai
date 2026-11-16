@@ -1,10 +1,86 @@
 import type { A2UIOperation } from "@copilotkit/shared";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadTrustedBrandIds } from "@/lib/dashboard/command-center";
+import { preauthorizeShootForOrg } from "@/lib/shoot/get-shoot-detail";
 
 import type { PlannerGenUIActivity } from "@/mastra/thread-persistence";
 import { normalizePlannerGenUIActivity } from "@/mastra/thread-persistence";
 
 const ACTIVITY_TYPE = "generative-ui-surface";
 const TARGET = "planner-comparison";
+
+const SCOPE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The browser supplies a scope locator, never an authorization decision.
+ * Its organization component must match the server-verified tenant. */
+export function plannerScopeForOrg(value: unknown, trustedOrgId: string): string | null {
+  if (value === "workspace") return "workspace";
+  if (typeof value !== "string") return null;
+  const match = /^(brand|shoot):([^:]+):([^:]+)$/.exec(value);
+  if (!match || match[2] !== trustedOrgId || !SCOPE_UUID.test(match[3]!)) return null;
+  return value;
+}
+
+/** Validate the browser-provided scope locator against real, authorized
+ * Supabase rows before writing or returning a persisted GenUI card. A matching
+ * org id in a string is NOT proof that a Brand/Shoot belongs to that org.
+ * This is an additional scoped resource check, not a replacement for the
+ * request's verified operator/organization and thread-owner checks. */
+export async function authorizePlannerGenUIScope(
+  client: SupabaseClient,
+  rawScope: unknown,
+  trustedOrgId: string,
+): Promise<boolean> {
+  const scope = plannerScopeForOrg(rawScope, trustedOrgId);
+  if (!scope) return false;
+  if (scope === "workspace") return true;
+  const [kind, , resourceId] = scope.split(":");
+  if (!resourceId) return false;
+  try {
+    if (kind === "brand") {
+      const { data, error } = await client
+        .from("brands")
+        .select("id")
+        .eq("id", resourceId)
+        .eq("org_id", trustedOrgId)
+        .maybeSingle();
+      return !error && data?.id === resourceId;
+    }
+    if (kind === "shoot") {
+      const scopedBrands = await loadTrustedBrandIds(client, trustedOrgId);
+      if (!scopedBrands.ok) return false;
+      const preauth = await preauthorizeShootForOrg(client, resourceId, scopedBrands.brandIds);
+      return preauth.ok;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+export function plannerRunScope(
+  input: unknown,
+  trustedOrgId: string,
+): string | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const context = (input as { context?: unknown }).context;
+  if (!Array.isArray(context)) return null;
+  for (const row of context) {
+    if (!row || typeof row !== "object") continue;
+    let value = (row as { value?: unknown }).value;
+    if (typeof value === "string") {
+      try { value = JSON.parse(value); } catch { continue; }
+    }
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    if (!Object.prototype.hasOwnProperty.call(value, "scopeKey")) continue;
+    // Malformed or foreign-tenant scope fails closed, even if other contexts
+    // would happen to contain a usable scope later in the array.
+    return plannerScopeForOrg((value as { scopeKey?: unknown }).scopeKey, trustedOrgId);
+  }
+  return null;
+}
+
+
 
 type ActivityContent = {
   surfaceId?: unknown;
@@ -17,7 +93,8 @@ type ActivityContent = {
 
 type FinalActivity =
   | { kind: "none" }
-  | { kind: "delete" }
+  | { kind: "delete" | "rejected"; surfaceId: string }
+  | { kind: "update"; surfaceId: string; operations: A2UIOperation[] }
   | { kind: "activity"; activity: PlannerGenUIActivity };
 
 /** Minimal parser for the runtime's AG-UI activity events. It ignores every
@@ -28,9 +105,22 @@ export class GenUIActivityCollector {
   private readonly activities = new Map<string, ActivityContent>();
   private readonly surfaceByMessage = new Map<string, string>();
   private lastSurfaceId: string | null = null;
+  private lastCreatedSurfaceId: string | null = null;
+  private disabled = false;
+  private runFinished = false;
+  private runFailed = false;
 
   push(chunk: string): void {
-    this.buffer += chunk;
+    if (this.disabled) return;
+    // CRLF and chunk splits are both valid SSE framing.
+    this.buffer = (this.buffer + chunk).replace(/\r\n/g, "\n");
+    // A huge/truncated SSE event cannot consume unbounded Vercel memory.
+    if (this.buffer.length > 256_000) {
+      this.disabled = true;
+      this.buffer = "";
+      this.activities.clear();
+      return;
+    }
     let boundary = this.buffer.indexOf("\n\n");
     while (boundary !== -1) {
       const block = this.buffer.slice(0, boundary);
@@ -41,23 +131,45 @@ export class GenUIActivityCollector {
   }
 
   finish(): FinalActivity {
+    if (this.disabled) return { kind: "none" };
     if (this.buffer.trim().length > 0) this.handleBlock(this.buffer);
     this.buffer = "";
-    if (!this.lastSurfaceId) return { kind: "none" };
-    const content = this.activities.get(this.lastSurfaceId);
+    // A ready surface observed mid-stream is not durable evidence that the
+    // entire model run succeeded. Aborted, disconnected or failed runs may
+    // not update the saved comparison.
+    if (!this.runFinished || this.runFailed) return { kind: "none" };
+    // A new card wins over a later cleanup delete of an older card.
+    const surfaceId = this.lastCreatedSurfaceId ?? this.lastSurfaceId;
+    if (!surfaceId) return { kind: "none" };
+    const content = this.activities.get(surfaceId);
     if (!content) return { kind: "none" };
     const operations = Array.isArray(content.operations) ? content.operations : [];
-    if (operations.some((op) => op && typeof op === "object" && "deleteSurface" in op)) {
-      return { kind: "delete" };
-    }
+    if (operations.some((op) => {
+      const row = op && typeof op === "object" ? op as Record<string, unknown> : null;
+      const deletion = row?.deleteSurface;
+      return deletion && typeof deletion === "object" &&
+        (deletion as { surfaceId?: unknown }).surfaceId === surfaceId;
+    })) return { kind: "delete", surfaceId };
+    if (!Array.isArray(content.rejected)) return { kind: "none" };
+    if (content.rejected.length > 0) return { kind: "rejected", surfaceId };
     if (content.status !== "ready") return { kind: "none" };
-    if (!Array.isArray(content.rejected) || content.rejected.length > 0) return { kind: "none" };
-    if (!Array.isArray(operations)) return { kind: "none" };
     const activity = normalizePlannerGenUIActivity({
       target: content.target,
       operations,
     });
-    return activity ? { kind: "activity", activity } : { kind: "none" };
+    if (activity) return { kind: "activity", activity };
+    // Existing surfaces produce DELTAs only: no new createSurface snapshot.
+    // They may update only the same, already stored surface, validated again
+    // by savePlannerGenUIActivity against the durable scope and surface id.
+    if (operations.length > 0 && operations.every((operation) => {
+      if (!operation || typeof operation !== "object") return false;
+      const row = operation as unknown as Record<string, unknown>;
+      const update = row.updateComponents ?? row.updateDataModel;
+      return row.version === "1.0" && update &&
+        typeof update === "object" &&
+        (update as { surfaceId?: unknown }).surfaceId === surfaceId;
+    })) return { kind: "update", surfaceId, operations: operations as A2UIOperation[] };
+    return { kind: "none" };
   }
 
   private handleBlock(block: string): void {
@@ -71,6 +183,14 @@ export class GenUIActivityCollector {
     try {
       event = JSON.parse(data) as Record<string, unknown>;
     } catch {
+      return;
+    }
+    if (event.type === "RUN_ERROR") {
+      this.runFailed = true;
+      return;
+    }
+    if (event.type === "RUN_FINISHED") {
+      this.runFinished = true;
       return;
     }
     if (event.activityType !== ACTIVITY_TYPE) return;
@@ -88,19 +208,46 @@ export class GenUIActivityCollector {
         surfaceId,
       );
       this.lastSurfaceId = surfaceId;
+      this.lastCreatedSurfaceId = surfaceId;
       return;
     }
     if (type !== "ACTIVITY_DELTA") return;
-    const surfaceId = typeof event.surfaceId === "string"
-      ? event.surfaceId
-      : typeof event.messageId === "string"
-        ? this.surfaceByMessage.get(event.messageId)
-        : this.lastSurfaceId;
-    if (!surfaceId) return;
-    const content = this.activities.get(surfaceId);
-    if (!content) return;
     const patch = event.patch;
     if (!Array.isArray(patch)) return;
+    // The real middleware emits no snapshot for an update of an existing
+    // surface. Its first /operations/- delta identifies the surface.
+    let inferred: string | undefined;
+    for (const entry of patch) {
+      if (!entry || typeof entry !== "object") continue;
+      const item = entry as { path?: unknown; value?: unknown };
+      if (item.path !== "/operations/-" || !item.value ||
+        typeof item.value !== "object") continue;
+      const operation = item.value as Record<string, unknown>;
+      const update = operation.updateComponents ?? operation.updateDataModel ??
+        operation.deleteSurface;
+      if (update && typeof update === "object" &&
+        typeof (update as { surfaceId?: unknown }).surfaceId === "string") {
+        inferred = (update as { surfaceId: string }).surfaceId;
+        break;
+      }
+    }
+    const messageId = typeof event.messageId === "string" ? event.messageId : "";
+    const surfaceId = this.surfaceByMessage.get(messageId) ?? inferred ??
+      (typeof event.surfaceId === "string" ? event.surfaceId : undefined);
+    if (!surfaceId) return;
+    let content = this.activities.get(surfaceId);
+    if (!content) {
+      content = {
+        surfaceId,
+        target: TARGET,
+        operations: [],
+        rejected: [],
+        status: "streaming",
+      };
+      this.activities.set(surfaceId, content);
+    }
+    if (messageId) this.surfaceByMessage.set(messageId, surfaceId);
+    this.lastSurfaceId = surfaceId;
     for (const entry of patch) {
       if (!entry || typeof entry !== "object") continue;
       const op = entry as Record<string, unknown>;
@@ -124,8 +271,7 @@ export class GenUIActivityCollector {
 export function capturePlannerGenUIStream(
   response: Response,
   options: {
-    threadId: string;
-    save: (activity: PlannerGenUIActivity | null) => Promise<void>;
+    save: (change: Exclude<FinalActivity, { kind: "none" }>) => Promise<void>;
   },
 ): Response {
   if (!response.body) return response;
@@ -141,12 +287,11 @@ export function capturePlannerGenUIStream(
     const final = collector.finish();
     if (final.kind === "none") return;
     try {
-      await options.save(final.kind === "delete" ? null : final.activity);
-    } catch (error) {
-      console.error("planner.genui.capture failed", {
-        threadId: options.threadId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      await options.save(final);
+    } catch {
+      // Storage failures must not disclose thread ids, generated prompts,
+      // operation payloads or tenant data in logs.
+      console.error("planner.genui.capture_failed");
     }
   };
 

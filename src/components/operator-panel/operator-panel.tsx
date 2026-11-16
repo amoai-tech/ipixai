@@ -289,6 +289,7 @@ function ResolvedChatDock({
   onReady?: (ready: boolean) => void;
 }) {
   const stats = useWorkspaceStats();
+  const plannerContext = usePlannerContext();
   // Called unconditionally (rules of hooks). Once the operator sends the
   // first message, agent.messages.length flips to >0 and the welcome
   // banner below hides itself, matching how CopilotChat's own
@@ -325,9 +326,15 @@ function ResolvedChatDock({
   // effect actually runs and can call onSettled; only the visible chat
   // surface below is held back until then. Only for an existing thread: a
   // genuinely new one has no history to restore.
-  const restoreHistory = !isNewThread ? (
+  // On a Brand/Shoot route, the page's server-authorized context must
+  // arrive before requesting a stored card. Falling back to "workspace"
+  // during hydration could briefly render a different scope's comparison.
+  const requiresPageScope = /^\/app\/(?:brands|shoots)\//.test(pathname);
+  const hasPageScope = !requiresPageScope || Boolean(plannerContext?.scopeKey);
+  const restoreHistory = !isNewThread && hasPageScope ? (
     <RestoreMastraHistory
       threadId={threadId}
+      scopeKey={plannerContext?.scopeKey ?? "workspace"}
       replay
       onSettled={() => {
         setRestoreSettled(true);

@@ -22,6 +22,8 @@ function isGenUIActivity(value: unknown): value is PlannerGenUIActivity {
   if (!value || typeof value !== "object") return false;
   const row = value as Record<string, unknown>;
   return row.target === "planner-comparison" &&
+    typeof row.scopeKey === "string" &&
+    row.catalogId === "ipix/planner@1" &&
     typeof row.surfaceId === "string" &&
     row.surfaceId.length > 0 &&
     typeof row.catalogId === "string" &&
@@ -48,10 +50,12 @@ function conversationRevision(messages: unknown) {
 
 export function RestoreMastraHistory({
   threadId,
+  scopeKey = "workspace",
   replay = true,
   onSettled,
 }: {
   threadId: string;
+  scopeKey?: string;
   replay?: boolean;
   /**
    * Fires once an attempt (mount, threadId change, or Retry) has actually
@@ -87,6 +91,7 @@ export function RestoreMastraHistory({
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [restored, setRestored] = useState<PlannerChatMessage[] | null>(null);
+  const [genuiRecovery, setGenUIRecovery] = useState(false);
 
   useEffect(() => {
     agentRef.current = agent;
@@ -99,8 +104,9 @@ export function RestoreMastraHistory({
   useEffect(() => {
     baselineRevisionRef.current = null;
     setRestored(null);
+    setGenUIRecovery(false);
     setError(null);
-  }, [threadId]);
+  }, [threadId, scopeKey]);
 
   useEffect(() => {
     if (!replay) {
@@ -118,7 +124,8 @@ export function RestoreMastraHistory({
     void (async () => {
       try {
         const response = await fetch(
-          `/api/planner/threads/${encodeURIComponent(threadId)}/messages`,
+          `/api/planner/threads/${encodeURIComponent(threadId)}/messages` +
+            (scopeKey === "workspace" ? "" : `?scope=${encodeURIComponent(scopeKey)}`),
           { credentials: "include", signal: controller.signal },
         );
         if (controller.signal.aborted) return;
@@ -129,6 +136,7 @@ export function RestoreMastraHistory({
         const body = (await response.json()) as {
           messages?: unknown;
           genui?: unknown;
+          genuiRecovery?: unknown;
         };
         if (controller.signal.aborted) return;
         if (body.messages !== undefined && !Array.isArray(body.messages)) {
@@ -145,22 +153,32 @@ export function RestoreMastraHistory({
         }
         const messages = (body.messages ?? []) as PlannerChatMessage[];
         agentRef.current.setMessages(messages);
-        const genui = isGenUIActivity(body.genui) ? body.genui : null;
-        if (genui && runtime?.manager) {
-          const manager = runtime.manager;
-          manager.setActiveThread(threadId);
-          if (!manager.getSurface(threadId, genui.surfaceId)) {
-            manager.ingest(threadId, "default", {
-              surfaceId: genui.surfaceId,
-              catalogId: genui.catalogId,
-              target: genui.target,
-              status: "ready",
-              rejected: [],
-              operations: genui.operations,
-            });
-          }
-        }
+        // An invalid/unsupported optional card must never prevent the saved
+        // conversation itself from becoming readable.
         setRestored(messages);
+        setGenUIRecovery(body.genuiRecovery === true);
+        try {
+          const genui = isGenUIActivity(body.genui) &&
+            body.genui.scopeKey === scopeKey ? body.genui : null;
+          if (genui && runtime?.manager) {
+            const manager = runtime.manager;
+            manager.setActiveThread(threadId);
+            if (!manager.getSurface(threadId, genui.surfaceId)) {
+              manager.ingest(threadId, "default", {
+                surfaceId: genui.surfaceId,
+                catalogId: genui.catalogId,
+                target: genui.target,
+                status: "ready",
+                rejected: [],
+                operations: genui.operations,
+              });
+            }
+          }
+        } catch {
+          // The saved conversation remains available even if optional GenUI
+          // hydration cannot be applied to this browser/runtime version.
+          console.warn("planner.genui.restore_failed");
+        }
         onSettledRef.current?.();
       } catch {
         if (controller.signal.aborted) return;
@@ -170,7 +188,7 @@ export function RestoreMastraHistory({
     return () => {
       controller.abort();
     };
-  }, [threadId, retryKey, replay]);
+  }, [threadId, retryKey, replay, scopeKey]);
 
   if (!replay) return null;
 
@@ -182,6 +200,11 @@ export function RestoreMastraHistory({
             <li key={message.id}>{message.content}</li>
           ))}
         </ol>
+      ) : null}
+      {genuiRecovery ? (
+        <p role="status" data-testid="genui-history-recovery" className="px-4 py-2 text-sm">
+          The previous AI comparison could not be restored. Ask iPix to try again.
+        </p>
       ) : null}
       {error ? (
         <ErrorState

@@ -19,6 +19,14 @@ import {
   productionPlannerInstructions,
 } from "../src/mastra/agents/production-planner-instructions";
 import { conceptComparisonSchema, ipixGenerativeUI } from "../src/lib/copilotkit/ipix-generative-ui";
+import { GenUIActivityCollector } from "../src/lib/copilotkit/genui-activity-persist";
+import { InMemoryStore } from "@mastra/core/storage";
+import { Memory } from "@mastra/memory";
+import {
+  ensureMastraThread,
+  recallPlannerHistory,
+  savePlannerGenUIActivity,
+} from "../src/mastra/thread-persistence";
 
 const ENVELOPE = {
   "1.0": {
@@ -264,6 +272,40 @@ describe("CopilotKit GenerativeUIMiddleware → planner gate bridge", () => {
         (event: any) => event.activityType === GENERATIVE_UI_ACTIVITY_TYPE,
       ),
     ).toBe(true);
+
+    // Exercise the collector against real GenerativeUIMiddleware output, not
+    // a separately hand-built approximation of its activity event schema.
+    const collector = new GenUIActivityCollector();
+    for (const item of events) {
+      collector.push("event: message\ndata: " + JSON.stringify(item) + "\n\n");
+    }
+    const restored = collector.finish();
+    expect(restored.kind).toBe("activity");
+    if (restored.kind === "activity") {
+      expect(restored.activity.surfaceId).toBe(
+        GENUI_COMPARISON_CREATE_SURFACE.createSurface.surfaceId,
+      );
+
+      // Real SDK activity -> existing durable Mastra metadata -> authorized
+      // thread recall. The restore is a read, never another model run.
+      const memory = new Memory({ storage: new InMemoryStore({
+        id: `genui-middleware-${crypto.randomUUID()}`,
+      }) });
+      const threadId = crypto.randomUUID();
+      const resourceId = "org:org-a::user:operator-a";
+      await ensureMastraThread(memory, { threadId, resourceId });
+      expect(await savePlannerGenUIActivity(memory, {
+        threadId, resourceId, scopeKey: "workspace", activity: restored.activity,
+      })).toBe(true);
+      const replay = await recallPlannerHistory(memory, {
+        threadId, resourceId, scopeKey: "workspace",
+      });
+      expect(replay.genui?.operations).toEqual(restored.activity.operations);
+      expect((await recallPlannerHistory(memory, {
+        threadId, resourceId: "org:org-b::user:operator-b",
+        scopeKey: "workspace",
+      })).genui).toBeNull();
+    }
 
     const result = events.find(
       (event: any) => event.type === "TOOL_CALL_RESULT",

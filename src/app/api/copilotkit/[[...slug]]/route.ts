@@ -15,7 +15,7 @@ import {
   TenantAbortRunner,
 } from "@/lib/copilotkit/tenant-abort-runner";
 import { createPlannerRunControl } from "@/lib/copilotkit/planner-run-control-supabase";
-import { capturePlannerGenUIStream } from "@/lib/copilotkit/genui-activity-persist";
+import { authorizePlannerGenUIScope, capturePlannerGenUIStream, plannerRunScope } from "@/lib/copilotkit/genui-activity-persist";
 import {
   canonicalizePlannerThreadId,
   getPlannerMemory,
@@ -37,10 +37,12 @@ async function handleCopilot(request: Request) {
   // The run body carries the thread the activity belongs to. Clone first so
   // the runtime still receives the untouched request stream.
   let captureThreadId: string | undefined;
+  let captureScopeKey: string | null = null;
   if (request.method === "POST") {
     try {
       const body = (await request.clone().json()) as { threadId?: unknown };
       captureThreadId = canonicalizePlannerThreadId(body.threadId) ?? undefined;
+      captureScopeKey = plannerRunScope(body, session.orgId);
     } catch {
       captureThreadId = undefined;
     }
@@ -129,18 +131,35 @@ async function handleCopilot(request: Request) {
     cleanupMembershipWatchdog();
     throw error;
   }
-  if (captureThreadId && response.ok) {
+  // The context came from the browser and is only a locator; verify the
+  // actual Brand/Shoot under the authenticated org before persisting.
+  const scopeAuthorized = Boolean(
+    captureScopeKey && authClient &&
+    await authorizePlannerGenUIScope(authClient, captureScopeKey, orgId),
+  );
+  if (captureThreadId && captureScopeKey && scopeAuthorized && response.ok) {
     const threadId = captureThreadId;
+    const scopeKey = captureScopeKey;
     response = capturePlannerGenUIStream(response, {
-      threadId,
-      save: async (activity) => {
+      save: async (change) => {
         const memory = await getPlannerMemory();
         if (!memory) return;
-        await savePlannerGenUIActivity(memory, {
-          threadId,
-          resourceId,
-          activity,
-        });
+        if (change.kind === "activity") {
+          await savePlannerGenUIActivity(memory, {
+            threadId, resourceId, scopeKey, activity: change.activity,
+          });
+        } else if (change.kind === "update") {
+          await savePlannerGenUIActivity(memory, {
+            threadId, resourceId, scopeKey,
+            update: { surfaceId: change.surfaceId, operations: change.operations },
+          });
+        } else {
+          await savePlannerGenUIActivity(memory, {
+            threadId, resourceId, scopeKey,
+            activity: null, surfaceId: change.surfaceId,
+            reason: change.kind === "rejected" ? "rejected" : "delete",
+          });
+        }
       },
     });
   }

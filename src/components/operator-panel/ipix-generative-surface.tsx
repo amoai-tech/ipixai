@@ -103,6 +103,17 @@ export function IpixGenerativeComparisonSurface({
       surfacesByScope.current.delete(key);
     }
     previousScope.current = scopeKey;
+    // React may keep returning the same Surface object after this commit.
+    // Record the newly committed scope here instead of relying on the
+    // recording effect to re-run on a stable object reference.
+    const current = runtime?.manager.getSurfaceForTarget(TARGET);
+    if (current) {
+      surfacesByScope.current.set(scopeKey, {
+        threadId: current.threadId,
+        agentId: current.agentId,
+        surfaceId: current.surfaceId,
+      });
+    }
   }, [runtime, scopeKey]);
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { InMemoryStore } from "@mastra/core/storage";
 import { Memory } from "@mastra/memory";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   plannerThreadStorageKey,
@@ -10,7 +10,7 @@ import {
   RICH_RESULT_DECODE_CAP,
   canonicalRichToolResult,
   ensureMastraThread,
-  extractPlannerGenUIActivity,
+  findMastraThread,
   listMastraThreadsForResource,
   mastraMessagesToChat,
   recallPlannerChatMessages,
@@ -302,7 +302,10 @@ describe("persisted GenUI metadata", () => {
       resourceId,
       activity,
     })).toBe(true);
-    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui).toEqual(activity);
+    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui).toEqual({
+      ...activity,
+      scopeKey: "workspace",
+    });
 
     expect(await savePlannerGenUIActivity(memory, {
       threadId,
@@ -324,86 +327,129 @@ describe("persisted GenUI metadata", () => {
     await savePlannerGenUIActivity(memory, { threadId, resourceId, activity: null });
     expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui).toBeNull();
   });
-});
+  it("scopes saved cards to the exact Brand and rejects other scopes", async () => {
+    const memory = isolatedMemory();
+    const threadId = crypto.randomUUID();
+    const resourceId = "org:a::user:u";
+    const brandA = "brand:org-a:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const brandB = "brand:org-a:bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    await ensureMastraThread(memory, { threadId, resourceId });
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, scopeKey: brandA, activity,
+    })).toBe(true);
+    expect((await recallPlannerHistory(memory, { threadId, resourceId, scopeKey: brandA })).genui?.scopeKey)
+      .toBe(brandA);
+    expect((await recallPlannerHistory(memory, { threadId, resourceId, scopeKey: brandB })).genui)
+      .toBeNull();
+    expect((await recallPlannerHistory(memory, { threadId, resourceId, scopeKey: "workspace" })).genui)
+      .toBeNull();
+  });
 
-describe("extractPlannerGenUIActivity", () => {
-  const operations = [
-    {
-      version: "1.0",
-      createSurface: { surfaceId: "comparison-1", catalogId: "ipix/planner@1" },
-    },
-    {
-      version: "1.0",
+  it("applies update-only deltas, deduplicates replays and invalidates a rejected card", async () => {
+    const memory = isolatedMemory();
+    const threadId = crypto.randomUUID();
+    const resourceId = "org:a::user:u";
+    await ensureMastraThread(memory, { threadId, resourceId });
+    await savePlannerGenUIActivity(memory, { threadId, resourceId, activity });
+    const newRoot = {
+      version: "1.0" as const,
       updateComponents: {
         surfaceId: "comparison-1",
         components: [{
           id: "root",
           component: "ConceptComparison",
-          title: "Saved comparison",
+          title: "New editorial direction",
           options: [
+            { name: "Editorial", rationale: "Dramatic lighting." },
             { name: "Studio", rationale: "Controlled light." },
-            { name: "Outdoor", rationale: "Natural light." },
           ],
         }],
       },
-    },
-  ];
-  const rendered = (target = "planner-comparison", applied = 2, rejected: unknown[] = []) => ({
-    args: { target, operations },
-    result: { status: "rendered", applied, rejected },
+    };
+    const write = { threadId, resourceId, update: {
+      surfaceId: "comparison-1", operations: [newRoot],
+    } };
+    expect(await savePlannerGenUIActivity(memory, write)).toBe(true);
+    expect(await savePlannerGenUIActivity(memory, write)).toBe(true);
+    const updated = (await recallPlannerHistory(memory, { threadId, resourceId })).genui;
+    expect(updated?.operations).toHaveLength(3);
+    expect(updated?.operations[2]).toEqual(newRoot);
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, activity: null, surfaceId: "some-other-card",
+    })).toBe(false);
+    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui).not.toBeNull();
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, activity: null, surfaceId: "comparison-1",
+    })).toBe(true);
+    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui).toBeNull();
   });
-  const assistant = (...calls: ReturnType<typeof rendered>[]) => [{
-    id: "assistant-1",
-    role: "assistant",
-    content: {
-      content: "",
-      parts: calls.map((call, index) => ({
-        type: "tool-invocation",
-        toolInvocation: {
-          state: "result",
-          toolCallId: `call-${index}`,
-          toolName: "render_ui",
-          args: call.args,
-          result: call.result,
-        },
-      })),
-    },
-  }];
 
-  it("extracts the last accepted planner-comparison render_ui activity", () => {
-    expect(extractPlannerGenUIActivity(assistant(rendered()))).toEqual({
-      target: "planner-comparison",
-      surfaceId: "comparison-1",
-      catalogId: "ipix/planner@1",
-      operations,
+  it("preserves metadata written after a concurrent initial read", async () => {
+    const memory = isolatedMemory();
+    const threadId = crypto.randomUUID();
+    const resourceId = "org:a::user:u";
+    await ensureMastraThread(memory, { threadId, resourceId });
+    const originalUpdate = memory.updateThread.bind(memory);
+    const spy = vi.spyOn(memory, "updateThread");
+    spy.mockImplementationOnce(async (args) => {
+      // A title/working-memory writer changed the row after our read.
+      await originalUpdate({ id: args.id, metadata: { otherFeature: "new" } });
+      return originalUpdate(args);
     });
+    expect(await savePlannerGenUIActivity(memory, { threadId, resourceId, activity })).toBe(true);
+    const thread = await findMastraThread(memory, threadId);
+    expect(thread?.metadata?.otherFeature).toBe("new");
+    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui)
+      .toMatchObject({ surfaceId: "comparison-1" });
   });
 
-  it("does not replay a failed, partial, foreign-target or deleted activity", () => {
-    expect(extractPlannerGenUIActivity(assistant(rendered("planner-comparison", 2, [{ index: 0, reason: "bad" }])))).toBeNull();
-    expect(extractPlannerGenUIActivity(assistant(rendered("chat")))).toBeNull();
-    expect(extractPlannerGenUIActivity(assistant(rendered("planner-comparison", 0)))).toBeNull();
-    const deleted = assistant(rendered());
-    (deleted[0].content.parts[0].toolInvocation.args as { operations: unknown[] }).operations = [{
-      version: "1.0",
-      deleteSurface: { surfaceId: "comparison-1" },
-    }];
-    expect(extractPlannerGenUIActivity(deleted)).toBeNull();
+  it("restores recovery, not an obsolete card, after a rejected update", async () => {
+    const memory = isolatedMemory();
+    const threadId = crypto.randomUUID();
+    const resourceId = "org:a::user:u";
+    await ensureMastraThread(memory, { threadId, resourceId });
+    await savePlannerGenUIActivity(memory, { threadId, resourceId, activity });
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, activity: null,
+      surfaceId: "comparison-1", reason: "rejected",
+    })).toBe(true);
+    const history = await recallPlannerHistory(memory, {
+      threadId, resourceId, scopeKey: "workspace",
+    });
+    expect(history.genui).toBeNull();
+    expect(history.genuiRecovery).toBe(true);
   });
 
-  it("uses the latest accepted activity when an earlier card was replaced", () => {
-    const first = rendered();
-    const second = rendered();
-    second.args = {
-      target: "planner-comparison",
-      operations: operations.map((op) => ({
-        ...op,
-        ...("createSurface" in op ? { createSurface: { ...op.createSurface, surfaceId: "comparison-2" } } : {}),
-        ...("updateComponents" in op ? { updateComponents: { ...op.updateComponents, surfaceId: "comparison-2" } } : {}),
-      })),
-    } as typeof second.args;
-    const result = extractPlannerGenUIActivity(assistant(first, second));
-    expect(result?.surfaceId).toBe("comparison-2");
+  it("never persists a create/update pair targeting two different surfaces", async () => {
+    const memory = isolatedMemory();
+    const threadId = crypto.randomUUID();
+    const resourceId = "org:a::user:u";
+    await ensureMastraThread(memory, { threadId, resourceId });
+    const broken = {
+      ...activity,
+      operations: [
+        activity.operations[0],
+        {
+          version: "1.0" as const,
+          updateComponents: {
+            surfaceId: "foreign-surface",
+            components: [{
+              id: "root",
+              component: "ConceptComparison",
+              title: "Mismatched surface",
+              options: [
+                { name: "Studio", rationale: "Controlled." },
+                { name: "Outdoor", rationale: "Natural." },
+              ],
+            }],
+          },
+        },
+      ],
+    };
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, activity: broken,
+    })).toBe(false);
+    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui).toBeNull();
   });
 });
 

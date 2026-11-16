@@ -1,4 +1,6 @@
 import { requirePlannerResourceId } from "@/lib/auth/planner-session";
+import { authorizePlannerGenUIScope, plannerScopeForOrg } from "@/lib/copilotkit/genui-activity-persist";
+import { createClientFromRequest } from "@/lib/supabase/server";
 import {
   authorizeThreadAccess,
   loadThreadOwner,
@@ -47,9 +49,23 @@ export async function GET(
     return threadForbiddenResponse();
   }
 
+  const requestedScope = new URL(request.url).searchParams.get("scope") ?? "workspace";
+  const scopeKey = plannerScopeForOrg(requestedScope, session.orgId);
+  if (!scopeKey) return Response.json({ error: "invalid_scope" }, { status: 400 });
+  const client = createClientFromRequest(request);
+  if (!client) return Response.json({ error: "auth_unavailable" }, { status: 503 });
+  if (!await authorizePlannerGenUIScope(client, scopeKey, session.orgId)) {
+    return Response.json({ error: "forbidden_scope" }, { status: 403 });
+  }
   const history = await recallPlannerHistory(memory, {
     threadId,
     resourceId: session.resourceId,
+    scopeKey,
   });
-  return Response.json({ threadId, messages: history.messages, genui: history.genui });
+  return Response.json({
+    threadId,
+    messages: history.messages,
+    genui: history.genui,
+    genuiRecovery: history.genuiRecovery === true,
+  });
 }

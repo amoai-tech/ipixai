@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   GenUIActivityCollector,
   capturePlannerGenUIStream,
+  plannerRunScope,
+  plannerScopeForOrg,
 } from "../src/lib/copilotkit/genui-activity-persist";
 
 const create = {
@@ -47,6 +49,9 @@ function delta(patch: unknown[], messageId = "message-1") {
   });
 }
 
+function finished() {
+  return event({ type: "RUN_FINISHED", threadId: "test-thread", runId: "run-1" });
+}
 function acceptedSse() {
   return [
     snapshot({
@@ -59,6 +64,7 @@ function acceptedSse() {
     }),
     delta([{ op: "add", path: "/operations/-", value: update }]),
     delta([{ op: "replace", path: "/status", value: "ready" }]),
+    finished(),
   ].join("");
 }
 
@@ -74,6 +80,13 @@ describe("GenUIActivityCollector", () => {
     expect(final.activity.operations).toHaveLength(2);
   });
 
+  it("accepts CRLF-framed SSE across arbitrary chunk boundaries", () => {
+    const collector = new GenUIActivityCollector();
+    const bytes = acceptedSse().replace(/\n/g, "\r\n");
+    for (let i = 0; i < bytes.length; i += 7) collector.push(bytes.slice(i, i + 7));
+    expect(collector.finish().kind).toBe("activity");
+  });
+
   it("does not persist failed, foreign-target or rejected activities", () => {
     const failed = new GenUIActivityCollector();
     failed.push(snapshot({
@@ -84,7 +97,9 @@ describe("GenUIActivityCollector", () => {
       status: "ready",
       rejected: [{ index: 1, reason: "bad" }],
     }));
-    expect(failed.finish().kind).toBe("none");
+    // Rejection invalidates an old saved card with the same surface id.
+    failed.push(finished());
+    expect(failed.finish()).toMatchObject({ kind: "rejected", surfaceId: "comparison-1" });
 
     const foreign = new GenUIActivityCollector();
     foreign.push(snapshot({
@@ -95,7 +110,62 @@ describe("GenUIActivityCollector", () => {
       status: "ready",
       rejected: [],
     }));
+    foreign.push(finished());
     expect(foreign.finish().kind).toBe("none");
+  });
+
+  it("collects an accepted delta-only update for an existing saved card", () => {
+    const collector = new GenUIActivityCollector();
+    const amended = {
+      ...update,
+      updateComponents: {
+        ...update.updateComponents,
+        components: update.updateComponents.components.map((component) => ({
+          ...component,
+          title: "Second concept direction",
+        })),
+      },
+    };
+    collector.push(delta([{ op: "add", path: "/operations/-", value: amended }]));
+    collector.push(delta([{ op: "replace", path: "/status", value: "ready" }]));
+    collector.push(finished());
+    const result = collector.finish();
+    expect(result).toMatchObject({
+      kind: "update", surfaceId: "comparison-1", operations: [amended],
+    });
+  });
+
+  it("never clears a newly created card when an older card is deleted later", () => {
+    const collector = new GenUIActivityCollector();
+    collector.push(snapshot({
+      surfaceId: "comparison-1", target: "planner-comparison",
+      catalogId: "ipix/planner@1", operations: [create, update],
+      status: "ready", rejected: [],
+    }));
+    collector.push(delta([{
+      op: "add", path: "/operations/-",
+      value: { version: "1.0", deleteSurface: { surfaceId: "older-card" } },
+    }], "old-msg"));
+    collector.push(finished());
+    expect(collector.finish()).toMatchObject({
+      kind: "activity", activity: { surfaceId: "comparison-1" },
+    });
+  });
+
+  it("never persists a ready card from a failed or truncated run", () => {
+    const contents = {
+      surfaceId: "comparison-1", target: "planner-comparison",
+      catalogId: "ipix/planner@1", operations: [create, update],
+      status: "ready", rejected: [],
+    };
+    const truncated = new GenUIActivityCollector();
+    truncated.push(snapshot(contents));
+    expect(truncated.finish().kind).toBe("none");
+    const errored = new GenUIActivityCollector();
+    errored.push(snapshot(contents));
+    errored.push(event({ type: "RUN_ERROR", message: "provider failed" }));
+    errored.push(finished());
+    expect(errored.finish().kind).toBe("none");
   });
 
   it("records a delete only for the planner surface", () => {
@@ -109,6 +179,7 @@ describe("GenUIActivityCollector", () => {
       rejected: [],
     }));
     deleted.push(delta([{ op: "add", path: "/operations/-", value: { version: "1.0", deleteSurface: { surfaceId: "comparison-1" } } }]));
+    deleted.push(finished());
     expect(deleted.finish().kind).toBe("delete");
   });
 });
@@ -126,12 +197,37 @@ describe("capturePlannerGenUIStream", () => {
     }), { status: 200, headers: { "content-type": "text/event-stream" } });
     const save = vi.fn(async (_activity: unknown) => undefined);
     const captured = capturePlannerGenUIStream(response, {
-      threadId: "thread-a",
       save,
     });
     const text = await new Response(captured.body).text();
     expect(text).toBe(payload);
     expect(save).toHaveBeenCalledTimes(1);
-    expect(save.mock.calls[0]?.[0]).toMatchObject({ surfaceId: "comparison-1" });
+    expect(save.mock.calls[0]?.[0]).toMatchObject({
+      kind: "activity",
+      activity: { surfaceId: "comparison-1" },
+    });
+  });
+});
+
+
+describe("Planner scope identity for stored GenUI", () => {
+  const org = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const brand = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  it("accepts the authenticated workspace and same-org Brand/Shoot locators", () => {
+    expect(plannerScopeForOrg("workspace", org)).toBe("workspace");
+    expect(plannerScopeForOrg(`brand:${org}:${brand}`, org)).toBe(`brand:${org}:${brand}`);
+    expect(plannerScopeForOrg(`shoot:${org}:${brand}`, org)).toBe(`shoot:${org}:${brand}`);
+  });
+  it("rejects foreign-org, invalid and missing scope values", () => {
+    expect(plannerScopeForOrg(`brand:foreign:${brand}`, org)).toBeNull();
+    expect(plannerScopeForOrg(`shoot:${org}:invalid`, org)).toBeNull();
+    expect(plannerScopeForOrg(undefined, org)).toBeNull();
+  });
+  it("extracts the actual forwarded context while rejecting a forged org", () => {
+    const context = [{ description: "Current Brand", value: { scopeKey: `brand:${org}:${brand}` } }];
+    expect(plannerRunScope({ context }, org)).toBe(`brand:${org}:${brand}`);
+    expect(plannerRunScope({ context }, "another-org")).toBeNull();
+    expect(plannerRunScope({ context: [{ value: JSON.stringify({ scopeKey: "workspace" }) }] }, org)).toBe("workspace");
+    expect(plannerRunScope({ context: [] }, org)).toBeNull();
   });
 });
