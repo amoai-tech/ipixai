@@ -1,6 +1,6 @@
 # SCR-25 wireframe — Role Dashboards
 
-> **SSOT:** [`SCR-25-Role-Dashboards.dc.html`](../../../Pages/SCR-25-Role-Dashboards.dc.html) · Method: [`ipix-wireframe`](../../../../.claude/skills/ipix-wireframe/SKILL.md)  
+> **SSOT:** [`SCR-25-Role-Dashboards.dc.html`](../../../Pages/SCR-25-Role-Dashboards.dc.html) · Method: [`ipix-wireframe`](../../../../.agents/skills/ipix-wireframe/SKILL.md)
 > **Rule:** ASCII zones must match DC `grid-template-columns` and Workspace blocks — not invented layout.
 
 ## Shell archetype

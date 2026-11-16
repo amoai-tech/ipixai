@@ -47,7 +47,7 @@
     "skills:index:check": "node scripts/generate-skill-index.mjs --check",
     "e2e:debug:cli": "PLAYWRIGHT_HTML_OPEN=never PLAYWRIGHT_BROWSERS_PATH=0 playwright test --project=chromium --debug=cli",
     "e2e:debug:cli:attach": "playwright-cli attach",
-    "agent:claude": "dotenvx run -f .env.agent --strict --redact -- claude",
+    "agent:claude": "dotenvx run -f .env.agent --strict --redact -- claude --plugin-dir .agents",
     "agent:codex": "dotenvx run -f .env.agent --strict --redact -- codex"
   },
   "dependencies": {

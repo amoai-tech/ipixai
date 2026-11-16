@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # task-verifier — disk probes for iPix (lumina-studio)
 # Usage:
-#   bash .claude/skills/task-verifier/scripts/probe-disk-ipix.sh
-#   bash .claude/skills/task-verifier/scripts/probe-disk-ipix.sh app
-#   bash .claude/skills/task-verifier/scripts/probe-disk-ipix.sh supabase
+#   bash .agents/skills/task-verifier/scripts/probe-disk-ipix.sh
+#   bash .agents/skills/task-verifier/scripts/probe-disk-ipix.sh app
+#   bash .agents/skills/task-verifier/scripts/probe-disk-ipix.sh supabase
 #
 # READ-ONLY. Env var names only — never log values.
 # Exit code = number of 🔴 blockers (0 = green).
@@ -37,7 +37,7 @@ if in_filter struct; then
   [ ! -f "$REPO/todo.md" ] || warn "root todo.md exists — use tasks/plan/todo.md as SSOT"
   [ -d "$APP" ] && ok "app/ (Next.js operator)" || fail "app/ missing"
   [ -d "$REPO/supabase" ] && ok "supabase/" || warn "supabase/ missing"
-  [ -d "$REPO/.claude/skills/task-verifier" ] && ok "task-verifier skill" || fail "task-verifier skill missing"
+  [ -d "$REPO/.agents/skills/task-verifier" ] && ok "task-verifier skill" || fail "task-verifier skill missing"
   echo
 fi
 
@@ -97,7 +97,7 @@ fi
 if in_filter skills; then
   echo "## Skills (required hubs)"
   for slug in ipix ipix-supabase design-to-production tasks task-verifier; do
-    [ -f "$REPO/.claude/skills/$slug/SKILL.md" ] && ok "skill: $slug" || fail "skill missing: $slug"
+    [ -f "$REPO/.agents/skills/$slug/SKILL.md" ] && ok "skill: $slug" || fail "skill missing: $slug"
   done
   echo
 fi

@@ -2,7 +2,7 @@
 
 Use this for **every** `.dc.html` page in `Universal design prompt/` — Command Center, Brand List/Detail, Shoots List/Detail, Shoot Wizard, Assets, Campaigns, Matching, Channel Preview, Analytics, Campaign Performance, Onboarding.
 
-Full workflow lives in the `design-to-production` skill (`.claude/skills/design-to-production/SKILL.md`) — this doc is the **fill-in-the-blanks plan** you produce per screen before coding, not a replacement for it.
+Full workflow lives in the `design-to-production` skill (`.agents/skills/design-to-production/SKILL.md`) — this doc is the **fill-in-the-blanks plan** you produce per screen before coding, not a replacement for it.
 
 **Worked examples for this template:** [`Shoots List.v2.image-first.dc.html`](../../Universal%20design%20prompt/Shoots%20List.v2.image-first.dc.html) → [IPI-273 / DESIGN-055](https://linear.app/amo100/issue/IPI-273/design-055-shoots-list-react-parity-workspace) and [`Shoot Detail.v2.image-first.dc.html`](../../Universal%20design%20prompt/Shoot%20Detail.v2.image-first.dc.html) → [IPI-337 / DESIGN-054b](https://linear.app/amo100/issue/IPI-337/design-054b-shoot-detail-remaining-tab-parity-6-tabs). Use their plan docs (`PLAN/shoots-list-dc-conversion.md`, `PLAN/shoot-detail-dc-conversion.md`) as the reference shape for every section below.
 

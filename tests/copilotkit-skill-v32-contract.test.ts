@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const root = new URL("../.claude/skills/copilotkit/", import.meta.url);
+const root = new URL("../.agents/skills/copilotkit/", import.meta.url);
 const read = (p: string) => readFileSync(new URL(p, root), "utf8");
 
 describe("IPI-1420 — official CopilotKit v3.2 lookup with iPix overlay", () => {

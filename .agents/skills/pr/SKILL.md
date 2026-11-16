@@ -9,7 +9,7 @@ metadata:
 
 # /pr — iPix PR workflow
 
-Use `.claude/skills/tasks/SKILL.md` as the canonical task/PR contract. Load only the applicable references for the requested phase:
+Use `.agents/skills/tasks/SKILL.md` as the canonical task/PR contract. Load only the applicable references for the requested phase:
 
 - status / open / ready: `../tasks/references/github-pr.md`
 - review findings / resolution: `../tasks/references/review-comments.md`

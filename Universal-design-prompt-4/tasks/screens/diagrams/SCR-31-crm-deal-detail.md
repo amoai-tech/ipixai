@@ -1,6 +1,6 @@
 # SCR-31 diagrams — Crm Deal Detail
 
-> **SSOT:** [`SCR-31-CRM-Deal-Detail.dc.html`](../../../Pages/SCR-31-CRM-Deal-Detail.dc.html) · Skill: [`mermaid-diagrams`](../../../../.claude/skills/mermaid-diagrams/SKILL.md)
+> **SSOT:** [`SCR-31-CRM-Deal-Detail.dc.html`](../../../Pages/SCR-31-CRM-Deal-Detail.dc.html) · Skill: [`mermaid-diagrams`](../../../../.agents/skills/mermaid-diagrams/SKILL.md)
 
 ## Layout block (matches DC shell)
 
