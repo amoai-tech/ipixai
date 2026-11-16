@@ -33,7 +33,6 @@ export function IpixGenerativeComparisonSurface({
 }) {
   const runtime = useGenerativeUIRuntime();
   const previousScope = useRef(scopeKey);
-  const lastMappedScope = useRef(scopeKey);
   const surfacesByScope = useRef(new Map<string, ScopedSurface>());
   const previousRunActive = useRef(runActive);
   const [interruptedSurfaceKey, setInterruptedSurfaceKey] = useState<string | null>(null);
@@ -49,7 +48,10 @@ export function IpixGenerativeComparisonSurface({
   // thread-scoped, so a scope change can leave the old thread's surface
   // behind even when the active thread already points at the new scope.
   useEffect(() => {
-    if (lastMappedScope.current !== scopeKey) return;
+    // Only record while this scope is the stable, committed scope. During an
+    // A -> B transition the previous effect still describes A, so recording
+    // here would attach A's surface to B; the cleanup effect commits B first.
+    if (previousScope.current !== scopeKey) return;
     if (surface) {
       surfacesByScope.current.set(scopeKey, {
         threadId: surface.threadId,
@@ -58,6 +60,25 @@ export function IpixGenerativeComparisonSurface({
       });
     }
   }, [scopeKey, surface]);
+
+  // Tie the interrupted state to the surface, not to one render. A run ending
+  // while the surface is still "streaming" keeps recovery visible through
+  // unrelated re-renders until that surface becomes ready, is deleted, or is
+  // replaced.
+  useEffect(() => {
+    // A scope change can abort a run and switch the manager to a new
+    // streaming surface in the same render. Do not label that new surface as
+    // interrupted; only a run ending within the committed scope counts.
+    if (
+      previousScope.current === scopeKey &&
+      previousRunActive.current &&
+      !runActive &&
+      surface?.status === "streaming"
+    ) {
+      setInterruptedSurfaceKey(surface.key);
+    }
+    previousRunActive.current = runActive;
+  }, [runActive, scopeKey, surface?.key, surface?.status]);
 
   // Delete every surface recorded under the previous scope, including one
   // that belongs to a thread no longer active. Never delete the new scope's
@@ -82,19 +103,7 @@ export function IpixGenerativeComparisonSurface({
       surfacesByScope.current.delete(key);
     }
     previousScope.current = scopeKey;
-    lastMappedScope.current = scopeKey;
   }, [runtime, scopeKey]);
-
-  // Tie the interrupted state to the surface, not to one render. A run ending
-  // while the surface is still "streaming" keeps recovery visible through
-  // unrelated re-renders until that surface becomes ready, is deleted, or is
-  // replaced.
-  useEffect(() => {
-    if (previousRunActive.current && !runActive && surface?.status === "streaming") {
-      setInterruptedSurfaceKey(surface.key);
-    }
-    previousRunActive.current = runActive;
-  }, [runActive, surface?.key, surface?.status]);
 
   useEffect(() => {
     if (!interruptedSurfaceKey) return;
