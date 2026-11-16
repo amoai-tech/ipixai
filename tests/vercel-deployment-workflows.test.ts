@@ -448,6 +448,7 @@ describe("IPI-1229 Vercel deployment ownership", () => {
         if?: string;
         environment?: string;
         env?: Record<string, string>;
+        permissions?: Record<string, string>;
         steps?: Array<{ name?: string; run?: string; env?: Record<string, string> }>;
       }>;
     };
@@ -462,6 +463,8 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(auditStep?.env?.VERCEL_TOKEN).toBe("${{ secrets.VERCEL_TOKEN }}");
     expect(productionPolicy.environment).toBeUndefined();
     expect(productionPolicy.env?.VERCEL_TOKEN).toBeUndefined();
+    expect(productionPolicy.permissions?.actions).toBe("read");
+    expect(productionPolicy.steps?.find((step) => step.run === "node scripts/check-production-environment.mjs")?.env?.GITHUB_TOKEN).toBe("${{ secrets.GITHUB_TOKEN }}");
     expect(productionPolicy.steps?.some((step) =>
       step.run === "node scripts/check-production-environment.mjs",
     )).toBe(true);
