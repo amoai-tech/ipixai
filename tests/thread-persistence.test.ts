@@ -10,6 +10,7 @@ import {
   RICH_RESULT_DECODE_CAP,
   canonicalRichToolResult,
   ensureMastraThread,
+  extractPlannerGenUIActivity,
   listMastraThreadsForResource,
   mastraMessagesToChat,
   recallPlannerChatMessages,
@@ -257,6 +258,87 @@ describe("resolvePlannerThreadId", () => {
     expect(plannerThreadStorageKey("org:a::user:u")).toBe(
       "ipix.planner.threadId:org:a::user:u",
     );
+  });
+});
+
+describe("extractPlannerGenUIActivity", () => {
+  const operations = [
+    {
+      version: "1.0",
+      createSurface: { surfaceId: "comparison-1", catalogId: "ipix/planner@1" },
+    },
+    {
+      version: "1.0",
+      updateComponents: {
+        surfaceId: "comparison-1",
+        components: [{
+          id: "root",
+          component: "ConceptComparison",
+          title: "Saved comparison",
+          options: [
+            { name: "Studio", rationale: "Controlled light." },
+            { name: "Outdoor", rationale: "Natural light." },
+          ],
+        }],
+      },
+    },
+  ];
+  const rendered = (target = "planner-comparison", applied = 2, rejected: unknown[] = []) => ({
+    args: { target, operations },
+    result: { status: "rendered", applied, rejected },
+  });
+  const assistant = (...calls: ReturnType<typeof rendered>[]) => [{
+    id: "assistant-1",
+    role: "assistant",
+    content: {
+      content: "",
+      parts: calls.map((call, index) => ({
+        type: "tool-invocation",
+        toolInvocation: {
+          state: "result",
+          toolCallId: `call-${index}`,
+          toolName: "render_ui",
+          args: call.args,
+          result: call.result,
+        },
+      })),
+    },
+  }];
+
+  it("extracts the last accepted planner-comparison render_ui activity", () => {
+    expect(extractPlannerGenUIActivity(assistant(rendered()))).toEqual({
+      target: "planner-comparison",
+      surfaceId: "comparison-1",
+      catalogId: "ipix/planner@1",
+      operations,
+    });
+  });
+
+  it("does not replay a failed, partial, foreign-target or deleted activity", () => {
+    expect(extractPlannerGenUIActivity(assistant(rendered("planner-comparison", 2, [{ index: 0, reason: "bad" }])))).toBeNull();
+    expect(extractPlannerGenUIActivity(assistant(rendered("chat")))).toBeNull();
+    expect(extractPlannerGenUIActivity(assistant(rendered("planner-comparison", 0)))).toBeNull();
+    const deleted = assistant(rendered());
+    deleted[0].content.parts[0].toolInvocation.args.operations = [{
+      version: "1.0",
+      deleteSurface: { surfaceId: "comparison-1" },
+    }];
+    expect(extractPlannerGenUIActivity(deleted)).toBeNull();
+  });
+
+  it("uses the latest accepted activity when an earlier card was replaced", () => {
+    const first = rendered();
+    const second = rendered();
+    second.args = {
+      target: "planner-comparison",
+      operations: operations.map((op) => ({
+        ...op,
+        ...("createSurface" in op ? { createSurface: { ...op.createSurface, surfaceId: "comparison-2" } } : {}),
+        ...("updateComponents" in op ? { updateComponents: { ...op.updateComponents, surfaceId: "comparison-2" } } : {}),
+      })),
+    } as typeof second.args;
+    const result = extractPlannerGenUIActivity(assistant(first, second));
+    expect(result?.surfaceId).toBe("comparison-2");
   });
 });
 

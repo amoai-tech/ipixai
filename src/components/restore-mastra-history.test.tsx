@@ -9,8 +9,17 @@ const agent = {
   },
 };
 
+const genuiManager = {
+  setActiveThread: vi.fn(),
+  getSurface: vi.fn(() => undefined),
+  ingest: vi.fn(),
+};
+
 vi.mock("@copilotkit/react-core/v2", () => ({
   useAgent: () => ({ agent }),
+}));
+vi.mock("@copilotkit/react-core/v2/generative-ui", () => ({
+  useGenerativeUIRuntime: () => ({ manager: genuiManager }),
 }));
 
 vi.mock("./ui/error-state.module.css", () => ({
@@ -28,6 +37,8 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   agent.messages = [];
+  vi.clearAllMocks();
+  genuiManager.getSurface.mockReturnValue(undefined);
 });
 
 describe("RestoreMastraHistory", () => {
@@ -54,6 +65,63 @@ describe("RestoreMastraHistory", () => {
       expect.objectContaining({ credentials: "include" }),
     );
     expect(screen.queryByTestId("error-state")).toBeNull();
+  });
+
+  it("replays the saved GenUI surface after restoring messages", async () => {
+    const genui = {
+      target: "planner-comparison",
+      surfaceId: "comparison-1",
+      catalogId: "ipix/planner@1",
+      operations: [{
+        version: "1.0",
+        createSurface: { surfaceId: "comparison-1", catalogId: "ipix/planner@1" },
+      }],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ messages: history, genui }),
+      }),
+    );
+
+    render(<RestoreMastraHistory threadId="thread-a" />);
+
+    await waitFor(() => expect(genuiManager.ingest).toHaveBeenCalledTimes(1));
+    expect(genuiManager.setActiveThread).toHaveBeenCalledWith("thread-a");
+    expect(genuiManager.ingest).toHaveBeenCalledWith(
+      "thread-a",
+      "default",
+      expect.objectContaining({
+        surfaceId: "comparison-1",
+        target: "planner-comparison",
+        status: "ready",
+        operations: genui.operations,
+      }),
+    );
+  });
+
+  it("does not ingest a surface that already exists", async () => {
+    genuiManager.getSurface.mockReturnValue({ status: "ready" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          messages: history,
+          genui: {
+            target: "planner-comparison",
+            surfaceId: "comparison-1",
+            catalogId: "ipix/planner@1",
+            operations: [{ version: "1.0", createSurface: { surfaceId: "comparison-1", catalogId: "ipix/planner@1" } }],
+          },
+        }),
+      }),
+    );
+
+    render(<RestoreMastraHistory threadId="thread-a" />);
+    await waitFor(() => expect(screen.getByLabelText("Restored conversation")).toBeDefined());
+    expect(genuiManager.ingest).not.toHaveBeenCalled();
   });
 
   it("does not hydrate on 403 and shows a retryable denial without body leak", async () => {

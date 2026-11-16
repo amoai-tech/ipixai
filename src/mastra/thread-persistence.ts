@@ -1,4 +1,5 @@
 import type { MastraMemory } from "@mastra/core/memory";
+import type { A2UIOperation } from "@copilotkit/shared";
 
 import { getMastra } from "@/mastra/runtime";
 import type { PlannerChatMessage, PlannerThreadRow } from "@/mastra/thread-types";
@@ -109,20 +110,148 @@ export async function listMastraThreadsForResource(
     }));
 }
 
-export async function recallPlannerChatMessages(
+export type PlannerGenUIActivity = {
+  target: "planner-comparison";
+  surfaceId: string;
+  catalogId: string;
+  operations: A2UIOperation[];
+};
+
+export type PlannerHistory = {
+  messages: PlannerChatMessage[];
+  genui: PlannerGenUIActivity | null;
+};
+
+const GENUI_TARGET = "planner-comparison";
+const GENUI_CATALOG_ID = "ipix/planner@1";
+const GENUI_MAX_OPERATIONS = 20;
+const GENUI_MAX_SERIALIZED_BYTES = 64_000;
+
+type HistoryToolInvocation = {
+  type?: string;
+  toolInvocation?: {
+    state?: string;
+    toolCallId?: string;
+    toolName?: string;
+    args?: unknown;
+    result?: unknown;
+  };
+};
+
+type HistoryMessage = {
+  id?: string;
+  role?: string;
+  content?: {
+    content?: unknown;
+    parts?: Array<{ type?: string; text?: string } & HistoryToolInvocation>;
+  };
+};
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+/** Extract only the last render_ui call the runtime itself marked rendered.
+ *  The operations are already validated by GenerativeUIMiddleware before it
+ *  emits the activity; this second pass enforces the bounded replay contract
+ *  and rejects failed, partial, deleted or foreign-target history. */
+export function extractPlannerGenUIActivity(
+  messages: HistoryMessage[],
+): PlannerGenUIActivity | null {
+  let latest: PlannerGenUIActivity | null = null;
+  for (const message of messages) {
+    if (message.role !== "assistant") continue;
+    for (const part of message.content?.parts ?? []) {
+      if (part.type !== "tool-invocation") continue;
+      const invocation = part.toolInvocation;
+      if (!invocation || invocation.state !== "result" || invocation.toolName !== "render_ui") continue;
+      const args = asRecord(invocation.args);
+      const result = asRecord(invocation.result);
+      if (!args || !result) continue;
+      if (args.target !== GENUI_TARGET) continue;
+      if (result.status !== "rendered") continue;
+      if (typeof result.applied !== "number" || result.applied <= 0) continue;
+      if (!Array.isArray(result.rejected) || result.rejected.length > 0) continue;
+
+      const operations = args.operations;
+      if (!Array.isArray(operations) || operations.length === 0 || operations.length > GENUI_MAX_OPERATIONS) continue;
+      let serialized: string;
+      try {
+        serialized = JSON.stringify(operations);
+      } catch {
+        continue;
+      }
+      if (serialized.length > GENUI_MAX_SERIALIZED_BYTES) continue;
+
+      const ops = operations.filter((op): op is Record<string, unknown> => Boolean(op) && typeof op === "object" && !Array.isArray(op));
+      if (ops.length !== operations.length) continue;
+      if (!ops.every((op) => op.version === "1.0")) continue;
+      if (ops.some((op) => "deleteSurface" in op)) {
+        latest = null;
+        continue;
+      }
+      const create = ops.find((op) => {
+        const value = op.createSurface;
+        return value && typeof value === "object" && !Array.isArray(value);
+      })?.createSurface as Record<string, unknown> | undefined;
+      if (!create) continue;
+      if (typeof create.surfaceId !== "string" || create.surfaceId.length === 0) continue;
+      if (create.catalogId !== GENUI_CATALOG_ID) continue;
+      const hasRoot = ops.some((op) => {
+        const update = op.updateComponents;
+        if (!update || typeof update !== "object" || Array.isArray(update)) return false;
+        const components = (update as Record<string, unknown>).components;
+        return Array.isArray(components) && components.some((component) => {
+          const value = component as Record<string, unknown> | null;
+          return value?.id === "root" && value?.component === "ConceptComparison";
+        });
+      });
+      if (!hasRoot) continue;
+      latest = {
+        target: GENUI_TARGET,
+        surfaceId: create.surfaceId,
+        catalogId: create.catalogId,
+        operations: ops as unknown as A2UIOperation[],
+      };
+    }
+  }
+  return latest;
+}
+
+export async function recallPlannerHistory(
   memory: MastraMemory,
   input: { threadId: string; resourceId: string },
-): Promise<PlannerChatMessage[]> {
+): Promise<PlannerHistory> {
   const thread = await findMastraThread(memory, input.threadId);
   if (!thread || thread.resourceId !== input.resourceId) {
-    return [];
+    return { messages: [], genui: null };
   }
   const recalled = await memory.recall({
     threadId: thread.id,
     resourceId: input.resourceId,
     perPage: false,
   });
-  return mastraMessagesToChat(recalled.messages ?? []);
+  const raw = (recalled.messages ?? []) as HistoryMessage[];
+  return {
+    messages: mastraMessagesToChat(raw),
+    genui: extractPlannerGenUIActivity(raw),
+  };
+}
+
+export async function recallPlannerChatMessages(
+  memory: MastraMemory,
+  input: { threadId: string; resourceId: string },
+): Promise<PlannerChatMessage[]> {
+  return (await recallPlannerHistory(memory, input)).messages;
 }
 
 /** A Mastra `tool-invocation` message part, duck-typed to the fields this
@@ -202,14 +331,7 @@ function richToolInvocations(parts: ToolInvocationPart[] | undefined) {
 }
 
 export function mastraMessagesToChat(
-  messages: Array<{
-    id?: string;
-    role?: string;
-    content?: {
-      content?: unknown;
-      parts?: Array<{ type?: string; text?: string } & ToolInvocationPart>;
-    };
-  }>,
+  messages: HistoryMessage[],
 ): PlannerChatMessage[] {
   const out: PlannerChatMessage[] = [];
   for (const message of messages) {

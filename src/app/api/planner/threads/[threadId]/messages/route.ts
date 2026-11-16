@@ -7,7 +7,7 @@ import {
 import {
   canonicalizePlannerThreadId,
   getPlannerMemory,
-  recallPlannerChatMessages,
+  recallPlannerHistory,
 } from "@/mastra/thread-persistence";
 
 export async function GET(
@@ -47,9 +47,9 @@ export async function GET(
     return threadForbiddenResponse();
   }
 
-  const messages = await recallPlannerChatMessages(memory, {
+  const history = await recallPlannerHistory(memory, {
     threadId,
     resourceId: session.resourceId,
   });
-  return Response.json({ threadId, messages });
+  return Response.json({ threadId, messages: history.messages, genui: history.genui });
 }

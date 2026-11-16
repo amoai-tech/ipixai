@@ -1,10 +1,12 @@
 "use client";
 
 import { useAgent } from "@copilotkit/react-core/v2";
+import { useGenerativeUIRuntime } from "@copilotkit/react-core/v2/generative-ui";
 import { useEffect, useRef, useState } from "react";
 
 import { ErrorState } from "@/components/ui/error-state";
 import type { PlannerChatMessage } from "@/mastra/thread-types";
+import type { PlannerGenUIActivity } from "@/mastra/thread-persistence";
 
 function replayErrorMessage(status: number) {
   if (status === 403) {
@@ -14,6 +16,18 @@ function replayErrorMessage(status: number) {
     return "Sign in required to load this conversation.";
   }
   return "Could not load this conversation. Try again.";
+}
+
+function isGenUIActivity(value: unknown): value is PlannerGenUIActivity {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return row.target === "planner-comparison" &&
+    typeof row.surfaceId === "string" &&
+    row.surfaceId.length > 0 &&
+    typeof row.catalogId === "string" &&
+    Array.isArray(row.operations) &&
+    row.operations.length > 0 &&
+    row.operations.length <= 20;
 }
 
 function conversationRevision(messages: unknown) {
@@ -66,6 +80,7 @@ export function RestoreMastraHistory({
   onSettled?: () => void;
 }) {
   const { agent } = useAgent({ agentId: "default" });
+  const runtime = useGenerativeUIRuntime();
   const agentRef = useRef(agent);
   const baselineRevisionRef = useRef<string | null>(null);
   const onSettledRef = useRef(onSettled);
@@ -113,6 +128,7 @@ export function RestoreMastraHistory({
         }
         const body = (await response.json()) as {
           messages?: unknown;
+          genui?: unknown;
         };
         if (controller.signal.aborted) return;
         if (body.messages !== undefined && !Array.isArray(body.messages)) {
@@ -129,6 +145,21 @@ export function RestoreMastraHistory({
         }
         const messages = (body.messages ?? []) as PlannerChatMessage[];
         agentRef.current.setMessages(messages);
+        const genui = isGenUIActivity(body.genui) ? body.genui : null;
+        if (genui && runtime?.manager) {
+          const manager = runtime.manager;
+          manager.setActiveThread(threadId);
+          if (!manager.getSurface(threadId, genui.surfaceId)) {
+            manager.ingest(threadId, "default", {
+              surfaceId: genui.surfaceId,
+              catalogId: genui.catalogId,
+              target: genui.target,
+              status: "ready",
+              rejected: [],
+              operations: genui.operations,
+            });
+          }
+        }
         setRestored(messages);
         onSettledRef.current?.();
       } catch {
