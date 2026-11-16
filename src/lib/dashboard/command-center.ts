@@ -392,8 +392,8 @@ export type UpcomingShoot = {
 const UPCOMING_SHOOT_LIMIT = 3;
 
 /**
- * Cutoff date for "upcoming": the calendar date in UTC−12, the earliest
- * timezone. A shoot whose date is still "today" for a designer anywhere is
+ * Cutoff date for "upcoming": the calendar date in UTC−12, the last
+ * timezone to reach each new day. A shoot whose date is still "today" for a designer anywhere is
  * never dropped early. The trade-off: for a few hours, users east of UTC may
  * still see yesterday's shoot.
  * shortcut: no org/user timezone is stored; switch to the org's timezone once one exists.
