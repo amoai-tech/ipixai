@@ -4,6 +4,7 @@ import type { A2UIOperation } from "@copilotkit/shared";
 
 import { getMastra } from "@/mastra/runtime";
 import type { PlannerChatMessage, PlannerThreadRow } from "@/mastra/thread-types";
+import { asRecord, normalizePlannerGenUIActivity, type PlannerGenUIActivity } from "./planner-genui-activity";
 
 export type { PlannerChatMessage, PlannerThreadRow };
 
@@ -111,7 +112,6 @@ export async function listMastraThreadsForResource(
     }));
 }
 
-import { asRecord, normalizePlannerGenUIActivity, type PlannerGenUIActivity } from "./planner-genui-activity";
 export { normalizePlannerGenUIActivity } from "./planner-genui-activity";
 export type { PlannerGenUIActivity } from "./planner-genui-activity";
 
