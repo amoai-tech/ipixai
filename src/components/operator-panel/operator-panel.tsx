@@ -813,6 +813,11 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
   const isMobile = useMobileNav();
   const isCopilotCompact = useMatchMedia(COPILOT_COMPACT);
   const navInert = isMobile && !navOpen;
+  // IPI-1451 · DASH-MAIN-PLAYGROUND-001 — on the /app dashboard the SAME
+  // mounted panel sits as a bottom dock (CSS grid row, styles.shellDockBottom)
+  // instead of the right column. Only className changes, so CopilotChat, its
+  // threadId and history never remount when moving between /app and others.
+  const dockBottom = pathname === "/app";
 
   // Below COPILOT_COMPACT (1023px — wider than the nav's own 767px mobile
   // breakpoint) the panel renders as a full-height sheet, not a permanent
@@ -828,9 +833,11 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
   // own "chromium-ai-smoke" desktop-viewport project and explicitly
   // testIgnore this file's mobile-chromium project (playwright.config.ts),
   // so they never observe this auto-close.
+  // The /app bottom dock is in-flow (never covers the dashboard), so it stays
+  // open there; every other route keeps the closed-by-default sheet.
   useEffect(() => {
-    if (isCopilotCompact) setCopilotOpen(false);
-  }, [isCopilotCompact]);
+    if (isCopilotCompact) setCopilotOpen(dockBottom);
+  }, [isCopilotCompact, dockBottom]);
 
   // Restore focus to the reopening control after a user-initiated close —
   // `inert` on the now-closed panel would otherwise drop focus to <body>.
@@ -879,7 +886,7 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
           inside this same existing provider; every other message/tool keeps
           CopilotKit's default rendering. */}
       <ComposeShootPlanRenderer />
-      <div className={cn(styles.shell, copilotOpen && styles.shellPanelOpen)} data-testid="operator-panel">
+      <div className={cn(styles.shell, copilotOpen && styles.shellPanelOpen, dockBottom && styles.shellDockBottom)} data-testid="operator-panel">
       <div className={styles.menuBar}>
         <Button
           type="button"

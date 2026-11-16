@@ -20,7 +20,10 @@ const NAV_TIMEOUT_MS = 30_000;
 export async function ensureCopilotOpen(page: Page) {
   const dock = page.getByTestId("operator-chat-dock");
   const isCompactViewport = (page.viewportSize()?.width ?? Number.POSITIVE_INFINITY) <= 1023;
-  if (isCompactViewport) {
+  // IPI-1451: /app docks the composer at the bottom and keeps it open on
+  // compact screens; only other routes auto-close to a sheet.
+  const isDashboard = new URL(page.url()).pathname === "/app";
+  if (isCompactViewport && !isDashboard) {
     await expect(dock).toHaveAttribute("data-open", "false", { timeout: NAV_TIMEOUT_MS });
   }
   if ((await dock.getAttribute("data-open")) !== "true") {

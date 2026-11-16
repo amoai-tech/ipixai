@@ -207,8 +207,11 @@ vi.mock("@/components/restore-mastra-history", () => ({
   },
 }));
 
+// Mutable so a test can render a non-dashboard route (IPI-1451: /app docks
+// the panel at the bottom; every other route keeps the right panel/sheet).
+let mockPathname = "/app";
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/app",
+  usePathname: () => mockPathname,
 }));
 
 vi.mock("next/link", () => ({
@@ -251,6 +254,7 @@ function mockThreadsFetch(
 }
 
 beforeEach(() => {
+  mockPathname = "/app";
   mockThreadsFetch();
   window.localStorage.clear();
   addMessageMock.mockReset();
@@ -394,6 +398,7 @@ describe("OperatorPanel", () => {
   });
 
   it("closes the Copilot panel automatically on mobile instead of covering the dashboard on load", async () => {
+    mockPathname = "/app/brands";
     mockViewportWidth(390);
     render(
       <OperatorPanel>
@@ -407,6 +412,19 @@ describe("OperatorPanel", () => {
     // Mobile auto-close is a background effect, not a user-initiated close —
     // it must never steal focus on page load.
     expect(document.activeElement).not.toBe(screen.getByRole("button", { name: "✦ Open Copilot" }));
+  });
+
+  it("keeps the /app bottom-docked composer open on mobile — it sits below the dashboard, not over it (IPI-1451)", async () => {
+    mockViewportWidth(390);
+    render(
+      <OperatorPanel>
+        <p>Workspace body</p>
+      </OperatorPanel>,
+    );
+    // Give the compact-breakpoint effect a chance to run, then prove it left the dock open.
+    await waitFor(() => expect(screen.getByTestId("operator-panel").className).toMatch(/shellDockBottom/));
+    expect(screen.getByTestId("operator-chat-dock").getAttribute("data-open")).toBe("true");
+    expect(screen.queryByRole("button", { name: "✦ Open Copilot" })).toBeNull();
   });
 
   it("omits the pinned rail entirely when there are no insights, instead of an empty styled bar", () => {
@@ -754,6 +772,7 @@ describe("OperatorPanel", () => {
     // nav's own mobile breakpoint (767px) — a real ~900px tablet crosses
     // the first without crossing the second, and the two behaviors must
     // stay independent: only the Copilot panel reacts here.
+    mockPathname = "/app/brands";
     const mq = mockViewportWidth(900);
     render(
       <OperatorPanel>

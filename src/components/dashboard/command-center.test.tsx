@@ -499,8 +499,54 @@ describe("CommandCenter", () => {
 
   it("renders the Recent work header with a View all link to /app/shoots", () => {
     render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
-    expect(screen.getByRole("heading", { name: "Recent work" })).toBeDefined();
+    expect(screen.getByRole("heading", { name: "Recent creative assets" })).toBeDefined();
     const viewAll = screen.getByRole("link", { name: "View all" });
     expect(viewAll.getAttribute("href")).toBe("/app/shoots");
+  });
+
+  // IPI-1451 · DASH-MAIN-PLAYGROUND-001
+  it("caps Recent creative assets at 3 tiles", () => {
+    const many = Array.from({ length: 6 }, (_, i) => ({
+      id: `shoot-${i}`, name: `Shoot ${i}`, status: null, brandId: "b", dnaScore: null, channel: null,
+    }));
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={{ ok: true, shoots: many }} />);
+    const list = screen.getByTestId("command-center-shoot-list");
+    expect(within(list).getAllByRole("link")).toHaveLength(3);
+  });
+
+  it("lists real upcoming shoots with a UTC-stable date and a link to each shoot", () => {
+    render(
+      <CommandCenter
+        brandsResult={BRANDS_OK}
+        shootsResult={SHOOTS_OK}
+        upcomingShootsResult={{ ok: true, shoots: [{ id: "u1", name: "Miami Editorial", startDate: "2026-11-20", location: "Miami" }] }}
+      />,
+    );
+    const list = screen.getByTestId("command-center-upcoming-list");
+    expect(within(list).getByRole("link").getAttribute("href")).toBe("/app/shoots/u1");
+    expect(within(list).getByText("Nov 20, 2026")).toBeDefined();
+    expect(within(list).getByText(/Miami$/)).toBeDefined();
+  });
+
+  it("shows honest empty and error states for upcoming shoots, never invented dates", () => {
+    const { unmount } = render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
+    expect(screen.getByRole("heading", { name: "No upcoming shoots" })).toBeDefined();
+    unmount();
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} upcomingShootsResult={{ ok: false }} />);
+    expect(screen.getByText("Couldn't load upcoming shoots. Please try again shortly.")).toBeDefined();
+  });
+
+  it("keeps review and moodboard honest: no fabricated items, counts or approvals", () => {
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
+    expect(screen.getByRole("heading", { name: "Nothing waiting for review" })).toBeDefined();
+    expect(screen.getByRole("heading", { name: "Moodboard coming soon" })).toBeDefined();
+    expect(screen.getByRole("link", { name: "Go to Plans" }).getAttribute("href")).toBe("/app/plans");
+    expect(screen.queryByText(/approved|urgent approvals/i)).toBeNull();
+  });
+
+  it("links the current brand card to that brand's own page", () => {
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
+    const hero = screen.getByTestId("command-center-hero");
+    expect(within(hero).getByRole("link", { name: "Open brand" }).getAttribute("href")).toMatch(/^\/app\/brands\/.+/);
   });
 });

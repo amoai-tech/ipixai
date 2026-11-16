@@ -381,6 +381,65 @@ export async function loadOrgShoots(
   }
 }
 
+export type UpcomingShoot = {
+  id: string;
+  name: string;
+  /** ISO date (YYYY-MM-DD) straight from shoot_portfolio_view.start_date. */
+  startDate: string;
+  location: string | null;
+};
+
+const UPCOMING_SHOOT_LIMIT = 3;
+
+/**
+ * IPI-1451 · DASH-MAIN-PLAYGROUND-001 — "Upcoming Photoshoots": shoots whose
+ * real `start_date` is today or later, soonest first. Same trusted brand-id
+ * scope and batch/merge contract as loadOrgShoots; undated shoots are never
+ * guessed into the list. `today` (UTC) is injectable for tests.
+ */
+export async function loadUpcomingShoots(
+  supabase: SupabaseClient,
+  brandIds: string[],
+  today: string = new Date().toISOString().slice(0, 10),
+): Promise<{ ok: true; shoots: UpcomingShoot[] } | { ok: false }> {
+  if (brandIds.length === 0) return { ok: true, shoots: [] };
+  type Row = { id: string; name: string | null; start_date: string; location: string | null };
+  try {
+    const batchResult = await runBrandIdBatches<Row[]>(brandIds, async (brandIdBatch) => {
+      const { data, error } = await supabase
+        .from("shoot_portfolio_view")
+        .select("id,name,start_date,location")
+        .in("brand_id", brandIdBatch)
+        .gte("start_date", today)
+        .order("start_date", { ascending: true })
+        .order("id", { ascending: true })
+        .limit(UPCOMING_SHOOT_LIMIT);
+      if (error || !data) {
+        console.error("dashboard.loadUpcomingShoots: batch query failed", { error });
+        return { ok: false };
+      }
+      return { ok: true, value: data as Row[] };
+    });
+    if (!batchResult.ok) return { ok: false };
+    const rows = batchResult.values.flat();
+    rows.sort((a, b) =>
+      a.start_date !== b.start_date ? (a.start_date < b.start_date ? -1 : 1) : a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+    );
+    return {
+      ok: true,
+      shoots: rows.slice(0, UPCOMING_SHOOT_LIMIT).map((row) => ({
+        id: row.id,
+        name: row.name ?? "Untitled shoot",
+        startDate: row.start_date,
+        location: row.location,
+      })),
+    };
+  } catch (err) {
+    console.error("dashboard.loadUpcomingShoots: threw", { err });
+    return { ok: false };
+  }
+}
+
 /**
  * DASH-MAIN-002: exact org-wide shoot total for the Intelligence rail's
  * derived workspace state. loadOrgShoots's own `shoots` array is capped at

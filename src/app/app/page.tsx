@@ -18,6 +18,7 @@ import {
   loadOrgBrands,
   loadOrgShoots,
   loadTrustedBrandIds,
+  loadUpcomingShoots,
 } from "@/lib/dashboard/command-center";
 import { loadRecentWorkPreviews } from "@/lib/dashboard/recent-work-media";
 import { loadChannelSpecs } from "@/lib/shoot/channel-specs";
@@ -79,7 +80,7 @@ export default async function AppHomePage() {
   // SHOOT_LIMIT. See loadLatestShootForBrand's own doc comment.
   const heroBrand = brandsResult.ok ? brandsResult.brands[0] : undefined;
 
-  const [shootsResult, shootCountResult, latestBrandShootResult] = await Promise.all([
+  const [shootsResult, shootCountResult, latestBrandShootResult, upcomingShootsResult] = await Promise.all([
     trustedBrandIdsResult.ok
       ? loadOrgShoots(supabase, trustedBrandIdsResult.brandIds)
       : Promise.resolve({ ok: false } as const),
@@ -89,6 +90,9 @@ export default async function AppHomePage() {
     heroBrand
       ? loadLatestShootForBrand(supabase, heroBrand.id)
       : Promise.resolve({ ok: true, shoot: null } as const),
+    trustedBrandIdsResult.ok
+      ? loadUpcomingShoots(supabase, trustedBrandIdsResult.brandIds)
+      : Promise.resolve({ ok: false } as const),
   ]);
 
   // Both depend on shootsResult, so neither can join the Promise.all above —
@@ -119,7 +123,7 @@ export default async function AppHomePage() {
   const recentShootLookupFailed = !latestBrandShootResult.ok;
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       {/* IPI-1087 · PLANNER-CONTEXT-001 — /app has no active Brand/Shoot.
           Reporting this explicitly (not just omitting a report) is what
           actually clears a stale Brand/Shoot context left by a previous
@@ -147,6 +151,7 @@ export default async function AppHomePage() {
       <CommandCenter
         brandsResult={brandsResult}
         shootsResult={shootsResult}
+        upcomingShootsResult={upcomingShootsResult}
         recentWorkPreviews={recentWorkPreviews}
         channelSpecs={channelSpecs}
       />

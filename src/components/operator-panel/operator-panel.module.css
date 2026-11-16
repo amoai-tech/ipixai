@@ -456,3 +456,64 @@
     background: rgb(0 0 0 / 0.35);
   }
 }
+
+/* IPI-1451 · DASH-MAIN-PLAYGROUND-001 — /app bottom dock. The same panel
+   element moves into its own grid row under the workspace, so it never
+   overlays the dashboard: the last card always ends above the composer.
+   Kept last in the file so it overrides the right-column and compact-sheet
+   rules above at every breakpoint. */
+.shellDockBottom,
+.shellDockBottom.shellPanelOpen {
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "menu menu"
+    "nav main"
+    "nav panel";
+}
+
+.shellDockBottom .panel {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  transform: none;
+  visibility: visible;
+  height: clamp(14rem, 42dvh, 26rem);
+  border-left: none;
+  border-top: 1px solid var(--color-border);
+  /* Readable conversation width on wide screens, full width on small ones. */
+  padding-inline: max(0px, calc((100% - 60rem) / 2));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.shellDockBottom .panel[data-open="false"] {
+  display: none;
+}
+
+/* Insights become one scrollable row of prompts (the export's
+   chat_prompts_row) so the conversation keeps its height. */
+.shellDockBottom .pinnedBar {
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+  overflow-x: auto;
+}
+
+.shellDockBottom .insightButton,
+.shellDockBottom .viewAllIntelligence {
+  width: auto;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  align-self: center;
+}
+
+@media (max-width: 767px) {
+  .shellDockBottom,
+  .shellDockBottom.shellPanelOpen {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "menu"
+      "main"
+      "panel";
+  }
+}

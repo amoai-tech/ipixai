@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, Camera, ClipboardList } from "lucide-react";
+import { Building2, CalendarDays, Camera, ClipboardCheck, ClipboardList, Palette } from "lucide-react";
 
 import {
   Card,
@@ -10,7 +10,7 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { buildHeroGreeting, resolveHeroContext } from "@/lib/dashboard/command-center";
-import type { DashboardBrand, DashboardShoot } from "@/lib/dashboard/command-center";
+import type { DashboardBrand, DashboardShoot, UpcomingShoot } from "@/lib/dashboard/command-center";
 import type { ChannelSpec } from "@/lib/shoot/channel-specs";
 
 import styles from "./command-center.module.css";
@@ -19,10 +19,17 @@ import { RecentWorkTile } from "./recent-work-tile";
 
 type BrandsResult = { ok: true; brands: DashboardBrand[] } | { ok: false };
 type ShootsResult = { ok: true; shoots: DashboardShoot[] } | { ok: false };
+type UpcomingShootsResult = { ok: true; shoots: UpcomingShoot[] } | { ok: false };
+
+/** Playground "Recent Creative Assets" shows three tiles; the full list lives on /app/shoots. */
+const RECENT_ASSET_LIMIT = 3;
 
 type Props = {
   brandsResult: BrandsResult;
   shootsResult: ShootsResult;
+  /** Shoots with a real future start_date (loadUpcomingShoots). Optional so
+   *  callers without it render the honest empty state, never invented dates. */
+  upcomingShootsResult?: UpcomingShootsResult;
   /** shootId -> signed preview URL, from loadRecentWorkPreviews. A shoot
    *  missing from this map (including when it's empty/omitted) renders the
    *  honest placeholder, same as before this existed. */
@@ -104,14 +111,28 @@ function HeroCard({
         </p>
         <h2 className={styles.heroName}>{greeting.headline}</h2>
         <p className={styles.heroSubline}>{greeting.subline}</p>
+        <Link href={`/app/brands/${brand.id}`} className={styles.link}>
+          Open brand
+        </Link>
       </div>
     </div>
   );
 }
 
+/** start_date is a plain date — format in UTC so it never shifts a day. */
+function formatShootDate(isoDate: string): string {
+  return new Date(`${isoDate}T00:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export function CommandCenter({
   brandsResult,
   shootsResult,
+  upcomingShootsResult = { ok: true, shoots: [] },
   recentWorkPreviews = new Map(),
   channelSpecs = new Map(),
 }: Props) {
@@ -143,13 +164,95 @@ export function CommandCenter({
       </p>
 
       <header className={styles.hero}>
+        <p className={styles.eyebrow}>Creative studio</p>
         <h1 className={styles.heading}>Dashboard</h1>
-        <p className={styles.subheading}>Your organization&apos;s brands.</p>
+        <p className={styles.subheading}>Your brand, reviews, recent work and upcoming shoots.</p>
       </header>
 
-      {heroBrand && <HeroCard brand={heroBrand} recentShootName={recentShootName} />}
-
       <QuickActionChips />
+
+      {/* IPI-1451: layout follows the approved A2UI Playground export
+          (workspace → review → assets → shoots); every value is real data or
+          an honest empty state — none of the export's sample content. */}
+      <section aria-labelledby="command-center-workspace">
+        <h2 id="command-center-workspace" className={styles.sectionHeading}>
+          My creative workspace
+        </h2>
+        <div className={styles.workspaceGrid}>
+          {heroBrand ? (
+            <HeroCard brand={heroBrand} recentShootName={recentShootName} />
+          ) : (
+            <EmptyState
+              heading="No current brand"
+              body="Create a brand to anchor your collection work."
+              icon={<Building2 aria-hidden />}
+            />
+          )}
+          {/* No moodboard source exists yet — say so, and point at the brand
+              page, where Brand DNA lives today. */}
+          <EmptyState
+            heading="Moodboard coming soon"
+            body="Moodboards aren't available yet. Your brand's DNA is on the brand page."
+            icon={<Palette aria-hidden />}
+          />
+        </div>
+      </section>
+
+      <section aria-labelledby="command-center-review">
+        <h2 id="command-center-review" className={styles.sectionHeading}>
+          Needs my review
+        </h2>
+        {/* No pending-review list source yet (IPI-1084 · APPROVAL-001 owns
+            approvals). Plan reviews still appear live in Ask iPix below. */}
+        <EmptyState
+          heading="Nothing waiting for review"
+          body="When iPix prepares a shoot plan, you'll review it in Ask iPix before anything is saved."
+          icon={<ClipboardCheck aria-hidden />}
+          action={
+            <Link href="/app/plans" className={styles.link}>
+              Go to Plans
+            </Link>
+          }
+        />
+      </section>
+
+      <section aria-labelledby="command-center-upcoming">
+        <div className={styles.recentHeader}>
+          <h2 id="command-center-upcoming" className={styles.sectionHeading}>
+            Upcoming photoshoots
+          </h2>
+          <Link href="/app/shoots" className={styles.recentViewAll}>
+            Full schedule
+          </Link>
+        </div>
+        {!upcomingShootsResult.ok ? (
+          <ErrorState message="Couldn't load upcoming shoots. Please try again shortly." />
+        ) : upcomingShootsResult.shoots.length === 0 ? (
+          <EmptyState
+            heading="No upcoming shoots"
+            body="Shoots with a start date from today onward will show up here."
+            icon={<CalendarDays aria-hidden />}
+          />
+        ) : (
+          <ul className={styles.grid} data-testid="command-center-upcoming-list">
+            {upcomingShootsResult.shoots.map((shoot) => (
+              <li key={shoot.id}>
+                <Link href={`/app/shoots/${shoot.id}`} className={styles.brandCardLink}>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className={styles.brandName}>{shoot.name}</CardTitle>
+                      <p className={styles.upcomingMeta}>
+                        <time dateTime={shoot.startDate}>{formatShootDate(shoot.startDate)}</time>
+                        {shoot.location ? ` · ${shoot.location}` : null}
+                      </p>
+                    </CardHeader>
+                  </Card>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section aria-labelledby="command-center-brands">
         <h2 id="command-center-brands" className={styles.sectionHeading}>
@@ -188,7 +291,7 @@ export function CommandCenter({
       <section aria-labelledby="command-center-shoots">
         <div className={styles.recentHeader}>
           <h2 id="command-center-shoots" className={styles.sectionHeading}>
-            Recent work
+            Recent creative assets
           </h2>
           <Link href="/app/shoots" className={styles.recentViewAll}>
             View all
@@ -209,7 +312,7 @@ export function CommandCenter({
           />
         ) : (
           <div className={styles.recentScroll} data-testid="command-center-shoot-list">
-            {shootsResult.shoots.map((shoot) => (
+            {shootsResult.shoots.slice(0, RECENT_ASSET_LIMIT).map((shoot) => (
               <RecentWorkTile
                 key={shoot.id}
                 shootId={shoot.id}

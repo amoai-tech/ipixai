@@ -7,6 +7,7 @@ import {
   loadOrgBrands,
   loadOrgShoots,
   loadTrustedBrandIds,
+  loadUpcomingShoots,
 } from "@/lib/dashboard/command-center";
 
 const ORG_A = "aaaaaaaa-0000-4000-8000-000000000001";
@@ -848,5 +849,67 @@ describe("buildHeroGreeting", () => {
   it("never fabricates a next action when nothing real is known", () => {
     const { subline } = buildHeroGreeting({ brandName: "Majji" });
     expect(subline).toBe("Ask the Production Planner what to work on next.");
+  });
+});
+
+/** IPI-1451: fake for loadUpcomingShoots — applies the real .in/.gte/.order/.limit semantics. */
+function fakeUpcomingSupabase(
+  rowsByBrandId: Record<string, { id: string; name: string | null; start_date: string; location: string | null }[]>,
+  fail = false,
+) {
+  return {
+    from(table: string) {
+      expect(table).toBe("shoot_portfolio_view");
+      return {
+        select: () => ({
+          in: (_col: string, brandIds: string[]) => ({
+            gte: (col: string, today: string) => {
+              expect(col).toBe("start_date");
+              const rows = brandIds
+                .flatMap((id) => rowsByBrandId[id] ?? [])
+                .filter((r) => r.start_date >= today)
+                .sort((a, b) => (a.start_date < b.start_date ? -1 : a.start_date > b.start_date ? 1 : a.id < b.id ? -1 : 1));
+              const chain = {
+                order: () => chain,
+                limit: (n: number) =>
+                  Promise.resolve(fail ? { data: null, error: { message: "boom" } } : { data: rows.slice(0, n), error: null }),
+              };
+              return chain;
+            },
+          }),
+        }),
+      };
+    },
+  } as unknown as SupabaseClient;
+}
+
+describe("loadUpcomingShoots", () => {
+  const today = "2026-11-16";
+  const rows = {
+    [BRAND_A1]: [
+      { id: "past", name: "Past", start_date: "2026-11-01", location: null },
+      { id: "s3", name: "Holiday", start_date: "2026-12-03", location: "Studio B" },
+      { id: "s1", name: "Today", start_date: "2026-11-16", location: "Miami" },
+      { id: "s2", name: null, start_date: "2026-11-24", location: null },
+      { id: "s4", name: "Later", start_date: "2027-01-10", location: null },
+    ],
+    [BRAND_B1]: [{ id: "other-org", name: "Org B shoot", start_date: "2026-11-17", location: null }],
+  };
+
+  it("returns only the trusted brands' future-dated shoots, soonest first, capped at 3", async () => {
+    const result = await loadUpcomingShoots(fakeUpcomingSupabase(rows), [BRAND_A1], today);
+    expect(result).toEqual({
+      ok: true,
+      shoots: [
+        { id: "s1", name: "Today", startDate: "2026-11-16", location: "Miami" },
+        { id: "s2", name: "Untitled shoot", startDate: "2026-11-24", location: null },
+        { id: "s3", name: "Holiday", startDate: "2026-12-03", location: "Studio B" },
+      ],
+    });
+  });
+
+  it("short-circuits to empty with no trusted brands, and fails closed on a query error", async () => {
+    expect(await loadUpcomingShoots(fakeUpcomingSupabase(rows), [], today)).toEqual({ ok: true, shoots: [] });
+    expect(await loadUpcomingShoots(fakeUpcomingSupabase(rows, true), [BRAND_A1], today)).toEqual({ ok: false });
   });
 });

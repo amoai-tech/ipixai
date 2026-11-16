@@ -155,11 +155,25 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     await expect.poll(() => shell.evaluate((element) => getComputedStyle(element).transitionDuration)).toBe("0s");
   });
 
-  test("Production Copilot panel is a readable fixed-width column, not a height-expanding dock @T1224dock", async ({ page }, testInfo) => {
+  test("/app docks the same Copilot at the bottom; other routes keep the right column @T1224dock", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "chromium", "geometry assertion is desktop-only");
 
+    // IPI-1451 · DASH-MAIN-PLAYGROUND-001: on /app the panel is a bottom row
+    // below the workspace — full main-column width, capped height, flush
+    // with the viewport bottom, never overlapping dashboard content.
     await page.goto("/app");
     const dock = page.getByTestId("operator-chat-dock");
+    await expect(dock.getByTestId("copilot-chat-textarea")).toBeVisible({ timeout: NAV_TIMEOUT_MS });
+    const viewport = page.viewportSize();
+    const dockBox = await dock.boundingBox();
+    expect(dockBox).not.toBeNull();
+    expect(dockBox?.height ?? 0).toBeLessThanOrEqual((viewport?.height ?? 0) * 0.45);
+    expect((dockBox?.y ?? 0) + (dockBox?.height ?? 0)).toBeGreaterThanOrEqual((viewport?.height ?? 0) - 1);
+    expect(dockBox?.width ?? 0).toBeGreaterThan(522);
+
+    // Same mounted panel, right column on every other workspace route.
+    await page.getByRole("link", { name: "Brands", exact: true }).first().click();
+    await expect(page).toHaveURL(/\/app\/brands$/, { timeout: NAV_TIMEOUT_MS });
     const composer = dock.getByTestId("copilot-chat-textarea");
     await expect(composer).toBeVisible({ timeout: NAV_TIMEOUT_MS });
 
@@ -188,15 +202,17 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     // that nav would leave only a couple hundred px of actual workspace —
     // the exact gap this breakpoint exists to close.
     await page.setViewportSize({ width: 900, height: 800 });
-    await page.goto("/app");
+    // IPI-1451: /app now docks the panel at the bottom, so the side-sheet
+    // behaviour this test guards is proven on a non-dashboard route.
+    await page.goto("/app/brands");
 
     // Closed by default at this width (same reasoning as mobile) — the
     // workspace gets the viewport's full remaining width, not squeezed
     // beside a panel that never goes away.
     const dock = page.getByTestId("operator-chat-dock");
     await expect(dock).toHaveAttribute("data-open", "false", { timeout: NAV_TIMEOUT_MS });
-    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-    const mainBox = await page.getByRole("heading", { name: "Dashboard" }).boundingBox();
+    await expect(page.getByRole("heading", { name: "Brands", level: 1 })).toBeVisible();
+    const mainBox = await page.getByRole("heading", { name: "Brands", level: 1 }).boundingBox();
     expect(mainBox).not.toBeNull();
     // Comfortably more than the ~144px a permanent nav+panel would leave at
     // this width if the panel didn't switch to an overlay here.
@@ -216,7 +232,6 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     // Closing restores full workspace access.
     await page.getByRole("button", { name: "Close Copilot" }).click();
     await expect(dock).toHaveAttribute("data-open", "false");
-    await page.getByRole("heading", { name: "Quick links" }).scrollIntoViewIfNeeded();
     await expect(page.getByRole("button", { name: "✦ Open Copilot" })).toBeVisible();
   });
 
@@ -297,17 +312,24 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     await page.setViewportSize({ width: 390, height: 500 });
     await page.goto("/app");
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-    // Closed by default on mobile — a full-screen chat sheet covering the
-    // whole dashboard on load would be worse than reachability, not better.
+    // IPI-1451: the /app composer stays open as an in-flow bottom dock —
+    // it sits below the dashboard's own scroll area, never on top of it.
     const dock = page.getByTestId("operator-chat-dock");
+    await expect(dock).toHaveAttribute("data-open", "true", { timeout: NAV_TIMEOUT_MS });
+    await expect(dock.getByTestId("copilot-chat-textarea")).toBeVisible({ timeout: NAV_TIMEOUT_MS });
+    // The deepest dashboard landmark scrolls fully clear of the dock.
+    const lastHeading = page.getByRole("heading", { name: "Quick links" });
+    await lastHeading.scrollIntoViewIfNeeded();
+    await expect(lastHeading).toBeVisible();
+    const headingBox = await lastHeading.boundingBox();
+    const dockBox = await dock.boundingBox();
+    expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThanOrEqual(dockBox?.y ?? 0);
+    // No horizontal page overflow at phone width.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    // Still closable/reopenable like everywhere else.
+    await page.getByRole("button", { name: "Close Copilot" }).click();
     await expect(dock).toHaveAttribute("data-open", "false");
-    // Dashboard content reachable with the panel closed: scroll to a deep
-    // main-content landmark first.
-    await page.getByRole("heading", { name: "Quick links" }).scrollIntoViewIfNeeded();
-    await expect(page.getByRole("button", { name: "✦ Open Copilot" })).toBeVisible();
-    // And the panel itself is still reachable as a full-height sheet.
     await page.getByRole("button", { name: "✦ Open Copilot" }).click();
     await expect(dock).toHaveAttribute("data-open", "true");
-    await expect(dock).toBeVisible();
   });
 });
