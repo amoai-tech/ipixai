@@ -224,39 +224,135 @@ export function capturePlannerGenUIStream(
   if (!response.body) return response;
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
   const collector = new GenUIActivityCollector();
   let finished = false;
   let cancelled = false;
+  let pending = "";
+  let terminal: string | null = null;
 
-  const finish = async () => {
-    if (cancelled || finished) return;
+  // Keep RUN_FINISHED until the durable save has completed. AG-UI rejects
+  // events appended after a terminal event, so failed persistence must use a
+  // RUN_ERROR *instead* of letting the UI believe the run was fully saved.
+  const isRunFinished = (block: string): boolean => {
+    const data = block.split(/\r?\n|\r/)
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trimStart())
+      .join("\n");
+    if (!data) return false;
+    try {
+      const event: unknown = JSON.parse(data);
+      return !!event && typeof event === "object" &&
+        (event as { type?: unknown }).type === "RUN_FINISHED";
+    } catch {
+      return false;
+    }
+  };
+
+  // Find SSE blank-line delimiters. CRLF is a single newline, even when
+  // the CR and LF arrive in separate network chunks. A backtracking regex
+  // can incorrectly treat CRLF as two blank lines and release RUN_FINISHED
+  // before the save has completed.
+  const eventBoundary = (text: string, atEnd: boolean): number | null => {
+    let lineStart = 0;
+    for (let i = 0; i < text.length;) {
+      const char = text[i];
+      if (char !== "\r" && char !== "\n") {
+        i += 1;
+        continue;
+      }
+      if (char === "\r" && i + 1 === text.length && !atEnd) return null;
+      const after = char === "\r" && text[i + 1] === "\n" ? i + 2 : i + 1;
+      if (i === lineStart) return after;
+      lineStart = after;
+      i = after;
+    }
+    return null;
+  };
+
+  const flushBlocks = (
+    controller: ReadableStreamDefaultController<Uint8Array>,
+    atEnd = false,
+  ): boolean => {
+    let delivered = false;
+    let boundary = eventBoundary(pending, atEnd);
+    while (boundary !== null) {
+      const block = pending.slice(0, boundary);
+      pending = pending.slice(boundary);
+      if (isRunFinished(block)) terminal = block;
+      else {
+        controller.enqueue(encoder.encode(block));
+        delivered = true;
+      }
+      boundary = eventBoundary(pending, atEnd);
+    }
+    // The collector already bounds incomplete event data. Prevent this
+    // transport parser from adding an independent unbounded memory buffer.
+    if (pending.length > 256_000) {
+      controller.enqueue(encoder.encode(pending));
+      pending = "";
+      delivered = true;
+    }
+    return delivered;
+  };
+
+  const finish = async (): Promise<boolean> => {
+    if (cancelled || finished) return false;
     finished = true;
-    collector.push(decoder.decode());
     const final = collector.finish();
-    if (final.kind === "none") return;
+    if (final.kind === "none") return false;
     try {
       await options.save(final);
+      return false;
     } catch {
-      // Storage failures must not disclose thread ids, generated prompts,
-      // operation payloads or tenant data in logs.
+      // No model output, prompts, tenant ID or internal DB error in logs.
       console.error("planner.genui.capture_failed");
+      return true;
     }
   };
 
   const body = new ReadableStream<Uint8Array>({
     async pull(controller) {
       try {
-        const { done, value } = await reader.read();
-        // reader.read() may resolve to done:true because cancel() closed the
-        // upstream stream, not because the model completed successfully.
-        if (cancelled) return;
-        if (done) {
-          await finish();
-          controller.close();
-          return;
+        // A ReadableStream pull without enqueue is not guaranteed to run again.
+        // Keep reading until at least one event can be forwarded or the
+        // upstream stream ends; otherwise split SSE chunks can deadlock.
+        while (!cancelled) {
+          const { done, value } = await reader.read();
+          if (cancelled) return;
+          if (done) {
+            const tail = decoder.decode();
+            collector.push(tail);
+            pending += tail;
+            flushBlocks(controller, true);
+            if (pending) {
+              // An upstream RUN_FINISHED without its final blank line must
+              // still be withheld. Forwarding it here would create two
+              // terminal events if the durable save subsequently failed.
+              if (isRunFinished(pending)) {
+                terminal = pending + (pending.endsWith("\n") || pending.endsWith("\r")
+                  ? "\n" : "\n\n");
+              } else {
+                controller.enqueue(encoder.encode(pending));
+              }
+            }
+            pending = "";
+            const saveFailed = await finish();
+            if (saveFailed && !cancelled) {
+              controller.enqueue(encoder.encode(
+                'data: {"type":"RUN_ERROR","code":"GENUI_PERSIST_FAILED","message":"The AI comparison could not be saved."}\n\n',
+              ));
+            } else if (terminal) {
+              controller.enqueue(encoder.encode(terminal));
+            }
+            controller.close();
+            return;
+          }
+          const chunk = decoder.decode(value, { stream: true });
+          collector.push(chunk);
+          pending += chunk;
+          if (flushBlocks(controller)) return;
         }
-        collector.push(decoder.decode(value, { stream: true }));
-        controller.enqueue(value);
       } catch (error) {
         controller.error(error);
       }

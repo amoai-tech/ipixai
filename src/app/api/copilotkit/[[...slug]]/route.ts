@@ -19,6 +19,7 @@ import { authorizePlannerGenUIScope, capturePlannerGenUIStream, plannerRunScope 
 import {
   canonicalizePlannerThreadId,
   getPlannerMemory,
+  reservePlannerGenUIRunSequence,
   savePlannerGenUIActivity,
 } from "@/mastra/thread-persistence";
 
@@ -106,6 +107,20 @@ async function handleCopilot(request: Request) {
       once: true,
     });
 
+  // One PostgreSQL-assigned generation per run. Cross-instance ordering
+  // cannot depend on the timestamps of separate Vercel processes.
+  let genuiRunSequence: string | undefined;
+  if (captureThreadId && captureScopeKey && process.env.MASTRA_DATABASE_URL) {
+    try {
+      genuiRunSequence = await reservePlannerGenUIRunSequence();
+    } catch {
+      // Ordinary Planner text runs must not fail when optional GenUI
+      // persistence is unavailable. Actual GenUI saves fail closed and
+      // surface a sanitized RUN_ERROR to the operator instead.
+      console.warn("planner.genui.run_sequence_unavailable");
+    }
+  }
+
   let response: Response;
   try {
     const runtime = new CopilotRuntime({
@@ -143,23 +158,27 @@ async function handleCopilot(request: Request) {
     response = capturePlannerGenUIStream(response, {
       save: async (change) => {
         const memory = await getPlannerMemory();
-        if (!memory) return;
+        if (!memory) throw new Error("planner.genui.memory_unavailable");
+        let saved: boolean;
         if (change.kind === "activity") {
-          await savePlannerGenUIActivity(memory, {
-            threadId, resourceId, scopeKey, activity: change.activity,
+          saved = await savePlannerGenUIActivity(memory, {
+            threadId, resourceId, scopeKey, runSequence: genuiRunSequence, activity: change.activity,
           });
         } else if (change.kind === "update") {
-          await savePlannerGenUIActivity(memory, {
-            threadId, resourceId, scopeKey,
+          saved = await savePlannerGenUIActivity(memory, {
+            threadId, resourceId, scopeKey, runSequence: genuiRunSequence,
             update: { surfaceId: change.surfaceId, operations: change.operations },
           });
         } else {
-          await savePlannerGenUIActivity(memory, {
-            threadId, resourceId, scopeKey,
+          saved = await savePlannerGenUIActivity(memory, {
+            threadId, resourceId, scopeKey, runSequence: genuiRunSequence,
             activity: null, surfaceId: change.surfaceId,
             reason: change.kind === "rejected" ? "rejected" : "delete",
           });
         }
+        // A false result means the activity was NOT saved: propagate the
+        // failure to the stream's privacy-safe diagnostic, never claim durability.
+        if (!saved) throw new Error("planner.genui.capture_failed");
       },
     });
   }

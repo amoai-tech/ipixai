@@ -1055,6 +1055,21 @@ describe("Production Copilot run-failure banner (IPI-1259 · BRAND-CRAWL-RUNNER-
   // AG-UI onRunErrorEvent/onRunFailed subscriber turns that into a real,
   // visible, dismissible banner instead (Task 4's Required Outcome: "a
   // completed draft or an honest, visible error", never a silent hang).
+  it("shows a visible warning if the comparison could not be durably saved", async () => {
+    render(
+      <OperatorPanel><p>Body</p></OperatorPanel>,
+    );
+    await waitFor(() => expect(subscribeMock).toHaveBeenCalled());
+    capturedAgentSubscriber.current?.onRunErrorEvent?.({
+      event: { type: "RUN_ERROR", code: "GENUI_PERSIST_FAILED", message: "The AI comparison could not be saved." },
+      input: { runId: "run-a", threadId: "thread-1" },
+    });
+    const banner = await screen.findByTestId("copilot-run-failure");
+    expect(within(banner).getByText(/The AI comparison could not be saved/)).toBeDefined();
+    expect(within(banner).getByRole("button", { name: "Regenerate comparison" })).toBeDefined();
+    expect(within(banner).queryByText(/Runner connection dropped/)).toBeNull();
+  });
+
   it("shows a visible error with the AG-UI event code and a safe generic message on RUN_ERROR", async () => {
     render(
       <OperatorPanel>

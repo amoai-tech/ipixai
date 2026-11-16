@@ -11,8 +11,8 @@ export type PlannerGenUIActivity = {
 
 const GENUI_TARGET = "planner-comparison";
 const GENUI_CATALOG_ID = "ipix/planner@1";
-const GENUI_MAX_OPERATIONS = 20;
-const GENUI_MAX_SERIALIZED_BYTES = 64_000;
+export const GENUI_MAX_OPERATIONS = 20;
+export const GENUI_MAX_SERIALIZED_BYTES = 64_000;
 
 export function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value === "string") {

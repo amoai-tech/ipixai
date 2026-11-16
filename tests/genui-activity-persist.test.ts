@@ -289,6 +289,95 @@ describe("capturePlannerGenUIStream", () => {
     expect(save).not.toHaveBeenCalled();
   });
 
+  it("emits a private-safe failure diagnostic when persistence rejects", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const save = vi.fn(async () => { throw new Error("secret payload"); });
+      const response = new Response(acceptedSse(), {
+        headers: { "content-type": "text/event-stream" },
+      });
+      const captured = capturePlannerGenUIStream(response, { save });
+      const output = await captured.text();
+      expect(output).not.toContain('"type":"RUN_FINISHED"');
+      expect(output).toContain('"type":"RUN_ERROR"');
+      expect(output).toContain('"code":"GENUI_PERSIST_FAILED"');
+      expect(output).not.toContain("secret payload");
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(error).toHaveBeenCalledWith("planner.genui.capture_failed");
+      expect(JSON.stringify(error.mock.calls)).not.toContain("secret payload");
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it("preserves AG-UI terminal ordering for CR-only SSE split into tiny chunks", async () => {
+    const raw = new TextEncoder().encode(acceptedSse().replace(/\n/g, "\r"));
+    const response = new Response(new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let i = 0; i < raw.length; i += 7) controller.enqueue(raw.slice(i, i + 7));
+        controller.close();
+      },
+    }), { headers: { "content-type": "text/event-stream" } });
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const captured = capturePlannerGenUIStream(response, {
+        save: async () => { throw new Error("private error"); },
+      });
+      const text = await captured.text();
+      expect(text).toContain('"type":"RUN_ERROR"');
+      expect(text).not.toContain('"type":"RUN_FINISHED"');
+      expect(text).not.toContain("private error");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("holds CRLF terminal frames split between the two newline pairs", async () => {
+    const payload = acceptedSse().replace(/\n/g, "\r\n");
+    const terminalIndex = payload.lastIndexOf("RUN_FINISHED");
+    const delimiter = payload.indexOf("\r\n\r\n", terminalIndex);
+    expect(delimiter).toBeGreaterThan(terminalIndex);
+    const pieces = [
+      payload.slice(0, delimiter + 2),
+      payload.slice(delimiter + 2, delimiter + 3),
+      payload.slice(delimiter + 3),
+    ];
+    const response = new Response(new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const part of pieces) controller.enqueue(new TextEncoder().encode(part));
+        controller.close();
+      },
+    }), { headers: { "content-type": "text/event-stream" } });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const output = await capturePlannerGenUIStream(response, {
+        save: async () => { throw new Error("sensitive failure"); },
+      }).text();
+      expect(output).not.toContain('"type":"RUN_FINISHED"');
+      expect(output).toContain('"type":"RUN_ERROR"');
+      expect(output).not.toContain("sensitive failure");
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("never sends double terminal events if RUN_FINISHED lacks a trailing blank line", async () => {
+    const payload = acceptedSse().replace(/\n\n$/, "");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const result = capturePlannerGenUIStream(
+        new Response(payload, { headers: { "content-type": "text/event-stream" } }),
+        { save: async () => { throw new Error("private database error"); } },
+      );
+      const output = await result.text();
+      expect(output).not.toContain('"type":"RUN_FINISHED"');
+      expect(output.match(/"type":"RUN_ERROR"/g)).toHaveLength(1);
+      expect(output).not.toContain("private database error");
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it("passes SSE bytes through unchanged and persists the accepted activity", async () => {
     const payload = acceptedSse();
     const encoded = new TextEncoder().encode(payload);

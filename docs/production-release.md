@@ -5,6 +5,41 @@
 
 **Business outcome:** fashion brands stay on the current website while the next exact-version release is checked. A human—not a workflow—decides when customer traffic moves.
 
+### IPI-1449 — GenUI atomic-write migration compatibility gate
+
+**STOP unless older Planner writers can be drained.** The migration in
+`supabase/migrations/20261116195149_guard_mastra_thread_genui_metadata.sql`
+uses a private trigger to preserve `ipixGenUI` from ordinary Mastra metadata
+updates. A pre-IPI-1449 application instance lacks the transaction-local
+`ipix.genui_atomic_write` flag: an old direct GenUI write may return success
+while its attempted comparison change is suppressed. This is a *real*
+compatibility concern, not a reason to weaken the trigger.
+
+1. **Before production — staging first.** Use an isolated Supabase preview
+   database, apply the reviewed migration, and run both old-writer and new-CAS
+   tests (including RLS, JSON null/absent, two independent pools, rollback and
+   refresh). **Reference — ADAPT:** https://www.postgresql.org/docs/17/sql-createtrigger.html
+   → preserve the guarded trigger; do not grant browser roles access or replace
+   it with a `SECURITY DEFINER` function.
+2. **Controlled cutover.** Establish and prove a maintenance/drain procedure
+   that blocks *new Planner generations* and lets existing older instances and
+   in-flight AI streams finish before installing the guard. Only after old
+   writers are gone: install the production migration, verify its exact
+   function/trigger/privilege catalog and tests, then promote the certified
+   application SHA and restore Planner traffic. **Reference — MODEL:**
+   https://vercel.com/docs/cli/deploy#skip-domain → stage and verify before
+   assigning the live domain; do not assume promotion kills existing streams.
+3. **Rollback is forward-compatible, not an old-writer restore.** Once this
+   migration is installed, do **not** switch traffic back to a pre-IPI-1449
+   build that saves GenUI via ordinary `updateThread()`. If the new release
+   fails, stop new Planner generations and ship a reviewed forward-fix that
+   still honors the trigger. Do not casually drop the trigger or reset schema.
+4. **Checkpoint.** PASS only with recorded proof of draining, migration
+   ordering, a restricted-role write, two-instance concurrency, authenticated
+   Brand/Shoot tenant isolation and refresh on the exact hosted SHA. STOP if
+   no reliable drain mechanism exists; create a separate release-control task
+   rather than silently losing comparisons.
+
 ```mermaid
 flowchart TD
   A[Manual CI release on latest main] --> B{All CI gates passed?}
