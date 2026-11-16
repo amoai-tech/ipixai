@@ -1,6 +1,6 @@
 # Linear templates
 
-Use these as starting points. Keep them concise and remove sections that do not apply. Canonical execution/verification lives in `.claude/skills/tasks/`.
+Use these as starting points. Keep them concise and remove sections that do not apply. Canonical execution/verification lives in `.agents/skills/tasks/`.
 
 ## Issue template
 
@@ -26,7 +26,7 @@ One or two sentences.
 - [ ] Smallest safe step — proof
 
 ## Verification
-Use `.claude/skills/tasks/references/pre-merge-tests.md`; record only the risk-matched commands/evidence that apply.
+Use `.agents/skills/tasks/references/pre-merge-tests.md`; record only the risk-matched commands/evidence that apply.
 ```
 
 ## Bug issue template
@@ -75,7 +75,7 @@ What happens instead.
 
 ## PR template
 
-Canonical PR/review/CI/post-merge behavior lives in `.claude/skills/tasks/`; this is only a body skeleton.
+Canonical PR/review/CI/post-merge behavior lives in `.agents/skills/tasks/`; this is only a body skeleton.
 
 ```markdown
 ## Summary
@@ -88,7 +88,7 @@ Canonical PR/review/CI/post-merge behavior lives in `.claude/skills/tasks/`; thi
 IPI-NNN · TASK-ID — Full Task Name
 
 ## Verification
-- Risk-matched evidence from `.claude/skills/tasks/references/pre-merge-tests.md`
+- Risk-matched evidence from `.agents/skills/tasks/references/pre-merge-tests.md`
 
 ## Notes
 - Breaking changes, screenshots, residual risks or follow-ups

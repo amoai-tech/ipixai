@@ -1,6 +1,6 @@
 # SCR-02 diagrams — Brand List
 
-> **SSOT:** [`Brand List.v2.image-first.dc.html`](../../../Pages/Brand List.v2.image-first.dc.html) · Skill: [`mermaid-diagrams`](../../../../.claude/skills/mermaid-diagrams/SKILL.md)
+> **SSOT:** [`Brand List.v2.image-first.dc.html`](../../../Pages/Brand List.v2.image-first.dc.html) · Skill: [`mermaid-diagrams`](../../../../.agents/skills/mermaid-diagrams/SKILL.md)
 
 ## Layout block (matches DC shell)
 

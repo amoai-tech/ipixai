@@ -2,7 +2,7 @@
 
 Use this for **every** `.dc.html` page in `Universal-design-prompt-4/Pages/` — Command Center, Brand List/Detail, Shoots List/Detail, Shoot Wizard, Assets, Campaigns, Matching, Channel Preview, Analytics, Campaign Performance, Onboarding, CRM (SCR-26–31), and Planner (SCR-32–35).
 
-Full workflow lives in the `design-to-production` skill (`.claude/skills/design-to-production/SKILL.md`) — this doc is the **fill-in-the-blanks plan** you produce per screen before coding, not a replacement for it.
+Full workflow lives in the `design-to-production` skill (`.agents/skills/design-to-production/SKILL.md`) — this doc is the **fill-in-the-blanks plan** you produce per screen before coding, not a replacement for it.
 
 **Worked examples for this template:** [`Shoots List.v2.image-first.dc.html`](../Pages/Shoots%20List.v2.image-first.dc.html) → [IPI-273 / DESIGN-055](https://linear.app/amo100/issue/IPI-273/design-055-shoots-list-react-parity-workspace) and [`Shoot Detail.v2.image-first.dc.html`](../Pages/Shoot%20Detail.v2.image-first.dc.html) → [IPI-337 / DESIGN-054b](https://linear.app/amo100/issue/IPI-337/design-054b-shoot-detail-remaining-tab-parity-6-tabs). Use their current per-screen task docs ([`screens/SCR-04-shoots-list.md`](screens/SCR-04-shoots-list.md), [`screens/SCR-05-shoot-detail.md`](screens/SCR-05-shoot-detail.md)) as the reference shape for every section below — the older `PLAN/<screen>-dc-conversion.md` convention referenced in earlier versions of this doc was superseded by the `tasks/screens/SCR-NN-*.md` convention (see `screens/README.md`).
 

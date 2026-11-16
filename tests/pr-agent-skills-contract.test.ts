@@ -8,23 +8,23 @@ const workflow = readFileSync(
 );
 const routing = readFileSync(new URL("../scripts/select-pr-agent-skills.mjs", import.meta.url), "utf8");
 const copilotSkill = readFileSync(
-  new URL("../.claude/skills/copilotkit/SKILL.md", import.meta.url),
+  new URL("../.agents/skills/copilotkit/SKILL.md", import.meta.url),
   "utf8",
 );
 const mastraSkill = readFileSync(
-  new URL("../.claude/skills/mastra/SKILL.md", import.meta.url),
+  new URL("../.agents/skills/mastra/SKILL.md", import.meta.url),
   "utf8",
 );
 const traceQueryReference = readFileSync(
-  new URL("../.claude/skills/mastra/references/trace-query.md", import.meta.url),
+  new URL("../.agents/skills/mastra/references/trace-query.md", import.meta.url),
   "utf8",
 );
 const mastraCoreConcepts = readFileSync(
-  new URL("../.claude/skills/mastra/references/core-concepts.md", import.meta.url),
+  new URL("../.agents/skills/mastra/references/core-concepts.md", import.meta.url),
   "utf8",
 );
 const mastraFullGuide = readFileSync(
-  new URL("../.claude/skills/mastra/references/full-guide.md", import.meta.url),
+  new URL("../.agents/skills/mastra/references/full-guide.md", import.meta.url),
   "utf8",
 );
 
@@ -42,8 +42,8 @@ describe("IPI-1213 PR-Agent review skills contract", () => {
   });
 
   it("uses canonical Supabase and Cloudinary skills for PR review", () => {
-    expect(existsSync(new URL("../.claude/skills/supabase-review/SKILL.md", import.meta.url))).toBe(false);
-    expect(existsSync(new URL("../.claude/skills/cloudinary-review/SKILL.md", import.meta.url))).toBe(false);
+    expect(existsSync(new URL("../.agents/skills/supabase-review/SKILL.md", import.meta.url))).toBe(false);
+    expect(existsSync(new URL("../.agents/skills/cloudinary-review/SKILL.md", import.meta.url))).toBe(false);
     expect(routing).toContain('"ipix-supabase"');
     expect(routing).toContain('"cloudinary"');
   });
@@ -51,7 +51,7 @@ describe("IPI-1213 PR-Agent review skills contract", () => {
   it("uses one canonical Mastra skill for implementation and PR review", () => {
     expect(routing).toContain('"mastra"');
     expect(routing).not.toContain("mastra-review");
-    expect(existsSync(new URL("../.claude/skills/mastra-review/SKILL.md", import.meta.url))).toBe(false);
+    expect(existsSync(new URL("../.agents/skills/mastra-review/SKILL.md", import.meta.url))).toBe(false);
     expect(traceQueryReference).not.toMatch(/\bnpx mastra\b/);
     expect(mastraSkill).toContain("one canonical Mastra skill for iPix");
     expect(mastraSkill).toContain("PR review");
@@ -99,7 +99,7 @@ describe("IPI-1213 PR-Agent review skills contract", () => {
     expect(meta.paths).toBeUndefined();
     expect(meta.metadata?.paths).toBeUndefined();
     const triggerCases = JSON.parse(readFileSync(
-      new URL("../.claude/skills/mastra/evals/trigger-eval.json", import.meta.url),
+      new URL("../.agents/skills/mastra/evals/trigger-eval.json", import.meta.url),
       "utf8",
     )) as { query: string; should_trigger: boolean }[];
     expect(triggerCases.some((item) => item.should_trigger && item.query.includes("/api/copilotkit"))).toBe(true);

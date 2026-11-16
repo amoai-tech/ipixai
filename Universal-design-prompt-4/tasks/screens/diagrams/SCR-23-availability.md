@@ -1,6 +1,6 @@
 # SCR-23 diagrams — Availability
 
-> **SSOT:** [`SCR-23-Availability-Editor.dc.html`](../../../Pages/SCR-23-Availability-Editor.dc.html) · Skill: [`mermaid-diagrams`](../../../../.claude/skills/mermaid-diagrams/SKILL.md)
+> **SSOT:** [`SCR-23-Availability-Editor.dc.html`](../../../Pages/SCR-23-Availability-Editor.dc.html) · Skill: [`mermaid-diagrams`](../../../../.agents/skills/mermaid-diagrams/SKILL.md)
 
 ## Layout block (matches DC shell)
 

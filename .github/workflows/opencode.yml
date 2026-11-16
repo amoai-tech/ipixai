@@ -106,7 +106,7 @@ jobs:
             - Security: never print secrets, service-role keys, database URLs,
               or API keys. Never push to production or run hosted writes.
             - If the task references a Linear IPI-* issue, load
-              .claude/skills/tasks/SKILL.md and treat the issue as the source
+              .agents/skills/tasks/SKILL.md and treat the issue as the source
               of truth for scope and Definition of Done.
             - When asked to explain an issue, read the full thread and reply
               in plain English with file:line references where useful.
