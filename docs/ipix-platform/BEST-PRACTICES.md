@@ -264,7 +264,7 @@ exact URL + exact source file/example/section/symbol
 → STOP condition
 ```
 
-A tracking class describes how the reference is used; it is not the implementation action. In particular, bare `ADAPT` is not an action. The canonical detailed rule lives in `.claude/skills/tasks/references/external-reference-mapping.md` and remains subordinate to `.claude/skills/tasks/SKILL.md` and `task-format.md`.
+A tracking class describes how the reference is used; it is not the implementation action. In particular, bare `ADAPT` is not an action. The canonical detailed rule lives in `.agents/skills/tasks/references/external-reference-mapping.md` and remains subordinate to `.agents/skills/tasks/SKILL.md` and `task-format.md`.
 
 Use one-week cycles while they remain effective. Once per cycle, review active work and backlog: close duplicates, cancel genuinely stale work with a reason, move still-valid work to the right cycle/owner, and preserve historical evidence rather than deleting it just to reduce counts.
 
@@ -272,7 +272,7 @@ For GitHub integration, include the Linear identifier from the relevant task—f
 
 ### PR follow-up after opening or pushing
 
-Opening a PR starts a repeatable review loop; it does not finish the task. After every push, refresh the exact head/base, current `main`, unresolved threads, reviews, required checks, and mergeability. Classify review feedback as `VALID / PARTIAL / NOISE`, fix only evidence-backed root causes, re-run the touched-file maintainability review and risk-matched tests, reply with the exact fix/evidence, and resolve only after proof exists. Keep the detailed execution contract in `.claude/skills/tasks/SKILL.md` rather than duplicating it here.
+Opening a PR starts a repeatable review loop; it does not finish the task. After every push, refresh the exact head/base, current `main`, unresolved threads, reviews, required checks, and mergeability. Classify review feedback as `VALID / PARTIAL / NOISE`, fix only evidence-backed root causes, re-run the touched-file maintainability review and risk-matched tests, reply with the exact fix/evidence, and resolve only after proof exists. Keep the detailed execution contract in `.agents/skills/tasks/SKILL.md` rather than duplicating it here.
 
 The exact-head merge gate is PASS only when required checks are green, strict-main is current, no actionable thread remains unresolved, the PR and Linear task agree materially, and every touched auth/security/tenant/data/provider boundary has the required proof.
 

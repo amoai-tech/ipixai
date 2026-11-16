@@ -1,6 +1,6 @@
 # SCR-16 diagrams — Analytics
 
-> **SSOT:** [`Analytics.v2.image-first.dc.html`](../../../Pages/Analytics.v2.image-first.dc.html) · Skill: [`mermaid-diagrams`](../../../../.claude/skills/mermaid-diagrams/SKILL.md)
+> **SSOT:** [`Analytics.v2.image-first.dc.html`](../../../Pages/Analytics.v2.image-first.dc.html) · Skill: [`mermaid-diagrams`](../../../../.agents/skills/mermaid-diagrams/SKILL.md)
 
 ## Layout block (matches DC shell)
 

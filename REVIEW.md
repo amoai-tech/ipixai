@@ -30,7 +30,7 @@ Keep this file a calibration sheet: severity and what to check. Do not copy full
 
 ## Verification expectations
 
-Follow `AGENTS.md` and `.claude/skills/tasks/references/pre-merge-tests.md` for the current risk-matched verification matrix. Do not maintain a second fixed command list here.
+Follow `AGENTS.md` and `.agents/skills/tasks/references/pre-merge-tests.md` for the current risk-matched verification matrix. Do not maintain a second fixed command list here.
 
 - New business rules need tests that assert the observable result (deny Org B, fail closed when unsigned).
 - Database changes need migration coverage and rollback-aware review. Never `supabase db push` to production in a review “fix.”

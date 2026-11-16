@@ -16,7 +16,7 @@
 
 ## Conversion plan
 
-> **SSOT:** [`../../plan/designtoreact.md`](../docs/designtoreact.md) · [`design-to-production`](../../../.claude/skills/design-to-production/SKILL.md) · Full sections: [`SCR-TEMPLATE.md`](SCR-TEMPLATE.md)
+> **SSOT:** [`../../plan/designtoreact.md`](../docs/designtoreact.md) · [`design-to-production`](../../../.agents/skills/design-to-production/SKILL.md) · Full sections: [`SCR-TEMPLATE.md`](SCR-TEMPLATE.md)
 
 ### 1. Target
 
@@ -39,7 +39,7 @@
 | **DC workspace width** | auto (fills available) |
 | **Row spec** | Avatar/icon (32px) + title (bold) + preview (truncated) + timestamp + unread dot |
 
-Skills: [`ipix-wireframe`](../../../.claude/skills/ipix-wireframe/SKILL.md) · [`mermaid-diagrams`](../../../.claude/skills/mermaid-diagrams/SKILL.md)
+Skills: [`ipix-wireframe`](../../../.agents/skills/ipix-wireframe/SKILL.md) · [`mermaid-diagrams`](../../../.agents/skills/mermaid-diagrams/SKILL.md)
 
 ### Notification row anatomy
 

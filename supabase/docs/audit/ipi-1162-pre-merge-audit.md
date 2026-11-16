@@ -140,7 +140,7 @@ None found.
 
 1. Retire the legacy anonymous demo-event write policies on production — [IPI-1163](https://linear.app/amo100/issue/IPI-1163), Backlog.
 2. Harden `block_brand_org_change` and `brand_scores_select_via_brand` on production to match the safer local design — new task, not filed yet.
-3. Update the stale "remote-only, do not run local `db reset`" guidance in `.claude/skills/ipix-supabase/` (`SKILL.md`, `references/project-rules/supabase-migrations.md`, `references/migrations/scaffold.md`, `edge-functions.md`, `references/tables-overview.md`) now that local-first fresh replay is the proven, CI-enforced pattern — docs-only, separate PR per the "never mix docs and code" rule.
+3. Update the stale "remote-only, do not run local `db reset`" guidance in `.agents/skills/ipix-supabase/` (`SKILL.md`, `references/project-rules/supabase-migrations.md`, `references/migrations/scaffold.md`, `edge-functions.md`, `references/tables-overview.md`) now that local-first fresh replay is the proven, CI-enforced pattern — docs-only, separate PR per the "never mix docs and code" rule.
 4. General Supabase Advisor findings (leaked-password protection, `SECURITY DEFINER` inventory review, duplicate `asset_events` indexes, `mastra_workflow_snapshot` missing a primary key) — all pre-existing production conditions, unrelated to migration-history recovery, out of scope here.
 
 ## Production-ready checklist

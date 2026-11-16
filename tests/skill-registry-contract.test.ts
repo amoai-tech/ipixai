@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
@@ -6,7 +6,6 @@ import { markdownTableCell, pathEntryExists, selectSkillForPrompt, validateRegis
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const agentsRoot = resolve(repoRoot, ".agents/skills");
-const claudeRoot = resolve(repoRoot, ".claude/skills");
 const registryPath = resolve(agentsRoot, "registry.json");
 
 type RegistryEntry = {
@@ -16,7 +15,6 @@ type RegistryEntry = {
   modes: string[];
   delegates_to: string[];
   do_not_use_for: string[];
-  claude_exposed: boolean;
   replaces?: string[];
   routing_phrases?: string[];
 };
@@ -43,16 +41,10 @@ describe("skill registry contract", () => {
       expect(Array.isArray(entry.modes), `${name} modes`).toBe(true);
       expect(Array.isArray(entry.delegates_to), `${name} delegates_to`).toBe(true);
       expect(Array.isArray(entry.do_not_use_for), `${name} do_not_use_for`).toBe(true);
-      expect(typeof entry.claude_exposed, `${name} claude_exposed`).toBe("boolean");
       expect(existsSync(resolve(repoRoot, entry.canonical, "SKILL.md")), `${name} canonical SKILL.md`).toBe(true);
 
-      const claudePath = resolve(claudeRoot, name);
-      const isClaudeSymlink = existsSync(claudePath) && lstatSync(claudePath).isSymbolicLink();
-      expect(isClaudeSymlink, `${name} Claude exposure must match registry`).toBe(entry.claude_exposed);
-      if (entry.claude_exposed) expect(realpathSync(claudePath)).toBe(realpathSync(resolve(agentsRoot, name)));
-
       for (const delegate of entry.delegates_to) {
-        const known = Object.hasOwn(registry.skills, delegate) || existsSync(resolve(claudeRoot, delegate, "SKILL.md"));
+        const known = Object.hasOwn(registry.skills, delegate);
         expect(known, `${name} delegates_to unknown skill ${delegate}`).toBe(true);
       }
     }
@@ -140,7 +132,6 @@ describe("skill registry contract", () => {
     broken.skills["missing-canonical"] = {
       ...structuredClone(registry.skills.explain),
       canonical: ".agents/skills/missing-canonical",
-      claude_exposed: true,
     };
     expect(validateRegistry(broken)).toContain("missing-canonical: canonical skill directory missing");
   });
@@ -154,7 +145,7 @@ describe("skill registry contract", () => {
   });
 
   it("keeps the committed skill index generated from the registry", () => {
-    const index = readFileSync(resolve(claudeRoot, "index-skills.md"), "utf8");
+    const index = readFileSync(resolve(agentsRoot, "index-skills.md"), "utf8");
     expect(index).toContain("GENERATED FILE — DO NOT EDIT");
     for (const name of canonicalSkillNames()) expect(index, `index missing ${name}`).toContain(`\`${name}\``);
   });

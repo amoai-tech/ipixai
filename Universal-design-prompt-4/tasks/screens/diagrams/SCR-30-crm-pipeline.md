@@ -1,6 +1,6 @@
 # SCR-30 diagrams — Crm Pipeline
 
-> **SSOT:** [`SCR-30-CRM-Pipeline.dc.html`](../../../Pages/SCR-30-CRM-Pipeline.dc.html) · Skill: [`mermaid-diagrams`](../../../../.claude/skills/mermaid-diagrams/SKILL.md)
+> **SSOT:** [`SCR-30-CRM-Pipeline.dc.html`](../../../Pages/SCR-30-CRM-Pipeline.dc.html) · Skill: [`mermaid-diagrams`](../../../../.agents/skills/mermaid-diagrams/SKILL.md)
 
 ## Layout block (matches DC shell)
 

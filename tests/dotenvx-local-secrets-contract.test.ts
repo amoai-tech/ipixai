@@ -90,7 +90,7 @@ describe("Dotenvx local secrets contract", () => {
 
   it("launches coding agents with a separate least-privilege env file", () => {
     expect(pkg.scripts?.["agent:claude"]).toBe(
-      "dotenvx run -f .env.agent --strict --redact -- claude",
+      "dotenvx run -f .env.agent --strict --redact -- claude --plugin-dir .agents",
     );
     expect(pkg.scripts?.["agent:codex"]).toBe(
       "dotenvx run -f .env.agent --strict --redact -- codex",
@@ -113,12 +113,12 @@ describe("Dotenvx local secrets contract", () => {
 
   it("keeps active Supabase verification guidance off retired Infisical and removed npm scripts", () => {
     const activeGuides = [
-      ".claude/skills/worktrees/SKILL.md",
-      ".claude/skills/ipix-supabase/SKILL.md",
-      ".claude/skills/ipix-supabase/references/migrations/scaffold.md",
-      ".claude/skills/ipix-supabase/references/tables-overview.md",
-      ".claude/skills/ipix-supabase/references/edge-functions/edge-functions-inventory.md",
-      ".claude/skills/linear/SKILL.md",
+      ".agents/skills/worktrees/SKILL.md",
+      ".agents/skills/ipix-supabase/SKILL.md",
+      ".agents/skills/ipix-supabase/references/migrations/scaffold.md",
+      ".agents/skills/ipix-supabase/references/tables-overview.md",
+      ".agents/skills/ipix-supabase/references/edge-functions/edge-functions-inventory.md",
+      ".agents/skills/linear/SKILL.md",
       "Universal-design-prompt-4/tasks/checklists.md",
       "Universal-design-prompt-4/tasks/README.md",
       "Universal-design-prompt-4/docs/design-docs/plan/TASK-CONTRACT.yaml",
