@@ -83,7 +83,9 @@ const nextConfig: NextConfig = {
     // webpack process does not fit once GenUI is in the graph, so the build
     // runs two. The heap cap lives on the Vercel project build command.
     cpus: 2,
-    memoryBasedWorkersCount: true,
+    // Next uses at least four workers when memory sizing overrides the default
+    // CPU count; disable it so the cap stays two on every build machine.
+    memoryBasedWorkersCount: false,
   },
   // No `env` block: it previously derived a dead NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED
   // flag from COPILOTKIT_LICENSE_TOKEN at build time (zero consumers, and the

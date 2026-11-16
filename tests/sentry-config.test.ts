@@ -36,17 +36,18 @@ describe("Sentry production configuration", () => {
     expect(existsSync(join(root, "instrumentation-client.ts"))).toBe(true);
   });
 
-  it("wraps the existing Next.js config without dropping iPix settings", () => {
+  it("wraps the existing Next.js config without dropping iPix settings", async () => {
     const config = read("next.config.ts");
     expect(config).toContain('from "@sentry/nextjs/config"');
     expect(config).toContain("withSentryConfig");
     expect(config).toContain("SERVICE_REDIRECTS");
     expect(config).toContain("root: process.cwd()");
-    // Two workers leave room for the main webpack process on Vercel's 8 GB
-    // Standard build machine now that GenUI is in the graph.
-    expect(config).toContain("cpus: 2");
-    // The Preview build must retain the official peak-memory optimization.
-    expect(config).toContain("webpackMemoryOptimizations: true");
+
+    // Check the Sentry-wrapped export, not text that may never take effect.
+    const { default: nextConfig } = await import("../next.config");
+    expect(nextConfig.experimental?.cpus).toBe(2);
+    expect(nextConfig.experimental?.memoryBasedWorkersCount).toBe(false);
+    expect(nextConfig.experimental?.webpackMemoryOptimizations).toBe(true);
   });
 
   it("passes conservative privacy and replay options to the client SDK", async () => {
