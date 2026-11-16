@@ -49,7 +49,9 @@ export function normalizePlannerGenUIActivity(
   if (!ops.every((op) => op.version === "1.0")) return null;
   const creates = ops.filter((op) => op.createSurface !== undefined);
   if (creates.length !== 1) return null;
-  const create = asRecord(creates[0]!.createSurface);
+  const firstCreate = creates[0];
+  if (!firstCreate) return null;
+  const create = asRecord(firstCreate.createSurface);
   if (!create || typeof create.surfaceId !== "string" || !create.surfaceId) return null;
   if (create.catalogId !== GENUI_CATALOG_ID) return null;
   const selected: Record<string, unknown>[] = [];
@@ -77,7 +79,7 @@ export function normalizePlannerGenUIActivity(
     const components = update.components;
     return Array.isArray(components) && components.some((component) => {
       const c = asRecord(component);
-      return c?.id === "root" && c?.component === "ConceptComparison";
+      return c !== null && c.id === "root" && c.component === "ConceptComparison";
     });
   });
   if (!hasRoot) return null;
