@@ -43,16 +43,24 @@ const MOBILE_NAV = "(max-width: 767px)";
 const COPILOT_COMPACT = "(max-width: 1023px)";
 const RUN_FAILURE_MESSAGE = "The AI run stopped before it completed";
 
-// Report generated-UI failures without logging raw model props or tenant data.
+// Generate only fixed diagnostic categories: even ids, error names and codes
+// can contain model/tenant text. Never log their raw values or error.message.
 function reportGenerativeUIError(info: GenerativeUIErrorInfo) {
-  // Do not log the error message: generated props or tenant data can end up
-  // inside it. The structured code/name is enough to triage the failure.
-  const code = (info.error as Error & { code?: unknown }).code;
+  const rawKind: unknown = info.kind;
+  const kind =
+    rawKind === "render" || rawKind === "props" || rawKind === "operation" ||
+    rawKind === "function" || rawKind === "event"
+      ? rawKind
+      : "unknown";
+  const errorCategory =
+    info.error.name === "TypeError" ? "type" :
+    info.error.name === "GenerativeUIError" ? "genui" : "other";
   console.error("[genui] generated UI failed", {
-    kind: info.kind,
-    surfaceId: info.surfaceId,
-    componentId: info.componentId,
-    code: typeof code === "string" ? code : info.error.name,
+    kind,
+    hasSurface: Boolean(info.surfaceId),
+    component: info.componentId === "root" ? "root" :
+      info.componentId ? "other" : "none",
+    errorCategory,
   });
 }
 
@@ -881,6 +889,8 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
       messageFilter={plannerRunMessageFilter}
       generativeUI={{
         ui: ipixGenerativeUI,
+        // Only the Production Planner receives the comparison catalog.
+        agentIds: ["default"],
         errorBoundary: { onError: reportGenerativeUIError },
       }}
       publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_PUBLIC_LICENSE_KEY}
