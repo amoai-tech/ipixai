@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { A2UI_VERSION, GENERATIVE_UI_ROOT_ID } from "@copilotkit/shared";
 import {
   GenerativeUISurface,
@@ -12,6 +12,12 @@ import styles from "./operator-panel.module.css";
 const TARGET = "planner-comparison";
 const noSubscription = () => () => {};
 const zero = () => 0;
+
+type ScopedSurface = {
+  threadId: string;
+  agentId: string | undefined;
+  surfaceId: string;
+};
 
 /** Keep the native Surface mounted. A completed rootless surface is broken,
  * whether it contains rejected operations or the agent simply omitted its
@@ -27,7 +33,11 @@ export function IpixGenerativeComparisonSurface({
 }) {
   const runtime = useGenerativeUIRuntime();
   const previousScope = useRef(scopeKey);
+  const lastMappedScope = useRef(scopeKey);
+  const surfacesByScope = useRef(new Map<string, ScopedSurface>());
   const previousRunActive = useRef(runActive);
+  const [interruptedSurfaceKey, setInterruptedSurfaceKey] = useState<string | null>(null);
+
   useSyncExternalStore(
     runtime?.manager.subscribe ?? noSubscription,
     runtime?.manager.getVersion ?? zero,
@@ -35,16 +45,29 @@ export function IpixGenerativeComparisonSurface({
   );
   const surface = runtime?.manager.getSurfaceForTarget(TARGET);
 
-  // A brand/shoot change must not leave the previous scope's card mounted.
-  // The manager is thread-scoped; delete the active target surface when the
-  // authorized Planner scope changes, then let the new scope render nothing
-  // until the model produces a new card.
+  // Remember the surface that belongs to this scope. The manager is
+  // thread-scoped, so a scope change can leave the old thread's surface
+  // behind even when the active thread already points at the new scope.
+  useEffect(() => {
+    if (lastMappedScope.current !== scopeKey) return;
+    if (surface) {
+      surfacesByScope.current.set(scopeKey, {
+        threadId: surface.threadId,
+        agentId: surface.agentId,
+        surfaceId: surface.surfaceId,
+      });
+    }
+  }, [scopeKey, surface]);
+
+  // Delete every surface recorded under the previous scope, including one
+  // that belongs to a thread no longer active. Never delete the new scope's
+  // surface; the new run owns that target.
   useEffect(() => {
     if (previousScope.current === scopeKey) return;
-    const active = runtime?.manager.getSurfaceForTarget(TARGET);
-    if (active && runtime) {
-      runtime.manager.ingest(active.threadId, active.agentId, {
-        surfaceId: active.surfaceId,
+    for (const [key, scoped] of surfacesByScope.current) {
+      if (key === scopeKey) continue;
+      runtime?.manager.ingest(scoped.threadId, scoped.agentId, {
+        surfaceId: scoped.surfaceId,
         catalogId: ipixGenerativeUI.id,
         target: TARGET,
         status: "ready",
@@ -52,19 +75,39 @@ export function IpixGenerativeComparisonSurface({
         operations: [
           {
             version: A2UI_VERSION,
-            deleteSurface: { surfaceId: active.surfaceId },
+            deleteSurface: { surfaceId: scoped.surfaceId },
           },
         ],
       });
+      surfacesByScope.current.delete(key);
     }
     previousScope.current = scopeKey;
+    lastMappedScope.current = scopeKey;
   }, [runtime, scopeKey]);
 
-  const runJustEnded = previousRunActive.current && !runActive;
+  // Tie the interrupted state to the surface, not to one render. A run ending
+  // while the surface is still "streaming" keeps recovery visible through
+  // unrelated re-renders until that surface becomes ready, is deleted, or is
+  // replaced.
   useEffect(() => {
+    if (previousRunActive.current && !runActive && surface?.status === "streaming") {
+      setInterruptedSurfaceKey(surface.key);
+    }
     previousRunActive.current = runActive;
-  }, [runActive]);
-  const interrupted = surface?.status === "streaming" && runJustEnded;
+  }, [runActive, surface?.key, surface?.status]);
+
+  useEffect(() => {
+    if (!interruptedSurfaceKey) return;
+    if (!surface || surface.key !== interruptedSurfaceKey || surface.status === "ready") {
+      setInterruptedSurfaceKey(null);
+    }
+  }, [interruptedSurfaceKey, surface]);
+
+  const interrupted = Boolean(
+    interruptedSurfaceKey &&
+      surface?.key === interruptedSurfaceKey &&
+      surface.status === "streaming",
+  );
   const showRecovery = interrupted ||
     (surface?.status === "ready" &&
       (!surface.model?.componentsModel?.get(GENERATIVE_UI_ROOT_ID) ||

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { act, render, screen, waitFor, cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { CopilotKit } from "@copilotkit/react-core/v2";
@@ -23,6 +23,19 @@ afterEach(() => {
   cleanup();
   capturedRuntime = null;
 });
+
+function SurfaceHarness() {
+  const [runActive, setRunActive] = useState(true);
+  const [, setTick] = useState(0);
+  return (
+    <>
+      <IpixGenerativeComparisonSurface runActive={runActive} />
+      <button data-testid="end-run" onClick={() => setRunActive(false)}>end run</button>
+      <button data-testid="force-rerender" onClick={() => setTick((n) => n + 1)}>rerender</button>
+      <Probe />
+    </>
+  );
+}
 
 describe("native GenUI provider and surface integration", () => {
   it("registers the real named Surface with its component allowlist and renders the fallback", async () => {
@@ -167,23 +180,40 @@ describe("native GenUI provider and surface integration", () => {
     expect(screen.getByText("Recovered concepts")).toBeTruthy();
     expect(screen.queryByTestId("genui-comparison-recovery")).toBeNull();
 
-    // A ready surface that omits its root entirely is also a recoverable failure.
+    // A rejected update on the same live surface keeps the previous root in
+    // the model but must hide it from the operator behind the recovery state.
     act(() => {
-      manager.setActiveThread("rootless-thread");
-      manager.ingest("rootless-thread", "default", {
-        surfaceId: "no-root",
+      manager.ingest("different-thread", "default", {
+        surfaceId: badId,
         catalogId: ipixGenerativeUI.id,
         target: "planner-comparison",
         status: "ready",
         rejected: [],
         operations: [{
           version: A2UI_VERSION,
-          createSurface: { surfaceId: "no-root", catalogId: ipixGenerativeUI.id },
+          updateComponents: {
+            surfaceId: badId,
+            components: [
+              {
+                id: GENERATIVE_UI_ROOT_ID,
+                component: "ConceptComparison",
+                title: "Recovered concepts",
+                options: [
+                  { name: "Editorial", rationale: "Natural styling." },
+                  { name: "Studio", rationale: "Controlled lighting." },
+                ],
+              },
+              { id: "bad-child", component: "Map" },
+            ],
+          },
         }],
       });
     });
     expect(screen.getByTestId("genui-comparison-recovery").textContent).toContain("comparison");
-    expect(screen.queryByText("Recovered concepts")?.closest("[hidden]")).not.toBeNull();
+    // The manager drops the rejected root entirely, so there is no stale node
+    // to hide here. The interruption regression below covers the hidden-prior-
+    // root case where the root still exists.
+    expect(screen.queryByText("Recovered concepts")).toBeNull();
     expect(manager.getMountedTargets().some((target) => target.id === "planner-comparison")).toBe(true);
 
   });
@@ -272,4 +302,88 @@ describe("native GenUI provider and surface integration", () => {
     expect(screen.getByTestId("genui-comparison-recovery").textContent).toContain("comparison");
     expect(screen.queryByTestId("genui-concept-comparison")).toBeNull();
   });
+  it("keeps interruption recovery across an unrelated render until the surface recovers", async () => {
+    render(
+      <CopilotKit
+        runtimeUrl="/api/copilotkit"
+        useSingleEndpoint={false}
+        showDevConsole={false}
+        enableInspector={false}
+        generativeUI={{ ui: ipixGenerativeUI }}
+      >
+        <SurfaceHarness />
+      </CopilotKit>,
+    );
+    await waitFor(() => expect(capturedRuntime).not.toBeNull());
+    const manager = capturedRuntime!.manager;
+
+    act(() => {
+      manager.setActiveThread("interrupted-render-thread");
+      manager.ingest("interrupted-render-thread", "default", {
+        surfaceId: "interrupted-render-1",
+        catalogId: ipixGenerativeUI.id,
+        target: "planner-comparison",
+        status: "streaming",
+        rejected: [],
+        operations: [
+          {
+            version: A2UI_VERSION,
+            createSurface: { surfaceId: "interrupted-render-1", catalogId: ipixGenerativeUI.id },
+          },
+          {
+            version: A2UI_VERSION,
+            updateComponents: {
+              surfaceId: "interrupted-render-1",
+              components: [{
+                id: GENERATIVE_UI_ROOT_ID,
+                component: "ConceptComparison",
+                title: "Interrupted concepts",
+                options: [
+                  { name: "Studio", rationale: "Controlled lighting." },
+                  { name: "Outdoor", rationale: "Natural backgrounds." },
+                ],
+              }],
+            },
+          },
+        ],
+      });
+    });
+
+    act(() => screen.getByTestId("end-run").click());
+    await waitFor(() => expect(screen.getByTestId("genui-comparison-recovery")).toBeTruthy());
+    const hiddenInterruptedTitle = screen.getByText("Interrupted concepts");
+    expect(hiddenInterruptedTitle.closest("[hidden]")).not.toBeNull();
+
+    // An unrelated render must not drop the recovery state while the surface
+    // still reports "streaming".
+    act(() => screen.getByTestId("force-rerender").click());
+    expect(screen.getByTestId("genui-comparison-recovery")).toBeTruthy();
+
+    act(() => {
+      manager.ingest("interrupted-render-thread", "default", {
+        surfaceId: "interrupted-render-1",
+        catalogId: ipixGenerativeUI.id,
+        target: "planner-comparison",
+        status: "ready",
+        rejected: [],
+        operations: [{
+          version: A2UI_VERSION,
+          updateComponents: {
+            surfaceId: "interrupted-render-1",
+            components: [{
+              id: GENERATIVE_UI_ROOT_ID,
+              component: "ConceptComparison",
+              title: "Recovered after interruption",
+              options: [
+                { name: "Studio", rationale: "Controlled lighting." },
+                { name: "Outdoor", rationale: "Natural backgrounds." },
+              ],
+            }],
+          },
+        }],
+      });
+    });
+    await waitFor(() => expect(screen.queryByTestId("genui-comparison-recovery")).toBeNull());
+  });
+
 });

@@ -53,11 +53,14 @@ test.describe("GenUI real-model Surface", () => {
       });
     } catch (error) {
       const runResponse = await runResponsePromise;
-      if (!runResponse || runResponse.status() === 429 || runResponse.status() >= 500) {
-        test.skip(
-          true,
-          "Model provider unavailable or rate-limited; this is an external-service outage, not a GenUI failure.",
-        );
+      // A missing response or an application 5xx is a real failure. Only a
+      // provider-specific rate-limit payload is an external outage.
+      if (runResponse?.status() === 429) {
+        const body = await runResponse.text().catch(() => "");
+        if (/rate_limit_exceeded|insufficient_quota|overloaded_error/.test(body)) {
+          test.skip();
+          return;
+        }
       }
       throw error;
     }

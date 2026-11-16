@@ -642,6 +642,16 @@ function ProductionCopilotPanel({
   const [chatReady, setChatReady] = useState(false);
   const { agent } = useAgent({ agentId: "default" });
   const { copilotkit } = useCopilotKit();
+  // A Brand/Shoot change must stop the old run before its late activities can
+  // reach the manager. The Surface clears the old target; abortRun prevents a
+  // still-streaming run from publishing into the new scope.
+  const previousPlannerScope = useRef(plannerContext?.scopeKey ?? "workspace");
+  useEffect(() => {
+    const scope = plannerContext?.scopeKey ?? "workspace";
+    if (previousPlannerScope.current === scope) return;
+    if (agent.isRunning) agent.abortRun();
+    previousPlannerScope.current = scope;
+  }, [agent, plannerContext?.scopeKey]);
   const { runFailure, dismiss: dismissRunFailure } = useAgentRunError(agent);
   // Synchronous, local guard — agent.isRunning is only as fresh as the last
   // render, so two clicks inside the same event-loop turn (before a real

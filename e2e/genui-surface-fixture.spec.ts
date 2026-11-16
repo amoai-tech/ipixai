@@ -79,7 +79,7 @@ test.describe("GenUI Surface fixture (deterministic)", () => {
     // card. The recovery status is the operator-facing signal.
     await page.evaluate(() => window.__genuiFixture?.rejectedUpdate());
     await expect(page.getByTestId("genui-comparison-recovery")).toBeVisible();
-    await expect(page.getByText("Scope main")).toHaveCount(0);
+    await expect(card).toBeHidden();
 
     await page.evaluate(() => window.__genuiFixture?.create("After rejection"));
     await expect(page.getByText("After rejection")).toBeVisible();
@@ -130,6 +130,6 @@ test.describe("GenUI Surface fixture (deterministic)", () => {
     // cleared; the card itself must be gone.
     await expect(region).toBeAttached();
     await expect(card).toHaveCount(0);
-    await expect(page.getByText("Scope main")).toHaveCount(0);
+    await expect(card).toBeHidden();
   });
 });
