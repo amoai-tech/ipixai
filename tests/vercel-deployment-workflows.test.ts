@@ -443,7 +443,28 @@ describe("IPI-1229 Vercel deployment ownership", () => {
     expect(source).toMatch(/^ {2}workflow_dispatch:\s*$/m);
     expect(source).not.toMatch(/^ {2}push:/m);
     expect(source).not.toMatch(/^ {2}pull_request:/m);
-    expect(source).toContain("node scripts/check-vercel-deployment-governance.mjs");
+    const workflow = parseYaml(source) as {
+      jobs: Record<string, {
+        if?: string;
+        environment?: string;
+        env?: Record<string, string>;
+        steps?: Array<{ name?: string; run?: string; env?: Record<string, string> }>;
+      }>;
+    };
+    const audit = workflow.jobs.audit;
+    const productionPolicy = workflow.jobs["production-policy"];
+    expect(audit.environment).toBe("Governance");
+    expect(audit.environment).not.toBe("Production");
+    expect(audit.if).toBe("github.ref == 'refs/heads/main'");
+    expect(audit.env?.VERCEL_TOKEN).toBeUndefined();
+    const auditStep = audit.steps?.find((step) => step.name === "Check Vercel deployment count and ownership");
+    expect(auditStep?.run).toBe("node scripts/check-vercel-deployment-governance.mjs");
+    expect(auditStep?.env?.VERCEL_TOKEN).toBe("${{ secrets.VERCEL_TOKEN }}");
+    expect(productionPolicy.environment).toBeUndefined();
+    expect(productionPolicy.env?.VERCEL_TOKEN).toBeUndefined();
+    expect(productionPolicy.steps?.some((step) =>
+      step.run === "node scripts/check-production-environment.mjs",
+    )).toBe(true);
     expect(source).toContain("VERCEL_MAX_DEPLOYMENTS_24H: \"3\"");
   });
 

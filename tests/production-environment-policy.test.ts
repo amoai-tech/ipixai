@@ -114,15 +114,21 @@ describe("IPI-1091 protected Production approval configuration", () => {
     }
   });
 
-  it("also checks live approval settings in the existing scheduled governance workflow", () => {
+  it("also checks live approval settings in a tokenless scheduled governance job", () => {
     const y = parseYaml(readFileSync(".github/workflows/vercel-governance.yml", "utf8"));
     expect(y.on.schedule).toHaveLength(1);
-    const steps = y.jobs.audit.steps as Array<{ name?: string; run?: string }>;
-    const guard = steps.findIndex(s => s.name === "Verify Production approval policy has not drifted");
-    const count = steps.findIndex(s => s.name === "Check Vercel deployment count and ownership");
-    expect(guard).toBeGreaterThanOrEqual(0);
-    expect(count).toBeGreaterThan(guard);
-    expect(steps[guard].run).toBe("node scripts/check-production-environment.mjs");
+    const productionPolicy = y.jobs["production-policy"];
+    expect(productionPolicy.environment).toBeUndefined();
+    expect(productionPolicy.env?.VERCEL_TOKEN).toBeUndefined();
+    const policySteps = productionPolicy.steps as Array<{ name?: string; run?: string }>;
+    const guard = policySteps.find(s => s.name === "Verify Production approval policy has not drifted");
+    expect(guard?.run).toBe("node scripts/check-production-environment.mjs");
+
+    const audit = y.jobs.audit;
+    expect(audit.environment).toBe("Governance");
+    expect(audit.if).toBe("github.ref == 'refs/heads/main'");
+    const auditSteps = audit.steps as Array<{ name?: string; run?: string }>;
+    expect(auditSteps.some(s => s.name === "Check Vercel deployment count and ownership")).toBe(true);
   });
 
   it("checks the policy before any Vercel pull/build/staging or paid AI QA", () => {
