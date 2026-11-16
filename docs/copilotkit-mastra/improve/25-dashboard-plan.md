@@ -33,6 +33,38 @@ Status names are live Linear readings on 2026-11-16; code is inspected origin/ma
 
 **Important data clarification:** on 2026-11-16 Supabase contains project-wide assets, CRM records, shoots and plans, but the screenshot's QA organization has 2 brands/0 shoots and appears to have no connected assets/plans. Do not display project-wide totals as the signed-in org's data; do not transfer Acme Corp sample data between orgs. No production seeding in this task.
 
+## 2.0 Live foundation corrections and ordered release gates — November 16, 2026
+
+**Latest verified truth:** `origin/main` `016e5885`, CopilotKit 1.85.0/Mastra 1.82.0; PR #343 head `36582ece` now has **zero unresolved inline review threads** and passing build/security/Playwright checks, but GitHub still reports `CHANGES_REQUESTED`. PR #350 is documentation only. Older thread counts and commit IDs below are historical audit snapshots, not current merge claims.
+
+**Dependency correction:** 1387 (catalog) → 1426 (transport) and 1427 (named Surface, integrated with transport) → 1428 (live bound state) → 1429 (local-only user action) → 1430 (shared release certification). In particular, 1387 and 1426 must **not** depend on downstream 1430; the certification task consumes their evidence. Native domain pages proceed independently.
+
+### Step G1 — IPI-1387 · Keep the catalog restricted
+**Destination:** `src/lib/copilotkit/ipix-generative-ui.tsx`, `src/lib/copilotkit/ipix-standard-catalog-policy.ts`.
+**Reference — REFERENCE ONLY:** https://docs.copilotkit.ai/generative-ui/components/catalogs → `createGenerativeUI` and typed props. **Reference — ADAPT LATER:** https://docs.copilotkit.ai/generative-ui/components/standard-catalog → `standardUI.omit([...])` only when a consuming task needs approved standard components. **Use:** existing `ConceptComparison`; **do not copy:** all 69 renderers or demo data. **Verify:** catalog-policy/schema tests, forbidden Map rejection, typecheck. **PASS:** one bounded catalog. **STOP:** unknown component or API mismatch.
+
+### Step G2 — IPI-1426 · Certify the existing Mastra transport
+**Destination:** `src/app/api/copilotkit/[[...slug]]/route.ts`, `src/mastra/planner-tool-gate.ts`; PR #343 `e2e/planner-genui-surface.spec.ts`.
+**Reference — ADAPT:** https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra → existing AG-UI / Mastra pattern. **Reference — REFERENCE ONLY:** https://docs.copilotkit.ai/generative-ui/a2ui → A2UI 1.0 ops. **Use:** current in-process authenticated Planner; **do not copy:** second runtime, browser-tenancy or demo storage. **Verify:** exact-SHA hosted model card, malformed rejection, Stop/replay, Org A/B. **PASS:** trace and screenshot; **STOP:** fixture-only proof.
+
+### Step G3 — IPI-1427 · Keep one named and safe Surface
+**Destination:** `src/components/operator-panel/ipix-generative-surface.tsx`; PR #343 `src/lib/copilotkit/genui-activity-persist.ts` and `src/mastra/thread-persistence.ts`.
+**Reference — ADAPT:** https://docs.copilotkit.ai/generative-ui/components/surfaces → named target `id`, allowlisted `components`, fallback. **Use:** existing `planner-comparison`; **do not copy:** nine new page Surfaces. **Verify:** current-head 1440/390 lifecycle, scope/thread switching, incorrect Surface ID, exact deletion identity, replay/recovery. **PASS:** approved PR and browser proof; **STOP:** stale card or pending requested review.
+
+### Step G4 — IPI-1428 · Show authorized live Shoot data
+**Destination:** `src/lib/copilotkit/ipix-generative-ui.tsx`, `src/components/operator-panel/operator-panel.tsx`.
+**Reference — ADAPT:** https://docs.copilotkit.ai/generative-ui/components/state-and-actions → catalog `state`, `bind`, `writable`, `useGenerativeUIState`. **Use:** authorized `PlannerContext.shoot.targetChannels` and one operator-owned unsaved field; **do not copy:** shopping cart or database writes. **Verify:** correct values, preserved user edit on rerender, reset on active thread AND scope change, Cancel=zero writes, Org A/B denied. **PASS:** typed, source-grounded local binding. **STOP:** unverified Shoot scope.
+
+### Step G5 — IPI-1429 · Add only a user-activated local action
+**Destination:** `src/lib/copilotkit/ipix-generative-ui.tsx`, existing comparison renderer.
+**Reference — ADAPT:** https://docs.copilotkit.ai/generative-ui/components/state-and-actions → `functions`, `allowedCallers: "rendererOnly"`, `requiresUserActivation: true`, `useGenerativeUIFunction` (verify installed types). **Use:** bounded `selectConcept` local selection; **do not copy:** demo checkout, model-triggered side effects or approval controls. **Verify:** click/keyboard, forged/duplicate choice, zero network/DB writes; existing `src/components/shoot/shoot-plan-review-hitl.tsx` approvals unchanged. **PASS:** reversible local selection. **STOP:** auto-write.
+
+### Step G6 — IPI-1430 · Evidence-based release gate
+**Destination:** PR #343 `e2e/genui-surface-fixture.spec.ts`, `e2e/planner-genui-surface.spec.ts`, existing approval/tenant E2E.
+**Reference — REFERENCE ONLY:** https://docs.copilotkit.ai/generative-ui/components and https://docs.copilotkit.ai/generative-ui/components/surfaces → renderer lifecycle/rejection. **Use:** current Playwright/CI only; **do not copy:** alternate test framework. **Verify:** independent approval replacing `CHANGES_REQUESTED`, exact-head green CI, authenticated hosted model, cross-org negative, Stop/replay, 390px, accessibility, rollback, post-merge readback. **PASS:** evidence linked to PR and Linear. **STOP:** no Done or rollout from local unit/fixture proof alone.
+
+**Scope:** PR #350 changes documentation, not production code. State/actions belong in focused implementation branches and require their own test results and approvals.
+
 ## 2. Foundation tasks — update/finish existing Linear, do not recreate
 
 | Task | Live status | Correction / smallest remaining outcome | PASS evidence |
@@ -387,7 +419,7 @@ UX rules: 1440/1024/768/390 widths; no horizontal overflow; 44px+ tap targets wh
 
 **Do not run a blind all-issues script.** Take one task at a time on a clean isolated worktree. Start with exact live Linear ID, read `AGENTS.md` and `.claude/skills/tasks/SKILL.md` + relevant CopilotKit/Mastra/Supabase/domain skills; run Graphify targeted call graph; verify actual versions/types, current GitHub PRs and CI; compare code against official example symbol and pin upstream SHA. Record `Current truth → smallest gap → owner file → reference + no-copy boundary → test → checkpoint`. If the scope is already covered, update task with the proof and skip code. Use `npm ci` in clean worktree, not dirty checkout.
 
-For each independent task: implement smallest code change, targeted test first; then typecheck/lint and `npm run floor` when relevant and safe; run Playwright authenticated journeys and mobile. Browser proof with real data must show Org A/B negative, current Brand/thread, failure recovery, AI disabled behavior, and exact approval/write readback when appropriate. Commit/push to a **new task branch**, open a draft PR with proof and pinned references, get independent review, correct actionable comments, then request **human approval before merge**. Certify exact deployed SHA and update Linear status only when evidence supports it.
+For each independent task: implement smallest code change, targeted test first; then typecheck and the existing GitHub CI floor checks (there is no `npm run floor` script); run Playwright authenticated journeys and mobile. Browser proof with real data must show Org A/B negative, current Brand/thread, failure recovery, AI disabled behavior, and exact approval/write readback when appropriate. Commit/push to a **new task branch**, open a draft PR with proof and pinned references, get independent review, correct actionable comments, then request **human approval before merge**. Certify exact deployed SHA and update Linear status only when evidence supports it.
 
 **Build order with strongest return on effort:** (A) shared GenUI proof and certification in parallel with (B) five native empty dashboards; then (C) targeted native improvements in Shoots/Brands/Plans; then (D) per-page GenUI cards. Keep existing IPI-1066/1067/1074 Done issues Done and create no replacement for them. Use IPI-1076 existing Dashboard Design epic as the umbrella, not a new duplicate epic.
 
@@ -413,7 +445,7 @@ For each independent task: implement smallest code change, targeted test first; 
 
 1. **IPI-1387, Component Catalog — implemented pilot / acceptance pending.** Main src/lib/copilotkit/ipix-generative-ui.tsx contains one qualitative ConceptComparison; src/lib/copilotkit/ipix-standard-catalog-policy.ts intentionally defers all 69 standard components. Do not enable them wholesale. Official https://docs.copilotkit.ai/generative-ui/components/standard-catalog ; verify Zod allowlist and unsupported component rejection.
 2. **IPI-1426, A2UI Transport — partial / PR-only advanced proof.** Main src/app/api/copilotkit/[[...slug]]/route.ts and planner-tool-gate.ts provide existing runtime. PR #343 adds A2UI capture/persistence, not yet merged. Verify exact-SHA hosted model rendering and stream Stop.
-3. **IPI-1427, Generative UI Surface — review blocked.** Main ipix-generative-surface.tsx has one planner-comparison target, not certified availability across all pages. PR #343 has six unresolved review threads and CHANGES_REQUESTED at audit despite green local fixture/browser tests. Fix credible review findings before merging.
+3. **IPI-1427, Generative UI Surface — review blocked.** Main ipix-generative-surface.tsx has one planner-comparison target, not certified availability across all pages. Previously six threads were unresolved; on current PR #343 head `36582ece` **zero** are unresolved. The `CHANGES_REQUESTED` review still requires an approving reviewer decision; confirm latest-head safety tests before merge.
 4. **IPI-1428, Live State — missing.** Main src has no useGenerativeUIState. Add one authorized shoot targetChannels binding, one user-owned unsaved field, and reset on both scopeKey and active thread. Prove cancel causes zero writes.
 5. **IPI-1429, Safe Actions — missing.** Main catalog has zero GenUI functions. Implement only a renderer-only, user-activated selectConcept with exact argument validation. Reuse shoot-plan-review-hitl.tsx for consequential human approval; never grant A2UI buttons direct commit powers.
 6. **IPI-1430, Production Certification — blocked.** PR #343 E2E files do not exist on main; they must be merged and reviewed before calling them shipped. Require exact-head authenticated preview, Org A/B, Stop/replay/reconnect, errors, 390px, HITL and rollback evidence.
@@ -436,7 +468,7 @@ For each independent task: implement smallest code change, targeted test first; 
 - **HIGH review question, deletion identity:** src/mastra/thread-persistence.ts lines 266–276 allows null activity without required surfaceId; current collector normally supplies ID, but helper is exported. Reject missing/foreign/stale ID on deletion/rejection unless a proven safe migration requires it. Add negative tests.
 - **MEDIUM observability:** genui-activity-persist.ts lines 116–122 silently disables collector after 256 KB. Keep bound but add privacy-safe diagnostic, no model contents or secrets in logs.
 - **REVIEW, not automatically a defect:** thread-persistence.ts lines 250–258 uses JSON.stringify tail dedupe; test reordered object keys and replay before replacing. genui-activity-persist.ts line 116 handles CRLF/newline but not bare CR; prove the actual transport expectation before changing. Missing old scopeKey is intentionally fail-closed, so do not default missing Brand history to workspace.
-- These are six unresolved reviewer-thread areas, not six proven security exploits. Track actionable resolutions, exact fix commits and tests in https://github.com/amoai-tech/ipixai/pull/343 .
+- Those were six previously unresolved reviewer-thread areas; they are now resolved, not six proven security exploits. Track actionable resolutions, exact fix commits and tests in https://github.com/amoai-tech/ipixai/pull/343 .
 
 ### 9.4 Services and settings: only change when task consumes them
 
@@ -458,4 +490,4 @@ For each independent task: implement smallest code change, targeted test first; 
 - [ ] Targeted tests and typecheck pass; GitHub checks pass; no unresolved actionable threads; hosted authenticated exact-SHA production/preview journey recorded; human-approved merge and rollback.
 - [ ] Linear status/evidence updated only after actual proof, not because an audit report or PR was created.
 
-**Final audit decision:** Native dashboards can proceed in parallel. Shared GenUI enhancements cannot claim production certification while PR #343 has requested changes or IPI-1428/1429 are unimplemented. Prioritize solving the smallest real code/authorization gaps, not creating more architectural layers.
+**Final audit decision:** Native dashboards can proceed in parallel. Shared GenUI enhancements cannot claim production certification while PR #343 still has an active `CHANGES_REQUESTED` review or IPI-1428/1429 are unimplemented. Prioritize solving the smallest real code/authorization gaps, not creating more architectural layers.
