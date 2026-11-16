@@ -32,7 +32,7 @@ describe("native GenUI provider and surface integration", () => {
         agentId="default"
         useSingleEndpoint={false}
         enableInspector={false}
-        generativeUI={{ ui: ipixGenerativeUI }}
+        generativeUI={{ ui: ipixGenerativeUI, agentIds: ["default"] }}
       >
         <IpixGenerativeComparisonSurface />
         <Probe />
@@ -193,7 +193,7 @@ describe("native GenUI provider and surface integration", () => {
         agentId="default"
         useSingleEndpoint={false}
         enableInspector={false}
-        generativeUI={{ ui: ipixGenerativeUI }}
+        generativeUI={{ ui: ipixGenerativeUI, agentIds: ["default"] }}
       >
         <IpixGenerativeComparisonSurface />
         <Probe />
@@ -229,7 +229,7 @@ describe("native GenUI provider and surface integration", () => {
         agentId="default"
         useSingleEndpoint={false}
         enableInspector={false}
-        generativeUI={{ ui: ipixGenerativeUI }}
+        generativeUI={{ ui: ipixGenerativeUI, agentIds: ["default"] }}
       >
         <IpixGenerativeComparisonSurface />
         <Probe />
