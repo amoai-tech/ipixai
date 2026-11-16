@@ -144,14 +144,16 @@ export class GenUIActivityCollector {
     const content = this.activities.get(surfaceId);
     if (!content) return { kind: "none" };
     const operations = Array.isArray(content.operations) ? content.operations : [];
+    if (!Array.isArray(content.rejected)) return { kind: "none" };
+    if (content.rejected.length > 0) {
+      return { kind: "rejected", surfaceId };
+    }
     if (operations.some((op) => {
       const row = op && typeof op === "object" ? op as Record<string, unknown> : null;
       const deletion = row?.deleteSurface;
       return deletion && typeof deletion === "object" &&
         (deletion as { surfaceId?: unknown }).surfaceId === surfaceId;
     })) return { kind: "delete", surfaceId };
-    if (!Array.isArray(content.rejected)) return { kind: "none" };
-    if (content.rejected.length > 0) return { kind: "rejected", surfaceId };
     if (content.status !== "ready") return { kind: "none" };
     const activity = normalizePlannerGenUIActivity({
       target: content.target,
@@ -279,9 +281,10 @@ export function capturePlannerGenUIStream(
   const decoder = new TextDecoder();
   const collector = new GenUIActivityCollector();
   let finished = false;
+  let cancelled = false;
 
   const finish = async () => {
-    if (finished) return;
+    if (cancelled || finished) return;
     finished = true;
     collector.push(decoder.decode());
     const final = collector.finish();
@@ -299,6 +302,9 @@ export function capturePlannerGenUIStream(
     async pull(controller) {
       try {
         const { done, value } = await reader.read();
+        // reader.read() may resolve to done:true because cancel() closed the
+        // upstream stream, not because the model completed successfully.
+        if (cancelled) return;
         if (done) {
           await finish();
           controller.close();
@@ -311,6 +317,7 @@ export function capturePlannerGenUIStream(
       }
     },
     async cancel(reason) {
+      cancelled = true;
       await reader.cancel(reason).catch(() => undefined);
     },
   });

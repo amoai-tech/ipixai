@@ -168,6 +168,26 @@ describe("GenUIActivityCollector", () => {
     expect(errored.finish().kind).toBe("none");
   });
 
+  it("does not treat a rejected delete operation as an accepted deletion", () => {
+    const collector = new GenUIActivityCollector();
+    collector.push(snapshot({
+      surfaceId: "comparison-1",
+      target: "planner-comparison",
+      catalogId: "ipix/planner@1",
+      operations: [
+        create, update,
+        { version: "1.0", deleteSurface: { surfaceId: "comparison-1" } },
+      ],
+      status: "ready",
+      rejected: [{ index: 2, reason: "not accepted" }],
+    }));
+    collector.push(finished());
+    expect(collector.finish()).toMatchObject({
+      kind: "rejected",
+      surfaceId: "comparison-1",
+    });
+  });
+
   it("records a delete only for the planner surface", () => {
     const deleted = new GenUIActivityCollector();
     deleted.push(snapshot({
@@ -185,6 +205,26 @@ describe("GenUIActivityCollector", () => {
 });
 
 describe("capturePlannerGenUIStream", () => {
+  it("does not save a ready activity when the client cancels during a pending read", async () => {
+    const encoded = new TextEncoder().encode(acceptedSse());
+    const upstreamCancel = vi.fn();
+    const response = new Response(new ReadableStream<Uint8Array>({
+      start(controller) { controller.enqueue(encoded); },
+      cancel: upstreamCancel,
+      // Keep the underlying source open so a subsequent reader.read() waits.
+    }), { headers: { "content-type": "text/event-stream" } });
+    const save = vi.fn(async () => undefined);
+    const captured = capturePlannerGenUIStream(response, { save });
+    const reader = captured.body!.getReader();
+    const first = await reader.read();
+    expect(first.done).toBe(false);
+    await reader.cancel("operator stopped");
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(upstreamCancel).toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it("passes SSE bytes through unchanged and persists the accepted activity", async () => {
     const payload = acceptedSse();
     const encoded = new TextEncoder().encode(payload);
