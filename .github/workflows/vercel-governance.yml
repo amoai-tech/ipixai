@@ -40,9 +40,12 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
   production-policy:
-    # Run the Production protection guard without Governance approval/token.
+    # Read GitHub settings with a scoped Actions token; no Governance/Vercel token.
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -56,6 +59,8 @@ jobs:
       # Reference — REFERENCE ONLY: https://docs.github.com/en/rest/deployments/environments
       - name: Verify Production approval policy has not drifted
         run: node scripts/check-production-environment.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   alert-on-audit-failure:
     needs: audit

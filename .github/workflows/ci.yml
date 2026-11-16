@@ -1017,6 +1017,7 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
+      actions: read
     concurrency:
       group: vercel-production
       cancel-in-progress: false
@@ -1082,6 +1083,8 @@ jobs:
       - name: Verify required Production environment reviewers
         if: steps.latest.outputs.deploy == 'true'
         run: node scripts/check-production-environment.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Require Vercel deployment credential
         id: credentials
