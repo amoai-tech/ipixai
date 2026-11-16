@@ -143,23 +143,27 @@ async function handleCopilot(request: Request) {
     response = capturePlannerGenUIStream(response, {
       save: async (change) => {
         const memory = await getPlannerMemory();
-        if (!memory) return;
+        if (!memory) throw new Error("planner.genui.memory_unavailable");
+        let saved: boolean;
         if (change.kind === "activity") {
-          await savePlannerGenUIActivity(memory, {
+          saved = await savePlannerGenUIActivity(memory, {
             threadId, resourceId, scopeKey, activity: change.activity,
           });
         } else if (change.kind === "update") {
-          await savePlannerGenUIActivity(memory, {
+          saved = await savePlannerGenUIActivity(memory, {
             threadId, resourceId, scopeKey,
             update: { surfaceId: change.surfaceId, operations: change.operations },
           });
         } else {
-          await savePlannerGenUIActivity(memory, {
+          saved = await savePlannerGenUIActivity(memory, {
             threadId, resourceId, scopeKey,
             activity: null, surfaceId: change.surfaceId,
             reason: change.kind === "rejected" ? "rejected" : "delete",
           });
         }
+        // A false result means the activity was NOT saved: propagate the
+        // failure to the stream's privacy-safe diagnostic, never claim durability.
+        if (!saved) throw new Error("planner.genui.persist_unsaved");
       },
     });
   }

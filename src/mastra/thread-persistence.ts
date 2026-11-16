@@ -1,10 +1,13 @@
 import { isDeepStrictEqual } from "node:util";
+import type { Pool } from "pg";
 import type { MastraMemory } from "@mastra/core/memory";
 import type { A2UIOperation } from "@copilotkit/shared";
 
 import { getMastra } from "@/mastra/runtime";
 import type { PlannerChatMessage, PlannerThreadRow } from "@/mastra/thread-types";
 import { asRecord, normalizePlannerGenUIActivity, type PlannerGenUIActivity } from "./planner-genui-activity";
+import { getMastraPgPool, requireMastraPostgresUrl } from "./pg-store";
+import { writePlannerGenUIKey } from "./planner-genui-atomic-save";
 
 export type { PlannerChatMessage, PlannerThreadRow };
 
@@ -145,66 +148,88 @@ export async function savePlannerGenUIActivity(
     | { activity: PlannerGenUIActivity | null; surfaceId?: string; reason?: "rejected" | "delete" }
     | { update: { surfaceId: string; operations: A2UIOperation[] } }
   ),
+  options?: { pool?: Pick<Pool, "connect"> },
 ): Promise<boolean> {
-  const thread = await findMastraThread(memory, input.threadId);
-  if (!thread || thread.resourceId !== input.resourceId) return false;
-  const existing = thread.metadata && typeof thread.metadata === "object"
-    ? thread.metadata
-    : {};
-  const previous = normalizePlannerGenUIActivity(existing[GENUI_METADATA_KEY]);
-  const scopeKey = input.scopeKey ?? "workspace";
-  let stored: PlannerGenUIActivity | {
-    deleted: true;
-    scopeKey: string;
-    reason: "rejected" | "delete";
-  };
-  if ("update" in input) {
-    if (!previous || previous.scopeKey !== scopeKey ||
-      previous.surfaceId !== input.update.surfaceId ||
-      input.update.operations.length === 0) return false;
-    // A replayed duplicate delta must not keep appending the same operations.
-    const tail = previous.operations.slice(-input.update.operations.length);
-    const identical = isDeepStrictEqual(tail, input.update.operations);
-    const merged = identical ? previous.operations :
-      [...previous.operations, ...input.update.operations];
-    stored = normalizePlannerGenUIActivity({
-      ...previous,
-      operations: merged,
-    }) ?? { deleted: true, scopeKey, reason: "rejected" };
-  } else if (input.activity) {
-    const validated = normalizePlannerGenUIActivity({
-      ...input.activity,
-      scopeKey,
-    });
-    if (!validated) return false;
-    stored = validated;
-  } else {
-    // A delete/rejection must address the exact currently stored surface.
-    // No wildcard scope-level deletes: a missing ID cannot erase a card.
-    if (!input.surfaceId || !previous || previous.scopeKey !== scopeKey ||
-      previous.surfaceId !== input.surfaceId) return false;
-    stored = {
-      deleted: true,
-      scopeKey,
-      reason: input.reason === "rejected" ? "rejected" : "delete",
+  // Production always takes the existing guarded Mastra pool, never a second pool.
+  // Injection is exclusively for the isolated PostgreSQL integration test.
+  const url = options?.pool ? undefined : requireMastraPostgresUrl();
+  const pool = options?.pool ?? (url ? getMastraPgPool(url) : undefined);
+  for (let attempt = 0; attempt < (pool ? 3 : 1); attempt += 1) {
+    const thread = await findMastraThread(memory, input.threadId);
+    if (!thread || thread.resourceId !== input.resourceId) return false;
+    const existing = thread.metadata && typeof thread.metadata === "object"
+      ? thread.metadata
+      : {};
+    const previous = normalizePlannerGenUIActivity(existing[GENUI_METADATA_KEY]);
+    const scopeKey = input.scopeKey ?? "workspace";
+    let stored: PlannerGenUIActivity | {
+      deleted: true;
+      scopeKey: string;
+      reason: "rejected" | "delete";
     };
+    if ("update" in input) {
+      if (!previous || previous.scopeKey !== scopeKey ||
+        previous.surfaceId !== input.update.surfaceId ||
+        input.update.operations.length === 0) return false;
+      // A replayed duplicate delta must not keep appending the same operations.
+      const tail = previous.operations.slice(-input.update.operations.length);
+      const identical = isDeepStrictEqual(tail, input.update.operations);
+      const merged = identical ? previous.operations :
+        [...previous.operations, ...input.update.operations];
+      stored = normalizePlannerGenUIActivity({
+        ...previous,
+        operations: merged,
+      }) ?? { deleted: true, scopeKey, reason: "rejected" };
+    } else if (input.activity) {
+      const validated = normalizePlannerGenUIActivity({
+        ...input.activity,
+        scopeKey,
+      });
+      if (!validated) return false;
+      stored = validated;
+    } else {
+      // A delete/rejection must address the exact currently stored surface.
+      // No wildcard scope-level deletes: a missing ID cannot erase a card.
+      if (!input.surfaceId || !previous || previous.scopeKey !== scopeKey ||
+        previous.surfaceId !== input.surfaceId) return false;
+      stored = {
+        deleted: true,
+        scopeKey,
+        reason: input.reason === "rejected" ? "rejected" : "delete",
+      };
+    }
+    try {
+      if (pool) {
+        const written = await writePlannerGenUIKey(pool, {
+          threadId: thread.id,
+          resourceId: input.resourceId,
+          previous: existing[GENUI_METADATA_KEY],
+          next: stored,
+        });
+        if (written) return true;
+        // Only a same-surface delta may be revalidated and appended to the
+        // newly committed version. A full snapshot or delete may be stale;
+        // never replay it over a newer version without a run-order proof.
+        if (!("update" in input)) {
+          console.warn("planner.genui.persist_conflict");
+          return false;
+        }
+        continue;
+      }
+      // In-memory tests retain Mastra's ordinary thread storage behavior.
+      await memory.updateThread({
+        id: thread.id,
+        metadata: { [GENUI_METADATA_KEY]: stored },
+      });
+      return true;
+    } catch {
+      // No model-generated or tenant-derived payloads in production logs.
+      console.error("planner.genui.persist failed");
+      return false;
+    }
   }
-  try {
-    await memory.updateThread({
-      id: thread.id,
-      // Do not provide a possibly stale title from the initial read:
-      // Mastra preserves the existing title when only metadata is updated.
-      // Mastra Postgres updateThread merges partial metadata with the
-      // latest stored row. Passing a whole earlier snapshot would overwrite
-      // unrelated working-memory metadata written after our owner read.
-      metadata: { [GENUI_METADATA_KEY]: stored },
-    });
-    return true;
-  } catch {
-    // No model-generated or tenant-derived payloads in production logs.
-    console.error("planner.genui.persist failed");
-    return false;
-  }
+  console.warn("planner.genui.persist_conflict");
+  return false;
 }
 
 function readPersistedGenUIActivity(

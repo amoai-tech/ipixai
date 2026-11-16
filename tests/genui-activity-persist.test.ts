@@ -289,6 +289,23 @@ describe("capturePlannerGenUIStream", () => {
     expect(save).not.toHaveBeenCalled();
   });
 
+  it("emits a private-safe failure diagnostic when persistence rejects", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const save = vi.fn(async () => { throw new Error("secret payload"); });
+      const response = new Response(acceptedSse(), {
+        headers: { "content-type": "text/event-stream" },
+      });
+      const captured = capturePlannerGenUIStream(response, { save });
+      expect(await captured.text()).toBe(acceptedSse());
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(error).toHaveBeenCalledWith("planner.genui.capture_failed");
+      expect(JSON.stringify(error.mock.calls)).not.toContain("secret payload");
+    } finally {
+      error.mockRestore();
+    }
+  });
+
   it("passes SSE bytes through unchanged and persists the accepted activity", async () => {
     const payload = acceptedSse();
     const encoded = new TextEncoder().encode(payload);
