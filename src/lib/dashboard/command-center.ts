@@ -392,15 +392,26 @@ export type UpcomingShoot = {
 const UPCOMING_SHOOT_LIMIT = 3;
 
 /**
+ * Cutoff date for "upcoming": the calendar date in UTC−12, the earliest
+ * timezone. A shoot whose date is still "today" for a designer anywhere is
+ * never dropped early. The trade-off: for a few hours, users east of UTC may
+ * still see yesterday's shoot.
+ * shortcut: no org/user timezone is stored; switch to the org's timezone once one exists.
+ */
+export function upcomingShootCutoff(now: Date = new Date()): string {
+  return new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/**
  * IPI-1451 · DASH-MAIN-PLAYGROUND-001 — "Upcoming Photoshoots": shoots whose
  * real `start_date` is today or later, soonest first. Same trusted brand-id
  * scope and batch/merge contract as loadOrgShoots; undated shoots are never
- * guessed into the list. `today` (UTC) is injectable for tests.
+ * guessed into the list. `today` defaults to upcomingShootCutoff().
  */
 export async function loadUpcomingShoots(
   supabase: SupabaseClient,
   brandIds: string[],
-  today: string = new Date().toISOString().slice(0, 10),
+  today: string = upcomingShootCutoff(),
 ): Promise<{ ok: true; shoots: UpcomingShoot[] } | { ok: false }> {
   if (brandIds.length === 0) return { ok: true, shoots: [] };
   type Row = { id: string; name: string | null; start_date: string; location: string | null };

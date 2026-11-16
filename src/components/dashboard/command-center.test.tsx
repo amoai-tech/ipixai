@@ -534,6 +534,8 @@ describe("CommandCenter", () => {
     unmount();
     render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} upcomingShootsResult={{ ok: false }} />);
     expect(screen.getByText("Couldn't load upcoming shoots. Please try again shortly.")).toBeDefined();
+    // The status strip never says "ready" above a visible error.
+    expect(screen.queryByText("Workspace ready")).toBeNull();
   });
 
   it("keeps review and moodboard honest: no fabricated items, counts or approvals", () => {

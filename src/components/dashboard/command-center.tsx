@@ -140,7 +140,7 @@ export function CommandCenter({
   // no websocket/realtime signal backs it. This says only what's actually
   // true: whether this request's own reads succeeded — never "ready" while
   // an ErrorState is rendering right below it.
-  const hasLoadError = !brandsResult.ok || !shootsResult.ok;
+  const hasLoadError = !brandsResult.ok || !shootsResult.ok || !upcomingShootsResult.ok;
   // Shoots load org-wide, not scoped to heroBrand — shoots[0] alone could
   // name a different brand's most recent shoot under this brand's hero
   // copy. resolveHeroContext matches on brandId so the hero never implies a

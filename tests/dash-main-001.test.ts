@@ -8,6 +8,7 @@ import {
   loadOrgShoots,
   loadTrustedBrandIds,
   loadUpcomingShoots,
+  upcomingShootCutoff,
 } from "@/lib/dashboard/command-center";
 
 const ORG_A = "aaaaaaaa-0000-4000-8000-000000000001";
@@ -906,6 +907,13 @@ describe("loadUpcomingShoots", () => {
         { id: "s3", name: "Holiday", startDate: "2026-12-03", location: "Studio B" },
       ],
     });
+  });
+
+  it("pins the cutoff to UTC−12 so a shoot still 'today' anywhere is never dropped early", () => {
+    // 16:00 in Los Angeles on Nov 16 is already Nov 17 in UTC; the shoot on Nov 16 must stay.
+    expect(upcomingShootCutoff(new Date("2026-11-17T00:00:00Z"))).toBe("2026-11-16");
+    expect(upcomingShootCutoff(new Date("2026-11-17T11:59:59Z"))).toBe("2026-11-16");
+    expect(upcomingShootCutoff(new Date("2026-11-17T12:00:00Z"))).toBe("2026-11-17");
   });
 
   it("short-circuits to empty with no trusted brands, and fails closed on a query error", async () => {
