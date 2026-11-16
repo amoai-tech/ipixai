@@ -392,3 +392,70 @@ For each independent task: implement smallest code change, targeted test first; 
 **Build order with strongest return on effort:** (A) shared GenUI proof and certification in parallel with (B) five native empty dashboards; then (C) targeted native improvements in Shoots/Brands/Plans; then (D) per-page GenUI cards. Keep existing IPI-1066/1067/1074 Done issues Done and create no replacement for them. Use IPI-1076 existing Dashboard Design epic as the umbrella, not a new duplicate epic.
 
 **Acceptance for task updates:** clear plain-English benefit and example; concise opening 150–250 words; links *inside* consuming steps; exact destination and CODE owner; upstream version and no-copy boundary; dependencies; PASS/STOP; clear evidence status; no fake % readiness. Do not merge separate tasks into a giant implementation PR. This parent document is roadmap not certification.
+
+
+---
+
+## 9. Forensic verification of the 18 Linear tasks — 2026-11-16
+
+**Audit boundary:** clean origin/main 016e5885, PR #343 head 123b9e68, docs PR #350. Read-only live iPix Supabase advisor/policy inspection. No production changes, migrations, payments, uploads, new agents or data seeding. Authenticated production user journeys were not run. All 18 issues received an evidence-specific forensic comment, without changing their statuses or overwriting historical requirements.
+
+### 9.1 Actual local verification
+
+- Clean main: npm ci --ignore-scripts PASS; GenUI/catalog/HITL 31 of 31 targeted tests PASS; Brand/Shoot/Plans/Dashboard/Cloudinary/auth-scoped tests 160 of 160 PASS; TypeScript typecheck PASS.
+- PR #343: GenUI persistence, scope, history and Surface unit tests 60 of 60 PASS; TypeScript typecheck PASS.
+- PR #343: deterministic Playwright Fixture 2/2 PASS on installed system Chrome at desktop 1440 and mobile 390. Only the temporary audit Playwright config changed the executable and removed irrelevant auth storageState for the fixture; it was deleted after the run. The fixture exercises rendering, update, deletion, rejected operations, recovery, interrupt, thread/scope switching and reload. Expected malformed Map components were intentionally rejected.
+- No real-model authenticated hosted Preview / Org A vs B / paid AI-smoke / actual backend mutation was executed here. PR #343 GitHub CI also showed passing build, full Playwright and security jobs at audit, but hosted certification must still target the exact merge candidate.
+- The initially attempted Playwright run failed because the clean worktree lacked bundled Chromium and the ignored auth storageState file. Retrying with system Chrome and no auth fixture dependency passed. Missing .env.test/.env.local warnings remain environment setup warnings, not proof of production failure.
+- No npm run floor script exists in current package.json. The floor is a GitHub CI job; do not invent an npm script or equate its result with authenticated live proof.
+
+### 9.2 Task verdicts — actual owner, blocker, smallest fix
+
+1. **IPI-1387, Component Catalog — implemented pilot / acceptance pending.** Main src/lib/copilotkit/ipix-generative-ui.tsx contains one qualitative ConceptComparison; src/lib/copilotkit/ipix-standard-catalog-policy.ts intentionally defers all 69 standard components. Do not enable them wholesale. Official https://docs.copilotkit.ai/generative-ui/components/standard-catalog ; verify Zod allowlist and unsupported component rejection.
+2. **IPI-1426, A2UI Transport — partial / PR-only advanced proof.** Main src/app/api/copilotkit/[[...slug]]/route.ts and planner-tool-gate.ts provide existing runtime. PR #343 adds A2UI capture/persistence, not yet merged. Verify exact-SHA hosted model rendering and stream Stop.
+3. **IPI-1427, Generative UI Surface — review blocked.** Main ipix-generative-surface.tsx has one planner-comparison target, not certified availability across all pages. PR #343 has six unresolved review threads and CHANGES_REQUESTED at audit despite green local fixture/browser tests. Fix credible review findings before merging.
+4. **IPI-1428, Live State — missing.** Main src has no useGenerativeUIState. Add one authorized shoot targetChannels binding, one user-owned unsaved field, and reset on both scopeKey and active thread. Prove cancel causes zero writes.
+5. **IPI-1429, Safe Actions — missing.** Main catalog has zero GenUI functions. Implement only a renderer-only, user-activated selectConcept with exact argument validation. Reuse shoot-plan-review-hitl.tsx for consequential human approval; never grant A2UI buttons direct commit powers.
+6. **IPI-1430, Production Certification — blocked.** PR #343 E2E files do not exist on main; they must be merged and reviewed before calling them shipped. Require exact-head authenticated preview, Org A/B, Stop/replay/reconnect, errors, 390px, HITL and rollback evidence.
+7. **IPI-1068, Brands — native foundation exists; incomplete user proof.** Actual /app/brands and brand detail routes and tests exist. Keep tenant-safe loaders; verify approved versus draft DNA, sources, mobile and authenticated end-to-end.
+8. **IPI-1354, Brand DNA visual dashboard — Todo still valid.** Build a fact-checked visual Brand profile before AI. External report example https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/a2ui-pdf-analyst/src/a2ui is MODEL only; its A2UI 0.9 wire protocol is not portable to current 1.0.
+9. **IPI-1172, Shoots operational dashboard — backlog still valid.** Existing Shoot list/detail works but needs meaningful upcoming/active/needs-review/completed groups. Modify current route and DAL, no parallel shoot store.
+10. **IPI-1085, Shoot Wizard — partial; stale PR #257 not suitable.** Existing ComposeShootPlanCard + useRenderTool and ShootPlanReviewHitl + useHumanInTheLoop are genuine reusable implementation. Complete native six-step create/approve/save/reopen with exact artifact, revision, server authorization and idempotent readback.
+11. **IPI-1069, Assets — native page missing.** src/app/app/[section]/page.tsx shows ASSETS-001 placeholder. Use dedicated /app/assets route and src/lib/cloudinary/get-authorized-asset-preview.ts with exact version + signed tenant-safe preview.
+12. **IPI-1392, Asset GenUI — blocked on 1069 and 1430.** Local shortlist of two or three approved, authorized asset versions; no model-issued preview URL or implicit approval/publishing.
+13. **IPI-1070, CRM — native page missing.** Generic route shows CRM placeholder despite CRM tables with RLS policies. Reuse existing DAL/RPC before read-only sourced deal card and unsent follow-up draft.
+14. **IPI-1071, Talent — native page missing.** Generic route shows Talent placeholder. Browse actual profiles first; missing availability remains Unknown. Booking requires explicit, conflict-safe review/authorization.
+15. **IPI-1072, Operations — native page missing.** Generic route shows Operations placeholder. Reuse notifications/read-state contracts; source-backed inbox and task linking before AI priorities.
+16. **IPI-1073, Analytics — native page missing.** Generic route shows Analytics placeholder. Build measured metric DTOs with source/time range first; unsupported reach, CTR, ROI and conversions display Unavailable, not zero.
+17. **IPI-1153, Analytics GenUI — blocked by 1073, metric owners and 1430.** Chart values must match authorized typed DTO exactly, independent of model text.
+18. **IPI-1240, Cross-domain Intelligence — backlog needs sequencing.** Extend canonical Planner after each domain loader exists. No second Mastra agent, pgvector search for simple KPI screens, model-authored tenant or Stripe billing tasks.
+
+### 9.3 Exact review-blocking source paths on PR #343
+
+- **HIGH review question, surface identity:** src/lib/copilotkit/genui-activity-persist.ts lines 237–238 prioritizes mapped/inferred Surface ID before event.surfaceId. Verify conflicting IDs cannot associate patches with another Surface; prefer explicit trusted match + reject conflicts; targeted regression first.
+- **HIGH review question, deletion identity:** src/mastra/thread-persistence.ts lines 266–276 allows null activity without required surfaceId; current collector normally supplies ID, but helper is exported. Reject missing/foreign/stale ID on deletion/rejection unless a proven safe migration requires it. Add negative tests.
+- **MEDIUM observability:** genui-activity-persist.ts lines 116–122 silently disables collector after 256 KB. Keep bound but add privacy-safe diagnostic, no model contents or secrets in logs.
+- **REVIEW, not automatically a defect:** thread-persistence.ts lines 250–258 uses JSON.stringify tail dedupe; test reordered object keys and replay before replacing. genui-activity-persist.ts line 116 handles CRLF/newline but not bare CR; prove the actual transport expectation before changing. Missing old scopeKey is intentionally fail-closed, so do not default missing Brand history to workspace.
+- These are six unresolved reviewer-thread areas, not six proven security exploits. Track actionable resolutions, exact fix commits and tests in https://github.com/amoai-tech/ipixai/pull/343 .
+
+### 9.4 Services and settings: only change when task consumes them
+
+- **Supabase:** read-only advisor reports 44 authenticated-callable SECURITY DEFINER findings, six RLS-enabled tables without policies, and public-schema extension warnings. Audit function body/grants/exposure individually. Do not blindly grant permissive policies or relocate vector extension as part of GenUI. https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable
+- **CopilotKit/Mastra:** main versions CopilotKit react-core/runtime 1.85.0, AG-UI Mastra 2.0.2, Mastra core 1.82.0. Keep one existing session-bound runtime, agent, provider, tool gate and HITL. https://docs.copilotkit.ai/generative-ui/components and https://mastra.ai/docs/agents/human-in-the-loop
+- **Vercel keys:** operator-panel.tsx reads NEXT_PUBLIC_COPILOTKIT_PUBLIC_LICENSE_KEY; API route reads server-only COPILOTKIT_LICENSE_TOKEN. Verify set in correct environment during actual preview/deployment failure; no need to add optional managed Intelligence or MASTRA_BASE_URL for in-process Planner.
+- **Cloudinary:** relevant for Assets and image previews. CLOUDINARY_API_SECRET stays server only. Signed exact-version preview and foreign-org denial tests first. https://cloudinary.com/documentation/control_access_to_media
+- **pgvector:** may serve Brand research/retrieval, not ordinary dashboard browse/analytics fact queries. https://supabase.com/docs/guides/ai/vector-columns
+- **Stripe:** none of these 18 tasks adds billing or payment UI; no Stripe keys, SDK or webhook modifications needed. https://docs.stripe.com/webhooks
+
+### 9.5 Production acceptance / release gate
+
+- [ ] Exact main/PR SHA and task owner verified; PR-only feature never described as merged.
+- [ ] Core page works with AI off, real org data, honest loading/error/empty states.
+- [ ] Tenant A/B and forged Brand/Shoot/Asset/Thread negatives; no cross-org preview or replay.
+- [ ] AI-generated comparisons use allowlisted components and trusted measured payloads, not prose-based status, prices or ratios.
+- [ ] Local selection/Cancel causes zero writes. Consequential operations use existing HITL with exact operator-selected artifact, server revalidation, idempotency and readback.
+- [ ] Desktop/tablet/390px, keyboard/focus, refresh, Stop, reconnect and error recovery demonstrated.
+- [ ] Targeted tests and typecheck pass; GitHub checks pass; no unresolved actionable threads; hosted authenticated exact-SHA production/preview journey recorded; human-approved merge and rollback.
+- [ ] Linear status/evidence updated only after actual proof, not because an audit report or PR was created.
+
+**Final audit decision:** Native dashboards can proceed in parallel. Shared GenUI enhancements cannot claim production certification while PR #343 has requested changes or IPI-1428/1429 are unimplemented. Prioritize solving the smallest real code/authorization gaps, not creating more architectural layers.
