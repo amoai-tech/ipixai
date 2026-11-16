@@ -549,6 +549,12 @@ describe("CommandCenter", () => {
     expect(screen.queryByText(/approved|urgent approvals/i)).toBeNull();
   });
 
+  it("shows an unavailable state, not 'No current brand', when the brand lookup fails", () => {
+    render(<CommandCenter brandsResult={{ ok: false }} shootsResult={SHOOTS_OK} />);
+    expect(screen.getByText("Couldn't load your current brand. Please try again shortly.")).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "No current brand" })).toBeNull();
+  });
+
   it("links the current brand card to that brand's own page", () => {
     render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
     const hero = screen.getByTestId("command-center-hero");

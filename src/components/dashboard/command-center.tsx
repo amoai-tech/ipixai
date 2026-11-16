@@ -181,6 +181,9 @@ export function CommandCenter({
         <div className={styles.workspaceGrid}>
           {heroBrand ? (
             <HeroCard brand={heroBrand} recentShootName={recentShootName} />
+          ) : !brandsResult.ok ? (
+            // A failed lookup is not "no brand" — never tell the user to create one.
+            <ErrorState message="Couldn't load your current brand. Please try again shortly." />
           ) : (
             <EmptyState
               heading="No current brand"
