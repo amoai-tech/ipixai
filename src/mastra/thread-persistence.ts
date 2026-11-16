@@ -162,19 +162,89 @@ export async function reservePlannerGenUIRunSequence(): Promise<string> {
   return sequence;
 }
 
-/** Persist only a server-validated, final accepted activity in the existing
- *  thread metadata. Ownership/resource are checked here, not trusted from the
- *  browser. A null activity records a deletion marker so an older message
- *  cannot resurrect a deleted card. */
-/** Save one verified surface per Planner thread. A delta-only update must
+type PlannerGenUISaveInput = {
+  threadId: string;
+  resourceId: string;
+  scopeKey?: string;
+  runSequence?: string;
+} & (
+  | { activity: PlannerGenUIActivity | null; surfaceId?: string; reason?: "rejected" | "delete" }
+  | { update: { surfaceId: string; operations: A2UIOperation[] } }
+);
+
+type PlannerGenUIStored = PlannerGenUIActivity | {
+  deleted: true;
+  scopeKey: string;
+  reason: "rejected" | "delete";
+  surfaceId?: string;
+};
+
+/** Compute a candidate value without altering the existing JSON shape. */
+function buildPlannerGenUIStored(
+  input: PlannerGenUISaveInput,
+  previous: PlannerGenUIActivity | null,
+  existing: Record<string, unknown>,
+  scopeKey: string,
+): PlannerGenUIStored | null {
+  let stored: PlannerGenUIStored;
+  if ("update" in input) {
+    if (!previous || previous.scopeKey !== scopeKey ||
+      previous.surfaceId !== input.update.surfaceId ||
+      input.update.operations.length === 0) return null;
+    // Production uses a DB-reserved run sequence for idempotency; payload
+    // equality is NOT identity (a later run can intentionally revert to X).
+    // Legacy in-memory callers without generations retain tail-only replay
+    // protection rather than incorrectly suppressing nonadjacent edits.
+    const duplicate = input.runSequence === undefined &&
+      isDeepStrictEqual(
+        previous.operations.slice(-input.update.operations.length),
+        input.update.operations,
+      );
+    const merged = duplicate ? previous.operations :
+      [...previous.operations, ...input.update.operations];
+    // Bounded-storage exhaustion is NOT a user-requested deletion. Keep
+    // the last good card and report a failed save instead of persisting a
+    // rejection tombstone for an otherwise valid comparison.
+    if (merged.length > GENUI_MAX_OPERATIONS ||
+        JSON.stringify(merged).length > GENUI_MAX_SERIALIZED_BYTES) return null;
+    stored = normalizePlannerGenUIActivity({
+      ...previous,
+      operations: merged,
+    }) ?? { deleted: true, scopeKey, surfaceId: input.update.surfaceId, reason: "rejected" };
+  } else if (input.activity) {
+    const validated = normalizePlannerGenUIActivity({
+      ...input.activity,
+      scopeKey,
+    });
+    if (!validated) return null;
+    // A stale run must never recreate a surface deliberately deleted or
+    // rejected by a newer run. New comparisons must use fresh surface IDs,
+    // as required by production-planner-instructions.ts.
+    const marker = asRecord(existing[GENUI_METADATA_KEY]);
+    if (marker?.deleted === true && marker.scopeKey === scopeKey &&
+      marker.surfaceId === validated.surfaceId) return null;
+    stored = validated;
+  } else {
+    // A delete/rejection must address the exact currently stored surface.
+    // No wildcard scope-level deletes: a missing ID cannot erase a card.
+    if (!input.surfaceId || !previous || previous.scopeKey !== scopeKey ||
+      previous.surfaceId !== input.surfaceId) return null;
+    stored = {
+      deleted: true,
+      scopeKey,
+      surfaceId: input.surfaceId,
+      reason: input.reason === "rejected" ? "rejected" : "delete",
+    };
+  }
+  return stored;
+}
+
+/** Save one server-validated surface per Planner thread. A delta-only update must
  * build on an already persisted, same-scope surface: it cannot invent a new
  * card or cause a different Brand's card to appear after reload. */
 export async function savePlannerGenUIActivity(
   memory: MastraMemory,
-  input: { threadId: string; resourceId: string; scopeKey?: string; runSequence?: string } & (
-    | { activity: PlannerGenUIActivity | null; surfaceId?: string; reason?: "rejected" | "delete" }
-    | { update: { surfaceId: string; operations: A2UIOperation[] } }
-  ),
+  input: PlannerGenUISaveInput,
   options?: { pool?: Pick<Pool, "connect"> },
 ): Promise<boolean> {
   // Production always takes the existing guarded Mastra pool, never a second pool.
@@ -216,61 +286,8 @@ export async function savePlannerGenUIActivity(
       if (input.runSequence === undefined ||
           BigInt(input.runSequence) < BigInt(previousSequence)) return false;
     }
-    let stored: PlannerGenUIActivity | {
-      deleted: true;
-      scopeKey: string;
-      reason: "rejected" | "delete";
-      surfaceId?: string;
-    };
-    if ("update" in input) {
-      if (!previous || previous.scopeKey !== scopeKey ||
-        previous.surfaceId !== input.update.surfaceId ||
-        input.update.operations.length === 0) return false;
-      // Production uses a DB-reserved run sequence for idempotency; payload
-      // equality is NOT identity (a later run can intentionally revert to X).
-      // Legacy in-memory callers without generations retain tail-only replay
-      // protection rather than incorrectly suppressing nonadjacent edits.
-      const duplicate = input.runSequence === undefined &&
-        isDeepStrictEqual(
-          previous.operations.slice(-input.update.operations.length),
-          input.update.operations,
-        );
-      const merged = duplicate ? previous.operations :
-        [...previous.operations, ...input.update.operations];
-      // Bounded-storage exhaustion is NOT a user-requested deletion. Keep
-      // the last good card and report a failed save instead of persisting a
-      // rejection tombstone for an otherwise valid comparison.
-      if (merged.length > GENUI_MAX_OPERATIONS ||
-          JSON.stringify(merged).length > GENUI_MAX_SERIALIZED_BYTES) return false;
-      stored = normalizePlannerGenUIActivity({
-        ...previous,
-        operations: merged,
-      }) ?? { deleted: true, scopeKey, surfaceId: input.update.surfaceId, reason: "rejected" };
-    } else if (input.activity) {
-      const validated = normalizePlannerGenUIActivity({
-        ...input.activity,
-        scopeKey,
-      });
-      if (!validated) return false;
-      // A stale run must never recreate a surface deliberately deleted or
-      // rejected by a newer run. New comparisons must use fresh surface IDs,
-      // as required by production-planner-instructions.ts.
-      const marker = asRecord(existing[GENUI_METADATA_KEY]);
-      if (marker?.deleted === true && marker.scopeKey === scopeKey &&
-        marker.surfaceId === validated.surfaceId) return false;
-      stored = validated;
-    } else {
-      // A delete/rejection must address the exact currently stored surface.
-      // No wildcard scope-level deletes: a missing ID cannot erase a card.
-      if (!input.surfaceId || !previous || previous.scopeKey !== scopeKey ||
-        previous.surfaceId !== input.surfaceId) return false;
-      stored = {
-        deleted: true,
-        scopeKey,
-        surfaceId: input.surfaceId,
-        reason: input.reason === "rejected" ? "rejected" : "delete",
-      };
-    }
+    const stored = buildPlannerGenUIStored(input, previous, existing, scopeKey);
+    if (!stored) return false;
     const next = input.runSequence
       ? {
         ...stored,
