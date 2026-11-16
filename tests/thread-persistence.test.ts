@@ -324,7 +324,9 @@ describe("persisted GenUI metadata", () => {
     const resourceId = "org:a::user:u";
     await ensureMastraThread(memory, { threadId, resourceId });
     await savePlannerGenUIActivity(memory, { threadId, resourceId, activity });
-    await savePlannerGenUIActivity(memory, { threadId, resourceId, activity: null });
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, activity: null, surfaceId: "comparison-1",
+    })).toBe(true);
     expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui).toBeNull();
   });
   it("scopes saved cards to the exact Brand and rejects other scopes", async () => {
@@ -382,6 +384,61 @@ describe("persisted GenUI metadata", () => {
       threadId, resourceId, activity: null, surfaceId: "comparison-1",
     })).toBe(true);
     expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui).toBeNull();
+  });
+
+  it("does not restore scope-less legacy metadata as a workspace or Brand card", async () => {
+    const memory = isolatedMemory();
+    const threadId = crypto.randomUUID();
+    const resourceId = "org:a::user:u";
+    await ensureMastraThread(memory, { threadId, resourceId });
+    await memory.updateThread({
+      id: threadId,
+      metadata: { ipixGenUI: activity },
+    });
+    expect((await recallPlannerHistory(memory, { threadId, resourceId, scopeKey: "workspace" })).genui)
+      .toBeNull();
+    expect((await recallPlannerHistory(memory, {
+      threadId, resourceId,
+      scopeKey: "brand:org-a:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    })).genui).toBeNull();
+  });
+
+  it("refuses wildcard deletions and preserves the existing scoped card", async () => {
+    const memory = isolatedMemory();
+    const threadId = crypto.randomUUID();
+    const resourceId = "org:a::user:u";
+    await ensureMastraThread(memory, { threadId, resourceId });
+    expect(await savePlannerGenUIActivity(memory, { threadId, resourceId, activity })).toBe(true);
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, activity: null,
+    })).toBe(false);
+    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui?.surfaceId)
+      .toBe("comparison-1");
+  });
+
+  it("deduplicates equivalent deltas with reordered nested JSON properties", async () => {
+    const memory = isolatedMemory();
+    const threadId = crypto.randomUUID();
+    const resourceId = "org:a::user:u";
+    await ensureMastraThread(memory, { threadId, resourceId });
+    await savePlannerGenUIActivity(memory, { threadId, resourceId, activity });
+    const updateA = {
+      version: "1.0" as const,
+      updateDataModel: { surfaceId: "comparison-1", path: "/data", value: { a: 1, b: 2 } },
+    };
+    const updateB = {
+      updateDataModel: { value: { b: 2, a: 1 }, path: "/data", surfaceId: "comparison-1" },
+      version: "1.0" as const,
+    };
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, update: { surfaceId: "comparison-1", operations: [updateA] },
+    })).toBe(true);
+    expect(await savePlannerGenUIActivity(memory, {
+      threadId, resourceId, update: { surfaceId: "comparison-1", operations: [updateB] },
+    })).toBe(true);
+    expect((await recallPlannerHistory(memory, { threadId, resourceId })).genui?.operations).toHaveLength(
+      activity.operations.length + 1,
+    );
   });
 
   it("preserves metadata written after a concurrent initial read", async () => {

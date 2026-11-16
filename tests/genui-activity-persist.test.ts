@@ -80,6 +80,59 @@ describe("GenUIActivityCollector", () => {
     expect(final.activity.operations).toHaveLength(2);
   });
 
+  it("accepts CR-only SSE and mixed CRLF/LF/CR across chunk boundaries", () => {
+    const cr = acceptedSse().replace(/\n/g, "\r");
+    // Mix line endings between *events*, not inside a blank-line delimiter:
+    // a CR immediately followed by LF is one newline in the SSE standard.
+    const mixed = acceptedSse().split("\n\n").filter(Boolean)
+      .map((block, index) => {
+        const separator = index % 3 === 0 ? "\r" :
+          index % 3 === 1 ? "\r\n" : "\n";
+        return block.replace(/\n/g, separator) + separator + separator;
+      }).join("");
+    for (const input of [cr, mixed]) {
+      const collector = new GenUIActivityCollector();
+      for (let i = 0; i < input.length; i += 7) collector.push(input.slice(i, i + 7));
+      expect(collector.finish().kind).toBe("activity");
+    }
+  });
+
+  it("does not attribute an explicit event surface to a spoofed patch surface", () => {
+    const collector = new GenUIActivityCollector();
+    collector.push(event({
+      type: "ACTIVITY_DELTA",
+      messageId: "spoofed-delta",
+      activityType: "generative-ui-surface",
+      surfaceId: "comparison-1",
+      patch: [{ op: "add", path: "/operations/-", value: {
+        ...update,
+        updateComponents: { ...update.updateComponents, surfaceId: "hijacked" },
+      } }],
+    }));
+    collector.push(event({
+      type: "ACTIVITY_DELTA", messageId: "spoofed-delta",
+      activityType: "generative-ui-surface", surfaceId: "comparison-1",
+      patch: [{ op: "replace", path: "/status", value: "ready" }],
+    }));
+    collector.push(finished());
+    // A mismatched patch must never become a durable update to 'hijacked'.
+    expect(collector.finish().kind).toBe("none");
+  });
+
+  it("warns once without logging event content when buffering exceeds 256 KB", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const collector = new GenUIActivityCollector();
+      collector.push("private-operator-prompt".repeat(14000));
+      collector.push("private-operator-prompt");
+      expect(collector.finish().kind).toBe("none");
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith("planner.genui.buffer_exceeded", { limit: 256000 });
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("accepts CRLF-framed SSE across arbitrary chunk boundaries", () => {
     const collector = new GenUIActivityCollector();
     const bytes = acceptedSse().replace(/\n/g, "\r\n");

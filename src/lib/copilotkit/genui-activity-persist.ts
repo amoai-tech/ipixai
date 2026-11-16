@@ -102,6 +102,7 @@ type FinalActivity =
  *  surface; the accepted operations are still revalidated before persistence. */
 export class GenUIActivityCollector {
   private buffer = "";
+  private pendingCR = false;
   private readonly activities = new Map<string, ActivityContent>();
   private readonly surfaceByMessage = new Map<string, string>();
   private lastSurfaceId: string | null = null;
@@ -112,13 +113,26 @@ export class GenUIActivityCollector {
 
   push(chunk: string): void {
     if (this.disabled) return;
-    // CRLF and chunk splits are both valid SSE framing.
-    this.buffer = (this.buffer + chunk).replace(/\r\n/g, "\n");
+    // Per HTML's SSE parser, CR, LF and CRLF each terminate one line.
+    // Defer a trailing CR until the next chunk to avoid treating a split
+    // CRLF pair as two lines (or an early blank-line event).
+    if (this.pendingCR) {
+      this.buffer += "\n";
+      if (chunk.startsWith("\n")) chunk = chunk.slice(1);
+      this.pendingCR = false;
+    }
+    if (chunk.endsWith("\r")) {
+      this.pendingCR = true;
+      chunk = chunk.slice(0, -1);
+    }
+    this.buffer += chunk.replace(/\r\n?|\n/g, "\n");
     // A huge/truncated SSE event cannot consume unbounded Vercel memory.
     if (this.buffer.length > 256_000) {
       this.disabled = true;
       this.buffer = "";
       this.activities.clear();
+      // Emit one diagnostic without leaking tenant prompts or event bytes.
+      console.warn("planner.genui.buffer_exceeded", { limit: 256000 });
       return;
     }
     let boundary = this.buffer.indexOf("\n\n");
@@ -132,6 +146,7 @@ export class GenUIActivityCollector {
 
   finish(): FinalActivity {
     if (this.disabled) return { kind: "none" };
+    if (this.pendingCR) this.push("");
     if (this.buffer.trim().length > 0) this.handleBlock(this.buffer);
     this.buffer = "";
     // A ready surface observed mid-stream is not durable evidence that the
@@ -234,8 +249,9 @@ export class GenUIActivityCollector {
       }
     }
     const messageId = typeof event.messageId === "string" ? event.messageId : "";
-    const surfaceId = this.surfaceByMessage.get(messageId) ?? inferred ??
-      (typeof event.surfaceId === "string" ? event.surfaceId : undefined);
+    const surfaceId = this.surfaceByMessage.get(messageId) ??
+      (typeof event.surfaceId === "string" ? event.surfaceId : undefined) ??
+      inferred;
     if (!surfaceId) return;
     let content = this.activities.get(surfaceId);
     if (!content) {

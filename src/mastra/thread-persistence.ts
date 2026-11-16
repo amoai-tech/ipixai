@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import type { MastraMemory } from "@mastra/core/memory";
 import type { A2UIOperation } from "@copilotkit/shared";
 
@@ -249,7 +250,7 @@ export async function savePlannerGenUIActivity(
       input.update.operations.length === 0) return false;
     // A replayed duplicate delta must not keep appending the same operations.
     const tail = previous.operations.slice(-input.update.operations.length);
-    const identical = JSON.stringify(tail) === JSON.stringify(input.update.operations);
+    const identical = isDeepStrictEqual(tail, input.update.operations);
     const merged = identical ? previous.operations :
       [...previous.operations, ...input.update.operations];
     stored = normalizePlannerGenUIActivity({
@@ -264,11 +265,10 @@ export async function savePlannerGenUIActivity(
     if (!validated) return false;
     stored = validated;
   } else {
-    // A late delete/rejection from Brand A must never erase Brand B's card.
-    if (input.surfaceId && (
-      !previous || previous.scopeKey !== scopeKey ||
-      previous.surfaceId !== input.surfaceId
-    )) return false;
+    // A delete/rejection must address the exact currently stored surface.
+    // No wildcard scope-level deletes: a missing ID cannot erase a card.
+    if (!input.surfaceId || !previous || previous.scopeKey !== scopeKey ||
+      previous.surfaceId !== input.surfaceId) return false;
     stored = {
       deleted: true,
       scopeKey,
