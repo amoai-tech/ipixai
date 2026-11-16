@@ -1,6 +1,6 @@
 # SCR-17 wireframe — Campaign Performance
 
-> **SSOT:** [`Campaign Performance.v2.image-first.dc.html`](../../../Pages/Campaign Performance.v2.image-first.dc.html) · Method: [`ipix-wireframe`](../../../../.claude/skills/ipix-wireframe/SKILL.md)  
+> **SSOT:** [`Campaign Performance.v2.image-first.dc.html`](../../../Pages/Campaign Performance.v2.image-first.dc.html) · Method: [`ipix-wireframe`](../../../../.agents/skills/ipix-wireframe/SKILL.md)
 > **Rule:** ASCII zones must match DC `grid-template-columns` and Workspace blocks — not invented layout.
 
 ## Shell archetype

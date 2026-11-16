@@ -62,16 +62,16 @@ describe("iPix engineering skill contracts", () => {
     bestPractices = readRepoFile("docs/ipix-platform/BEST-PRACTICES.md");
     todo = readRepoFile("todo.md");
     changelog = readRepoFile("changelog.md");
-    refactorPlan = readRepoFile(".claude/skills/refactor-plan/SKILL.md");
-    domainModeling = readRepoFile(".claude/skills/domain-modeling/SKILL.md");
-    adrFormat = readRepoFile(".claude/skills/domain-modeling/ADR-FORMAT.md");
-    tasks = readRepoFile(".claude/skills/tasks/SKILL.md");
-    taskFormat = readRepoFile(".claude/skills/tasks/references/task-format.md");
-    researchEvidence = readRepoFile(".claude/skills/tasks/references/research-evidence.md");
-    externalReferenceMapping = readRepoFile(".claude/skills/tasks/references/external-reference-mapping.md");
-    mergeConflicts = readRepoFile(".claude/skills/resolving-merge-conflicts/SKILL.md");
-    postMerge = readRepoFile(".claude/skills/tasks/references/post-merge.md");
-    preMergeTests = readRepoFile(".claude/skills/tasks/references/pre-merge-tests.md");
+    refactorPlan = readRepoFile(".agents/skills/refactor-plan/SKILL.md");
+    domainModeling = readRepoFile(".agents/skills/domain-modeling/SKILL.md");
+    adrFormat = readRepoFile(".agents/skills/domain-modeling/ADR-FORMAT.md");
+    tasks = readRepoFile(".agents/skills/tasks/SKILL.md");
+    taskFormat = readRepoFile(".agents/skills/tasks/references/task-format.md");
+    researchEvidence = readRepoFile(".agents/skills/tasks/references/research-evidence.md");
+    externalReferenceMapping = readRepoFile(".agents/skills/tasks/references/external-reference-mapping.md");
+    mergeConflicts = readRepoFile(".agents/skills/resolving-merge-conflicts/SKILL.md");
+    postMerge = readRepoFile(".agents/skills/tasks/references/post-merge.md");
+    preMergeTests = readRepoFile(".agents/skills/tasks/references/pre-merge-tests.md");
   });
 
   test("refactor-plan continues when implementation was already requested", () => {
@@ -298,7 +298,7 @@ describe("iPix engineering skill contracts", () => {
 
   test("CopilotKit Mastra reference matches the installed iPix runtime family and in-process architecture", () => {
     const integration = readRepoFile(
-      ".claude/skills/copilotkit/references/integrations/references/integrations/mastra.md",
+      ".agents/skills/copilotkit/references/integrations/references/integrations/mastra.md",
     );
 
     const packageJson = JSON.parse(readRepoFile("package.json")) as {
@@ -363,7 +363,7 @@ describe("iPix engineering skill contracts", () => {
   });
 
   test("Mastra skill references do not present the retired 1.63.2 runtime as current", () => {
-    const stale = readMarkdownTree(".claude/skills/mastra")
+    const stale = readMarkdownTree(".agents/skills/mastra")
       .filter(({ content }) => content.includes("1.63.2"))
       .map(({ path }) => path);
 
@@ -372,9 +372,9 @@ describe("iPix engineering skill contracts", () => {
 
   test("Mastra HITL guidance distinguishes native suspend interrupts from frontend-tool HITL", () => {
     const copilotMastra = readRepoFile(
-      ".claude/skills/copilotkit/references/integrations/references/integrations/mastra.md",
+      ".agents/skills/copilotkit/references/integrations/references/integrations/mastra.md",
     );
-    const workflows = readRepoFile(".claude/skills/mastra/references/workflows.md");
+    const workflows = readRepoFile(".agents/skills/mastra/references/workflows.md");
     const guidance = `${copilotMastra}\n${workflows}`;
 
     expect(guidance).toContain("tool-call-suspended");
@@ -391,8 +391,8 @@ describe("iPix engineering skill contracts", () => {
   test("CopilotKit and Mastra skill trees contain none of the retired runtime pins", () => {
     const retiredPins = ["1.68.1", "1.63.2", "1.22.2", "0.9.0", "0.0.58"];
     const stale = [
-      ...readMarkdownTree(".claude/skills/copilotkit"),
-      ...readMarkdownTree(".claude/skills/mastra"),
+      ...readMarkdownTree(".agents/skills/copilotkit"),
+      ...readMarkdownTree(".agents/skills/mastra"),
     ].flatMap(({ path, content }) =>
       retiredPins
         .filter((pin) => content.includes(pin))
@@ -404,7 +404,7 @@ describe("iPix engineering skill contracts", () => {
 
   test("iPix CopilotKit v2 conventions delegate the runtime contract to the canonical reference", () => {
     const conventions = readRepoFile(
-      ".claude/skills/copilotkit/references/upgrade/ipix-v2-conventions.md",
+      ".agents/skills/copilotkit/references/upgrade/ipix-v2-conventions.md",
     );
 
     // This file owns legacy→current API translation and upgrade rules, not the
@@ -420,7 +420,7 @@ describe("iPix engineering skill contracts", () => {
     // home, so it can no longer be weakened by editing a file that only
     // summarises it.
     const runtimeContract = readRepoFile(
-      ".claude/skills/copilotkit/references/integrations/references/integrations/mastra.md",
+      ".agents/skills/copilotkit/references/integrations/references/integrations/mastra.md",
     );
     expect(runtimeContract).toContain("createCopilotHonoHandler");
     expect(runtimeContract).toContain("requirePlannerResourceId");
@@ -432,10 +432,10 @@ describe("iPix engineering skill contracts", () => {
 
   test("active CopilotKit debugging guidance teaches the preferred Hono handler", () => {
     const debugFiles = [
-      ".claude/skills/copilotkit/references/debug/debug.md",
-      ".claude/skills/copilotkit/references/debug/references/error-patterns.md",
-      ".claude/skills/copilotkit/references/debug/references/runtime-debugging.md",
-      ".claude/skills/copilotkit/references/debug/references/quick-workflows.md",
+      ".agents/skills/copilotkit/references/debug/debug.md",
+      ".agents/skills/copilotkit/references/debug/references/error-patterns.md",
+      ".agents/skills/copilotkit/references/debug/references/runtime-debugging.md",
+      ".agents/skills/copilotkit/references/debug/references/quick-workflows.md",
     ];
 
     for (const path of debugFiles) {

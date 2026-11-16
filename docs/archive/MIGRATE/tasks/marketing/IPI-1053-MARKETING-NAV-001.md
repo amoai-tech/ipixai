@@ -62,7 +62,7 @@ Auth/session side effects in nav; Operator shell; blind COPY of 9-service array;
 - A11y upgrades vs legacy header (mobile toggle + keyboard dropdown)
 - Soften/remove **NAV → LOGIN as start blocker**; retain NAV as **merge gate** for HOME + SERVICES
 - Prefer attachments / links to `amoai-tech/luminaai` over stale `amo-tech-ai/lumina-studio`
-- Skills wording: use lean / cheapest-proof-first (do not require a missing `.claude/skills/ponytail`)
+- Skills wording: use lean / cheapest-proof-first (do not require a missing `.agents/skills/ponytail`)
 
 ## 8. Acceptance criteria additions
 

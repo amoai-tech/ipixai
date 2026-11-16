@@ -344,7 +344,7 @@ Use `tasks` for task/PR lifecycle orchestration; keep Supabase implementation an
 
 | Location | Role |
 |----------|------|
-| `.claude/skills/ipix-supabase/` | The one Supabase skill — hub + iPix topic files + `references/` (incl. folded edge-functions, supabase-core, cli, postgres-best-practices) |
+| `.agents/skills/ipix-supabase/` | The one Supabase skill — hub + iPix topic files + `references/` (incl. folded edge-functions, supabase-core, cli, postgres-best-practices) |
 
 ---
 

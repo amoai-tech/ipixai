@@ -1784,7 +1784,7 @@ Any fabricated metric, unsupported attribution, causal overclaim, cross-org leak
 
 ## Skills / MCP sequence
 
-Verify exact names in `.claude/skills/index-skills.md`, then use:
+Verify exact names in `.agents/skills/index-skills.md`, then use:
 
 `ipix-task-lifecycle → worktrees → graphify → research → mastra → copilotkit → ipix-supabase → nextjs-developer → tdd → code-review → task-verifier → pr-workflow → linear`.
 
@@ -2009,7 +2009,7 @@ Not part of this product runtime, labels, or critical path.
 ### 0. Start gate
 
 1. Verify dependencies are proven with real approved copy/assets/evidence.
-2. Read Campaign epic, Brand Knowledge contract, media approval/delivery contract, AGENTS, `.claude/skills/index-skills.md`.
+2. Read Campaign epic, Brand Knowledge contract, media approval/delivery contract, AGENTS, `.agents/skills/index-skills.md`.
 3. Run task lifecycle, clean worktree, Graphify, task-verifier Quick.
 4. If exact approved Brand/media evidence cannot be resolved tenant-safely, **BLOCKED**.
 
@@ -2394,7 +2394,7 @@ Any nondeterministic authoritative score, fabricated evidence, cross-org leak, o
 
 ## Skills / MCP sequence
 
-Verify exact names first from `.claude/skills/index-skills.md`, then use when available:
+Verify exact names first from `.agents/skills/index-skills.md`, then use when available:
 
 `ipix-task-lifecycle → worktrees → graphify → ponytail/cheapest-proof-first → research → mastra → copilotkit → ipix-supabase → nextjs-developer → tdd → code-review → task-verifier → pr-workflow → linear`
 
@@ -2721,7 +2721,7 @@ Any cross-org evidence leak or fabricated citation = **FAIL**.
 
 ## Skills / MCP sequence
 
-Run available project skills when present; verify names from `.claude/skills/index-skills.md` before invoking:
+Run available project skills when present; verify names from `.agents/skills/index-skills.md` before invoking:
 
  1. `ipix-task-lifecycle`
  2. `worktrees`
@@ -4852,7 +4852,7 @@ These **initial four** tools must: typed/Zod input and output; deterministic whe
 
 ## Implementation prompt
 
-**Mandatory source and execution gate:** Before editing, read `/home/sk/ipixai/.claude/skills/index-skills.md` and each required skill’s `SKILL.md`. Run the skills—do not merely cite them—in this order: `ipix-task-lifecycle` → `worktrees` → `graphify` → `research` → `fashion-production` → `mastra` → `tdd` → `code-review` → `task-verifier` → `pr-workflow`. Use only the live iPixai skill tree; legacy `/home/sk/ipix` is read-only source material where this task explicitly permits it.
+**Mandatory source and execution gate:** Before editing, read `/home/sk/ipixai/.agents/skills/index-skills.md` and each required skill’s `SKILL.md`. Run the skills—do not merely cite them—in this order: `ipix-task-lifecycle` → `worktrees` → `graphify` → `research` → `fashion-production` → `mastra` → `tdd` → `code-review` → `task-verifier` → `pr-workflow`. Use only the live iPixai skill tree; legacy `/home/sk/ipix` is read-only source material where this task explicitly permits it.
 
 Use Graphify first for dependency/path discovery, load only the files that can affect this outcome, prefer installed source/types over web examples, make the smallest correct change, and run targeted tests before broad gates. Ask whether there is a faster, safer, or more efficient path and use it. After two failed proof attempts, run `diagnosing-bugs` instead of repeating the same approach.
 
@@ -4925,7 +4925,7 @@ Mastra tools, Zod, unit tests.
 
 ## Required skills and MCPs
 
-Skill index: `/home/sk/ipixai/.claude/skills/index-skills.md`
+Skill index: `/home/sk/ipixai/.agents/skills/index-skills.md`
 
 Run in order: `ipix-task-lifecycle` → `worktrees` → `graphify` → `research` → `fashion-production` → `mastra` → `tdd` → `code-review` → `task-verifier` → `pr-workflow`.
 
@@ -5010,7 +5010,7 @@ Implement the smallest typed compute-only tool set for shoot type, deliverables,
 
 ### Mandatory iPixai skills and tools
 
-1. Read `/home/sk/ipixai/.claude/skills/index-skills.md`, then read and run `/home/sk/ipixai/.claude/skills/mastra/SKILL.md` completely. Run the task-relevant skills from the live tree, including `ipix-task-lifecycle`, `worktrees`, **Ponytail**, `graphify`, `research`, `copilotkit`, `ipix-supabase`, `tdd`, `code-review`, `pr-workflow`, and `linear`. Add `fashion-production`, `nextjs-developer`, or UI skills only when the task needs them. After two failed proof attempts, use `diagnosing-bugs`.
+1. Read `/home/sk/ipixai/.agents/skills/index-skills.md`, then read and run `/home/sk/ipixai/.agents/skills/mastra/SKILL.md` completely. Run the task-relevant skills from the live tree, including `ipix-task-lifecycle`, `worktrees`, **Ponytail**, `graphify`, `research`, `copilotkit`, `ipix-supabase`, `tdd`, `code-review`, `pr-workflow`, and `linear`. Add `fashion-production`, `nextjs-developer`, or UI skills only when the task needs them. After two failed proof attempts, use `diagnosing-bugs`.
 2. **Mastra Docs MCP is mandatory.** Use it to search the official docs for the installed API surface. Also use CopilotKit MCP, Supabase MCP and Context7 for task-relevant contracts. Use GitHub MCP to inspect the official `mastra-ai/mastra` repository and only the example/template repository relevant to this task.
 3. Open all five references below before editing. Record `VERIFIED`, `CHANGED`, `VERSION-MISMATCH`, or `UNREACHABLE`, the check date, and relevant tag/commit. Official current docs can be newer than this repository: installed package source/types and the exact lockfile are the runtime contract. Stop on contradiction; do not silently guess.
 4. Fastest safe path: Graphify first for dependency/path discovery; Ponytail cheapest-proof-first; read only load-bearing files; prefer installed source/types before web docs; make the smallest correct change; run targeted tests before broad suites; use live/browser proof only when necessary; do not redesign architecture unless a proof fails. Explicitly ask, **“Is there a better, faster, more efficient way to complete this task without weakening evidence?”** If yes, use it.
@@ -5021,7 +5021,7 @@ Valid fixtures return schema-valid, reproducible plans; invalid quantities, nega
 
 ### Independent task-verifier gate
 
-Every task must finish with `/home/sk/ipixai/.claude/skills/task-verifier/SKILL.md`. The verifier must independently inspect:
+Every task must finish with `/home/sk/ipixai/.agents/skills/task-verifier/SKILL.md`. The verifier must independently inspect:
 
 * Current Linear scope/dependencies and Git commit/diff
 * Live codebase plus Graphify output
@@ -6539,7 +6539,7 @@ stateDiagram-v2
 1. Verify every hard dependency is **proven**, not merely coded.
 2. Verify Postiz account/API availability through Dashboard/CLI with a sandbox/test channel; do not use a real brand account for first proof.
 3. Verify exact current Public API authentication, create/schedule post request shape, media requirements, rate limits, supported channels, timezone semantics, status retrieval, and webhook behavior from official docs/source.
-4. Read `AGENTS.md`, `.claude/skills/index-skills.md`, Campaign epic, Preview, Brand Check, Media Delivery.
+4. Read `AGENTS.md`, `.agents/skills/index-skills.md`, Campaign epic, Preview, Brand Check, Media Delivery.
 5. Run `ipix-task-lifecycle → worktrees → graphify → task-verifier Quick`.
 6. If there is no safely testable Postiz sandbox/account or exact approved content/media contract, return **BLOCKED**.
 
@@ -6686,7 +6686,7 @@ Any unapproved external post, duplicate post, cross-org publish, stale approval,
 
 ## Skills / MCP sequence
 
-First verify exact names in `.claude/skills/index-skills.md`.
+First verify exact names in `.agents/skills/index-skills.md`.
 
 Use:
 
@@ -6779,7 +6779,7 @@ Legacy hard blockers `IPI-167 · GEMINI-004` and `IPI-106 · AI Logging & Cost T
 
 ### Skills + MCP gate
 
-Read `.claude/skills/index-skills.md`, then run only task-relevant skills in this order:
+Read `.agents/skills/index-skills.md`, then run only task-relevant skills in this order:
 
 `ipix-task-lifecycle → worktrees → graphify → research → mastra → copilotkit → ipix-supabase → tdd → mermaid-diagrams → code-review → task-verifier → pr-workflow`
 
@@ -7287,7 +7287,7 @@ Any cross-org leak, duplicate durable save, unapproved asset reuse, invented own
 
 ## Skills / MCP sequence
 
-Verify exact skill names in `.claude/skills/index-skills.md` first:
+Verify exact skill names in `.agents/skills/index-skills.md` first:
 
 `ipix-task-lifecycle → worktrees → graphify → ponytail/cheapest-proof-first → research → mastra → copilotkit → ipix-supabase → cloudinary → fashion-production → nextjs-developer → tdd → code-review → task-verifier → pr-workflow → linear`
 
@@ -7489,7 +7489,7 @@ CopilotKit owns shared/editable state and tool rendering. Typed application stat
 ### 0. Start gate
 
 1. Prove dependencies are actually complete, not just coded.
-2. Read current Campaign epic, strategy/plan/media contracts, AGENTS, `.claude/skills/index-skills.md`.
+2. Read current Campaign epic, strategy/plan/media contracts, AGENTS, `.agents/skills/index-skills.md`.
 3. Run `ipix-task-lifecycle → worktrees → graphify → task-verifier Quick`.
 4. If approved asset-version or campaign authorization contract is unclear, **BLOCKED**.
 
@@ -7814,7 +7814,7 @@ Any cross-org leak, silent approval/write, lost operator edit, or invented KPI =
 
 ## Skills / MCP sequence
 
-Verify exact names in `.claude/skills/index-skills.md`, then use when available:
+Verify exact names in `.agents/skills/index-skills.md`, then use when available:
 
 `ipix-task-lifecycle → worktrees → graphify → ponytail/cheapest-proof-first → research → mastra → copilotkit → ipix-supabase → nextjs-developer → tdd → code-review → task-verifier → pr-workflow → linear`
 
@@ -8119,7 +8119,7 @@ Any fabricated citation, cross-org leak, unbounded research loop, or silent unsu
 
 ## Skills / MCP sequence
 
-Verify skill names from `.claude/skills/index-skills.md` first, then use when available:
+Verify skill names from `.agents/skills/index-skills.md` first, then use when available:
 
 `ipix-task-lifecycle → worktrees → graphify → ponytail/cheapest-proof-first → research → mastra → copilotkit → ipix-supabase → nextjs-developer → tdd → code-review → task-verifier → pr-workflow → linear`
 
@@ -11630,13 +11630,13 @@ Do not mark Done from unit tests alone. | Done |  | High | dec7d249-6d54-4d04-ba
 
 Run these steps in order:
 
-1. Read the complete task description, acceptance criteria, dependencies, `AGENTS.md`, and `/home/sk/ipixai/.claude/skills/index-skills.md`.
+1. Read the complete task description, acceptance criteria, dependencies, `AGENTS.md`, and `/home/sk/ipixai/.agents/skills/index-skills.md`.
 2. Read and run the relevant skills. At minimum use the Mastra, iPix Supabase, research, Graphify, worktrees, and task lifecycle skills where applicable.
 3. Open every URL in **Required references**. Check the current official Mastra, Supabase, CopilotKit, PostgreSQL, npm, and GitHub sources relevant to this task. Record each URL as `VERIFIED`, `CHANGED`, or `UNREACHABLE`, with the verification date.
 4. Use the Mastra, Supabase, GitHub, Linear, and CopilotKit MCPs where relevant. For versioned behavior, compare current docs with the exact installed package source, declarations, metadata, source maps, and lockfile. The installed pinned version is the implementation contract.
 5. Connect to Supabase and verify the actual environment using **read-only inspection only**. Check the intended project, schemas, tables, columns, constraints, indexes, RLS, grants, row counts, and migration state relevant to this task. Never expose secrets and never write to hosted production during this verification gate.
 6. Inspect a clean worktree from current `origin/main`; do not treat a dirty checkout, old repository, stale document, or unmerged branch as source of truth.
-7. **Only after steps 1–6**, read and run the complete verifier at `/home/sk/ipixai/.claude/skills/task-verifier/SKILL.md`. Verify the task specification, current code, dependencies, official sources, Supabase state, security boundaries, tests, failure points, and smallest safe implementation.
+7. **Only after steps 1–6**, read and run the complete verifier at `/home/sk/ipixai/.agents/skills/task-verifier/SKILL.md`. Verify the task specification, current code, dependencies, official sources, Supabase state, security boundaries, tests, failure points, and smallest safe implementation.
 8. Publish a short pre-implementation report containing: verdict, percent-correct score, verified evidence, errors, red flags, blockers, missing acceptance criteria, proposed fixes, test plan, and whether a faster or safer implementation exists.
 
 **Implementation may begin only when all of the following are true:**
@@ -11808,7 +11808,7 @@ Wire the smallest PostgresStore configuration proven by DB-001. Local Supabase i
 
 ### Mandatory iPixai skills and tools
 
-1. Read `/home/sk/ipixai/.claude/skills/index-skills.md`, then read and run `/home/sk/ipixai/.claude/skills/mastra/SKILL.md` completely. Run the task-relevant skills from the live tree, including `ipix-task-lifecycle`, `worktrees`, **Ponytail**, `graphify`, `research`, `copilotkit`, `ipix-supabase`, `tdd`, `code-review`, `pr-workflow`, and `linear`. Add `fashion-production`, `nextjs-developer`, or UI skills only when the task needs them. After two failed proof attempts, use `diagnosing-bugs`.
+1. Read `/home/sk/ipixai/.agents/skills/index-skills.md`, then read and run `/home/sk/ipixai/.agents/skills/mastra/SKILL.md` completely. Run the task-relevant skills from the live tree, including `ipix-task-lifecycle`, `worktrees`, **Ponytail**, `graphify`, `research`, `copilotkit`, `ipix-supabase`, `tdd`, `code-review`, `pr-workflow`, and `linear`. Add `fashion-production`, `nextjs-developer`, or UI skills only when the task needs them. After two failed proof attempts, use `diagnosing-bugs`.
 2. **Mastra Docs MCP is mandatory.** Use it to search the official docs for the installed API surface. Also use CopilotKit MCP, Supabase MCP and Context7 for task-relevant contracts. Use GitHub MCP to inspect the official `mastra-ai/mastra` repository and only the example/template repository relevant to this task.
 3. Open all five references below before editing. Record `VERIFIED`, `CHANGED`, `VERSION-MISMATCH`, or `UNREACHABLE`, the check date, and relevant tag/commit. Official current docs can be newer than this repository: installed package source/types and the exact lockfile are the runtime contract. Stop on contradiction; do not silently guess.
 4. Fastest safe path: Graphify first for dependency/path discovery; Ponytail cheapest-proof-first; read only load-bearing files; prefer installed source/types before web docs; make the smallest correct change; run targeted tests before broad suites; use live/browser proof only when necessary; do not redesign architecture unless a proof fails. Explicitly ask, **“Is there a better, faster, more efficient way to complete this task without weakening evidence?”** If yes, use it.
@@ -11819,7 +11819,7 @@ Create a synthetic thread/message, read it, kill the server, start a new PID, an
 
 ### Independent task-verifier gates
 
-Run `/home/sk/ipixai/.claude/skills/task-verifier/SKILL.md` **after the Phase 0 source/MCP/Supabase verification and before implementation**. Implementation requires its explicit **GO**. Run the same verifier again after implementation and before marking the task Done. The verifier must independently inspect:
+Run `/home/sk/ipixai/.agents/skills/task-verifier/SKILL.md` **after the Phase 0 source/MCP/Supabase verification and before implementation**. Implementation requires its explicit **GO**. Run the same verifier again after implementation and before marking the task Done. The verifier must independently inspect:
 
 * Current Linear scope/dependencies and Git commit/diff
 * Live codebase plus Graphify output
@@ -11859,13 +11859,13 @@ Prerequisite: [IPI-1042](https://linear.app/amo100/issue/IPI-1042/ipi-1042-runti
 
 Run these steps in order:
 
-1. Read the complete task description, acceptance criteria, dependencies, `AGENTS.md`, and `/home/sk/ipixai/.claude/skills/index-skills.md`.
+1. Read the complete task description, acceptance criteria, dependencies, `AGENTS.md`, and `/home/sk/ipixai/.agents/skills/index-skills.md`.
 2. Read and run the relevant skills. At minimum use the Mastra, iPix Supabase, research, Graphify, worktrees, and task lifecycle skills where applicable.
 3. Open every URL in **Required references**. Check the current official Mastra, Supabase, CopilotKit, PostgreSQL, npm, and GitHub sources relevant to this task. Record each URL as `VERIFIED`, `CHANGED`, or `UNREACHABLE`, with the verification date.
 4. Use the Mastra, Supabase, GitHub, Linear, and CopilotKit MCPs where relevant. For versioned behavior, compare current docs with the exact installed package source, declarations, metadata, source maps, and lockfile. The installed pinned version is the implementation contract.
 5. Connect to Supabase and verify the actual environment using **read-only inspection only**. Check the intended project, schemas, tables, columns, constraints, indexes, RLS, grants, row counts, and migration state relevant to this task. Never expose secrets and never write to hosted production during this verification gate.
 6. Inspect a clean worktree from current `origin/main`; do not treat a dirty checkout, old repository, stale document, or unmerged branch as source of truth.
-7. **Only after steps 1–6**, read and run the complete verifier at `/home/sk/ipixai/.claude/skills/task-verifier/SKILL.md`. Verify the task specification, current code, dependencies, official sources, Supabase state, security boundaries, tests, failure points, and smallest safe implementation.
+7. **Only after steps 1–6**, read and run the complete verifier at `/home/sk/ipixai/.agents/skills/task-verifier/SKILL.md`. Verify the task specification, current code, dependencies, official sources, Supabase state, security boundaries, tests, failure points, and smallest safe implementation.
 8. Publish a short pre-implementation report containing: verdict, percent-correct score, verified evidence, errors, red flags, blockers, missing acceptance criteria, proposed fixes, test plan, and whether a faster or safer implementation exists.
 
 **Implementation may begin only when all of the following are true:**
@@ -12041,7 +12041,7 @@ Perform a read-only compatibility proof against installed `@mastra/pg@1.22.2` so
 
 ### Mandatory iPixai skills and tools
 
-1. Read `/home/sk/ipixai/.claude/skills/index-skills.md`, then read and run `/home/sk/ipixai/.claude/skills/mastra/SKILL.md` completely. Run the task-relevant skills from the live tree, including `ipix-task-lifecycle`, `worktrees`, **Ponytail**, `graphify`, `research`, `copilotkit`, `ipix-supabase`, `tdd`, `code-review`, `pr-workflow`, and `linear`. Add `fashion-production`, `nextjs-developer`, or UI skills only when the task needs them. After two failed proof attempts, use `diagnosing-bugs`.
+1. Read `/home/sk/ipixai/.agents/skills/index-skills.md`, then read and run `/home/sk/ipixai/.agents/skills/mastra/SKILL.md` completely. Run the task-relevant skills from the live tree, including `ipix-task-lifecycle`, `worktrees`, **Ponytail**, `graphify`, `research`, `copilotkit`, `ipix-supabase`, `tdd`, `code-review`, `pr-workflow`, and `linear`. Add `fashion-production`, `nextjs-developer`, or UI skills only when the task needs them. After two failed proof attempts, use `diagnosing-bugs`.
 2. **Mastra Docs MCP is mandatory.** Use it to search the official docs for the installed API surface. Also use CopilotKit MCP, Supabase MCP and Context7 for task-relevant contracts. Use GitHub MCP to inspect the official `mastra-ai/mastra` repository and only the example/template repository relevant to this task.
 3. Open all five references below before editing. Record `VERIFIED`, `CHANGED`, `VERSION-MISMATCH`, or `UNREACHABLE`, the check date, and relevant tag/commit. Official current docs can be newer than this repository: installed package source/types and the exact lockfile are the runtime contract. Stop on contradiction; do not silently guess.
 4. Fastest safe path: Graphify first for dependency/path discovery; Ponytail cheapest-proof-first; read only load-bearing files; prefer installed source/types before web docs; make the smallest correct change; run targeted tests before broad suites; use live/browser proof only when necessary; do not redesign architecture unless a proof fails. Explicitly ask, **“Is there a better, faster, more efficient way to complete this task without weakening evidence?”** If yes, use it.
@@ -12052,7 +12052,7 @@ Installed constructor/options verified, including `schemaName` and `disableInit`
 
 ### Independent task-verifier gates
 
-Run `/home/sk/ipixai/.claude/skills/task-verifier/SKILL.md` **after the Phase 0 source/MCP/Supabase verification and before implementation**. Implementation requires its explicit **GO**. Run the same verifier again after implementation and before marking the task Done. The verifier must independently inspect:
+Run `/home/sk/ipixai/.agents/skills/task-verifier/SKILL.md` **after the Phase 0 source/MCP/Supabase verification and before implementation**. Implementation requires its explicit **GO**. Run the same verifier again after implementation and before marking the task Done. The verifier must independently inspect:
 
 * Current Linear scope/dependencies and Git commit/diff
 * Live codebase plus Graphify output

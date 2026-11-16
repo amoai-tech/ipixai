@@ -1,11 +1,11 @@
 ---
-description: iPixai PR lifecycle summary. Canonical PR/review/CI/post-merge details live in .claude/skills/tasks/references/.
+description: iPixai PR lifecycle summary. Canonical PR/review/CI/post-merge details live in .agents/skills/tasks/references/.
 alwaysApply: true
 ---
 
 # PR workflow (Cursor)
 
-Canonical details: `.claude/skills/tasks/SKILL.md` plus `.claude/skills/tasks/references/github-pr.md`, `.claude/skills/tasks/references/review-comments.md`, `.claude/skills/tasks/references/github-actions.md`, and `.claude/skills/tasks/references/post-merge.md`. PR body: `.cursor/rules/pr-description.mdc`.
+Canonical details: `.agents/skills/tasks/SKILL.md` plus `.agents/skills/tasks/references/github-pr.md`, `.agents/skills/tasks/references/review-comments.md`, `.agents/skills/tasks/references/github-actions.md`, and `.agents/skills/tasks/references/post-merge.md`. PR body: `.cursor/rules/pr-description.mdc`.
 
 ## Before / during the PR
 
@@ -24,4 +24,4 @@ Do not stop when GitHub shows MERGED. Run post-merge in order:
 4. **Docs** — only if user workflow / API / config / env / auth / schema / deploy / ops changed; `docs/` only; follow-up PR after merge.
 5. **Changelog** — notable user-facing/API/security/DB/config/ops: one `Unreleased` line in `changelog.md`: `- <type>(<scope>): <outcome> (<IPI>, #<PR>)`. Skip tests/format/deps/generated/internal refactors.
 
-`/pr` does **not** prove Done. After merge, load `.claude/skills/tasks/references/post-merge.md` and execute the applicable proof.
+`/pr` does **not** prove Done. After merge, load `.agents/skills/tasks/references/post-merge.md` and execute the applicable proof.

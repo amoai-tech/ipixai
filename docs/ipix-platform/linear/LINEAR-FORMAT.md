@@ -60,11 +60,11 @@ You are implementing **IPI-NNN · TASK-ID — Full title** in the current iPixai
 ### Verify-before-implement (mandatory, in order)
 
 1. Read this issue, parent project, blockers, `AGENTS.md`, and `.cursor/rules/`.
-2. **Official docs only** — no blogs. Use only the documentation tools relevant to the affected stack (for example Context7, Mastra MCP, CopilotKit MCP, Supabase `search_docs`, or the matching `.claude/skills/*/SKILL.md`). Open **at most 5** URLs listed in **Official references** below. Each URL must prove one **critical fact** for *this* task. Fetch/MCP-check every URL with the relevant tool; if a required link 404s, is a blog, or conflicts with installed package types, label it **Unverified** and stop. If no external contract is involved, record `Official docs: N/A — <reason>`.
+2. **Official docs only** — no blogs. Use only the documentation tools relevant to the affected stack (for example Context7, Mastra MCP, CopilotKit MCP, Supabase `search_docs`, or the matching `.agents/skills/*/SKILL.md`). Open **at most 5** URLs listed in **Official references** below. Each URL must prove one **critical fact** for *this* task. Fetch/MCP-check every URL with the relevant tool; if a required link 404s, is a blog, or conflicts with installed package types, label it **Unverified** and stop. If no external contract is involved, record `Official docs: N/A — <reason>`.
 3. If **Official GitHub repo** is set, fetch that path (official org only: `mastra-ai`, `CopilotKit`, `supabase`, `vercel`, `facebook/react` as applicable). Confirm the example is not archived.
 4. **Live codebase:** inspect the current implementation and confirm the gap still exists. Run `PATH="$HOME/.local/bin:$PATH" graphify query "<this task>"` **before any Read/Grep/Glob/Bash repository exploration**, then inspect the focused paths it surfaces. This initial query is mandatory for every task when `graphify-out/graph.json` exists. `Graphify: N/A` is allowed only after the mandatory query has run and shows that no additional Graphify operation is useful. Reuse what is already here (`ponytail`) when applicable.
 5. **Affected live/domain contracts only:** if the task touches Supabase schema/RLS/RPC/data/auth, connect Supabase MCP **read-only** (preview / `list_tables` / `list_migrations` / advisors), list it in **Skills / MCPs / CLI / dashboards**, and confirm those claims against live preview. Never `db push`, never production writes. If Supabase is not touched, record `Supabase verification: N/A — <reason>`. Apply the same rule to other vendor dashboards/MCPs/CLIs: use and list them only when that system is authoritative for the task.
-6. **Skills:** load every skill named in **Skills / MCPs / CLI / dashboards** below. Index: `.claude/skills/index-skills.md`.
+6. **Skills:** load every skill named in **Skills / MCPs / CLI / dashboards** below. Index: `.agents/skills/index-skills.md`.
 7. **Verification depth:** substantial implementation tasks require **task-verifier Standard** and must list `task-verifier`; explicitly narrow docs/config checks may use Quick or record `task-verifier: N/A — <reason>` when no verifier proof is meaningful. Adversarial is automatic for security/tenant/HITL/data-integrity/production-risk triggers. Any BLOCKER → **do not implement**. Report blockers.
 8. At every later step ask: *is there a better, faster, more efficient way?* Use it (`.cursor/rules/fastest.mdc`). Prefer managed dashboard → official CLI/SDK → official example → small adapter → custom last.
 
@@ -73,7 +73,7 @@ You are implementing **IPI-NNN · TASK-ID — Full title** in the current iPixai
 9. Smallest change that meets ACs. One concern per PR/commit.
 10. Targeted tests first; browser when UI changed (`dev:ui` + `dev:agent` split).
 11. Compare to every AC. Do not mark Linear **Done** because code exists.
-12. Before Done: run the **risk-matched task-verifier** required by step 7 — Standard for substantial implementation, Adversarial when its triggers apply, or the documented Quick/N/A path for an explicitly narrow docs/config task. After merge: `.claude/skills/tasks/references/post-merge.md`.
+12. Before Done: run the **risk-matched task-verifier** required by step 7 — Standard for substantial implementation, Adversarial when its triggers apply, or the documented Quick/N/A path for an explicitly narrow docs/config task. After merge: `.agents/skills/tasks/references/post-merge.md`.
 ```
 
 ---
@@ -176,7 +176,7 @@ For every named skill/MCP/CLI/dashboard, state **why it is needed** and verify i
 
 Use the canonical `tasks` skill structure: purpose, real-world example, user outcome, user journey, current state/evidence, faster implementation review, scope, tech stack, skills/MCPs, implementation steps, acceptance criteria, dependencies, security/data, verification evidence, and post-merge Done gate.
 
-UI / cross-system tasks must include the applicable Mermaid diagrams required by `.claude/skills/tasks/SKILL.md` and `.claude/skills/mermaid-diagrams/SKILL.md`.
+UI / cross-system tasks must include the applicable Mermaid diagrams required by `.agents/skills/tasks/SKILL.md` and `.agents/skills/mermaid-diagrams/SKILL.md`.
 
 ---
 

@@ -4,15 +4,15 @@ Benchmark date: 2026-09-09
 
 ## Purpose
 
-Compare the pre-PR-#106 `.claude/commands/pr.md` baseline at base SHA `f46a614aa8dfa9934cdacc92dee0d249928c6204` against the new `.claude/skills/pr/SKILL.md` behavior using the six committed cases in `evals.json`.
+Compare the pre-PR-#106 `.claude/commands/pr.md` baseline at base SHA `f46a614aa8dfa9934cdacc92dee0d249928c6204` against the new `.agents/skills/pr/SKILL.md` behavior using the six committed cases in `evals.json`.
 
 This is a **deterministic policy-conformance benchmark**, not a Claude runtime benchmark. The authorized local Desktop Commander device was offline, so runtime output quality, latency, and token counts were not measured and must remain `UNVERIFIED` until the same cases are executed in Claude Code.
 
 ## Sources
 
 - Baseline: `.claude/commands/pr.md` at `f46a614aa8dfa9934cdacc92dee0d249928c6204`.
-- Candidate: `.claude/skills/pr/SKILL.md` on PR #106.
-- Expected behavior: `.claude/skills/pr/evals/evals.json`.
+- Candidate: `.agents/skills/pr/SKILL.md` on PR #106.
+- Expected behavior: `.agents/skills/pr/evals/evals.json`.
 
 ## Results
 

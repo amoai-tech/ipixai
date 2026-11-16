@@ -18,7 +18,7 @@ For iPix, do not run a skill installer until a human approves how to preserve th
 
 ## iPix rule: never overwrite the consolidated hub
 
-iPix intentionally keeps one project-aware hub at `.claude/skills/copilotkit/`. Upstream ships separate skills. Refresh by **diff + selective sync**, preserving iPix architecture/security overrides.
+iPix intentionally keeps one project-aware hub at `.agents/skills/copilotkit/`. Upstream ships separate skills. Refresh by **diff + selective sync**, preserving iPix architecture/security overrides.
 
 ```text
 fresh upstream inventory

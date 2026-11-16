@@ -1,7 +1,7 @@
 # Screen tasks — HTML → React (one file per SCR)
 
 > **Verified:** 2026-07-06 · **Design index:** [`docs/handoff/02-screen-map.md`](../../docs/handoff/02-screen-map.md)
-> **Build discipline:** [`../designtoreact.md`](../designtoreact.md) · [`design-to-production`](../../../.claude/skills/design-to-production/SKILL.md)
+> **Build discipline:** [`../designtoreact.md`](../designtoreact.md) · [`design-to-production`](../../../.agents/skills/design-to-production/SKILL.md)
 > **Task template:** [`SCR-TEMPLATE.md`](SCR-TEMPLATE.md) · **Wireframes:** [`wireframes/`](./wireframes/) · **Diagrams:** [`diagrams/`](./diagrams/)
 
 Every `SCR-*.md` includes a **Conversion plan** block aligned with `designtoreact.md` + `design-to-production` Phase 0. Fill §0 Prove tables before coding.

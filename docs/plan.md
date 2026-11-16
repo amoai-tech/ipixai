@@ -2,7 +2,7 @@
 
 > **Purpose:** A *durable delivery sequence* connecting [product intent](./intent.md) and [observable requirements](./spec.md) to the current iPix architecture. **Not a second backlog:** [Linear V2](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues) owns actual issue status, dependencies, priority, assignees and progress.
 >
-> For an executable task, **start with its live Linear issue and [AGENTS.md](../AGENTS.md)**, then use the existing `.claude/skills/tasks/SKILL.md` and relevant domain skills. This file does not authorize changes or replace the issue's runbook.
+> For an executable task, **start with its live Linear issue and [AGENTS.md](../AGENTS.md)**, then use the existing `.agents/skills/tasks/SKILL.md` and relevant domain skills. This file does not authorize changes or replace the issue's runbook.
 
 ## Outcome and fastest path
 
@@ -103,7 +103,7 @@ This is the **target user journey**. Solid arrows do not mean every stage is cur
 
 ### Step 5 — Close the loop without duplicate status
 
-Record in **Linear**: last verified checkpoint, blockers, PR + exact head SHA, real evidence, remaining risk, and exact next action. If Linear is unavailable, use `todo.md` only as a **temporary handoff** with those same details, then reconcile it to Linear **before marking Done**. The [tasks skill](../.claude/skills/tasks/SKILL.md) still governs post-merge certification.
+Record in **Linear**: last verified checkpoint, blockers, PR + exact head SHA, real evidence, remaining risk, and exact next action. If Linear is unavailable, use `todo.md` only as a **temporary handoff** with those same details, then reconcile it to Linear **before marking Done**. The [tasks skill](../.agents/skills/tasks/SKILL.md) still governs post-merge certification.
 
 - A PR opened ≠ merged.
 - Merged ≠ deployed.

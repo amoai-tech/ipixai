@@ -158,7 +158,7 @@ Silent explore is mandatory before repo classification. Inspect workspace files;
 - Entrypoints and framework signals: routes, templates, app bootstrap files, server files, static front-end files, build config, and imports.
 - Cloudinary in code: Cloudinary dependency plus application usage such as SDK config, upload calls, URL generation, transformation builders, or templates/components referencing Cloudinary URLs.
 - React: `package.json`, React dependencies, JS/TS imports, JSX/TSX usage, or explicit user selection.
-- AI staging: `.claude/skills/` (Claude Code), `.agents/skills/`, or other IDE-specific skill locations for Cloudinary pack folders.
+- AI staging: `.agents/skills/` (Claude Code), `.agents/skills/`, or other IDE-specific skill locations for Cloudinary pack folders.
 
 Record these classifications:
 1. Repo shape: `empty`, `code-no-cloudinary`, or `code-with-cloudinary`
@@ -243,7 +243,7 @@ After approval only:
 - Add or repair the required MCP server config using the current IDE or agent environment's standard project-level MCP mechanism. Include `.env` reference as described in Appendix A.
 - Preserve unrelated MCP servers when editing config.
 - Run `npx skills add cloudinary-devs/skills` when required skills are missing.
-- For Claude Code: Skills are installed to `.claude/skills/` (the canonical location for Claude Code). Verify the directory exists and `SKILL.md` files exist under each required Cloudinary skill ID. **Do not report success until you have verified the files are present.**
+- For Claude Code: Skills are installed to `.agents/skills/` (the canonical location for Claude Code). Verify the directory exists and `SKILL.md` files exist under each required Cloudinary skill ID. **Do not report success until you have verified the files are present.**
 - For other IDEs/agents: Sync any Cloudinary skill folders from `.agents/skills/` into the current environment's canonical skills location and verify `SKILL.md` exists under each required skill.
 - Add `.agents/skills/cloudinary-*/` to root `.gitignore` if not already covered. Do not add `.agents/` itself — the user may have other content there they want tracked.
 - Never leave duplicate Cloudinary skill folders in `.agents/skills/` after canonical installation succeeds.
@@ -251,7 +251,7 @@ After approval only:
 
 **Verification requirement:** Before marking Stage 1 complete, confirm that both:
 1. The MCP config file exists for the detected IDE with both server definitions present
-2. For Claude Code: `.claude/skills/` directory exists with required skill folders and `SKILL.md` files
+2. For Claude Code: `.agents/skills/` directory exists with required skill folders and `SKILL.md` files
 
 If either is missing, report the actual state and do not proceed to Stage 1 completion.
 
@@ -310,7 +310,7 @@ Use the detected stack as the source of truth:
 - Use the official Cloudinary SDK/docs and the repo's existing package manager/build conventions.
 
 **Source of correct install and import instructions — do not work from memory:**
-- Before installing packages or writing any SDK code, read the installed Cloudinary skill that matches the detected stack (for Claude Code: `.claude/skills/cloudinary-react/SKILL.md` for React-classified projects) and follow its install and import instructions exactly, including package names and versions.
+- Before installing packages or writing any SDK code, read the installed Cloudinary skill that matches the detected stack (for Claude Code: `.agents/skills/cloudinary-react/SKILL.md` for React-classified projects) and follow its install and import instructions exactly, including package names and versions.
 - For stacks without a matching installed skill, fetch the official Cloudinary documentation page for the detected framework/SDK (quickstart or SDK reference) and follow its install and import instructions. Never guess package names, versions, or import paths.
 - Include an import for every Cloudinary feature the generated code uses. With `@cloudinary/url-gen`, each action/qualifier is a separate tree-shakable import (e.g., `@cloudinary/url-gen/actions/resize`) — a missing import is a broken build, not a style issue.
 - **Never type a dependency version number from memory — not even a caret range.** Add packages by running the package manager's install command with no version (e.g., `npm install @cloudinary/react @cloudinary/url-gen`) so the registry resolves the real current version and writes it into the dependency file itself. If a version must be written by hand, first query it (`npm view <package> version` or equivalent) and use exactly what the registry returns.
@@ -627,7 +627,7 @@ Do not skip the `samples/coffee` fetch and go straight to MCP search. This is a 
 - Never add the standalone preview to framework route code, and never add any asset-rendering or demo code to the application during Stage 5. All Stage 5 artifacts live in `docs/` — the app itself is not modified in this stage.
 - **Comments in generated files:** Every file created or significantly changed in Stage 5 must include short, useful inline comments explaining what each section does and why. Apply this to `docs/cloudinary-getting-started-preview.html` (explain each section: image display, measurement fetch, SDK snippet, stats), `docs/cloudinary-environment.json` (top-level comment block describing what the file contains and where to find docs), and any validation scripts. Focus on the non-obvious — why a particular URL pattern is used, what the Accept header achieves. Do not comment every line.
 - For server lanes, the chat snippet and `#stage-5-integration-snippet` must generate the delivery URL through the detected stack's Cloudinary SDK when available. Do not use a pasted static URL as the only server integration.
-- **Snippet sourcing:** compose every SDK snippet (chat and `#stage-5-integration-snippet`) from the installed Cloudinary skill matching the stack (e.g., `.claude/skills/cloudinary-react/SKILL.md` for React), or from the official Cloudinary docs for stacks without one — never from memory. Get the API composition right: in `@cloudinary/url-gen`, qualifiers such as auto gravity belong inside the resize action (`fill().gravity(autoGravity())` → `c_fill,g_auto,...`), never chained as standalone actions (which produces broken URL segments like `/auto/auto/`).
+- **Snippet sourcing:** compose every SDK snippet (chat and `#stage-5-integration-snippet`) from the installed Cloudinary skill matching the stack (e.g., `.agents/skills/cloudinary-react/SKILL.md` for React), or from the official Cloudinary docs for stacks without one — never from memory. Get the API composition right: in `@cloudinary/url-gen`, qualifiers such as auto gravity belong inside the resize action (`fill().gravity(autoGravity())` → `c_fill,g_auto,...`), never chained as standalone actions (which produces broken URL segments like `/auto/auto/`).
 - For front-end-only lanes, follow the framework-appropriate Cloudinary docs. A plain `<img src>` is acceptable when it matches the app. React-specific helpers are only for React-classified projects.
 - Optional validation scripts may wrap measurements and Admin checks. Name them according to the project ecosystem; do not assume npm unless the repo is npm-based.
 - In chat for front-end/full-stack lanes, echo the canonical transformed URL.

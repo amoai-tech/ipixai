@@ -2,7 +2,7 @@
 
 **Use when a task actually needs it.** The product-wide [intent](../intent.md), [spec](../spec.md), and [plan](../plan.md) explain iPix; this directory provides optional **task-level** starting points. They are not mandatory task documents or a second task manager.
 
-The authoritative sources remain [AGENTS.md](../../AGENTS.md), the existing [tasks skill](../../.claude/skills/tasks/SKILL.md), current `origin/main` and runtime, and the **live Linear issue** for acceptance, dependencies, progress and evidence.
+The authoritative sources remain [AGENTS.md](../../AGENTS.md), the existing [tasks skill](../../.agents/skills/tasks/SKILL.md), current `origin/main` and runtime, and the **live Linear issue** for acceptance, dependencies, progress and evidence.
 
 ## Choose the smallest path
 

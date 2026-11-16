@@ -1,8 +1,8 @@
 # iPix verifier probes
 
-**Companion:** [mcp-cadence-ipix.md](./mcp-cadence-ipix.md) · [skills-compliance-ipix.md](./skills-compliance-ipix.md) · `.claude/skills/task-verifier/SKILL.md`
+**Companion:** [mcp-cadence-ipix.md](./mcp-cadence-ipix.md) · [skills-compliance-ipix.md](./skills-compliance-ipix.md) · `.agents/skills/task-verifier/SKILL.md`
 
-**Script:** `bash .claude/skills/task-verifier/scripts/legacy/probe-disk-ipix.sh [app|supabase|skills|git]`
+**Script:** `bash .agents/skills/task-verifier/scripts/legacy/probe-disk-ipix.sh [app|supabase|skills|git]`
 
 ## Universal (every ship)
 
