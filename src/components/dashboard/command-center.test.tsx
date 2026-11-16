@@ -499,13 +499,15 @@ describe("CommandCenter", () => {
 
   it("renders the Recent work header with a View all link to /app/shoots", () => {
     render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
-    expect(screen.getByRole("heading", { name: "Recent creative assets" })).toBeDefined();
+    expect(screen.getByRole("heading", { name: "Recent shoots & previews" })).toBeDefined();
+    const headings = Array.from(document.querySelectorAll("h2")).map((h) => h.textContent);
+    expect(headings.indexOf("Recent shoots & previews")).toBeLessThan(headings.indexOf("Upcoming photoshoots"));
     const viewAll = screen.getByRole("link", { name: "View all" });
     expect(viewAll.getAttribute("href")).toBe("/app/shoots");
   });
 
   // IPI-1451 · DASH-MAIN-PLAYGROUND-001
-  it("caps Recent creative assets at 3 tiles", () => {
+  it("caps Recent shoots & previews at 3 tiles", () => {
     const many = Array.from({ length: 6 }, (_, i) => ({
       id: `shoot-${i}`, name: `Shoot ${i}`, status: null, brandId: "b", dnaScore: null, channel: null,
     }));
@@ -540,7 +542,8 @@ describe("CommandCenter", () => {
 
   it("keeps review and moodboard honest: no fabricated items, counts or approvals", () => {
     render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
-    expect(screen.getByRole("heading", { name: "Nothing waiting for review" })).toBeDefined();
+    expect(screen.getByRole("heading", { name: "Review queue not available here yet" })).toBeDefined();
+    expect(screen.queryByText("Nothing waiting for review")).toBeNull();
     expect(screen.getByRole("heading", { name: "Moodboard coming soon" })).toBeDefined();
     expect(screen.getByRole("link", { name: "Go to Plans" }).getAttribute("href")).toBe("/app/plans");
     expect(screen.queryByText(/approved|urgent approvals/i)).toBeNull();

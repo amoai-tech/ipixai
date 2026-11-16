@@ -21,8 +21,8 @@ type BrandsResult = { ok: true; brands: DashboardBrand[] } | { ok: false };
 type ShootsResult = { ok: true; shoots: DashboardShoot[] } | { ok: false };
 type UpcomingShootsResult = { ok: true; shoots: UpcomingShoot[] } | { ok: false };
 
-/** Playground "Recent Creative Assets" shows three tiles; the full list lives on /app/shoots. */
-const RECENT_ASSET_LIMIT = 3;
+/** Show three real shoot previews; this is not a standalone asset gallery. */
+const RECENT_SHOOT_LIMIT = 3;
 
 type Props = {
   brandsResult: BrandsResult;
@@ -205,8 +205,8 @@ export function CommandCenter({
         {/* No pending-review list source yet (IPI-1084 · APPROVAL-001 owns
             approvals). Plan reviews still appear live in Ask iPix below. */}
         <EmptyState
-          heading="Nothing waiting for review"
-          body="When iPix prepares a shoot plan, you'll review it in Ask iPix before anything is saved."
+          heading="Review queue not available here yet"
+          body="Plan reviews appear in Ask iPix when requested; this dashboard does not yet load a pending-review list."
           icon={<ClipboardCheck aria-hidden />}
           action={
             <Link href="/app/plans" className={styles.link}>
@@ -214,44 +214,6 @@ export function CommandCenter({
             </Link>
           }
         />
-      </section>
-
-      <section aria-labelledby="command-center-upcoming">
-        <div className={styles.recentHeader}>
-          <h2 id="command-center-upcoming" className={styles.sectionHeading}>
-            Upcoming photoshoots
-          </h2>
-          <Link href="/app/shoots" className={styles.recentViewAll}>
-            Full schedule
-          </Link>
-        </div>
-        {!upcomingShootsResult.ok ? (
-          <ErrorState message="Couldn't load upcoming shoots. Please try again shortly." />
-        ) : upcomingShootsResult.shoots.length === 0 ? (
-          <EmptyState
-            heading="No upcoming shoots"
-            body="Shoots with a start date from today onward will show up here."
-            icon={<CalendarDays aria-hidden />}
-          />
-        ) : (
-          <ul className={styles.grid} data-testid="command-center-upcoming-list">
-            {upcomingShootsResult.shoots.map((shoot) => (
-              <li key={shoot.id}>
-                <Link href={`/app/shoots/${shoot.id}`} className={styles.brandCardLink}>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className={styles.brandName}>{shoot.name}</CardTitle>
-                      <p className={styles.upcomingMeta}>
-                        <time dateTime={shoot.startDate}>{formatShootDate(shoot.startDate)}</time>
-                        {shoot.location ? ` · ${shoot.location}` : null}
-                      </p>
-                    </CardHeader>
-                  </Card>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
       </section>
 
       <section aria-labelledby="command-center-brands">
@@ -291,7 +253,7 @@ export function CommandCenter({
       <section aria-labelledby="command-center-shoots">
         <div className={styles.recentHeader}>
           <h2 id="command-center-shoots" className={styles.sectionHeading}>
-            Recent creative assets
+            Recent shoots & previews
           </h2>
           <Link href="/app/shoots" className={styles.recentViewAll}>
             View all
@@ -312,7 +274,7 @@ export function CommandCenter({
           />
         ) : (
           <div className={styles.recentScroll} data-testid="command-center-shoot-list">
-            {shootsResult.shoots.slice(0, RECENT_ASSET_LIMIT).map((shoot) => (
+            {shootsResult.shoots.slice(0, RECENT_SHOOT_LIMIT).map((shoot) => (
               <RecentWorkTile
                 key={shoot.id}
                 shootId={shoot.id}
@@ -324,6 +286,44 @@ export function CommandCenter({
               />
             ))}
           </div>
+        )}
+      </section>
+
+      <section aria-labelledby="command-center-upcoming">
+        <div className={styles.recentHeader}>
+          <h2 id="command-center-upcoming" className={styles.sectionHeading}>
+            Upcoming photoshoots
+          </h2>
+          <Link href="/app/shoots" className={styles.recentViewAll}>
+            Full schedule
+          </Link>
+        </div>
+        {!upcomingShootsResult.ok ? (
+          <ErrorState message="Couldn't load upcoming shoots. Please try again shortly." />
+        ) : upcomingShootsResult.shoots.length === 0 ? (
+          <EmptyState
+            heading="No upcoming shoots"
+            body="Shoots with a start date from today onward will show up here."
+            icon={<CalendarDays aria-hidden />}
+          />
+        ) : (
+          <ul className={styles.grid} data-testid="command-center-upcoming-list">
+            {upcomingShootsResult.shoots.map((shoot) => (
+              <li key={shoot.id}>
+                <Link href={`/app/shoots/${shoot.id}`} className={styles.brandCardLink}>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className={styles.brandName}>{shoot.name}</CardTitle>
+                      <p className={styles.upcomingMeta}>
+                        <time dateTime={shoot.startDate}>{formatShootDate(shoot.startDate)}</time>
+                        {shoot.location ? ` · ${shoot.location}` : null}
+                      </p>
+                    </CardHeader>
+                  </Card>
+                </Link>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 
