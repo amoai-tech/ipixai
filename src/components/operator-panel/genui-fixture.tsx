@@ -29,6 +29,7 @@ type FixtureApi = {
   switchThread: (threadId: string) => void;
   switchScope: (scope: string) => void;
   rejectedUpdate: () => void;
+  interrupt: () => void;
 };
 
 function surfaceIdFor(seq: number) {
@@ -66,7 +67,13 @@ function createOperations(surfaceId: string, title: string): A2UIOperation[] {
  * provider, manager and Surface without a model call, so the browser
  * lifecycle can be tested for free.
  */
-export function GenUIFixture() {
+export function GenUIFixture({
+  onScopeChange,
+  onRunActiveChange,
+}: {
+  onScopeChange?: (scope: string) => void;
+  onRunActiveChange?: (active: boolean) => void;
+} = {}) {
   const runtime = useGenerativeUIRuntime();
 
   useEffect(() => {
@@ -79,12 +86,13 @@ export function GenUIFixture() {
       threadId: string,
       surfaceId: string,
       operations: A2UIOperation[],
+      status: "ready" | "streaming" = "ready",
     ) => {
       manager.ingest(threadId, "default", {
         surfaceId,
         catalogId: ipixGenerativeUI.id,
         target: TARGET,
-        status: "ready",
+        status,
         rejected: [],
         operations,
       });
@@ -124,6 +132,15 @@ export function GenUIFixture() {
             },
           },
         ]);
+      },
+      interrupt: () => {
+        if (!currentSurfaceId) return;
+        manager.setActiveThread(MAIN_THREAD);
+        if (!manager.getSurface(MAIN_THREAD, currentSurfaceId)) return;
+        // A run that was stopped after streaming started: the surface never
+        // reaches "ready". The Surface must show recovery, not the old card.
+        ingest(MAIN_THREAD, currentSurfaceId, [], "streaming");
+        onRunActiveChange?.(false);
       },
       rejectedUpdate: () => {
         if (!currentSurfaceId) return;
@@ -166,17 +183,19 @@ export function GenUIFixture() {
         ]);
       },
       switchThread: (threadId) => manager.setActiveThread(threadId),
-      switchScope: (scope) =>
+      switchScope: (scope) => {
         manager.setActiveThread(
           scope === "main" ? MAIN_THREAD : `genui-fixture-scope-${scope}`,
-        ),
+        );
+        onScopeChange?.(scope);
+      },
     };
 
     (window as unknown as { __genuiFixture?: FixtureApi }).__genuiFixture = api;
     return () => {
       delete (window as unknown as { __genuiFixture?: FixtureApi }).__genuiFixture;
     };
-  }, [runtime]);
+  }, [runtime, onScopeChange, onRunActiveChange]);
 
   return (
     <main className="p-8">

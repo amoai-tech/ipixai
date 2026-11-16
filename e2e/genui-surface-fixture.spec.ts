@@ -8,6 +8,7 @@ type FixtureApi = {
   switchThread: (threadId: string) => void;
   switchScope: (scope: string) => void;
   rejectedUpdate: () => void;
+  interrupt: () => void;
 };
 
 declare global {
@@ -78,10 +79,19 @@ test.describe("GenUI Surface fixture (deterministic)", () => {
     // card. The recovery status is the operator-facing signal.
     await page.evaluate(() => window.__genuiFixture?.rejectedUpdate());
     await expect(page.getByTestId("genui-comparison-recovery")).toBeVisible();
-    await expect(page.getByText("Back after recovery")).toHaveCount(0);
+    await expect(page.getByText("Scope main")).toHaveCount(0);
 
     await page.evaluate(() => window.__genuiFixture?.create("After rejection"));
     await expect(page.getByText("After rejection")).toBeVisible();
+    await expect(page.getByTestId("genui-comparison-recovery")).toHaveCount(0);
+
+    // A stopped/interrupted streaming surface must not look current.
+    await page.evaluate(() => window.__genuiFixture?.interrupt());
+    await expect(page.getByTestId("genui-comparison-recovery")).toBeVisible();
+    await expect(page.getByText("After rejection")).toHaveCount(0);
+
+    await page.evaluate(() => window.__genuiFixture?.create("After interrupt"));
+    await expect(page.getByText("After interrupt")).toBeVisible();
     await expect(page.getByTestId("genui-comparison-recovery")).toHaveCount(0);
 
     await page.evaluate(() =>
@@ -92,16 +102,18 @@ test.describe("GenUI Surface fixture (deterministic)", () => {
     await page.evaluate(() =>
       window.__genuiFixture?.switchThread("genui-fixture-thread"),
     );
-    await expect(page.getByText("After rejection")).toBeVisible();
+    await expect(page.getByText("After interrupt")).toBeVisible();
 
-    // Scope switch: the Surface follows the active scope and must not show a
-    // stale card from the previous scope.
+    // Scope switch: changing the authorized brand/shoot scope deletes the
+    // previous surface; the old card must not remain under the new scope.
     await page.evaluate(() => window.__genuiFixture?.switchScope("other"));
     await expect(card).toHaveCount(0);
-    await expect(page.getByText("After rejection")).toHaveCount(0);
+    await expect(page.getByText("After interrupt")).toHaveCount(0);
 
     await page.evaluate(() => window.__genuiFixture?.switchScope("main"));
-    await expect(page.getByText("After rejection")).toBeVisible();
+    await expect(card).toHaveCount(0);
+    await page.evaluate(() => window.__genuiFixture?.create("Scope main"));
+    await expect(page.getByText("Scope main")).toBeVisible();
 
     // The Surface manager is in-memory. A reload with `seed=0` must be empty,
     // not restored from another scope or from the previous page instance.
@@ -118,6 +130,6 @@ test.describe("GenUI Surface fixture (deterministic)", () => {
     // cleared; the card itself must be gone.
     await expect(region).toBeAttached();
     await expect(card).toHaveCount(0);
-    await expect(page.getByText("Back after recovery")).toHaveCount(0);
+    await expect(page.getByText("Scope main")).toHaveCount(0);
   });
 });

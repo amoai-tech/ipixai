@@ -39,11 +39,28 @@ test.describe("GenUI real-model Surface", () => {
     await textarea.fill(
       "Compare three summer campaign concepts for a fashion brand: studio, outdoor, and editorial. Render the comparison in the planner-comparison area, not the chat, using the ConceptComparison component with two or three options.",
     );
+    const runResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/copilotkit/agent/default/run") &&
+        response.request().method() === "POST",
+      { timeout: 90_000 },
+    ).catch(() => null);
     await page.getByTestId("copilot-send-button").click();
 
-    await expect(page.getByTestId("genui-concept-comparison")).toBeVisible({
-      timeout: 90_000,
-    });
+    try {
+      await expect(page.getByTestId("genui-concept-comparison")).toBeVisible({
+        timeout: 90_000,
+      });
+    } catch (error) {
+      const runResponse = await runResponsePromise;
+      if (!runResponse || runResponse.status() === 429 || runResponse.status() >= 500) {
+        test.skip(
+          true,
+          "Model provider unavailable or rate-limited; this is an external-service outage, not a GenUI failure.",
+        );
+      }
+      throw error;
+    }
     // A tool-only turn may have no assistant text; the rendered Surface is
     // the observable result. Do not require a hidden empty message.
     await expect(page.getByTestId("genui-concept-comparison")).toContainText(

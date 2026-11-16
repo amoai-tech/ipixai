@@ -142,7 +142,7 @@ export default async function BrandDetailPage({
   // reuses that proven-authorized read rather than re-deriving ownership a
   // second time.
   const plannerContext: PlannerContext = {
-    scopeKey: `brand:${detail.id}`,
+    scopeKey: `brand:${detail.orgId}:${detail.id}`,
     brand: { id: detail.id, name: detail.name },
   };
 

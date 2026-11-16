@@ -183,7 +183,7 @@ describe("native GenUI provider and surface integration", () => {
       });
     });
     expect(screen.getByTestId("genui-comparison-recovery").textContent).toContain("comparison");
-    expect(screen.queryByText("Recovered concepts")).toBeNull();
+    expect(screen.queryByText("Recovered concepts")?.closest("[hidden]")).not.toBeNull();
     expect(manager.getMountedTargets().some((target) => target.id === "planner-comparison")).toBe(true);
 
   });

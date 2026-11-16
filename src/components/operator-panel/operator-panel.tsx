@@ -778,7 +778,10 @@ function ProductionCopilotPanel({
             the conversation subtree and its thread subscription stay alive
             the whole time the drawer is open. */}
         {runFailure && <RunFailureBanner failure={runFailure} onDismiss={dismissRunFailure} />}
-        <IpixGenerativeComparisonSurface />
+        <IpixGenerativeComparisonSurface
+          scopeKey={plannerContext?.scopeKey ?? "workspace"}
+          runActive={Boolean(agent.isRunning)}
+        />
         <PlannerChatDock
           pathname={pathname}
           composerContainerRef={setComposerElement}

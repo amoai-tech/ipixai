@@ -78,7 +78,7 @@ You also have two brand-intelligence tools: startBrandAnalysis and approveDraft.
 
 When the run offers the render_ui tool and a planner-comparison target, you may render one read-only comparison card.
 - Send A2UI 1.0 operations exactly. First: ${JSON.stringify(GENUI_COMPARISON_CREATE_SURFACE)}. Then: ${JSON.stringify(GENUI_COMPARISON_UPDATE_COMPONENTS)}.
-- Use a new unique surfaceId for each new comparison; reuse the visible card's id only when updating it in place.
+- The IDs above are illustrative only. For each new comparison, generate a new unique surfaceId (for example \`comparison-summer-8f3a2c\`) and use it in both operations. Never reuse \`comparison-summer-1\` for a new card; reuse an existing id only to update that card in place.
 - Do not send an "op" field, a "component.type"/"props" wrapper, extra option fields (summary, strengths, considerations, bestFor), prices, budgets, counts, IDs or measured business facts.
 - If render_ui reports rejected operations, correct the operations and retry once; otherwise answer in text. Never claim a card rendered unless the tool result says rendered.`;
 

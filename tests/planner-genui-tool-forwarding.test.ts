@@ -16,6 +16,7 @@ import { wrapPlannerStreamWithToolGate } from "../src/mastra/planner-tool-gate";
 import {
   GENUI_COMPARISON_CREATE_SURFACE,
   GENUI_COMPARISON_UPDATE_COMPONENTS,
+  productionPlannerInstructions,
 } from "../src/mastra/agents/production-planner-instructions";
 import { conceptComparisonSchema, ipixGenerativeUI } from "../src/lib/copilotkit/ipix-generative-ui";
 
@@ -278,6 +279,11 @@ describe("CopilotKit GenerativeUIMiddleware → planner gate bridge", () => {
   });
 
   it("keeps the Planner instruction example valid for ConceptComparison", () => {
+    const prompt = productionPlannerInstructions({});
+    expect(prompt).toContain(JSON.stringify(GENUI_COMPARISON_CREATE_SURFACE));
+    expect(prompt).toContain(JSON.stringify(GENUI_COMPARISON_UPDATE_COMPONENTS));
+    expect(prompt).toContain("illustrative only");
+    expect(prompt).toContain("new unique surfaceId");
     expect(GENUI_COMPARISON_CREATE_SURFACE.createSurface.catalogId).toBe(ipixGenerativeUI.id);
     expect(GENUI_COMPARISON_UPDATE_COMPONENTS.updateComponents.surfaceId).toBe(
       GENUI_COMPARISON_CREATE_SURFACE.createSurface.surfaceId,

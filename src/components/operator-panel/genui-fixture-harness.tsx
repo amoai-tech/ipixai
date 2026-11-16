@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
 import { IpixGenerativeComparisonSurface } from "@/components/operator-panel/ipix-generative-surface";
@@ -15,6 +16,8 @@ import { GenUIFixture } from "@/components/operator-panel/genui-fixture";
  * It does not call a model and it is not linked from the app.
  */
 export function GenUIFixtureHarness() {
+  const [scope, setScope] = useState("main");
+  const [runActive, setRunActive] = useState(true);
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
@@ -23,8 +26,8 @@ export function GenUIFixtureHarness() {
       generativeUI={{ ui: ipixGenerativeUI }}
     >
       <div className="min-h-screen p-8">
-        <IpixGenerativeComparisonSurface />
-        <GenUIFixture />
+        <IpixGenerativeComparisonSurface scopeKey={scope} runActive={runActive} />
+        <GenUIFixture onScopeChange={setScope} onRunActiveChange={setRunActive} />
       </div>
     </CopilotKitProvider>
   );

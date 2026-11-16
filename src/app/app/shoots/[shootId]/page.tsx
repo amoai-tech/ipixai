@@ -86,7 +86,7 @@ export default async function AppShootDetailPage({
   // deliverables" without repeating either) — reused verbatim from the same
   // already-authorized `get_shoot_detail` payload, zero new queries.
   const plannerContext: PlannerContext = {
-    scopeKey: `shoot:${detailLoad.data.shoot.id}`,
+    scopeKey: `shoot:${tenant.orgId}:${detailLoad.data.shoot.id}`,
     brand: { id: detailLoad.data.brand.id, name: detailLoad.data.brand.name },
     shoot: {
       id: detailLoad.data.shoot.id,
