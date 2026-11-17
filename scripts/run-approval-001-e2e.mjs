@@ -181,6 +181,25 @@ async function ensureFixtureUsers() {
 
 await ensureFixtureUsers();
 
+// Fail early with a clear GoTrue result before launching Chromium/Next. This
+// uses only throwaway local users, does not log tokens or passwords, and
+// distinguishes a broken Auth fixture from a stalled browser/SSR redirect.
+async function verifyLocalPasswordAuth() {
+  const response = await fetch(`${apiUrl}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: { apikey: publishableKey, "content-type": "application/json" },
+    body: JSON.stringify({ email: FIXTURE_USERS[1].email, password: FIXTURE_PASSWORD }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) fail(`local Auth password preflight returned HTTP ${response.status}`);
+  const payload = await response.json();
+  if (payload?.user?.id !== FIXTURE_USERS[1].id || !payload?.access_token) {
+    fail("local Auth password preflight did not return the expected fixture user/session");
+  }
+  console.log("run-approval-001-e2e: local GoTrue password preflight passed");
+}
+await verifyLocalPasswordAuth();
+
 /**
  * Org / membership / brand fixtures for the browser proof.
  *

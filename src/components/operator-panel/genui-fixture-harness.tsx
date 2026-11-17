@@ -23,7 +23,8 @@ export function GenUIFixtureHarness() {
       runtimeUrl="/api/copilotkit"
       useSingleEndpoint={false}
       enableInspector={false}
-      generativeUI={{ ui: ipixGenerativeUI }}
+      agentId="default"
+      generativeUI={{ ui: ipixGenerativeUI, agentIds: ["default"] }}
     >
       <div className="min-h-screen p-8">
         <IpixGenerativeComparisonSurface scopeKey={scope} runActive={runActive} />

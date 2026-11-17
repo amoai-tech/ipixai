@@ -90,6 +90,8 @@ test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
     await textarea.fill(R1_PROMPT);
     const r1Run = page.waitForRequest(isRun);
     const r1Response = page.waitForResponse((response) => isRun(response.request()));
+    // Claim any early rejection; the later await still throws the original error.
+    void r1Response.catch(() => {});
     await sendOrStop.click();
     await r1Run;
     // CopilotKit 1.85.0 marks Stop mode only by swapping the arrow for a
@@ -130,6 +132,8 @@ test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
     );
     const r2Run = page.waitForRequest(isRun);
     const r2Response = page.waitForResponse((response) => isRun(response.request()));
+    // Claim any early rejection; the later await still throws the original error.
+    void r2Response.catch(() => {});
     await sendOrStop.click();
     const r2 = await r2Run;
     // IPI-1339: R2 carries only its own turn even though R1's exchange is

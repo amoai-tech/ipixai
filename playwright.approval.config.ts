@@ -60,7 +60,10 @@ export default defineConfig({
   webServer: {
     // The runner exports the LOCAL Supabase env, so the server this starts talks
     // to the local stack even when the ambient shell still has hosted values.
-    command: `next dev --turbopack -p ${port}`,
+    // Use the stable Webpack path in isolated Auth/HITL E2E: the Turbopack
+    // dev cache can lose pages/_app/build-manifest.json under heavy CI load.
+    // This is test-only and does not change the application production build.
+    command: `next dev --webpack -H ${parsedBaseURL.hostname} -p ${port}`,
     url: baseURL,
     // NEVER reuse an existing listener. A stale process on this port may have
     // been started with hosted Supabase env or older code, which would silently

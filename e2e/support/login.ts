@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import type { Browser, Locator, Page, Request } from "@playwright/test";
+import type { Browser, Locator, Page, Request, Response } from "@playwright/test";
 
 import { gotoPageWithRetry } from "./context";
 
@@ -83,11 +83,28 @@ export async function signInWithCredentials(
   await emailField.fill(email);
   await passwordField.fill(password);
 
+  // Capture only transport/status signals, never emails, passwords, cookies,
+  // response bodies or tokens. A 30-second CI timeout by itself cannot tell
+  // whether React submitted the form, Auth rejected it, or the post-login
+  // getClaims/navigation path stalled after a successful token response.
+  let tokenRequestSeen = false;
+  let tokenResponseStatus: number | null = null;
+  const onTokenRequest = (request: Request) => {
+    if (isAuthTokenRequest(request)) tokenRequestSeen = true;
+  };
+  const onTokenResponse = (response: Response) => {
+    if (isAuthTokenRequest(response.request())) tokenResponseStatus = response.status();
+  };
+  page.on("request", onTokenRequest);
+  page.on("response", onTokenResponse);
+  const timeoutDetails = () =>
+    ` (tokenRequestSeen=${tokenRequestSeen}, tokenResponseStatus=${tokenResponseStatus ?? "none"}, ` +
+    `atLogin=${new URL(page.url()).pathname === "/login"})`;
   try {
     const first = await submitPasswordSignIn(page, signIn);
     if (first.kind === "success") return;
     if (first.kind === "timeout") {
-      throw new Error(`Sign-in timed out after ${SIGN_IN_TIMEOUT_MS}ms waiting for Supabase Auth`);
+      throw new Error(`Sign-in timed out after ${SIGN_IN_TIMEOUT_MS}ms waiting for Supabase Auth${timeoutDetails()}`);
     }
 
     if (first.kind === "http-error") {
@@ -104,7 +121,7 @@ export async function signInWithCredentials(
     if (second.kind === "success") return;
     if (second.kind === "timeout") {
       throw new Error(
-        `Sign-in timed out after ${SIGN_IN_TIMEOUT_MS}ms waiting for Supabase Auth after network retry`,
+        `Sign-in timed out after ${SIGN_IN_TIMEOUT_MS}ms waiting for Supabase Auth after network retry${timeoutDetails()}`,
       );
     }
     if (second.kind === "http-error") {
@@ -115,6 +132,9 @@ export async function signInWithCredentials(
     // Keep failure snapshots/error-context from retaining the raw password.
     await passwordField.fill("").catch(() => {});
     throw error;
+  } finally {
+    page.off("request", onTokenRequest);
+    page.off("response", onTokenResponse);
   }
 }
 
