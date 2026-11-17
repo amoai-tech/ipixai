@@ -78,8 +78,11 @@ export function AuthForm({ mode, next }: { mode: AuthFormMode; next: string | nu
         // The Next proxy, protected pages and API routes independently verify
         // claims server-side before granting access.
       }
+      // Navigate once. Refreshing the still-current /login route immediately
+      // after push can race or cancel the pending authenticated navigation,
+      // especially under a slow CI browser. The destination is server-rendered
+      // and independently checks the new cookie session through the proxy.
       router.push(destination);
-      router.refresh();
     } catch (error) {
       setError(getAuthSubmitErrorMessage(error, mode));
     } finally {

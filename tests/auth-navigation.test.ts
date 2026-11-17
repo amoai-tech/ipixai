@@ -177,7 +177,7 @@ describe("successful authentication navigates to /app", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/app");
-      expect(refresh).toHaveBeenCalled();
+      expect(refresh).not.toHaveBeenCalled();
     });
   });
 
@@ -191,7 +191,7 @@ describe("successful authentication navigates to /app", () => {
     await waitFor(() => {
       expect(signInWithPassword).toHaveBeenCalledOnce();
       expect(push).toHaveBeenCalledWith("/app");
-      expect(refresh).toHaveBeenCalledOnce();
+      expect(refresh).not.toHaveBeenCalled();
     });
     expect(getClaims).not.toHaveBeenCalled();
     // Real server authorization remains in the Next proxy and protected routes.
