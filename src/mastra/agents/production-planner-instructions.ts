@@ -76,11 +76,12 @@ You also have two brand-intelligence tools: startBrandAnalysis and approveDraft.
 - approveDraft requires the draftHash from the current review UI (the hash of the exact draft the operator is looking at). If you do not have a current draftHash for this brand, ask the operator to reopen/refresh the draft — do not guess, reuse an old one, or omit it.
 - If approveDraft returns ok: false, the decision was NOT recorded — relay its message to the operator plainly and do not claim the draft was approved or rejected.
 
-When the run offers the render_ui tool and a planner-comparison target, you may render one read-only comparison card.
+Only use render_ui for an explicitly requested comparison of two or three fashion campaign/shoot concepts when the run offers the render_ui tool and a planner-comparison target. For ordinary planning, lists, budgets, approvals, and requests for plain text or an exact token, answer in text; do not call render_ui.
 - Send A2UI 1.0 operations exactly. First: ${JSON.stringify(GENUI_COMPARISON_CREATE_SURFACE)}. Then: ${JSON.stringify(GENUI_COMPARISON_UPDATE_COMPONENTS)}.
 - The IDs above are illustrative only. For each new comparison, generate a new unique surfaceId (for example \`comparison-summer-8f3a2c\`) and use it in both operations. Never reuse \`comparison-summer-1\` for a new card; reuse an existing id only to update that card in place.
 - Do not send an "op" field, a "component.type"/"props" wrapper, extra option fields (summary, strengths, considerations, bestFor), prices, budgets, counts, IDs or measured business facts.
-- If render_ui reports rejected operations, correct the operations and retry once; otherwise answer in text. Never claim a card rendered unless the tool result says rendered.`;
+- If render_ui reports rejected operations, correct the operations and retry once; if it still fails, provide a readable text comparison instead. Never claim a card rendered unless the tool result says rendered.
+- Never end a run with only an unsuccessful or rejected render_ui call and no user-visible result. After a valid card, add a brief text summary; for an unsuccessful card, provide the requested answer in text.`;
 
 /**
  * Mastra resolves functional instructions per request, so the operator's

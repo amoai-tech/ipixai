@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Response } from "@playwright/test";
 
 import { collectBrowserProblems, isAgentRun as isRun, isAgentStop as isStop } from "./support/browser-problems";
 import { collectCertThreadIds } from "./support/cert-trace";
@@ -24,6 +24,35 @@ const RESPONSE_TIMEOUT_MS = 90_000;
  * that produced an 8.5 MB body (one persisted 8,410,422-byte tool message).
  */
 const BOUNDED_RUN_BODY_BYTES = 64 * 1024;
+
+// HTTP 200 and a RUN_FINISHED event are insufficient on their own: the run
+// might finish after a rejected render_ui call with no visible answer. Assert
+// the *specific* run and outcome, then independently assert rendered output.
+async function assertRunOutcome(
+  response: Response,
+  expected: "cancelled" | "success",
+  expectedRunId?: string,
+): Promise<string> {
+  expect(response.status(), "run stream must be accepted").toBe(200);
+  const raw = await response.body();
+  const events = new TextDecoder().decode(raw).split("\n")
+    .filter((line) => line.startsWith("data: "))
+    .flatMap((line) => {
+      try { return [JSON.parse(line.slice(6)) as Record<string, unknown>]; }
+      catch { return []; }
+    });
+  const started = events.find((event) => event.type === "RUN_STARTED");
+  const finished = events.find((event) => event.type === "RUN_FINISHED");
+  expect(started?.runId, "stream must name the started run").toEqual(expect.any(String));
+  expect(finished?.runId, "run must finish with its original id").toBe(started?.runId);
+  if (expectedRunId) expect(finished?.runId, "Stop must target this exact run").toBe(expectedRunId);
+  expect(events.some((event) => event.type === "RUN_ERROR"), "run must have no AG-UI error").toBe(false);
+  const outcome = finished?.outcome;
+  expect(typeof outcome === "object" && outcome !== null && "type" in outcome
+    ? (outcome as { type: unknown }).type : undefined,
+    "the specific run must reach the expected outcome").toBe(expected);
+  return finished?.runId as string;
+}
 /** Distinctive text from R1; only the newest turn may be forwarded on a run. */
 const R1_PROMPT = "Write a detailed 800-word creative brief for a linen dress lookbook shoot, section by section.";
 
@@ -56,6 +85,7 @@ test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
     // disabled Send and Stop could never be pressed).
     await textarea.fill(R1_PROMPT);
     const r1Run = page.waitForRequest(isRun);
+    const r1Response = page.waitForResponse((response) => isRun(response.request()));
     await sendOrStop.click();
     await r1Run;
     // CopilotKit 1.85.0 marks Stop mode only by swapping the arrow for a
@@ -73,6 +103,9 @@ test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
     expect(String(stopBody?.runId)).not.toBe("");
     const stopResponse = await stop.response();
     expect(stopResponse?.status(), "Stop(R1) must be accepted").toBe(200);
+    // A stop acknowledgment alone is not cancellation. Read the exact R1
+    // stream's terminal outcome and check it is the run named by Stop.
+    await assertRunOutcome(await r1Response, "cancelled", String(stopBody?.runId));
 
     // R2: send, then replay the exact Stop(R1) while R2 streams.
     await expect(textarea).toBeEditable({ timeout: NAV_TIMEOUT_MS });
@@ -89,9 +122,10 @@ test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
       "R1 must return to send-ready before the next message is sent",
     ).toBeHidden({ timeout: NAV_TIMEOUT_MS });
     await textarea.fill(
-      `List 8 one-line shot ideas for a linen dress collection. After the list, end with the exact line ${marker}`,
+      `Answer in plain text only (no UI card): list 8 one-line shot ideas for a linen dress collection. After the list, end with the exact line ${marker}`,
     );
     const r2Run = page.waitForRequest(isRun);
+    const r2Response = page.waitForResponse((response) => isRun(response.request()));
     await sendOrStop.click();
     const r2 = await r2Run;
     // IPI-1339: R2 carries only its own turn even though R1's exchange is
@@ -108,8 +142,13 @@ test.describe("planner stop journey (authenticated) @S6b1f0290", () => {
     // or not-found rejection cannot pass for a stale Stop that was ignored.
     expect(replay.status(), "the late Stop(R1) is accepted as a no-op").toBe(200);
     expect(((await replay.json()) as { stopped?: unknown }).stopped, "the late Stop(R1) stops nothing").toBe(false);
+    const r2Id = await assertRunOutcome(await r2Response, "success");
+    expect(r2Id, "late Stop(R1) must not terminate R2").not.toBe(stopBody?.runId);
 
-    await expect(assistant.last(), "R2 must finish despite the late Stop(R1)").toContainText(marker, {
+    // Critical browser contract: AG-UI can finish successfully even when
+    // render_ui operations are rejected, leaving an empty assistant message.
+    // For this explicitly text-only prompt, require the answer to be visible.
+    await expect(assistant.last(), "R2 must finish with a visible answer despite the late Stop(R1)").toContainText(marker, {
       timeout: RESPONSE_TIMEOUT_MS,
     });
 

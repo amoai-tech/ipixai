@@ -56,6 +56,16 @@ const ENVELOPE = {
   },
 };
 
+describe("Planner GenUI instruction safety", () => {
+  it("reserves render_ui for requested comparisons and requires a readable text fallback", () => {
+    const instructions = productionPlannerInstructions({});
+    expect(instructions).toContain("Only use render_ui for an explicitly requested comparison");
+    expect(instructions).toContain("requests for plain text or an exact token, answer in text");
+    expect(instructions).toContain("if it still fails, provide a readable text comparison instead");
+    expect(instructions).toContain("Never end a run with only an unsuccessful or rejected render_ui call");
+  });
+});
+
 describe("CopilotKit GenerativeUIMiddleware → planner gate bridge", () => {
   it("does not add render_ui for a malformed catalog envelope", async () => {
     const middleware = new GenerativeUIMiddleware();
