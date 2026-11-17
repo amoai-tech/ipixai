@@ -37,7 +37,7 @@ Now wiring it into the skill so it's actually loaded, not just sitting unreferen
 
 ## Done — added as a real gate, not just a doc
 
-**New file:** [`reuse-first-checklist.md`](.claude/skills/design-to-production/references/reuse-first-checklist.md) — your 9-question checklist plus the 10 reuse-search categories (I added hooks/services/API routes/Mastra tools/CopilotKit/workflows to your components-focused list, since a screen touches all of those) and your 10-section research-report format.
+**New file:** [`reuse-first-checklist.md`](.agents/skills/design-to-production/references/reuse-first-checklist.md) — your 9-question checklist plus the 10 reuse-search categories (I added hooks/services/API routes/Mastra tools/CopilotKit/workflows to your components-focused list, since a screen touches all of those) and your 10-section research-report format.
 
 **Wired in, not orphaned:**
 - Now #3 in the skill's mandatory load order (right after the skill itself, before reading the `.dc.html`)

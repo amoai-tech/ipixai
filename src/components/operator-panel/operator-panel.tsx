@@ -886,6 +886,7 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
       agentId="default"
       useSingleEndpoint={false}
       enableInspector={false}
+      showDevConsole={false}
       messageFilter={plannerRunMessageFilter}
       generativeUI={{
         ui: ipixGenerativeUI,

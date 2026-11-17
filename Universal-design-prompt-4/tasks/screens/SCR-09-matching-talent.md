@@ -16,7 +16,7 @@
 
 ## Conversion plan
 
-> **SSOT:** [`../../plan/designtoreact.md`](../docs/designtoreact.md) · [`design-to-production`](../../../.claude/skills/design-to-production/SKILL.md) · Full sections: [`SCR-TEMPLATE.md`](SCR-TEMPLATE.md)
+> **SSOT:** [`../../plan/designtoreact.md`](../docs/designtoreact.md) · [`design-to-production`](../../../.agents/skills/design-to-production/SKILL.md) · Full sections: [`SCR-TEMPLATE.md`](SCR-TEMPLATE.md)
 
 ### 1. Target
 
@@ -45,7 +45,7 @@
 | **DC workspace width** | auto (fills available) |
 | **View modes** | Swipe deck (card view), Table (list view) |
 
-Skills: [`ipix-wireframe`](../../../.claude/skills/ipix-wireframe/SKILL.md) · [`mermaid-diagrams`](../../../.claude/skills/mermaid-diagrams/SKILL.md)
+Skills: [`ipix-wireframe`](../../../.agents/skills/ipix-wireframe/SKILL.md) · [`mermaid-diagrams`](../../../.agents/skills/mermaid-diagrams/SKILL.md)
 
 ### 2. Skill routing
 

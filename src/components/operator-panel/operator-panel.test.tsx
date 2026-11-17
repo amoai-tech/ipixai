@@ -326,6 +326,8 @@ describe("OperatorPanel", () => {
     expect(copilotKitPropsMock.current?.agentId).toBe("default");
     // The existing multi-route handler stays on the REST transport.
     expect(copilotKitPropsMock.current?.useSingleEndpoint).toBe(false);
+    expect(copilotKitPropsMock.current?.enableInspector).toBe(false);
+    expect(copilotKitPropsMock.current?.showDevConsole).toBe(false);
   });
 
   it("wires one native GenUI catalog and one named surface into the existing provider", async () => {
@@ -389,7 +391,14 @@ describe("OperatorPanel", () => {
         error: new TypeError("PRIVATE_SECOND_MESSAGE"),
       });
       expect(spy).toHaveBeenCalledTimes(2);
-      const logged = JSON.stringify(spy.mock.calls);
+      // JSON.stringify(Error) omits its non-enumerable message; inspect actual
+      // logger arguments so passing a raw Error cannot evade this privacy guard.
+      const logged = JSON.stringify(spy.mock.calls, (_key, value: unknown) => {
+        if (value instanceof Error) {
+          return { name: value.name, message: value.message, stack: value.stack };
+        }
+        return value;
+      });
       expect(logged).not.toContain("PRIVATE_");
       expect(logged).toContain('"kind":"render"');
       expect(logged).toContain('"kind":"operation"');

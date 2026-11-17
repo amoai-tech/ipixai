@@ -174,7 +174,7 @@ Do **not** add `docs/architecture/` in parallel. Do **not** treat 54 markdown fi
 
 ## 9. MCP workflow
 
-Already in `.claude/skills/mermaid-diagrams`: inspect → type → fence → **mcp-mermaid** → save `.mmd` beside the doc **only if asked / worth maintaining**.
+Already in `.agents/skills/mermaid-diagrams`: inspect → type → fence → **mcp-mermaid** → save `.mmd` beside the doc **only if asked / worth maintaining**.
 
 Gap: **none** that justifies Kroki or another skill.
 

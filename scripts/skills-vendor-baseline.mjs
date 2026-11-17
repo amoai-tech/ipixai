@@ -35,7 +35,7 @@ import { fileURLToPath } from "node:url";
  * Usage:  node scripts/skills-vendor-baseline.mjs [--write]
  */
 
-const SEARCH_ROOTS = [".claude/skills", ".agents/skills"];
+const SEARCH_ROOTS = [".agents/skills"];
 export const BASELINE_FILENAME = "skills-vendor-baseline.json";
 
 function readFrontmatter(file) {
@@ -150,7 +150,7 @@ function vendoredReferencePacks(skillDir) {
       //    hashed, so edits to it go unchecked.
       //  - Unanimity, not "any". A single upstream file among siblings that
       //    declare nothing is a snapshot *file*, not a snapshot *directory*.
-      //    `.claude/skills/ipix-supabase/references/` is exactly that case: one
+      //    `.agents/skills/ipix-supabase/references/` is exactly that case: one
       //    upstream `postgres-best-practices.md` beside three iPix-authored
       //    files. Calling the directory a pack would freeze those three behind
       //    the drift guard and drop them from the anchor guard as well.
@@ -203,7 +203,7 @@ export function discoverVendoredRoots(repoRoot) {
   );
 
   const roots = [];
-  // `.claude/skills/<name>` is normally a symlink to `.agents/skills/<name>`, so
+  // `.agents/skills/<name>` is normally a symlink to `.agents/skills/<name>`, so
   // the same tree is reachable by two paths. Dedupe on the real path and keep the
   // first-seen (canonical `.agents`) spelling, so the baseline has one entry per
   // actual tree rather than one per route to it.

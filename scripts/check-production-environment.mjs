@@ -14,7 +14,10 @@ const environmentUrl =
   "https://api.github.com/repos/amoai-tech/ipixai/environments/Production";
 const branchPolicyUrl = environmentUrl + "/deployment-branch-policies";
 
-export async function verifyProductionEnvironment({ fetchImpl = globalThis.fetch } = {}) {
+export async function verifyProductionEnvironment({
+  fetchImpl = globalThis.fetch,
+  token = process.env.GITHUB_TOKEN,
+} = {}) {
   async function readGitHub(url) {
     let response;
     try {
@@ -22,6 +25,7 @@ export async function verifyProductionEnvironment({ fetchImpl = globalThis.fetch
         headers: {
           Accept: "application/vnd.github+json",
           "X-GitHub-Api-Version": "2022-11-28",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         signal: AbortSignal.timeout(10000),
       });

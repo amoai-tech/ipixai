@@ -74,6 +74,17 @@ describe("IPI-1091 protected Production approval configuration", () => {
       .rejects.toThrow(/Production approval/);
   });
 
+  it("authenticates both GitHub policy queries using the scoped token without writing", async () => {
+    const fetchImpl = fakeApi();
+    await expect(verifyProductionEnvironment({ fetchImpl, token: "test-read-token" }))
+      .resolves.toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    for (const [, options] of fetchImpl.mock.calls) {
+      expect(options?.headers).toMatchObject({ Authorization: "Bearer test-read-token" });
+      expect(options?.method).toBeUndefined();
+    }
+  });
+
   it("fails closed when public GitHub API is unavailable or forbidden", async () => {
     for (const status of [403, 404, 429, 500]) {
       await expect(verifyProductionEnvironment({
@@ -114,15 +125,24 @@ describe("IPI-1091 protected Production approval configuration", () => {
     }
   });
 
-  it("also checks live approval settings in the existing scheduled governance workflow", () => {
+  it("also checks live approval settings using a scoped GitHub Actions read token", () => {
     const y = parseYaml(readFileSync(".github/workflows/vercel-governance.yml", "utf8"));
     expect(y.on.schedule).toHaveLength(1);
-    const steps = y.jobs.audit.steps as Array<{ name?: string; run?: string }>;
-    const guard = steps.findIndex(s => s.name === "Verify Production approval policy has not drifted");
-    const count = steps.findIndex(s => s.name === "Check Vercel deployment count and ownership");
-    expect(guard).toBeGreaterThanOrEqual(0);
-    expect(count).toBeGreaterThan(guard);
-    expect(steps[guard].run).toBe("node scripts/check-production-environment.mjs");
+    const productionPolicy = y.jobs["production-policy"];
+    expect(productionPolicy.environment).toBeUndefined();
+    expect(productionPolicy.env?.VERCEL_TOKEN).toBeUndefined();
+    expect(productionPolicy.permissions).toMatchObject({ contents: "read", actions: "read" });
+    const policySteps = productionPolicy.steps as Array<{ name?: string; run?: string; env?: Record<string, string> }>;
+    const guard = policySteps.find(s => s.name === "Verify Production approval policy has not drifted");
+    expect(guard?.run).toBe("node scripts/check-production-environment.mjs");
+    expect(guard?.env?.GITHUB_TOKEN).toBe("${{ secrets.GITHUB_TOKEN }}");
+    expect(guard?.env?.VERCEL_TOKEN).toBeUndefined();
+
+    const audit = y.jobs.audit;
+    expect(audit.environment).toBe("Governance");
+    expect(audit.if).toBe("github.ref == 'refs/heads/main'");
+    const auditSteps = audit.steps as Array<{ name?: string; run?: string }>;
+    expect(auditSteps.some(s => s.name === "Check Vercel deployment count and ownership")).toBe(true);
   });
 
   it("checks the policy before any Vercel pull/build/staging or paid AI QA", () => {
@@ -139,6 +159,9 @@ describe("IPI-1091 protected Production approval configuration", () => {
     expect(policy).toBeLessThan(stage);
     expect(policy).toBeLessThan(qa);
     expect(steps[policy].run).toContain("node scripts/check-production-environment.mjs");
+    expect(job.permissions).toMatchObject({ contents: "read", actions: "read" });
+    expect(steps[policy].env?.GITHUB_TOKEN).toBe("${{ secrets.GITHUB_TOKEN }}");
+    expect(steps[policy].env?.VERCEL_TOKEN).toBeUndefined();
     const inspect = steps.find(x => x.name === "Inspect staged Production candidate and unchanged live alias");
     expect(inspect?.env?.VERCEL_TOKEN).toBe("${{ secrets.VERCEL_TOKEN }}");
     expect(inspect?.run).toContain("Missing VERCEL_TOKEN");

@@ -22,7 +22,7 @@ Repository:
 Required skill:
 
 ```text
-/home/sk/ipix/.claude/skills/ipix-supabase/SKILL.md
+/home/sk/ipix/.agents/skills/ipix-supabase/SKILL.md
 ```
 
 ## Goal
@@ -49,7 +49,7 @@ Do not modify production data or migrations during the audit.
 ```bash
 cd /home/sk/ipix
 
-cat .claude/skills/ipix-supabase/SKILL.md
+cat .agents/skills/ipix-supabase/SKILL.md
 
 git status --short
 git branch --show-current
