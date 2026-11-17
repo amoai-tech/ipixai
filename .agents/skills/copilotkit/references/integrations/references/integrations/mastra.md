@@ -18,8 +18,8 @@ Do not copy dependency pins, demo auth, in-memory storage, or demo agent names f
 
 | Package | iPix pin |
 | --- | ---: |
-| `@copilotkit/runtime` | `1.85.0` |
-| `@copilotkit/react-core` | `1.85.0` |
+| `@copilotkit/runtime` | `1.88.0` |
+| `@copilotkit/react-core` | `1.88.0` |
 | `@copilotkit/channels` | `0.12.0` |
 | `@ag-ui/client` | `1.0.2` |
 | `@ag-ui/mastra` | `2.0.2` |
@@ -96,7 +96,7 @@ export const DELETE = handler;
 
 This snippet intentionally omits auth-hook implementation detail and the `requestToken.run(...)` bearer propagation wrapper; the real route is authority. Do not replace it with demo identity or browser-owned org/thread values.
 
-**Endpoint API note:** installed `@copilotkit/runtime 1.85.0` marks `createCopilotEndpoint` as a deprecated alias of `createCopilotHonoHandler`. The current iPix route still imports the alias, so do not copy that alias into new code. Runtime cleanup should be a separate reviewed code change; this skill-sync task changes guidance only.
+**Endpoint API note:** installed `@copilotkit/runtime 1.88.0` marks `createCopilotEndpoint` as a deprecated alias of `createCopilotHonoHandler`. The current iPix route already uses `createCopilotHonoHandler` (merged PR #347). Preserve the existing authenticated multi-route handler and `useSingleEndpoint={false}` client; do not reintroduce the deprecated alias.
 
 ## Official CopilotKit reference — ADAPT, never copy wholesale
 
