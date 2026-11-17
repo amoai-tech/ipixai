@@ -6,8 +6,8 @@ This file records the currently installed compatibility family. `package.json` a
 
 | Package | Version |
 |---|---:|
-| `@copilotkit/runtime` | 1.85.0 |
-| `@copilotkit/react-core` | 1.85.0 |
+| `@copilotkit/runtime` | 1.88.0 |
+| `@copilotkit/react-core` | 1.88.0 |
 | `@copilotkit/channels` | 0.12.0 |
 | `@ag-ui/client` | 1.0.2 |
 | `@ag-ui/mastra` | 2.0.2 |

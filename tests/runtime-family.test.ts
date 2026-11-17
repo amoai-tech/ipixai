@@ -99,7 +99,7 @@ describe("IPI-1042 runtime family", () => {
     expect(client.version).toBe("1.59.0");
     expect(cli.version).toBe("1.38.0");
     expect(agui.version).toBe("2.0.2");
-    expect(copilot.version).toBe("1.85.0");
+    expect(copilot.version).toBe("1.88.0");
 
     const peer = pg.peerDependencies?.["@mastra/core"];
     expect(peer).toBeTruthy();
@@ -107,7 +107,7 @@ describe("IPI-1042 runtime family", () => {
     expect(coreSatisfiesMastraPeer("1.79.0", peer ?? "")).toBe(false);
   });
 
-  it("pins one CopilotKit 1.85.0 / AG-UI 1.0.2 family (IPI-1290)", () => {
+  it("pins one CopilotKit 1.88.0 / AG-UI 1.0.2 family (IPI-1290)", () => {
     // Read manifests from disk: @copilotkit/channels does not export ./package.json.
     const version = (name: string) =>
       (
@@ -116,10 +116,10 @@ describe("IPI-1042 runtime family", () => {
         ) as { version: string }
       ).version;
 
-    expect(version("@copilotkit/runtime")).toBe("1.85.0");
-    expect(version("@copilotkit/react-core")).toBe("1.85.0");
+    expect(version("@copilotkit/runtime")).toBe("1.88.0");
+    expect(version("@copilotkit/react-core")).toBe("1.88.0");
     expect(version("@copilotkit/channels")).toBe("0.12.0");
-    // @copilotkit/runtime@1.85.0 pins @ag-ui/client and @ag-ui/core to exactly
+    // @copilotkit/runtime@1.88.0 pins @ag-ui/client and @ag-ui/core to exactly
     // 1.0.2. A newer 1.0.x here would install a second AG-UI copy and could
     // break AbstractAgent class identity, so the family is pinned, not floated.
     for (const pkg of ["@ag-ui/client", "@ag-ui/core", "@ag-ui/encoder", "@ag-ui/proto"]) {
