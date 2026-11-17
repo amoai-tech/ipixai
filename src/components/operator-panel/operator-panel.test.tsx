@@ -347,6 +347,34 @@ describe("OperatorPanel", () => {
     );
   });
 
+  it("keeps the same thread and mounted chat when expanding and compacting /app", async () => {
+    render(<OperatorPanel><p>Workspace body</p></OperatorPanel>);
+    const shell = screen.getByTestId("operator-panel");
+    const chat = await screen.findByTestId("copilot-chat-stub");
+    const initialThread = chat.getAttribute("data-thread-id");
+    expect(shell.className).toContain("shellDockCompact");
+    expect(screen.getByRole("button", { name: "Expand conversation" }).getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand conversation" }));
+    expect(shell.className).not.toContain("shellDockCompact");
+    expect(screen.getByTestId("copilot-chat-stub")).toBe(chat);
+    expect(chat.getAttribute("data-thread-id")).toBe(initialThread);
+    expect(screen.getByRole("button", { name: "Compact conversation" }).getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Compact conversation" }));
+    expect(shell.className).toContain("shellDockCompact");
+    expect(screen.getByTestId("copilot-chat-stub")).toBe(chat);
+  });
+
+  it("does not expose /app compact conversation control on other routes", async () => {
+    mockPathname = "/app/brands";
+    render(<OperatorPanel><p>Brands workspace</p></OperatorPanel>);
+    await screen.findByTestId("copilot-chat-stub");
+    expect(screen.queryByRole("button", { name: "Expand conversation" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Compact conversation" })).toBeNull();
+    expect(screen.getByTestId("operator-panel").className).not.toContain("shellDockCompact");
+  });
+
   it("opens and closes the Production Copilot panel without remounting the chat", async () => {
     render(
       <OperatorPanel>
