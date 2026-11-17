@@ -72,7 +72,11 @@ export function AuthForm({ mode, next }: { mode: AuthFormMode; next: string | nu
           setError("Sign in failed");
           return;
         }
-        await supabase.auth.getClaims();
+        // A successful password sign-in establishes the SSR cookie session.
+        // Do not block navigation on a second browser getClaims() request:
+        // local GoTrue may return 200 for /token while the claim lookup stalls.
+        // The Next proxy, protected pages and API routes independently verify
+        // claims server-side before granting access.
       }
       router.push(destination);
       router.refresh();

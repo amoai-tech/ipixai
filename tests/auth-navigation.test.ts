@@ -181,6 +181,22 @@ describe("successful authentication navigates to /app", () => {
     });
   });
 
+  it("navigates after successful sign-in even when an optional browser claim lookup never completes", async () => {
+    signInWithPassword.mockResolvedValue({ error: null });
+    getClaims.mockReturnValue(new Promise(() => {}));
+    render(createElement(LoginForm, { next: null }));
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "qa@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await waitFor(() => {
+      expect(signInWithPassword).toHaveBeenCalledOnce();
+      expect(push).toHaveBeenCalledWith("/app");
+      expect(refresh).toHaveBeenCalledOnce();
+    });
+    expect(getClaims).not.toHaveBeenCalled();
+    // Real server authorization remains in the Next proxy and protected routes.
+  });
+
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: invalid required fields do not call signInWithPassword", async () => {
     render(createElement(LoginForm, { next: null }));
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));

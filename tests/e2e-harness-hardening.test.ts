@@ -617,6 +617,8 @@ describe("Playwright E2E harness hardening", () => {
       waitForURL: vi.fn(() => Promise.reject(timeoutError())),
       waitForEvent: vi.fn(() => never()),
       waitForResponse: vi.fn(() => never()),
+      on: vi.fn(),
+      off: vi.fn(),
     };
 
     await expect(signInWithCredentials(page as never, "qa@example.com", "secret-password")).rejects.toThrow(
