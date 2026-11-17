@@ -48,8 +48,12 @@ async function assertRunOutcome(
   if (expectedRunId) expect(finished?.runId, "Stop must target this exact run").toBe(expectedRunId);
   expect(events.some((event) => event.type === "RUN_ERROR"), "run must have no AG-UI error").toBe(false);
   const outcome = finished?.outcome;
-  expect(typeof outcome === "object" && outcome !== null && "type" in outcome
-    ? (outcome as { type: unknown }).type : undefined,
+  // The installed AG-UI producer omits the optional outcome for normal
+  // RUN_FINISHED success. Cancellation must still be explicit, and RUN_ERROR
+  // remains forbidden. The visible-answer assertion below is independent.
+  const outcomeType = typeof outcome === "object" && outcome !== null && "type" in outcome
+    ? (outcome as { type: unknown }).type : undefined;
+  expect(outcomeType ?? (expected === "success" ? "success" : undefined),
     "the specific run must reach the expected outcome").toBe(expected);
   return finished?.runId as string;
 }
