@@ -599,10 +599,16 @@ function ProductionCopilotPanel({
   pathname,
   open,
   onClose,
+  dockExpanded,
+  onToggleDockExpanded,
+  onExpandDock,
 }: {
   pathname: string;
   open: boolean;
   onClose: () => void;
+  dockExpanded: boolean;
+  onToggleDockExpanded: () => void;
+  onExpandDock: () => void;
 }) {
   const stats = useWorkspaceStats();
   const plannerContext = usePlannerContext();
@@ -714,12 +720,27 @@ function ProductionCopilotPanel({
               className={styles.intelligenceBadge}
               onClick={(event) => {
                 drawerOpenerRef.current = event.currentTarget;
+                // Drawer needs the full conversation height; opening it from
+                // compact /app mode must expand the same mounted panel first.
+                if (pathname === "/app" && !dockExpanded) onExpandDock();
                 setDrawerOpen(true);
               }}
               aria-label={`${insights.length} insights — view all intelligence`}
             >
               {insights.length} {insights.length === 1 ? "Insight" : "Insights"}
             </button>
+          )}
+          {pathname === "/app" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={dockExpanded ? "Compact conversation" : "Expand conversation"}
+              aria-expanded={dockExpanded}
+              onClick={onToggleDockExpanded}
+            >
+              {dockExpanded ? "Collapse" : "Expand"}
+            </Button>
           )}
           <Button type="button" variant="ghost" size="sm" aria-label="Close Copilot" onClick={onClose}>
             ✕
@@ -810,6 +831,10 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
   // acceptance criteria never actually require. Open/close itself still
   // works fully — this only changes which state loads first.
   const [copilotOpen, setCopilotOpen] = useState(true);
+  // Local presentation state only. Do not conditional-render CopilotChat:
+  // switching between compact composer and history must retain the run,
+  // thread and Mastra replay state within the same mounted instance.
+  const [dockExpanded, setDockExpanded] = useState(false);
   const isMobile = useMobileNav();
   const isCopilotCompact = useMatchMedia(COPILOT_COMPACT);
   const navInert = isMobile && !navOpen;
@@ -886,7 +911,7 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
           inside this same existing provider; every other message/tool keeps
           CopilotKit's default rendering. */}
       <ComposeShootPlanRenderer />
-      <div className={cn(styles.shell, copilotOpen && styles.shellPanelOpen, dockBottom && styles.shellDockBottom)} data-testid="operator-panel">
+      <div className={cn(styles.shell, copilotOpen && styles.shellPanelOpen, dockBottom && styles.shellDockBottom, dockBottom && !dockExpanded && styles.shellDockCompact)} data-testid="operator-panel">
       <div className={styles.menuBar}>
         <Button
           type="button"
@@ -968,7 +993,14 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
         )}
       </main>
 
-      <ProductionCopilotPanel pathname={pathname} open={copilotOpen} onClose={closeCopilot} />
+      <ProductionCopilotPanel
+        pathname={pathname}
+        open={copilotOpen}
+        onClose={closeCopilot}
+        dockExpanded={dockExpanded}
+        onToggleDockExpanded={() => setDockExpanded((expanded) => !expanded)}
+        onExpandDock={() => setDockExpanded(true)}
+      />
       </div>
     </CopilotKit>
     </WorkspaceStatsProvider>

@@ -509,6 +509,24 @@
   align-self: center;
 }
 
+/* Compact /app composer. The history stays mounted in React (including
+   Mastra replay and any active run), but its scroll region is not shown
+   until the designer expands the conversation. Other routes are unchanged. */
+.shellDockBottom.shellDockCompact .panel {
+  height: min(12rem, 45dvh);
+}
+
+.shellDockBottom.shellDockCompact .panelScrollView,
+.shellDockBottom.shellDockCompact .panelWelcome,
+.shellDockBottom.shellDockCompact .generativeSurface,
+.shellDockBottom.shellDockCompact .pinnedBar {
+  display: none;
+}
+
+.shellDockBottom.shellDockCompact .panelChatShell {
+  min-height: 0;
+}
+
 @media (max-width: 767px) {
   .shellDockBottom,
   .shellDockBottom.shellPanelOpen {

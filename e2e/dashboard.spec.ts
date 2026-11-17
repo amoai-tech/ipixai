@@ -167,6 +167,15 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     const viewport = page.viewportSize();
     const dockBox = await dock.boundingBox();
     expect(dockBox).not.toBeNull();
+    // Default compact dock must not consume most of the dashboard viewport.
+    expect(dockBox?.height ?? 0).toBeLessThanOrEqual(195);
+    const sameComposer = await dock.getByTestId("copilot-chat-textarea").elementHandle();
+    await page.getByRole("button", { name: "Expand conversation" }).click();
+    const expandedBox = await dock.boundingBox();
+    expect(expandedBox?.height ?? 0).toBeGreaterThan((dockBox?.height ?? 0) + 65);
+    expect(await sameComposer?.evaluate((el) => el.isConnected)).toBe(true);
+    await page.getByRole("button", { name: "Compact conversation" }).click();
+    expect(await sameComposer?.evaluate((el) => el.isConnected)).toBe(true);
     expect(dockBox?.height ?? 0).toBeLessThanOrEqual((viewport?.height ?? 0) * 0.45);
     expect((dockBox?.y ?? 0) + (dockBox?.height ?? 0)).toBeGreaterThanOrEqual((viewport?.height ?? 0) - 1);
     expect(dockBox?.width ?? 0).toBeGreaterThan(522);
@@ -317,6 +326,7 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     const dock = page.getByTestId("operator-chat-dock");
     await expect(dock).toHaveAttribute("data-open", "true", { timeout: NAV_TIMEOUT_MS });
     await expect(dock.getByTestId("copilot-chat-textarea")).toBeVisible({ timeout: NAV_TIMEOUT_MS });
+    await expect(page.getByRole("button", { name: "Expand conversation" })).toBeVisible();
     // The deepest dashboard landmark scrolls fully clear of the dock.
     const lastHeading = page.getByRole("heading", { name: "Quick links" });
     await lastHeading.scrollIntoViewIfNeeded();
