@@ -1,4 +1,4 @@
-import { CopilotRuntime, createCopilotEndpoint } from "@copilotkit/runtime/v2";
+import { CopilotRuntime, createCopilotHonoHandler } from "@copilotkit/runtime/v2";
 import { createLocalAgents } from "@/agent";
 import {
   copilotAuthHooksFor,
@@ -100,7 +100,7 @@ async function handleCopilot(request: Request) {
       ...(licenseToken ? { licenseToken } : {}),
     });
 
-    const app = createCopilotEndpoint({
+    const app = createCopilotHonoHandler({
       runtime,
       basePath: "/api/copilotkit",
       hooks: copilotAuthHooksFor(resourceId),

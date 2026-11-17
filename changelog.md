@@ -33,6 +33,7 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Changed
 
+- fix(copilotkit): restrict GenUI comparisons to the Planner and redact generated error diagnostics in the v2 provider/handler upgrade (IPI-1425, #347)
 - IPI-1374 / PR #336 — Consolidated discovery at the 53 canonical `.agents/skills/<name>/SKILL.md` paths by removing 41 former `.claude/skills/` symlink aliases and the unused `.cursor/skills` alias. Claude Code now discovers these skills through the local `.agents` plugin when launched via `npm run agent:claude` (`claude --plugin-dir .agents`); plain `claude` without the plugin flag no longer loads them from the old path. **Registry v2 → v3:** the internal `.agents/skills/registry.json` schema removes `claude_exposed`; consumers must use each skill's `canonical` path for filesystem lookup and the plugin loader for Claude discovery, rather than depending on the removed flag or symlinks. No database or product-runtime migration.
 
 - IPI-1432 · AGENT-DOCS-002 — Reduced duplicated agent instructions, clarified approved Linear versus implementation evidence and shared skill ownership, made fast-path and diagram decisions risk-matched, and linked safe existing 1Password-backed QA and local tool recovery references. No app code, credentials, database or deployment changes.

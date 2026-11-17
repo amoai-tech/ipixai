@@ -24,7 +24,7 @@ const state = vi.hoisted(() => {
 
 vi.mock("@copilotkit/runtime/v2", () => ({
   CopilotRuntime: class {},
-  createCopilotEndpoint: () => ({}),
+  createCopilotHonoHandler: () => ({}),
 }));
 vi.mock("@/agent", () => ({ createLocalAgents: () => {
     if (state.setupFailure) throw new Error("agent setup unavailable");

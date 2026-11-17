@@ -54,7 +54,7 @@ vi.mock("../src/components/restore-mastra-history", () => ({
 // Stubbed here — these tests assert route/layout wiring, not CopilotKit's
 // internals (see operator-panel.test.tsx for the same stub).
 vi.mock("@copilotkit/react-core/v2", () => ({
-  CopilotKit: ({ children }: { children: React.ReactNode }) => createElement("div", null, children),
+  CopilotKitProvider: ({ children }: { children: React.ReactNode }) => createElement("div", null, children),
   // IPI-1217: PlannerChatDock now also calls useAgent() for its welcome-copy
   // gating — needed here too or the real hook throws on the undefined mock.
   // IPI-1259: useAgentRunError() also calls agent.subscribe() unconditionally
