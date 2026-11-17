@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { act, render, screen, waitFor, cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 import { A2UI_VERSION, GENERATIVE_UI_ROOT_ID } from "@copilotkit/shared";
 import { useGenerativeUIRuntime } from "@copilotkit/react-core/v2/generative-ui";
 import { ipixGenerativeUI } from "../src/lib/copilotkit/ipix-generative-ui";
@@ -40,16 +40,17 @@ function SurfaceHarness() {
 describe("native GenUI provider and surface integration", () => {
   it("registers the real named Surface with its component allowlist and renders the fallback", async () => {
     render(
-      <CopilotKit
+      <CopilotKitProvider
         runtimeUrl="/api/copilotkit"
+        agentId="default"
         useSingleEndpoint={false}
         showDevConsole={false}
         enableInspector={false}
-        generativeUI={{ ui: ipixGenerativeUI }}
+        generativeUI={{ ui: ipixGenerativeUI, agentIds: ["default"] }}
       >
         <IpixGenerativeComparisonSurface />
         <Probe />
-      </CopilotKit>,
+      </CopilotKitProvider>,
     );
 
     expect(screen.getByText("No generated comparison yet.")).toBeTruthy();
@@ -220,16 +221,17 @@ describe("native GenUI provider and surface integration", () => {
 
   it("shows no error while a surface streams before its root arrives", async () => {
     render(
-      <CopilotKit
+      <CopilotKitProvider
         runtimeUrl="/api/copilotkit"
+        agentId="default"
         useSingleEndpoint={false}
         showDevConsole={false}
         enableInspector={false}
-        generativeUI={{ ui: ipixGenerativeUI }}
+        generativeUI={{ ui: ipixGenerativeUI, agentIds: ["default"] }}
       >
         <IpixGenerativeComparisonSurface />
         <Probe />
-      </CopilotKit>,
+      </CopilotKitProvider>,
     );
     await waitFor(() => expect(capturedRuntime).not.toBeNull());
 
@@ -256,16 +258,17 @@ describe("native GenUI provider and surface integration", () => {
 
   it("rejects a component outside the catalog allowlist with an accessible message", async () => {
     render(
-      <CopilotKit
+      <CopilotKitProvider
         runtimeUrl="/api/copilotkit"
+        agentId="default"
         useSingleEndpoint={false}
         showDevConsole={false}
         enableInspector={false}
-        generativeUI={{ ui: ipixGenerativeUI }}
+        generativeUI={{ ui: ipixGenerativeUI, agentIds: ["default"] }}
       >
         <IpixGenerativeComparisonSurface />
         <Probe />
-      </CopilotKit>,
+      </CopilotKitProvider>,
     );
     await waitFor(() => expect(capturedRuntime).not.toBeNull());
 
@@ -304,15 +307,16 @@ describe("native GenUI provider and surface integration", () => {
   });
   it("keeps interruption recovery across an unrelated render until the surface recovers", async () => {
     render(
-      <CopilotKit
+      <CopilotKitProvider
         runtimeUrl="/api/copilotkit"
+        agentId="default"
         useSingleEndpoint={false}
         showDevConsole={false}
         enableInspector={false}
-        generativeUI={{ ui: ipixGenerativeUI }}
+        generativeUI={{ ui: ipixGenerativeUI, agentIds: ["default"] }}
       >
         <SurfaceHarness />
-      </CopilotKit>,
+      </CopilotKitProvider>,
     );
     await waitFor(() => expect(capturedRuntime).not.toBeNull());
     const manager = capturedRuntime!.manager;
