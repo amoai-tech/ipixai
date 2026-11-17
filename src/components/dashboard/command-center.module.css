@@ -1,16 +1,116 @@
 /* DASH-MAIN-001 Command Center. Tokens from tokens.css, matching entity-list/empty-state. */
 
 .root {
+  /* Design reference: a centered, readable studio canvas, not a dashboard
+     stretched across every available pixel of a wide workspace. */
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: clamp(24px, 3vw, 36px);
+  width: min(100%, 68rem);
+  margin-inline: auto;
   min-width: 0;
+  padding-bottom: 24px;
 }
+
+.heroTitleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.viewTabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--card-border);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-pill);
+  overflow-x: auto;
+}
+
+.viewTab,
+.viewTabActive {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  padding: 8px 14px;
+  min-height: 36px;
+  font-size: 0.875rem;
+  line-height: 1.25;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.viewTabActive {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.viewTab:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: -2px;
+}
+
+.sectionEyebrow {
+  margin: 0 0 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.sectionDescription {
+  margin: -3px 0 16px;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* Honest empty states still get the same visual card frame as populated
+   sections. Restrict to this dashboard: the shared EmptyState stays intact. */
+.root section > [data-testid="empty-state"],
+.workspaceGrid > [data-testid="empty-state"] {
+  min-width: 0;
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  padding: 24px 20px 28px;
+}
+
+.root section > [data-testid="empty-state"] [data-testid="empty-state-icon"],
+.workspaceGrid > [data-testid="empty-state"] [data-testid="empty-state-icon"] {
+  width: 42px;
+  height: 42px;
+  margin-bottom: 12px;
+}
+
+.root section > [data-testid="empty-state"] svg,
+.workspaceGrid > [data-testid="empty-state"] svg {
+  width: 20px;
+  height: 20px;
+}
+
+@media (max-width: 640px) {
+  .root { gap: 24px; }
+  .viewTabs { width: 100%; }
+  .viewTab, .viewTabActive { font-size: 0.8125rem; padding: 8px 10px; }
+  .root section > [data-testid="empty-state"],
+  .workspaceGrid > [data-testid="empty-state"] { padding: 20px 14px 24px; }
+}
+
 
 .hero {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 12px;
 }
 
 .heading {
@@ -157,10 +257,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  padding: var(--space-5);
+  padding: clamp(20px, 3vw, 32px);
+  min-height: 180px;
   border: 1px solid var(--card-border);
   border-radius: var(--card-radius);
-  background: var(--card-bg);
+  background: var(--color-bg-muted);
 }
 
 .heroAvatar {

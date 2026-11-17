@@ -26,6 +26,39 @@ test.describe("dashboard (authenticated) @S7e001c6e", () => {
     expect(errors, `console/page errors: ${errors.join("; ")}`).toEqual([]);
   });
 
+  test("studio frame matches the approved centered layout and keeps navigation usable @T1451frame", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/app");
+    // Scope to the retained shell; Next dev's initial streaming transition
+    // can briefly duplicate an old tree outside the active app shell.
+    const frame = page.getByTestId("operator-panel").getByTestId("command-center");
+    const viewTabs = frame.getByRole("navigation", { name: "Studio views" });
+    await expect(frame).toHaveCount(1, { timeout: NAV_TIMEOUT_MS });
+    await expect(frame).toBeVisible();
+    await expect(viewTabs).toBeVisible();
+    await expect(viewTabs.getByText("Studio overview")).toHaveAttribute("aria-current", "page");
+    const desktop = await frame.boundingBox();
+    const main = await page.locator('main').boundingBox();
+    expect(desktop).not.toBeNull();
+    expect(main).not.toBeNull();
+    // The canvas remains readable on large displays rather than stretching
+    // all cards edge-to-edge. It is centered within the existing main area.
+    expect(desktop!.width).toBeLessThanOrEqual(1088);
+    const leftMargin = desktop!.x - main!.x;
+    const rightMargin = main!.x + main!.width - desktop!.x - desktop!.width;
+    expect(Math.abs(leftMargin - rightMargin)).toBeLessThanOrEqual(2);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobile = await frame.boundingBox();
+    expect(mobile).not.toBeNull();
+    expect(mobile!.width).toBeLessThanOrEqual(390);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await expect(viewTabs).toBeVisible();
+    // Real QA orgs may have 0 or more brands. Never assert an empty-data
+    // fixture that is not guaranteed; both authorized view destinations work.
+    await expect(viewTabs.getByRole("link")).toHaveAttribute("href", /^\/app\/brands(?:\/[^/]+)?$/);
+  });
+
   // IPI-1225 · PLANNER-ROUTE-RETIRE-001 — /app is the single production
   // Planner surface; /planner is a compatibility redirect for existing
   // bookmarks/deep links, not a separate standalone UI anymore.

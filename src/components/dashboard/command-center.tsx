@@ -164,20 +164,35 @@ export function CommandCenter({
       </p>
 
       <header className={styles.hero}>
-        <p className={styles.eyebrow}>Creative studio</p>
-        <h1 className={styles.heading}>Dashboard</h1>
-        <p className={styles.subheading}>Your brand, reviews, recent work and upcoming shoots.</p>
+        <div className={styles.heroTitleRow}>
+          <div>
+            <p className={styles.eyebrow}>iPix creative studio</p>
+            <h1 className={styles.heading}>Dashboard</h1>
+            <p className={styles.subheading}>Your brands, creative direction and upcoming production.</p>
+          </div>
+          <QuickActionChips />
+        </div>
+        <nav className={styles.viewTabs} aria-label="Studio views" data-testid="studio-view-tabs">
+          <span className={styles.viewTabActive} aria-current="page">Studio overview</span>
+          {heroBrand ? (
+            <Link className={styles.viewTab} href={`/app/brands/${heroBrand.id}`}>
+              {heroBrand.name} — Brand detail
+            </Link>
+          ) : (
+            <Link className={styles.viewTab} href="/app/brands">My brands</Link>
+          )}
+        </nav>
       </header>
-
-      <QuickActionChips />
 
       {/* IPI-1451: layout follows the approved A2UI Playground export
           (workspace → review → assets → shoots); every value is real data or
           an honest empty state — none of the export's sample content. */}
       <section aria-labelledby="command-center-workspace">
+        <p className={styles.sectionEyebrow}>Creative direction</p>
         <h2 id="command-center-workspace" className={styles.sectionHeading}>
           My creative workspace
         </h2>
+        <p className={styles.sectionDescription}>Your current brand and visual inspiration, based on available workspace data.</p>
         <div className={styles.workspaceGrid}>
           {heroBrand ? (
             <HeroCard brand={heroBrand} recentShootName={recentShootName} />
@@ -202,9 +217,11 @@ export function CommandCenter({
       </section>
 
       <section aria-labelledby="command-center-review">
+        <p className={styles.sectionEyebrow}>Action required</p>
         <h2 id="command-center-review" className={styles.sectionHeading}>
           Needs my review
         </h2>
+        <p className={styles.sectionDescription}>Creative decisions and plan reviews will appear here when supported.</p>
         {/* No pending-review list source yet (IPI-1084 · APPROVAL-001 owns
             approvals). Plan reviews still appear live in Ask iPix below. */}
         <EmptyState
@@ -220,6 +237,7 @@ export function CommandCenter({
       </section>
 
       <section aria-labelledby="command-center-brands">
+        <p className={styles.sectionEyebrow}>Brand portfolio</p>
         <h2 id="command-center-brands" className={styles.sectionHeading}>
           Recent brands
         </h2>
@@ -254,6 +272,7 @@ export function CommandCenter({
       </section>
 
       <section aria-labelledby="command-center-shoots">
+        <p className={styles.sectionEyebrow}>Editorial assets</p>
         <div className={styles.recentHeader}>
           <h2 id="command-center-shoots" className={styles.sectionHeading}>
             Recent shoots & previews
@@ -293,6 +312,7 @@ export function CommandCenter({
       </section>
 
       <section aria-labelledby="command-center-upcoming">
+        <p className={styles.sectionEyebrow}>Production schedule</p>
         <div className={styles.recentHeader}>
           <h2 id="command-center-upcoming" className={styles.sectionHeading}>
             Upcoming photoshoots
@@ -331,6 +351,7 @@ export function CommandCenter({
       </section>
 
       <section aria-labelledby="command-center-quick-links">
+        <p className={styles.sectionEyebrow}>Explore the workspace</p>
         <h2 id="command-center-quick-links" className={styles.sectionHeading}>
           Quick links
         </h2>

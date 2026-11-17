@@ -72,6 +72,21 @@ describe("CommandCenter", () => {
     expect(anchor?.getAttribute("href")).toBe("/app/brands");
   });
 
+  it("keeps the studio overview navigation grounded in a real brand", () => {
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_EMPTY} />);
+    const nav = screen.getByRole("navigation", { name: "Studio views" });
+    expect(within(nav).getByText("Studio overview").getAttribute("aria-current")).toBe("page");
+    expect(within(nav).getByRole("link", { name: "Brand Alpha — Brand detail" }).getAttribute("href"))
+      .toBe("/app/brands/brand-1");
+  });
+
+  it("shows the brands directory, not a fabricated brand detail, when no brand exists", () => {
+    render(<CommandCenter brandsResult={BRANDS_EMPTY} shootsResult={SHOOTS_EMPTY} />);
+    const nav = screen.getByRole("navigation", { name: "Studio views" });
+    expect(within(nav).getByRole("link", { name: "My brands" }).getAttribute("href"))
+      .toBe("/app/brands");
+  });
+
   it("keeps brand identities distinct when brand names match", () => {
     render(
       <CommandCenter
