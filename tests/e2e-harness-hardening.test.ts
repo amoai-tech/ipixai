@@ -12,6 +12,7 @@ vi.mock("../e2e/support/context", () => ({
 import { SIGN_IN_TIMEOUT_MS, signInWithCredentials } from "../e2e/support/login";
 import {
   establishAndProveVercelBypass,
+  establishDeploymentAccess,
   scopedBypassRoute,
 } from "../e2e/support/vercel-bypass";
 import agentPlaywrightConfig from "../playwright.agents.config";
@@ -156,11 +157,18 @@ describe("Playwright E2E harness hardening", () => {
     const loginJourney = readFileSync(path.resolve(process.cwd(), "e2e/login-journey.spec.ts"), "utf8");
     const config = readFileSync(path.resolve(process.cwd(), "playwright.config.ts"), "utf8");
     for (const source of [authSetup, loginJourney]) {
-      expect(source).toContain("await previewBypassHeaders(");
-      expect(source.indexOf("await previewBypassHeaders(")).toBeLessThan(
-        source.indexOf("await establishAndProveVercelBypass("),
-      );
+      expect(source).toContain("establishDeploymentAccess({");
+      expect(source).toContain("previewBypassHeaders(");
     }
+    const bypassHelper = readFileSync(
+      path.resolve(process.cwd(), "e2e/support/vercel-bypass.ts"),
+      "utf8",
+    );
+    // The probe must happen before the secret is requested; protected targets
+    // only reach the ownership-checking header provider after that probe.
+    expect(bypassHelper.indexOf("await headers()")).toBeLessThan(
+      bypassHelper.indexOf("establishAndProveVercelBypass({"),
+    );
     expect(config.indexOf("await verifyVercelDeploymentOwnership(")).toBeLessThan(
       config.indexOf('"x-vercel-protection-bypass": trimmedSecret'),
     );
@@ -208,7 +216,7 @@ describe("Playwright E2E harness hardening", () => {
     const cleanBlock = journey.slice(cleanStart, dashboardStart);
     expect(cleanBlock).toContain("storageState: { cookies: [], origins: [] }");
     expect(cleanBlock).toContain("previewBypassHeaders(");
-    expect(cleanBlock).toContain("establishAndProveVercelBypass({");
+    expect(cleanBlock).toContain("establishDeploymentAccess({");
     expect(cleanBlock).toContain("deploymentOrigin: new URL(baseURL).origin");
     expect(cleanBlock).toContain('test("critical journey: login succeeds');
 
@@ -216,7 +224,7 @@ describe("Playwright E2E harness hardening", () => {
     // carries the bypass cookie. Re-establishing it there can throw when Vercel
     // refreshes an existing cookie without adding a new one.
     expect(journey.slice(dashboardStart)).not.toContain(
-      "establishAndProveVercelBypass",
+      "establishDeploymentAccess",
     );
   });
 
@@ -233,7 +241,7 @@ describe("Playwright E2E harness hardening", () => {
     const authSetup = readFileSync(path.resolve(process.cwd(), "e2e/auth.setup.ts"), "utf8");
     expect(authSetup).toContain("previewBypassHeaders(");
     expect(authSetup).toContain("setup.beforeEach(");
-    expect(authSetup).toContain("establishAndProveVercelBypass(");
+    expect(authSetup).toContain("establishDeploymentAccess(");
     // `isLocalE2ETarget("")` is false, so a missing baseURL would otherwise
     // reach `new URL("")` and die as a bare "TypeError: Invalid URL".
     expect(authSetup).toContain("E2E baseURL is required to clear Vercel Deployment Protection");
@@ -879,7 +887,7 @@ describe("Playwright E2E harness hardening", () => {
       "utf8",
     );
     expect(authSetup).toContain("previewBypassHeaders(");
-    expect(authSetup).toContain("establishAndProveVercelBypass({");
+    expect(authSetup).toContain("establishDeploymentAccess({");
     expect(authSetup).toContain("deploymentOrigin: new URL(baseURL).origin");
   });
 
@@ -1119,8 +1127,19 @@ function bypassHarness(options: {
       deploymentOrigin: PREVIEW_ORIGIN,
       headers: BYPASS_HEADERS,
     });
+  const runAccess = (
+    env?: { IPIX_STAGED_PRODUCTION_QA?: string; VERCEL_DEPLOYMENT_SHA?: string },
+    headersFn: () => Promise<Record<string, string> | undefined> = async () => BYPASS_HEADERS,
+  ) =>
+    establishDeploymentAccess({
+      context: context as never,
+      page: page as never,
+      deploymentOrigin: PREVIEW_ORIGIN,
+      headers: headersFn,
+      env,
+    });
   // `calls` is appended live, so read it after awaiting `run()`.
-  return { context, page, run, calls };
+  return { context, page, run, runAccess, calls };
 }
 
 describe("Vercel Deployment Protection bypass proof", () => {
@@ -1150,7 +1169,7 @@ describe("Vercel Deployment Protection bypass proof", () => {
 
     // The replay must happen with the header already gone — that ordering is
     // the whole proof, so assert the sequence rather than just the call count.
-    expect(harness.calls).toEqual(["goto", "route", "goto", "unroute", "goto"]);
+    expect(harness.calls).toEqual(["route", "goto", "unroute", "goto"]);
     expect(harness.context.unroute).toHaveBeenCalledWith("**/*", expect.any(Function));
     expect(harness.context.cookies).toHaveBeenCalledWith(PREVIEW_ORIGIN);
   });
@@ -1159,7 +1178,7 @@ describe("Vercel Deployment Protection bypass proof", () => {
     const harness = bypassHarness({ cookiesBefore: 0, cookiesAfter: 0 });
     await expect(harness.run()).rejects.toThrow("stored no bypass cookie");
     // No replay: a cookie-less second request would only prove the SSO screen.
-    expect(harness.calls).toEqual(["goto", "route", "goto", "unroute"]);
+    expect(harness.calls).toEqual(["route", "goto", "unroute"]);
   });
 
   it("fails when the stored cookie alone does not reach iPix", async () => {
@@ -1183,13 +1202,49 @@ describe("Vercel Deployment Protection bypass proof", () => {
     await expect(harness.run()).rejects.toThrow("did not grant access");
   });
 
-  it("accepts a verified public staged deployment without a bypass cookie", async () => {
+  it("accepts a public staged deployment only with the exact-SHA production opt-in", async () => {
     const harness = bypassHarness({ publicLanding: true });
-    await expect(harness.run()).resolves.toBeUndefined();
-    // No secret route, no cookie read and no bypass request happened.
+    const headersFn = vi.fn(async () => BYPASS_HEADERS);
+    await expect(
+      harness.runAccess(
+        {
+          IPIX_STAGED_PRODUCTION_QA: "1",
+          VERCEL_DEPLOYMENT_SHA: "a".repeat(40),
+        },
+        headersFn,
+      ),
+    ).resolves.toBeUndefined();
+    // No secret request, no cookie read and no bypass route happened.
     expect(harness.calls).toEqual(["goto"]);
+    expect(headersFn).not.toHaveBeenCalled();
     expect(harness.context.cookies).not.toHaveBeenCalled();
     expect(harness.context.route).not.toHaveBeenCalled();
+  });
+
+  it("refuses a public deployment outside the explicit staged-production policy", async () => {
+    const harness = bypassHarness({ publicLanding: true });
+    const headersFn = vi.fn(async () => BYPASS_HEADERS);
+    await expect(harness.runAccess(undefined, headersFn)).rejects.toThrow(
+      "outside the normal Preview policy",
+    );
+    expect(harness.calls).toEqual(["goto"]);
+    expect(headersFn).not.toHaveBeenCalled();
+  });
+
+  it("requires both the staged flag and an exact SHA", async () => {
+    const harness = bypassHarness({ publicLanding: true });
+    await expect(
+      harness.runAccess({ IPIX_STAGED_PRODUCTION_QA: "1" }),
+    ).rejects.toThrow("outside the normal Preview policy");
+    expect(harness.calls).toEqual(["goto"]);
+  });
+
+  it("keeps protected Preview behavior: probe first, then prove the bypass cookie", async () => {
+    const harness = bypassHarness({ cookiesBefore: 0, cookiesAfter: 1 });
+    const headersFn = vi.fn(async () => BYPASS_HEADERS);
+    await expect(harness.runAccess(undefined, headersFn)).resolves.toBeUndefined();
+    expect(headersFn).toHaveBeenCalledTimes(1);
+    expect(harness.calls).toEqual(["goto", "route", "goto", "unroute", "goto"]);
   });
 
   it("accepts any cookie Vercel chooses to store, not a hard-coded name", async () => {

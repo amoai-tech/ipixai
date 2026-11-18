@@ -5,7 +5,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { previewBypassHeaders } from "../playwright.config";
 import { createCleanContext } from "./support/context";
 import { contextForSavedRole } from "./support/login";
-import { establishAndProveVercelBypass } from "./support/vercel-bypass";
+import { establishDeploymentAccess } from "./support/vercel-bypass";
 import { plannerThreadStorageKey } from "../src/mastra/thread-types";
 
 const orgBFile = path.resolve(__dirname, "../playwright/.auth/org-b.json");
@@ -331,16 +331,13 @@ test("planner thread API rejects unauthenticated requests", async ({ browser, ba
     // reaches iPix — Vercel answers with its own "Protected Deployment" login
     // page (HTTP 200 HTML), a false 200 for this assertion. Clear Deployment
     // Protection only (not iPix auth), then prove no Supabase session exists.
-    const bypass = await previewBypassHeaders(
-      baseURL ?? "",
-      process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
-    );
-    if (bypass && baseURL) {
-      await establishAndProveVercelBypass({
+    if (baseURL) {
+      await establishDeploymentAccess({
         context,
         page,
         deploymentOrigin: new URL(baseURL).origin,
-        headers: bypass,
+        headers: () =>
+          previewBypassHeaders(baseURL, process.env.VERCEL_AUTOMATION_BYPASS_SECRET),
       });
       const sessionCookies = (await context.cookies()).filter((cookie) =>
         cookie.name.startsWith("sb-"),

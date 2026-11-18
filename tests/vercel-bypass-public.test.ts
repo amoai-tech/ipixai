@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isPublicIpixLanding } from "../e2e/support/vercel-bypass";
+import { isPublicIpixLanding, isStagedProductionQaOptIn } from "../e2e/support/vercel-bypass";
 
 const ORIGIN = "https://ipixai-3pz8ibr1k-amo-agency.vercel.app";
 
@@ -51,6 +51,36 @@ describe("isPublicIpixLanding", () => {
         landed: "",
         title: "iPix",
         deploymentOrigin: ORIGIN,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("isStagedProductionQaOptIn", () => {
+  const SHA = "95c4c9b4b62aeb3a91e5bcfada014190bfa8ded4";
+
+  it("requires both the explicit flag and an exact 40-character SHA", () => {
+    expect(
+      isStagedProductionQaOptIn({
+        IPIX_STAGED_PRODUCTION_QA: "1",
+        VERCEL_DEPLOYMENT_SHA: SHA,
+      }),
+    ).toBe(true);
+    expect(
+      isStagedProductionQaOptIn({
+        IPIX_STAGED_PRODUCTION_QA: "1",
+      }),
+    ).toBe(false);
+    expect(
+      isStagedProductionQaOptIn({
+        IPIX_STAGED_PRODUCTION_QA: "true",
+        VERCEL_DEPLOYMENT_SHA: SHA,
+      }),
+    ).toBe(false);
+    expect(
+      isStagedProductionQaOptIn({
+        IPIX_STAGED_PRODUCTION_QA: "1",
+        VERCEL_DEPLOYMENT_SHA: "not-a-sha",
       }),
     ).toBe(false);
   });

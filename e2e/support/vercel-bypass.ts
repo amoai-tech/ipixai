@@ -63,6 +63,95 @@ export function isPublicIpixLanding(input: {
   );
 }
 
+const STAGED_PRODUCTION_HOST = /^ipixai-[a-z0-9-]+-amo-agency\.vercel\.app$/i;
+
+type StagedProductionQaEnv = {
+  IPIX_STAGED_PRODUCTION_QA?: string;
+  VERCEL_DEPLOYMENT_SHA?: string;
+};
+
+/**
+ * Explicit opt-in for the release workflow's staged-Production QA.
+ *
+ * The normal E2E harness is Preview-only (AGENTS.md: `E2E_BASE_URL` may only
+ * be localhost or an iPix Vercel Preview, never Production). A staged
+ * Production candidate is public, so it has no Deployment Protection cookie;
+ * accepting it without this guard would let ordinary E2E target Production.
+ * Requiring both the flag and the exact staged SHA keeps that path release-only
+ * and auditable. The release workflow sets both values.
+ */
+export function isStagedProductionQaOptIn(
+  env: StagedProductionQaEnv = process.env as StagedProductionQaEnv,
+): boolean {
+  const sha = env.VERCEL_DEPLOYMENT_SHA?.trim() ?? "";
+  return env.IPIX_STAGED_PRODUCTION_QA === "1" && /^[a-f0-9]{40}$/i.test(sha);
+}
+
+function isLocalOrigin(origin: string): boolean {
+  try {
+    const hostname = new URL(origin).hostname;
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Establish access for one E2E target.
+ *
+ * Probe before asking for the bypass secret, so a public staged candidate does
+ * not fail the "secret is required" check before it can be classified. A public
+ * app is accepted only through the explicit staged-Production opt-in above;
+ * a protected Preview still takes the unchanged cookie-proof path below.
+ */
+export async function establishDeploymentAccess(options: {
+  context: BypassContext;
+  page: BypassPage;
+  deploymentOrigin: string;
+  headers: () => Promise<Record<string, string> | undefined>;
+  env?: StagedProductionQaEnv;
+}): Promise<void> {
+  const { context, page, deploymentOrigin, headers } = options;
+
+  if (isLocalOrigin(deploymentOrigin)) return;
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  if (
+    isPublicIpixLanding({
+      landed: page.url(),
+      title: await page.title(),
+      deploymentOrigin,
+    })
+  ) {
+    if (!isStagedProductionQaOptIn(options.env)) {
+      throw new Error(
+        "A public deployment reached the E2E harness outside the normal Preview policy. " +
+          "Set IPIX_STAGED_PRODUCTION_QA=1 and VERCEL_DEPLOYMENT_SHA only for an authorized, exact-SHA staged Production release run.",
+      );
+    }
+    const hostname = new URL(deploymentOrigin).hostname;
+    if (!STAGED_PRODUCTION_HOST.test(hostname)) {
+      throw new Error(
+        `Staged Production QA is limited to this project's iPix Vercel host; refusing ${hostname}.`,
+      );
+    }
+    return;
+  }
+
+  const bypass = await headers();
+  if (!bypass) {
+    throw new Error(
+      "This Vercel target is protected but no bypass headers were returned; refusing to run authenticated QA.",
+    );
+  }
+  await establishAndProveVercelBypass({
+    context,
+    page,
+    deploymentOrigin,
+    headers: bypass,
+  });
+}
+
 /**
  * Adds the bypass headers to requests for the deployment origin only, so the
  * secret is never sent to a third-party origin.
@@ -98,22 +187,6 @@ export async function establishAndProveVercelBypass(options: {
   headers: Record<string, string>;
 }): Promise<void> {
   const { context, page, deploymentOrigin, headers } = options;
-
-  // A staged Production candidate can be public: Vercel Deployment Protection
-  // is not in front of it, so there is no bypass cookie to obtain. Probe the
-  // exact origin without the secret first. Protected Preview targets still
-  // land on Vercel's SSO screen here and take the unchanged bypass path below.
-  // The release workflow verifies the staged SHA before this runs.
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  if (
-    isPublicIpixLanding({
-      landed: page.url(),
-      title: await page.title(),
-      deploymentOrigin,
-    })
-  ) {
-    return;
-  }
 
   const cookiesBefore = await context.cookies(deploymentOrigin);
 
