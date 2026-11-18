@@ -375,7 +375,7 @@ Import from `@copilotkit/react-core/v2`. The recommended root provider -- a comp
   renderCustomMessages?: ReactCustomMessageRenderer[]
   frontendTools?: ReactFrontendTool[]
   humanInTheLoop?: ReactHumanInTheLoop[]
-  showDevConsole?: boolean | "auto"
+  enableInspector?: boolean
   useSingleEndpoint?: boolean
   onError?: (event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void
   a2ui?: { theme?: A2UITheme }
@@ -459,7 +459,7 @@ Headless chat view with a slot-based architecture. Accepts slots for `messageVie
 - `CopilotModalHeader` -- Header bar for popup/sidebar modals.
 - `CopilotPopupView` -- Popup layout wrapper.
 - `CopilotSidebarView` -- Sidebar layout wrapper.
-- `CopilotKitInspector` -- Dev console overlay (controlled by `showDevConsole`).
+- `CopilotKitInspector` -- Development-only overlay (controlled by `enableInspector`).
 - `MCPAppsActivityRenderer` -- Built-in renderer for MCP Apps activity messages.
 - `WildcardToolCallRender` -- Built-in wildcard tool call renderer component.
 

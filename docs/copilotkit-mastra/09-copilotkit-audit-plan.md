@@ -8,6 +8,13 @@
 - **Foundation epic:** [IPI-1425](https://linear.app/amo100/issue/IPI-1425)
 **Canonical Linear plan:** [iPix GenUI Foundation](https://linear.app/amo100/document/ipix-genui-foundation-official-copilotkit-implementation-plan-4cc40bb54dcd)
 
+**Current CopilotKit versions (IPI-1457 / PR #356, 2026-11-18):**
+`@copilotkit/react-core@1.88.0` and `@copilotkit/runtime@1.88.0`.
+Before following this research plan, verify the
+[canonical installed runtime family](../mastra/runtime-family.md).
+The `1.85.0` table in §1.2 below is a **historical November 10 snapshot**,
+not today's installed-version contract.
+
 > This is an evidence record and corrected implementation plan. It does not claim that native GenUI is shipped. It preserves the existing Planner, one authenticated CopilotKit provider, `composeShootPlan` renderer, Mastra runtime, durable memory, and exact-revision HITL.
 
 ## Executive summary

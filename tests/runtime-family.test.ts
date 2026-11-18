@@ -99,7 +99,7 @@ describe("IPI-1042 runtime family", () => {
     expect(client.version).toBe("1.59.0");
     expect(cli.version).toBe("1.38.0");
     expect(agui.version).toBe("2.0.2");
-    expect(copilot.version).toBe("1.85.0");
+    expect(copilot.version).toBe("1.88.0");
 
     const peer = pg.peerDependencies?.["@mastra/core"];
     expect(peer).toBeTruthy();
@@ -107,7 +107,7 @@ describe("IPI-1042 runtime family", () => {
     expect(coreSatisfiesMastraPeer("1.79.0", peer ?? "")).toBe(false);
   });
 
-  it("pins one CopilotKit 1.85.0 / AG-UI 1.0.2 family (IPI-1290)", () => {
+  it("pins one CopilotKit 1.88.0 / AG-UI 1.0.2 family (IPI-1290)", () => {
     // Read manifests from disk: @copilotkit/channels does not export ./package.json.
     const version = (name: string) =>
       (
@@ -116,14 +116,44 @@ describe("IPI-1042 runtime family", () => {
         ) as { version: string }
       ).version;
 
-    expect(version("@copilotkit/runtime")).toBe("1.85.0");
-    expect(version("@copilotkit/react-core")).toBe("1.85.0");
+    expect(version("@copilotkit/runtime")).toBe("1.88.0");
+    expect(version("@copilotkit/react-core")).toBe("1.88.0");
     expect(version("@copilotkit/channels")).toBe("0.12.0");
-    // @copilotkit/runtime@1.85.0 pins @ag-ui/client and @ag-ui/core to exactly
+    // @copilotkit/runtime@1.88.0 pins @ag-ui/client and @ag-ui/core to exactly
     // 1.0.2. A newer 1.0.x here would install a second AG-UI copy and could
     // break AbstractAgent class identity, so the family is pinned, not floated.
     for (const pkg of ["@ag-ui/client", "@ag-ui/core", "@ag-ui/encoder", "@ag-ui/proto"]) {
       expect(version(pkg)).toBe("1.0.2");
+    }
+  });
+
+  it("resolves the runtime's exact middleware dependencies without nested copies", () => {
+    // A root-only manifest check misses a different nested copy used by the
+    // runtime. Compare actual Node resolution AND the lockfile's full tree.
+    const runtimeManifest = require("@copilotkit/runtime/package.json") as {
+      dependencies?: Record<string, string>;
+    };
+    const fromRuntime = createRequire(require.resolve("@copilotkit/runtime"));
+    const lock = JSON.parse(
+      readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"),
+    ) as { packages: Record<string, { version?: string }> };
+
+    for (const pkg of ["@ag-ui/mcp-apps-middleware", "@ag-ui/a2ui-middleware"]) {
+      const expected = runtimeManifest.dependencies?.[pkg];
+      expect(expected, pkg + " requires an exact runtime dependency").toMatch(/^\d+\.\d+\.\d+$/);
+      const resolved = fromRuntime.resolve(pkg + "/package.json");
+      expect(resolved, pkg + " must not resolve to a nested copy").toBe(
+        require.resolve(pkg + "/package.json"),
+      );
+      const installed = JSON.parse(readFileSync(resolved, "utf8")) as { version: string };
+      expect(installed.version).toBe(expected);
+
+      const copies = Object.entries(lock.packages).filter(
+        ([path]) => path === "node_modules/" + pkg || path.endsWith("/node_modules/" + pkg),
+      );
+      expect(copies, "unexpected lockfile copies of " + pkg).toHaveLength(1);
+      expect(copies[0]?.[0]).toBe("node_modules/" + pkg);
+      expect(copies[0]?.[1].version).toBe(expected);
     }
   });
 

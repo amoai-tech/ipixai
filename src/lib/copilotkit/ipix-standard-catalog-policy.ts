@@ -1,5 +1,5 @@
 /**
- * IPI-1387 · Standard UI catalog decision for installed CopilotKit 1.85.0.
+ * IPI-1387 · Standard UI catalog decision; current CopilotKit 1.88.0.
  * Source: https://docs.copilotkit.ai/generative-ui/components/standard-catalog
  * Inventory: standardUI.id = "copilotkit/standard@1" (69 components).
  *
