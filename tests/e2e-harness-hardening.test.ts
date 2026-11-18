@@ -1205,15 +1205,36 @@ describe("Vercel Deployment Protection bypass proof", () => {
   it("accepts a public staged deployment only with the exact-SHA production opt-in", async () => {
     const harness = bypassHarness({ publicLanding: true });
     const headersFn = vi.fn(async () => BYPASS_HEADERS);
-    await expect(
-      harness.runAccess(
-        {
-          IPIX_STAGED_PRODUCTION_QA: "1",
-          VERCEL_DEPLOYMENT_SHA: "a".repeat(40),
-        },
-        headersFn,
-      ),
-    ).resolves.toBeUndefined();
+    // Model the exact Vercel API response so public staged QA proves ownership
+    // rather than relying on the host spelling or a testing bypass.
+    vi.stubEnv("VERCEL_TOKEN", "test-token");
+    vi.stubEnv("VERCEL_ORG_ID", "team_Example");
+    vi.stubEnv("VERCEL_PROJECT_ID", "prj_Example");
+    const fetchImpl = vi.fn(async () =>
+      new Response(JSON.stringify({
+        url: new URL(PREVIEW_ORIGIN).hostname,
+        projectId: "prj_Example",
+        readyState: "READY",
+        target: "production",
+        meta: { githubCommitSha: "a".repeat(40) },
+      })),
+    );
+    vi.stubGlobal("fetch", fetchImpl);
+    try {
+      await expect(
+        harness.runAccess(
+          {
+            IPIX_STAGED_PRODUCTION_QA: "1",
+            VERCEL_DEPLOYMENT_SHA: "a".repeat(40),
+          },
+          headersFn,
+        ),
+      ).resolves.toBeUndefined();
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
     // No secret request, no cookie read and no bypass route happened.
     expect(harness.calls).toEqual(["goto"]);
     expect(headersFn).not.toHaveBeenCalled();

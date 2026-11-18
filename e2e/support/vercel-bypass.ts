@@ -1,4 +1,5 @@
 import type { BrowserContext, Page, Route } from "@playwright/test";
+import { verifyVercelDeploymentOwnership } from "./vercel-ownership";
 
 /**
  * IPI-1344 · E2E-PREVIEW-BYPASS-001 — Vercel Deployment Protection sits in front
@@ -135,6 +136,13 @@ export async function establishDeploymentAccess(options: {
         `Staged Production QA is limited to this project's iPix Vercel host; refusing ${hostname}.`,
       );
     }
+    // The host shape is only a preflight; hyphenated team slugs can mimic it.
+    // Prove actual ownership, READY status, commit and Production target before
+    // the E2E operator signs in. Missing credentials/API failures fail closed.
+    await verifyVercelDeploymentOwnership(deploymentOrigin, {
+      expectedSha: (options.env ?? process.env).VERCEL_DEPLOYMENT_SHA?.trim(),
+      expectedTarget: "production",
+    });
     return;
   }
 

@@ -8,6 +8,9 @@ export type VercelOwnershipOptions = {
   teamId?: string;
   projectId?: string;
   fetchImpl?: typeof fetch;
+  /** Optional strict identity checks for staged Production QA. */
+  expectedSha?: string;
+  expectedTarget?: "production" | "preview";
 };
 
 export async function verifyVercelDeploymentOwnership(
@@ -17,6 +20,8 @@ export async function verifyVercelDeploymentOwnership(
     teamId = process.env.VERCEL_ORG_ID,
     projectId = process.env.VERCEL_PROJECT_ID,
     fetchImpl = globalThis.fetch,
+    expectedSha,
+    expectedTarget,
   }: VercelOwnershipOptions = {},
 ): Promise<void> {
   let origin: URL;
@@ -71,6 +76,8 @@ export async function verifyVercelDeploymentOwnership(
     projectId?: unknown;
     project?: { id?: unknown };
     readyState?: unknown;
+    target?: unknown;
+    meta?: { githubCommitSha?: unknown };
   };
   if (
     record.url !== origin.hostname ||
@@ -78,5 +85,11 @@ export async function verifyVercelDeploymentOwnership(
     record.readyState !== "READY"
   ) {
     throw new Error("E2E preview does not belong to the expected READY Vercel project");
+  }
+  if (
+    (expectedSha !== undefined && record.meta?.githubCommitSha !== expectedSha) ||
+    (expectedTarget !== undefined && record.target !== expectedTarget)
+  ) {
+    throw new Error("E2E deployment does not match the expected commit SHA or target");
   }
 }
