@@ -1,16 +1,17 @@
-# CopilotKit Debug Mode (React)
+# CopilotKit 1.88 Inspector and debug logging (React v2)
 
-This skill builds on `copilotkit/provider-setup`. Both debug surfaces are
-props on the `CopilotKit` provider (from `@copilotkit/react-core/v2`).
+Use `CopilotKit` from `@copilotkit/react-core/v2`. These controls are
+independent:
 
-Two independent knobs:
+- `enableInspector?: boolean` controls the development-only Inspector overlay.
+  Set `false` to hide it on localhost. Omitted or explicitly `true`
+  may show the Inspector only during development on loopback hosts
+  (`localhost`, `127.0.0.1`, or `[::1]`); it never loads
+  during SSR, in production builds or on remote React hosts.
+- `debug` controls diagnostic console logging. Avoid logging real customer
+  messages, tenant data, credentials or tool arguments in shared environments.
 
-1. `showDevConsole` mounts the visual web inspector (floating panel).
-2. `debug` controls console logging for the event pipeline.
-
-Both should be `'auto'` / off in production.
-
-## Setup
+The iPix Production Copilot intentionally disables the Inspector:
 
 ```tsx
 "use client";
@@ -18,136 +19,28 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      showDevConsole="auto"
-      debug={{ events: true, lifecycle: true, verbose: false }}
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit" enableInspector={false}>
       {children}
     </CopilotKit>
   );
 }
 ```
 
-`showDevConsole="auto"` enables the inspector only on `localhost` and
-`127.0.0.1`. In production it evaluates to `false`.
+For temporary local debugging, opt in with `enableInspector={true}`
+on a loopback development host. Never rely on a provider prop to override
+the production/SSR/remote-host guards.
 
-## Core Patterns
+Do **not** use the legacy `showDevConsole` prop to control the
+Inspector; it has no effect on CopilotKit 1.88 Inspector visibility.
+Avoid copying old `"auto"` and `inspectorDefaultAnchor`
+recipes into this app without checking the current installed API.
 
-### Full payload logging during a repro
+**Reference — REFERENCE ONLY**
 
-`debug: true` enables `events + lifecycle` but keeps `verbose` off to avoid
-leaking PII by default. For a bug repro, explicitly set `verbose: true` to
-dump full message/tool-call payloads.
-
-```tsx
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  debug={{ events: true, lifecycle: true, verbose: true }}
-/>
-```
-
-### Anchor the inspector on narrow viewports
-
-```tsx
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  showDevConsole="auto"
-  inspectorDefaultAnchor="bottom-left"
-/>
-```
-
-### Env-gate the inspector
-
-```tsx
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  showDevConsole={process.env.NODE_ENV !== "production"}
-/>
-```
-
-## Common Mistakes
-
-### HIGH — Shipping `showDevConsole={true}` to production
-
-Wrong:
-
-```tsx
-<CopilotKit runtimeUrl="/api/copilotkit" showDevConsole={true} />
-```
-
-Correct:
-
-```tsx
-<CopilotKit runtimeUrl="/api/copilotkit" showDevConsole="auto" />
-// "auto" enables only on localhost / 127.0.0.1
-```
-
-A hard `true` ships the Lit + markdown bundle to every end user and exposes
-a developer panel in production. `"auto"` is the right default.
-
-Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:301-321`
-
-### MEDIUM — Expecting `debug: true` to log full payloads
-
-Wrong:
-
-```tsx
-<CopilotKit debug={true} />
-// Then wondering why message contents aren't in the console
-```
-
-Correct:
-
-```tsx
-<CopilotKit debug={{ events: true, lifecycle: true, verbose: true }} />
-```
-
-`debug: true` is shorthand for `{ events: true, lifecycle: true, verbose: false }`.
-`verbose` defaults to `false` to avoid logging user message bodies / tool
-arguments / state snapshots — it must be opted into explicitly.
-
-Source: `docs/snippets/shared/troubleshooting/debug-mode.mdx:85-93`
-
-### MEDIUM — Passing fields that aren't in `DebugConfig`
-
-Wrong:
-
-```tsx
-<CopilotKit debug={{ events: true, network: true, errors: true }} />
-```
-
-Correct:
-
-```tsx
-<CopilotKit debug={{ events: true, lifecycle: true, verbose: true }} />
-```
-
-`DebugConfig` has exactly three fields: `events`, `lifecycle`, `verbose`.
-Anything else is silently ignored by the type-narrowing at the provider.
-
-Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx` (DebugConfig type)
-
-### MEDIUM — Inspector crashing in sandboxed iframes
-
-Wrong:
-
-```tsx
-// App embedded in a sandboxed iframe with showDevConsole on
-<CopilotKit runtimeUrl="..." showDevConsole="auto" />
-```
-
-Correct:
-
-```tsx
-<CopilotKit
-  runtimeUrl="..."
-  showDevConsole={typeof window !== "undefined" && window.self === window.top}
-/>
-```
-
-The inspector persists its anchor via `localStorage`. In sandboxed iframes
-without storage access, the component throws on mount. Either disable in
-iframes or whitelist storage in the sandbox attrs.
-
-Source: `packages/react-core/src/v2/components/CopilotKitInspector.tsx:16-53`
+- URL: https://docs.copilotkit.ai/troubleshooting/inspector-dev-console
+- Source: React v2, Inspector visibility and production/host safeguards
+- Use: `enableInspector={false}` on the existing iPix provider
+- Do not copy: legacy v1 console behavior or unrelated providers
+- Apply to: `src/components/operator-panel/operator-panel.tsx`
+- Verify: `operator-panel.test.tsx` asserts Inspector is disabled and
+  the obsolete option is absent; on localhost, no floating Inspector is shown

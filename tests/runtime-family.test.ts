@@ -119,16 +119,41 @@ describe("IPI-1042 runtime family", () => {
     expect(version("@copilotkit/runtime")).toBe("1.88.0");
     expect(version("@copilotkit/react-core")).toBe("1.88.0");
     expect(version("@copilotkit/channels")).toBe("0.12.0");
-    // Installed 1.88 runtime pins hardened MCP Apps and A2UI middleware exactly.
-    // Source: https://github.com/CopilotKit/CopilotKit/releases/tag/v1.86.0
-    // Source: https://github.com/CopilotKit/CopilotKit/releases/tag/v1.87.1
-    expect(version("@ag-ui/mcp-apps-middleware")).toBe("0.1.1");
-    expect(version("@ag-ui/a2ui-middleware")).toBe("0.0.16");
     // @copilotkit/runtime@1.88.0 pins @ag-ui/client and @ag-ui/core to exactly
     // 1.0.2. A newer 1.0.x here would install a second AG-UI copy and could
     // break AbstractAgent class identity, so the family is pinned, not floated.
     for (const pkg of ["@ag-ui/client", "@ag-ui/core", "@ag-ui/encoder", "@ag-ui/proto"]) {
       expect(version(pkg)).toBe("1.0.2");
+    }
+  });
+
+  it("resolves the runtime's exact middleware dependencies without nested copies", () => {
+    // A root-only manifest check misses a different nested copy used by the
+    // runtime. Compare actual Node resolution AND the lockfile's full tree.
+    const runtimeManifest = require("@copilotkit/runtime/package.json") as {
+      dependencies?: Record<string, string>;
+    };
+    const fromRuntime = createRequire(require.resolve("@copilotkit/runtime"));
+    const lock = JSON.parse(
+      readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"),
+    ) as { packages: Record<string, { version?: string }> };
+
+    for (const pkg of ["@ag-ui/mcp-apps-middleware", "@ag-ui/a2ui-middleware"]) {
+      const expected = runtimeManifest.dependencies?.[pkg];
+      expect(expected, pkg + " requires an exact runtime dependency").toMatch(/^\d+\.\d+\.\d+$/);
+      const resolved = fromRuntime.resolve(pkg + "/package.json");
+      expect(resolved, pkg + " must not resolve to a nested copy").toBe(
+        require.resolve(pkg + "/package.json"),
+      );
+      const installed = JSON.parse(readFileSync(resolved, "utf8")) as { version: string };
+      expect(installed.version).toBe(expected);
+
+      const copies = Object.entries(lock.packages).filter(
+        ([path]) => path === "node_modules/" + pkg || path.endsWith("/node_modules/" + pkg),
+      );
+      expect(copies, "unexpected lockfile copies of " + pkg).toHaveLength(1);
+      expect(copies[0]?.[0]).toBe("node_modules/" + pkg);
+      expect(copies[0]?.[1].version).toBe(expected);
     }
   });
 

@@ -291,7 +291,7 @@ Set `useSingleEndpoint` when the backend uses single-route endpoints (`createCop
 | `headers`           | `Record<string, string> \| (() => Record<string, string>)` | Custom headers sent with every request. The function form is evaluated per-request (useful for dynamic auth tokens). |
 | `credentials`       | `RequestCredentials`                                       | Fetch credentials mode (e.g., `"include"` for cookies)                                                               |
 | `publicLicenseKey`  | `string`                                                   | CopilotKit Intelligence public license key (`publicApiKey` is a deprecated alias)                                    |
-| `showDevConsole`    | `boolean`                                                  | Show the dev console. Omit it to get the default behavior (shown on `localhost` only)                                |
+| `enableInspector`   | `boolean`                                                  | Control the development-only Inspector. Set `false` to hide it; never available in production.                      |
 | `renderToolCalls`   | `ReactToolCallRenderer[]`                                  | Custom renderers for tool call UI                                                                                    |
 | `frontendTools`     | `ReactFrontendTool[]`                                      | Frontend-defined tools (declarative alternative to `useFrontendTool`)                                                |
 | `onError`           | `(event) => void`                                          | Global error handler                                                                                                 |
