@@ -45,6 +45,25 @@ function originOf(url: string): string {
 }
 
 /**
+ * True only when the real iPix app answers on the exact target origin.
+ *
+ * A Vercel SSO screen can return HTTP 200 on the deployment host but has a
+ * different title; a redirect off-origin is rejected too. Public staged
+ * Production candidates return the app without a Deployment Protection
+ * cookie, so they must not be forced through the protected-preview bypass.
+ */
+export function isPublicIpixLanding(input: {
+  landed: string;
+  title: string;
+  deploymentOrigin: string;
+}): boolean {
+  return (
+    originOf(input.landed) === input.deploymentOrigin &&
+    IPIX_ROOT_TITLE.test(input.title)
+  );
+}
+
+/**
  * Adds the bypass headers to requests for the deployment origin only, so the
  * secret is never sent to a third-party origin.
  *
@@ -79,6 +98,22 @@ export async function establishAndProveVercelBypass(options: {
   headers: Record<string, string>;
 }): Promise<void> {
   const { context, page, deploymentOrigin, headers } = options;
+
+  // A staged Production candidate can be public: Vercel Deployment Protection
+  // is not in front of it, so there is no bypass cookie to obtain. Probe the
+  // exact origin without the secret first. Protected Preview targets still
+  // land on Vercel's SSO screen here and take the unchanged bypass path below.
+  // The release workflow verifies the staged SHA before this runs.
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  if (
+    isPublicIpixLanding({
+      landed: page.url(),
+      title: await page.title(),
+      deploymentOrigin,
+    })
+  ) {
+    return;
+  }
 
   const cookiesBefore = await context.cookies(deploymentOrigin);
 

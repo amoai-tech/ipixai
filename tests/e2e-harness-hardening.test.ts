@@ -1070,8 +1070,12 @@ function bypassHarness(options: {
   cookiesAfter?: number;
   replayUrl?: string;
   replayTitle?: string;
+  /** Simulate a public staged Production candidate with no Vercel protection. */
+  publicLanding?: boolean;
 }) {
   const calls: string[] = [];
+  let visits = 0;
+  const protectedLandingUrl = `https://vercel.com/login?next=%2Fsso-api%3Furl%3D${encodeURIComponent(PREVIEW_ORIGIN)}`;
   const context = {
     route: vi.fn(async () => {
       calls.push("route");
@@ -1087,10 +1091,26 @@ function bypassHarness(options: {
   const page = {
     goto: vi.fn(async () => {
       calls.push("goto");
+      visits += 1;
       return null;
     }),
-    url: vi.fn(() => options.replayUrl ?? `${PREVIEW_ORIGIN}/`),
-    title: vi.fn(async () => options.replayTitle ?? IPIX_TITLE),
+    // The helper probes the target before spending the bypass secret. Model
+    // the protected default as Vercel's SSO screen on that first visit, and
+    // the public staged case as the real iPix app immediately.
+    url: vi.fn(() =>
+      options.publicLanding
+        ? `${PREVIEW_ORIGIN}/`
+        : visits <= 1
+          ? protectedLandingUrl
+          : options.replayUrl ?? `${PREVIEW_ORIGIN}/`,
+    ),
+    title: vi.fn(async () =>
+      options.publicLanding
+        ? IPIX_TITLE
+        : visits <= 1
+          ? "Vercel Authentication"
+          : options.replayTitle ?? IPIX_TITLE,
+    ),
   };
   const run = () =>
     establishAndProveVercelBypass({
@@ -1130,7 +1150,7 @@ describe("Vercel Deployment Protection bypass proof", () => {
 
     // The replay must happen with the header already gone — that ordering is
     // the whole proof, so assert the sequence rather than just the call count.
-    expect(harness.calls).toEqual(["route", "goto", "unroute", "goto"]);
+    expect(harness.calls).toEqual(["goto", "route", "goto", "unroute", "goto"]);
     expect(harness.context.unroute).toHaveBeenCalledWith("**/*", expect.any(Function));
     expect(harness.context.cookies).toHaveBeenCalledWith(PREVIEW_ORIGIN);
   });
@@ -1139,7 +1159,7 @@ describe("Vercel Deployment Protection bypass proof", () => {
     const harness = bypassHarness({ cookiesBefore: 0, cookiesAfter: 0 });
     await expect(harness.run()).rejects.toThrow("stored no bypass cookie");
     // No replay: a cookie-less second request would only prove the SSO screen.
-    expect(harness.calls).toEqual(["route", "goto", "unroute"]);
+    expect(harness.calls).toEqual(["goto", "route", "goto", "unroute"]);
   });
 
   it("fails when the stored cookie alone does not reach iPix", async () => {
@@ -1161,6 +1181,15 @@ describe("Vercel Deployment Protection bypass proof", () => {
       replayTitle: "Authentication Required – Vercel",
     });
     await expect(harness.run()).rejects.toThrow("did not grant access");
+  });
+
+  it("accepts a verified public staged deployment without a bypass cookie", async () => {
+    const harness = bypassHarness({ publicLanding: true });
+    await expect(harness.run()).resolves.toBeUndefined();
+    // No secret route, no cookie read and no bypass request happened.
+    expect(harness.calls).toEqual(["goto"]);
+    expect(harness.context.cookies).not.toHaveBeenCalled();
+    expect(harness.context.route).not.toHaveBeenCalled();
   });
 
   it("accepts any cookie Vercel chooses to store, not a hard-coded name", async () => {
