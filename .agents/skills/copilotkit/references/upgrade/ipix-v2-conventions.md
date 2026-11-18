@@ -29,7 +29,7 @@ Do not mechanically translate an old hook name without checking the installed `@
 
 ### Runtime endpoint factory — version-qualified
 
-**Installed `@copilotkit/runtime 1.85.0`:** prefer `createCopilotHonoHandler`; this family marks `createCopilotEndpoint` as a deprecated alias. The current iPix route still uses that alias — do not copy it into new code, and do not mix that runtime cleanup into unrelated feature work.
+**Installed `@copilotkit/runtime 1.88.0`:** prefer `createCopilotHonoHandler`; `createCopilotEndpoint` is deprecated. The current iPix route already uses `createCopilotHonoHandler` (merged PR #347); do not reintroduce the alias.
 
 Treat the factory name as **version-qualified guidance, not a permanent API name**. Upstream documentation surfaces currently also describe `createCopilotEndpointHono` and `createCopilotRuntimeHandler` variants, so re-check the installed `@copilotkit/runtime/v2` exports and types after any CopilotKit upgrade before relying on this name. The route shape itself lives in the canonical Mastra integration reference.
 

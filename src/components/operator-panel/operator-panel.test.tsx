@@ -327,7 +327,7 @@ describe("OperatorPanel", () => {
     // The existing multi-route handler stays on the REST transport.
     expect(copilotKitPropsMock.current?.useSingleEndpoint).toBe(false);
     expect(copilotKitPropsMock.current?.enableInspector).toBe(false);
-    expect(copilotKitPropsMock.current?.showDevConsole).toBe(false);
+    expect(copilotKitPropsMock.current).not.toHaveProperty("showDevConsole");
   });
 
   it("wires one native GenUI catalog and one named surface into the existing provider", async () => {

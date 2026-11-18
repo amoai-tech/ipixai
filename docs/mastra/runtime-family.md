@@ -27,6 +27,7 @@ This file records the currently installed compatibility family. `package.json` a
 - CopilotKit request identity and Mastra resource scope are derived server-side.
 - Planner conversation continuity is durable, not process-local: prior **normal message history** is stored in `mastra.*` and supplied to the next same-thread model call, including after a full process restart. Thread-only facts must not leak into another thread of the same resource, and must not arrive through resource-scoped Working Memory.
 - Runtime packages should be upgraded as a tested compatibility family, not one package at a time without verification.
+- iPix uses the local-agent SSE runtime with `TenantAbortRunner`, not CopilotKit Intelligence; the 1.88 Intelligence-only thread-naming behavior does not apply to these Planner threads.
 
 ## Verification order
 

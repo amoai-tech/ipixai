@@ -119,6 +119,11 @@ describe("IPI-1042 runtime family", () => {
     expect(version("@copilotkit/runtime")).toBe("1.88.0");
     expect(version("@copilotkit/react-core")).toBe("1.88.0");
     expect(version("@copilotkit/channels")).toBe("0.12.0");
+    // Installed 1.88 runtime pins hardened MCP Apps and A2UI middleware exactly.
+    // Source: https://github.com/CopilotKit/CopilotKit/releases/tag/v1.86.0
+    // Source: https://github.com/CopilotKit/CopilotKit/releases/tag/v1.87.1
+    expect(version("@ag-ui/mcp-apps-middleware")).toBe("0.1.1");
+    expect(version("@ag-ui/a2ui-middleware")).toBe("0.0.16");
     // @copilotkit/runtime@1.88.0 pins @ag-ui/client and @ag-ui/core to exactly
     // 1.0.2. A newer 1.0.x here would install a second AG-UI copy and could
     // break AbstractAgent class identity, so the family is pinned, not floated.
