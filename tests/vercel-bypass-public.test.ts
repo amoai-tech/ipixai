@@ -167,6 +167,49 @@ describe("public staged QA deployment identity", () => {
     expect(h.headers).not.toHaveBeenCalled();
   });
 
+  it("rejects public iPix content served outside the expected staged host pattern", async () => {
+    const h = givenPublicCandidate({}, 200, "https://untrusted-site.vercel.app");
+    await expect(h.access()).rejects.toThrow(/limited to this project's iPix Vercel host/);
+    expect(h.lookup).not.toHaveBeenCalled();
+    expect(h.headers).not.toHaveBeenCalled();
+  });
+
+  it("rejects a protected Preview with no bypass provider response", async () => {
+    const headers = vi.fn(async () => undefined);
+    const page = {
+      goto: vi.fn(async () => undefined),
+      url: () => "https://vercel.com/sso/verify",
+      title: async () => "Vercel Authentication",
+    };
+    await expect(establishDeploymentAccess({
+      context: {} as never,
+      page: page as never,
+      deploymentOrigin: ORIGIN,
+      headers,
+    })).rejects.toThrow(/no bypass headers were returned/);
+    expect(headers).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    "ftp://localhost",
+    "http://user:pass@localhost",
+    "http://localhost/",
+  ])("does not classify malformed local origin %s as an E2E local bypass", async (origin) => {
+    const headers = vi.fn(async () => undefined);
+    const page = {
+      goto: vi.fn(async () => undefined),
+      url: () => "https://vercel.com/sso/verify",
+      title: async () => "Vercel Authentication",
+    };
+    await expect(establishDeploymentAccess({
+      context: {} as never,
+      page: page as never,
+      deploymentOrigin: origin,
+      headers,
+    })).rejects.toThrow(/no bypass headers were returned/);
+    expect(page.goto).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects mismatched commit SHA and Preview target for a staged Production opt-in", async () => {
     const wrongSha = givenPublicCandidate({ meta: { githubCommitSha: "b".repeat(40) } });
     await expect(wrongSha.access()).rejects.toThrow(/expected commit SHA or target/);

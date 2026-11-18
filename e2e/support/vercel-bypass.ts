@@ -90,8 +90,16 @@ export function isStagedProductionQaOptIn(
 
 function isLocalOrigin(origin: string): boolean {
   try {
-    const hostname = new URL(origin).hostname;
-    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+    const candidate = new URL(origin);
+    return (
+      (candidate.protocol === "http:" || candidate.protocol === "https:") &&
+      candidate.origin === origin &&
+      !candidate.username &&
+      !candidate.password &&
+      (candidate.hostname === "localhost" ||
+        candidate.hostname === "127.0.0.1" ||
+        candidate.hostname === "[::1]")
+    );
   } catch {
     return false;
   }
