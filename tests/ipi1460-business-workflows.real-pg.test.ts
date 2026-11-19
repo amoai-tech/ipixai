@@ -55,7 +55,9 @@ const LOCAL_DB_URL = process.env.IPI1460_LOCAL_DB_URL ?? "";
 const MASTRA_DB_URL = process.env.IPI1460_MASTRA_DB_URL ?? "";
 
 const RUN_PREFIX = "IPI1460-";
-const FIXTURE_PASSWORD = "ipi1460-local-real-pg-password";
+// Local throwaway accounts only. Generated per run so no credential literal
+// exists in the repository (Codacy flags hardcoded passwords).
+const FIXTURE_PASSWORD = randomUUID();
 
 const ORG_A = "14600000-0000-4000-8000-00000000000a";
 const ORG_B = "14600000-0000-4000-8000-00000000000b";
