@@ -12,7 +12,11 @@
  *
  *   * the workflows are the committed iPix definitions;
  *   * workflow state is persisted by `@mastra/pg` in the reviewed `mastra`
- *     schema of a disposable database (never in memory);
+ *     schema of a disposable database (never in memory). These runs use the
+ *     default storage v1, so their snapshots live in
+ *     `mastra.mastra_workflow_snapshot`; the 1.84 adapter's `getWorkflowRunById`
+ *     / resume path also queries the new `mastra_workflow_runs` journal tables,
+ *     which is why the read+resume below fails without this migration;
  *   * the suspend/resume boundary is crossed by a *new* pool + Mastra
  *     instance, so the resumed run must load its snapshot from PostgreSQL;
  *   * the Shoot Plan approval/decision uses the real `stage_*` / `decide_*` /
@@ -404,11 +408,15 @@ describe.skipIf(!ENABLED)("IPI-1460 real business workflows on PostgreSQL", () =
 
     // The durable row is real: staged by the workflow through the service RPC.
     const staged = await db.query(
-      `select brand_id, workflow_run_id, revision, plan_hash, status, staged_by
+      `select brand_id, workflow_run_id, revision, plan_hash, status, staged_by, plan
          from shoot.shoot_plan_approvals where id = $1`,
       [approvalId],
     );
     expect(staged.rowCount).toBe(1);
+    // The durable artifact is the plan the operator approved, byte-for-byte
+    // in jsonb terms. Without this, a staging bug that stored a different
+    // plan could still pass on the RPC-returned hash alone.
+    expect(staged.rows[0].plan).toEqual(PLAN);
     expect(staged.rows[0]).toMatchObject({
       brand_id: BRAND_A,
       workflow_run_id: runId,

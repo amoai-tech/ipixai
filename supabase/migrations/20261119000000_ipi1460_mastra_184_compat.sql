@@ -11,8 +11,11 @@
 --   exportSchemas("mastra") from @mastra/pg 1.37.0, which serialises
 --   TABLE_WORKFLOW_RUNS + TABLE_WORKFLOW_RUN_ENTRIES from @mastra/core 1.84.0
 --   (WORKFLOW_RUN_JOURNAL_TABLE_CONFIGS) plus the workflow-domain default
---   indexes. Verified against the installed schema exporter, not copied from
---   the vendor source tree.
+--   indexes. The table columns, primary keys and five indexes match that
+--   exporter output exactly. The createdAtZ/updatedAtZ trigger is the existing
+--   iPix timestamp convention (mastra.trigger_set_timestamps), added here
+--   because disableInit: true means the adapter never installs it at boot; the
+--   exporter itself does not emit that trigger.
 --
 -- Additive-only:
 --   * two new tables + their primary keys, indexes and timestamp trigger only
