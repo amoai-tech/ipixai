@@ -4,7 +4,7 @@ import { test as setup } from "@playwright/test";
 
 import { previewBypassHeaders } from "../playwright.config";
 import { signInAsE2ETestOperator, signInWithCredentials } from "./support/login";
-import { establishAndProveVercelBypass } from "./support/vercel-bypass";
+import { establishDeploymentAccess } from "./support/vercel-bypass";
 
 /**
  * https://playwright.dev/docs/auth — project-dependency auth setup.
@@ -39,12 +39,6 @@ setup.setTimeout(60_000);
  * only storageState and never re-send the header.
  */
 setup.beforeEach(async ({ page, context, baseURL }) => {
-  const headers = await previewBypassHeaders(
-    baseURL ?? "",
-    process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
-  );
-  if (!headers) return; // local run — nothing to bypass
-
   // `previewBypassHeaders` only returns headers for a non-local target, and
   // `isLocalE2ETarget("")` is false — so without this guard a missing baseURL
   // would reach `new URL("")` and surface as "TypeError: Invalid URL" instead
@@ -56,11 +50,16 @@ setup.beforeEach(async ({ page, context, baseURL }) => {
     );
   }
 
-  await establishAndProveVercelBypass({
+  // Probe before asking for the bypass secret: a public staged Production
+  // candidate is not protected at all. The wrapper permits it only through
+  // the release workflow's explicit opt-in; ordinary Preview QA still requires
+  // the protected-preview bypass.
+  await establishDeploymentAccess({
     context,
     page,
     deploymentOrigin: new URL(baseURL).origin,
-    headers,
+    headers: () =>
+      previewBypassHeaders(baseURL, process.env.VERCEL_AUTOMATION_BYPASS_SECRET),
   });
 });
 

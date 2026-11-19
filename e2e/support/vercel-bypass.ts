@@ -1,4 +1,5 @@
 import type { BrowserContext, Page, Route } from "@playwright/test";
+import { verifyVercelDeploymentOwnership } from "./vercel-ownership";
 
 /**
  * IPI-1344 · E2E-PREVIEW-BYPASS-001 — Vercel Deployment Protection sits in front
@@ -42,6 +43,129 @@ function originOf(url: string): string {
   } catch {
     return "";
   }
+}
+
+/**
+ * True only when the real iPix app answers on the exact target origin.
+ *
+ * A Vercel SSO screen can return HTTP 200 on the deployment host but has a
+ * different title; a redirect off-origin is rejected too. Public staged
+ * Production candidates return the app without a Deployment Protection
+ * cookie, so they must not be forced through the protected-preview bypass.
+ */
+export function isPublicIpixLanding(input: {
+  landed: string;
+  title: string;
+  deploymentOrigin: string;
+}): boolean {
+  return (
+    originOf(input.landed) === input.deploymentOrigin &&
+    IPIX_ROOT_TITLE.test(input.title)
+  );
+}
+
+const STAGED_PRODUCTION_HOST = /^ipixai-[a-z0-9-]+-amo-agency\.vercel\.app$/i;
+
+type StagedProductionQaEnv = {
+  IPIX_STAGED_PRODUCTION_QA?: string;
+  VERCEL_DEPLOYMENT_SHA?: string;
+};
+
+/**
+ * Explicit opt-in for the release workflow's staged-Production QA.
+ *
+ * The normal E2E harness is Preview-only (AGENTS.md: `E2E_BASE_URL` may only
+ * be localhost or an iPix Vercel Preview, never Production). A staged
+ * Production candidate is public, so it has no Deployment Protection cookie;
+ * accepting it without this guard would let ordinary E2E target Production.
+ * Requiring both the flag and the exact staged SHA keeps that path release-only
+ * and auditable. The release workflow sets both values.
+ */
+export function isStagedProductionQaOptIn(
+  env: StagedProductionQaEnv = process.env as StagedProductionQaEnv,
+): boolean {
+  const sha = env.VERCEL_DEPLOYMENT_SHA?.trim() ?? "";
+  return env.IPIX_STAGED_PRODUCTION_QA === "1" && /^[a-f0-9]{40}$/i.test(sha);
+}
+
+function isLocalOrigin(origin: string): boolean {
+  try {
+    const candidate = new URL(origin);
+    return (
+      (candidate.protocol === "http:" || candidate.protocol === "https:") &&
+      candidate.origin === origin &&
+      !candidate.username &&
+      !candidate.password &&
+      (candidate.hostname === "localhost" ||
+        candidate.hostname === "127.0.0.1" ||
+        candidate.hostname === "[::1]")
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Establish access for one E2E target.
+ *
+ * Probe before asking for the bypass secret, so a public staged candidate does
+ * not fail the "secret is required" check before it can be classified. A public
+ * app is accepted only through the explicit staged-Production opt-in above;
+ * a protected Preview still takes the unchanged cookie-proof path below.
+ */
+export async function establishDeploymentAccess(options: {
+  context: BypassContext;
+  page: BypassPage;
+  deploymentOrigin: string;
+  headers: () => Promise<Record<string, string> | undefined>;
+  env?: StagedProductionQaEnv;
+}): Promise<void> {
+  const { context, page, deploymentOrigin, headers } = options;
+
+  if (isLocalOrigin(deploymentOrigin)) return;
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  if (
+    isPublicIpixLanding({
+      landed: page.url(),
+      title: await page.title(),
+      deploymentOrigin,
+    })
+  ) {
+    if (!isStagedProductionQaOptIn(options.env)) {
+      throw new Error(
+        "A public deployment reached the E2E harness outside the normal Preview policy. " +
+          "Set IPIX_STAGED_PRODUCTION_QA=1 and VERCEL_DEPLOYMENT_SHA only for an authorized, exact-SHA staged Production release run.",
+      );
+    }
+    const hostname = new URL(deploymentOrigin).hostname;
+    if (!STAGED_PRODUCTION_HOST.test(hostname)) {
+      throw new Error(
+        `Staged Production QA is limited to this project's iPix Vercel host; refusing ${hostname}.`,
+      );
+    }
+    // The host shape is only a preflight; hyphenated team slugs can mimic it.
+    // Prove actual ownership, READY status, commit and Production target before
+    // the E2E operator signs in. Missing credentials/API failures fail closed.
+    await verifyVercelDeploymentOwnership(deploymentOrigin, {
+      expectedSha: (options.env ?? process.env).VERCEL_DEPLOYMENT_SHA?.trim(),
+      expectedTarget: "production",
+    });
+    return;
+  }
+
+  const bypass = await headers();
+  if (!bypass) {
+    throw new Error(
+      "This Vercel target is protected but no bypass headers were returned; refusing to run authenticated QA.",
+    );
+  }
+  await establishAndProveVercelBypass({
+    context,
+    page,
+    deploymentOrigin,
+    headers: bypass,
+  });
 }
 
 /**

@@ -1222,6 +1222,8 @@ jobs:
         env:
           E2E_BASE_URL: ${{ steps.stage.outputs.url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          IPIX_STAGED_PRODUCTION_QA: "1"
+          VERCEL_DEPLOYMENT_SHA: ${{ github.sha }}
           # Authenticated ownership check runs before any QA login.
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
@@ -1247,6 +1249,8 @@ jobs:
         env:
           E2E_BASE_URL: ${{ steps.stage.outputs.url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          IPIX_STAGED_PRODUCTION_QA: "1"
+          VERCEL_DEPLOYMENT_SHA: ${{ github.sha }}
           # Authenticated ownership check runs before any QA login.
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
