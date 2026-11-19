@@ -125,6 +125,22 @@ DROP POLICY IF EXISTS hyperdrive_mastra_runtime_all ON mastra.mastra_workflow_ru
 CREATE POLICY hyperdrive_mastra_runtime_all ON mastra.mastra_workflow_run_entries
   FOR ALL TO hyperdrive_mastra_runtime USING (true) WITH CHECK (true);
 
+-- Deny everyone else explicitly: a platform/PUBLIC default ACL must never
+-- leave inherited table privileges outside the runtime-only posture.
+REVOKE ALL ON TABLE mastra.mastra_workflow_runs FROM PUBLIC;
+REVOKE ALL ON TABLE mastra.mastra_workflow_run_entries FROM PUBLIC;
+DO $$
+DECLARE
+  role_name text;
+BEGIN
+  FOREACH role_name IN ARRAY ARRAY['anon', 'authenticated', 'service_role'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
+      EXECUTE format('REVOKE ALL ON TABLE mastra.mastra_workflow_runs FROM %I', role_name);
+      EXECUTE format('REVOKE ALL ON TABLE mastra.mastra_workflow_run_entries FROM %I', role_name);
+    END IF;
+  END LOOP;
+END $$;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE mastra.mastra_workflow_runs TO hyperdrive_mastra_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE mastra.mastra_workflow_run_entries TO hyperdrive_mastra_runtime;
 
@@ -140,6 +156,8 @@ DECLARE
   trigger_count int;
   public_shadow int;
   postgrest_grant int;
+  public_grant int;
+  pk_columns text[];
 BEGIN
   SELECT string_agg(t || '.' || c, ', ')
     INTO missing
@@ -179,20 +197,73 @@ BEGIN
     RAISE EXCEPTION 'IPI-1460 postflight: missing required columns: %', missing;
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint con
-    JOIN pg_class c ON c.oid = con.conrelid
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = 'mastra' AND c.relname = 'mastra_workflow_runs'
-      AND con.contype = 'p'
-  ) OR NOT EXISTS (
-    SELECT 1 FROM pg_constraint con
-    JOIN pg_class c ON c.oid = con.conrelid
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = 'mastra' AND c.relname = 'mastra_workflow_run_entries'
-      AND con.contype = 'p'
-  ) THEN
-    RAISE EXCEPTION 'IPI-1460 postflight: run journal primary keys missing';
+  -- CREATE TABLE IF NOT EXISTS is a no-op on a same-named table, so a table
+  -- with the right column names but wrong types/nullability must fail here
+  -- instead of surfacing later as an adapter upsert/resume failure.
+  SELECT string_agg(t || '.' || c, ', ')
+    INTO missing
+  FROM (VALUES
+    ('mastra_workflow_runs', 'workflow_name', 'text', 'NO'),
+    ('mastra_workflow_runs', 'run_id', 'text', 'NO'),
+    ('mastra_workflow_runs', 'resourceId', 'text', 'YES'),
+    ('mastra_workflow_runs', 'threadId', 'text', 'YES'),
+    ('mastra_workflow_runs', 'status', 'text', 'NO'),
+    ('mastra_workflow_runs', 'header', 'jsonb', 'NO'),
+    ('mastra_workflow_runs', 'lastSeq', 'integer', 'NO'),
+    ('mastra_workflow_runs', 'startStateSeq', 'integer', 'NO'),
+    ('mastra_workflow_runs', 'stateShared', 'boolean', 'NO'),
+    ('mastra_workflow_runs', 'stateSeq', 'integer', 'NO'),
+    ('mastra_workflow_runs', 'statePatchCount', 'integer', 'NO'),
+    ('mastra_workflow_runs', 'statePatchBytes', 'integer', 'NO'),
+    ('mastra_workflow_runs', 'stateBytes', 'integer', 'YES'),
+    ('mastra_workflow_runs', 'runToken', 'text', 'NO'),
+    ('mastra_workflow_runs', 'createdAt', 'timestamp without time zone', 'NO'),
+    ('mastra_workflow_runs', 'updatedAt', 'timestamp without time zone', 'NO'),
+    ('mastra_workflow_runs', 'createdAtZ', 'timestamp with time zone', 'YES'),
+    ('mastra_workflow_runs', 'updatedAtZ', 'timestamp with time zone', 'YES'),
+    ('mastra_workflow_run_entries', 'workflow_name', 'text', 'NO'),
+    ('mastra_workflow_run_entries', 'run_id', 'text', 'NO'),
+    ('mastra_workflow_run_entries', 'seq', 'integer', 'NO'),
+    ('mastra_workflow_run_entries', 'kind', 'text', 'NO'),
+    ('mastra_workflow_run_entries', 'step_id', 'text', 'YES'),
+    ('mastra_workflow_run_entries', 'payload', 'jsonb', 'YES')
+  ) AS expected(t, c, data_type, is_nullable)
+  WHERE NOT EXISTS (
+    SELECT 1 FROM information_schema.columns col
+    WHERE col.table_schema = 'mastra'
+      AND col.table_name = expected.t
+      AND col.column_name = expected.c
+      AND col.data_type = expected.data_type
+      AND col.is_nullable = expected.is_nullable
+  );
+  IF missing IS NOT NULL THEN
+    RAISE EXCEPTION 'IPI-1460 postflight: column type/nullability mismatch: %', missing;
+  END IF;
+
+  SELECT array_agg(a.attname::text ORDER BY k.ord)
+    INTO pk_columns
+  FROM pg_constraint con
+  JOIN pg_class c ON c.oid = con.conrelid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  CROSS JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS k(attnum, ord)
+  JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.attnum
+  WHERE n.nspname = 'mastra' AND c.relname = 'mastra_workflow_runs'
+    AND con.contype = 'p';
+  IF pk_columns IS DISTINCT FROM ARRAY['workflow_name', 'run_id']::text[] THEN
+    RAISE EXCEPTION 'IPI-1460 postflight: unexpected mastra_workflow_runs primary key: %', pk_columns;
+  END IF;
+
+  SELECT array_agg(a.attname::text ORDER BY k.ord)
+    INTO pk_columns
+  FROM pg_constraint con
+  JOIN pg_class c ON c.oid = con.conrelid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  CROSS JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS k(attnum, ord)
+  JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.attnum
+  WHERE n.nspname = 'mastra' AND c.relname = 'mastra_workflow_run_entries'
+    AND con.contype = 'p';
+  IF pk_columns IS DISTINCT FROM ARRAY['workflow_name', 'run_id', 'seq']::text[] THEN
+    RAISE EXCEPTION 'IPI-1460 postflight: unexpected mastra_workflow_run_entries primary key: %', pk_columns;
   END IF;
 
   SELECT count(*) INTO index_count
@@ -266,5 +337,16 @@ BEGIN
     AND grantee IN ('anon', 'authenticated', 'service_role');
   IF postgrest_grant <> 0 THEN
     RAISE EXCEPTION 'IPI-1460 postflight: PostgREST role gained grants on run journal tables';
+  END IF;
+
+  SELECT count(*) INTO public_grant
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  CROSS JOIN LATERAL aclexplode(COALESCE(c.relacl, acldefault('r', c.relowner))) a
+  WHERE n.nspname = 'mastra'
+    AND c.relname IN ('mastra_workflow_runs', 'mastra_workflow_run_entries')
+    AND a.grantee = 0;
+  IF public_grant <> 0 THEN
+    RAISE EXCEPTION 'IPI-1460 postflight: PUBLIC retains % table privilege(s) on run journal tables', public_grant;
   END IF;
 END $$;

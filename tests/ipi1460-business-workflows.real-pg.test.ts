@@ -130,6 +130,22 @@ let editorA: Session;
 let viewerA: Session;
 let orgB: Session;
 
+function assertLoopbackUrl(raw: string, label: string, protocols: string[]): void {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error(`${label} is not a valid URL`);
+  }
+  const host = url.hostname.replace(/^\[|\]$/g, "");
+  if (!["127.0.0.1", "localhost", "::1"].includes(host)) {
+    throw new Error(`${label} must be loopback (parsed host: ${host})`);
+  }
+  if (!protocols.includes(url.protocol)) {
+    throw new Error(`${label} has an unexpected protocol: ${url.protocol}`);
+  }
+}
+
 function assertEnabledEnv(): void {
   const missing = [
     ["NEXT_PUBLIC_SUPABASE_URL", API_URL],
@@ -143,10 +159,9 @@ function assertEnabledEnv(): void {
   if (missing.length > 0) {
     throw new Error(`IPI-1460 real-PG proof missing env: ${missing.join(", ")}`);
   }
-  const loopback = /^https?:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/;
-  if (!loopback.test(API_URL)) {
-    throw new Error("IPI-1460 real-PG proof refuses a non-loopback Supabase URL");
-  }
+  assertLoopbackUrl(API_URL, "NEXT_PUBLIC_SUPABASE_URL", ["http:", "https:"]);
+  assertLoopbackUrl(LOCAL_DB_URL, "IPI1460_LOCAL_DB_URL", ["postgres:", "postgresql:"]);
+  assertLoopbackUrl(MASTRA_DB_URL, "IPI1460_MASTRA_DB_URL", ["postgres:", "postgresql:"]);
 }
 
 async function ensureFixtureUsers(): Promise<void> {
@@ -355,6 +370,13 @@ describe.skipIf(!ENABLED)("IPI-1460 real business workflows on PostgreSQL", () =
         "mastra.mastra_workflow_snapshot",
       ]) {
         await mastraDb.query(`delete from ${table} where run_id like $1`, [`${RUN_PREFIX}%`]);
+      }
+      if (admin) {
+        await Promise.allSettled(
+          [USER_OWNER_A, USER_EDITOR_A, USER_VIEWER_A, USER_ORG_B].map((id) =>
+            admin.auth.admin.deleteUser(id),
+          ),
+        );
       }
     } finally {
       await db?.end();
@@ -691,19 +713,22 @@ describe.skipIf(!ENABLED)("IPI-1460 real business workflows on PostgreSQL", () =
 
     await db.query(
       `update public.brands
-          set ai_profile_draft = $1::jsonb, intake_status = 'brand_created',
+          set ai_profile_draft = '{}'::jsonb, intake_status = 'brand_created',
               approved_profile_at = null, updated_at = now()
-        where id = $2`,
-      [JSON.stringify(DRAFT), BRAND_BI],
+        where id = $1`,
+      [BRAND_BI],
     );
 
     // Only the external crawl/extraction Edge Functions are stubbed. The
     // started-crawl row is written for real so the approval RPC's
     // brand<->run binding is genuinely enforced.
+    const startCrawlCalls: Array<{ brandId: string; workflowId: string }> = [];
+    const extractionCalls: Array<{ brandId: string; crawlId: string }> = [];
     const fetchStub = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, string>) : {};
       if (url.endsWith("/functions/v1/start-brand-crawl")) {
+        startCrawlCalls.push({ brandId: body.brandId, workflowId: body.workflowId });
         const crawlId = randomUUID();
         await db.query(
           `insert into public.brand_crawls
@@ -725,6 +750,15 @@ describe.skipIf(!ENABLED)("IPI-1460 real business workflows on PostgreSQL", () =
         });
       }
       if (url.endsWith("/functions/v1/brand-intelligence")) {
+        extractionCalls.push({ brandId: body.brandId, crawlId: body.crawlResultId });
+        // The real edge function writes the draft; the stub must do the same so
+        // the workflow genuinely consumes an extraction result rather than a
+        // fixture that was pre-seeded before the workflow ran.
+        await db.query(
+          `update public.brands set ai_profile_draft = $1::jsonb, updated_at = now()
+            where id = $2`,
+          [JSON.stringify(DRAFT), body.brandId],
+        );
         return new Response(JSON.stringify({ ok: true, data: { extracted: true } }), {
           status: 200,
           headers: { "content-type": "application/json" },
@@ -746,7 +780,9 @@ describe.skipIf(!ENABLED)("IPI-1460 real business workflows on PostgreSQL", () =
         })) as { status: string; suspendPayload?: unknown };
         expect(started.status).toBe("suspended");
         crawlId = suspendData<{ crawlId: string }>(started.suspendPayload, "waitForCrawl").crawlId;
-        expect(crawlId).toMatch(/[0-9a-f-]{36}/);
+        expect(crawlId).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+        );
       } finally {
         await first.close();
       }
@@ -763,6 +799,9 @@ describe.skipIf(!ENABLED)("IPI-1460 real business workflows on PostgreSQL", () =
         })) as { status: string; suspendPayload?: unknown };
 
         expect(afterCrawl).toMatchObject({ status: "suspended" });
+        // The exact crawl started by startCrawl is the one extraction received.
+        expect(startCrawlCalls).toEqual([{ brandId: BRAND_BI, workflowId: runId }]);
+        expect(extractionCalls).toEqual([{ brandId: BRAND_BI, crawlId }]);
         const suspendedBI = suspendData<{ brandId: string; draftHash: string }>(
           afterCrawl.suspendPayload,
           "saveDraftAndWait",

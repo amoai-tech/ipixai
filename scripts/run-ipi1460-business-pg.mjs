@@ -39,8 +39,34 @@ const BRAND_BI = "14600000-0000-4000-8000-0000000000ab";
 const ORG_A = "14600000-0000-4000-8000-00000000000a";
 const ORG_B = "14600000-0000-4000-8000-00000000000b";
 
-const LOOPBACK_API = /^https?:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/;
-const LOOPBACK_DB = /^postgres(ql)?:\/\/[^@]*@(127\.0\.0\.1|localhost)[:/]/;
+const FIXTURE_USER_IDS = [
+  "14600000-0000-4000-8000-000000000004",
+  "14600000-0000-4000-8000-000000000001",
+  "14600000-0000-4000-8000-000000000002",
+  "14600000-0000-4000-8000-000000000003",
+];
+
+/**
+ * Parse the URL and require the parsed hostname to be loopback. A substring
+ * regex over the authority can be spoofed; the parsed host is what `pg`/
+ * `fetch` will actually connect to.
+ */
+function assertLoopbackUrl(raw, label, protocols) {
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    fail(`refusing to run: ${label} is not a valid URL`);
+  }
+  const host = url.hostname.replace(/^\[|\]$/g, "");
+  if (!["127.0.0.1", "localhost", "::1"].includes(host)) {
+    fail(`refusing to run: ${label} host is not loopback (parsed: ${host})`);
+  }
+  if (!protocols.includes(url.protocol)) {
+    fail(`refusing to run: ${label} has an unexpected protocol: ${url.protocol}`);
+  }
+  return url;
+}
 
 function fail(message) {
   console.error(`\nrun-ipi1460-business-pg: ${message}\n`);
@@ -91,11 +117,15 @@ const serviceRoleKey = status.SERVICE_ROLE_KEY;
 if (!apiUrl || !dbUrl || !publishableKey || !serviceRoleKey) {
   fail("local Supabase status is missing API_URL / DB_URL / publishable key / service role key");
 }
-if (!LOOPBACK_API.test(apiUrl)) fail("refusing to run: local Supabase API_URL is not loopback");
-if (!LOOPBACK_DB.test(dbUrl)) fail("refusing to run: local Supabase DB_URL is not loopback");
+assertLoopbackUrl(apiUrl, "local Supabase API_URL", ["http:", "https:"]);
+assertLoopbackUrl(dbUrl, "local Supabase DB_URL", ["postgres:", "postgresql:"]);
 
 const mastraUrl = new URL(dbUrl);
 mastraUrl.pathname = `/${MASTRA_DB_NAME}`;
+assertLoopbackUrl(mastraUrl.toString(), `disposable ${MASTRA_DB_NAME} URL`, [
+  "postgres:",
+  "postgresql:",
+]);
 
 async function cleanup(client) {
   for (const statement of [
@@ -115,6 +145,19 @@ async function cleanup(client) {
   await client.query(`delete from public.organizations where id = any($1::uuid[])`, [
     [ORG_A, ORG_B],
   ]);
+}
+
+async function deleteFixtureUsers() {
+  if (!serviceRoleKey) return;
+  const headers = {
+    apikey: serviceRoleKey,
+    authorization: `Bearer ${serviceRoleKey}`,
+  };
+  await Promise.allSettled(
+    FIXTURE_USER_IDS.map((id) =>
+      fetch(`${apiUrl}/auth/v1/admin/users/${id}`, { method: "DELETE", headers }),
+    ),
+  );
 }
 
 async function cleanupMastra(client) {
@@ -155,6 +198,13 @@ try {
 const appClient = new pg.Client({ connectionString: dbUrl });
 await appClient.connect();
 
+// Two overlapping proofs would delete each other's fixed fixtures. Fail fast
+// instead of corrupting the active run.
+const lock = await appClient.query("select pg_try_advisory_lock(146001460) as ok");
+if (!lock.rows[0]?.ok) {
+  fail("another IPI-1460 proof is already running; refusing concurrent fixture cleanup");
+}
+
 let exitCode = 1;
 try {
   // Converge after an earlier interrupted run, then let the test seed.
@@ -190,6 +240,7 @@ try {
     try {
       await cleanup(appClient);
       await cleanupMastra(mastraClient);
+      await deleteFixtureUsers();
     } catch (error) {
       console.error(
         `run-ipi1460-business-pg: cleanup failed (${error instanceof Error ? error.message : "unknown"})`,
@@ -197,6 +248,7 @@ try {
       exitCode = exitCode === 0 ? 1 : exitCode;
     }
   }
+  await appClient.query("select pg_advisory_unlock(146001460)").catch(() => {});
   await appClient.end();
   await mastraClient.end();
 }
