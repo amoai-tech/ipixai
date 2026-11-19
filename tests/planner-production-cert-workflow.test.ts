@@ -13,6 +13,7 @@ type WorkflowStep = {
   name?: string;
   id?: string;
   if?: string;
+  "continue-on-error"?: boolean;
   run?: string;
   uses?: string;
   env?: Record<string, unknown>;
@@ -78,163 +79,157 @@ const CERT_WORKFLOW = ".github/workflows/production-planner-cert.yml";
 const ALERT_WORKFLOW = ".github/workflows/ai-smoke.yml";
 
 describe("production Planner certification workflow", () => {
-  // Review finding: `vercel ls ipixai` hardcodes the project *name*, so a rename,
-  // a casing change or an org prefix would fail the SHA check with a confusing
-  // "no production deployment found". `ci.yml` identifies the project by ID.
-  it("identifies the Vercel project by ID rather than a hardcoded name", () => {
+  it("uses required-reviewed Production credentials without generating a deployment record", () => {
     const { workflow } = readWorkflow(CERT_WORKFLOW);
-    const step = stepNamed(jobOf(workflow, "certify"), "Assert Production serves");
+    for (const name of ["verify", "logs"]) {
+      const job = jobOf(workflow, name) as WorkflowJob & {
+        environment?: { name: string; deployment: boolean };
+      };
+      expect(job.environment).toEqual({ name: "Production", deployment: false });
+    }
+    // Browser QA waits for the reviewed verification job, and never gets the
+    // environment-scoped Vercel token itself.
+    const certify = jobOf(workflow, "certify") as WorkflowJob & { needs?: string };
+    expect(certify.needs).toBe("verify");
+    expect(certify.steps?.some(step => JSON.stringify(step).includes("secrets.VERCEL_TOKEN"))).toBe(false);
+  });
 
+  it("runs the policy drift guard before Vercel credentials or paid model calls", () => {
+    const { workflow } = readWorkflow(CERT_WORKFLOW);
+    for (const name of ["verify", "logs"]) {
+      const steps = jobOf(workflow, name).steps ?? [];
+      const guardIndex = steps.findIndex(step => step.run?.includes("node scripts/check-production-environment.mjs"));
+      const tokenIndex = steps.findIndex(step => JSON.stringify(step.env ?? {}).includes("secrets.VERCEL_TOKEN"));
+      expect(guardIndex).toBeGreaterThanOrEqual(0);
+      expect(tokenIndex).toBeGreaterThan(guardIndex);
+      expect(steps[guardIndex].env?.GITHUB_TOKEN).toContain("secrets.GITHUB_TOKEN");
+    }
+  });
+
+  it("keeps the Vercel token off runners executing released SHA npm scripts", () => {
+    const { workflow } = readWorkflow(CERT_WORKFLOW);
+    const verify = jobOf(workflow, "verify");
+    const logs = jobOf(workflow, "logs");
+    for (const job of [verify, logs]) {
+      expect(job.steps?.some(step => commandLines(step.run).join("\n").includes("npm ci"))).toBe(false);
+      const checkout = stepNamed(job, "Checkout trusted workflow revision");
+      expect(checkout.with?.ref).toContain("github.sha");
+      expect(checkout.with?.["persist-credentials"]).toBe(false);
+    }
+    const certify = jobOf(workflow, "certify");
+    expect(stepNamed(certify, "Checkout the certified SHA").with?.ref).toContain("needs.verify.outputs.expected_sha");
+    expect(stepNamed(certify, "Install dependencies").run).toContain("npm ci");
+    expect(JSON.stringify(certify)).not.toContain("secrets.VERCEL_TOKEN");
+  });
+
+  it("validates the requested SHA and confirms it is already in main history", () => {
+    const { workflow } = readWorkflow(CERT_WORKFLOW);
+    const verify = jobOf(workflow, "verify");
+    const request = stepNamed(verify, "Validate the request");
+    expect(request.env?.EXPECTED_SHA).toContain("inputs.expected_sha");
+    expect(commandLines(request.run).join("\n")).toContain("tr '[:upper:]' '[:lower:]'");
+    expect(commandLines(stepNamed(verify, "Assert the SHA is a released commit").run).join("\n"))
+      .toContain('git merge-base --is-ancestor "$EXPECTED_SHA" origin/main');
+  });
+
+  it("identifies the actual alias deployment by project and SHA, not the newest staged build", () => {
+    const { workflow } = readWorkflow(CERT_WORKFLOW);
+    const verify = jobOf(workflow, "verify");
+    const step = stepNamed(verify, "Assert Production serves");
     expect(step.env?.VERCEL_PROJECT_ID).toContain("vars.VERCEL_PROJECT_ID");
     expect(step.env?.VERCEL_ORG_ID).toContain("vars.VERCEL_ORG_ID");
-
-    const commands = commandLines(step.run).join("\n");
-    expect(commands).toContain('vercel ls "$VERCEL_PROJECT_ID"');
-    expect(
-      /vercel ls\s+ipixai\b/.test(commands),
-      "the project must not be addressed by its display name",
-    ).toBe(false);
-  });
-
-  // Review finding: checking out `main` certified an older deployment with newer specs.
-  it("checks out the certified SHA, not main", () => {
-    const { workflow } = readWorkflow(CERT_WORKFLOW);
-    const checkout = stepNamed(jobOf(workflow, "certify"), "Checkout");
-
-    expect(checkout.uses).toContain("actions/checkout@");
-    expect(checkout.env).toBeUndefined();
-    expect(checkout.with?.ref).toContain("steps.request.outputs.expected_sha");
-    expect(checkout.with?.ref).not.toBe("main");
-  });
-
-  // Review finding: nothing asserted that the verifying step actually publishes
-  // the outputs its later steps read, so a break there would silently skip the
-  // 5xx check (`if: steps.prod.outputs.deployment_url != ''`) and blank the
-  // summary. Step outputs are written through `$GITHUB_OUTPUT` — a step cannot
-  // declare them in YAML — so assert the writes and the consumption wiring.
-  it("publishes the deployment outputs its later steps consume", () => {
-    const { workflow } = readWorkflow(CERT_WORKFLOW);
-    const job = jobOf(workflow, "certify");
-    const prod = stepNamed(job, "Assert Production serves");
-
-    expect(prod.id, "later steps reference steps.prod.outputs").toBe("prod");
-
-    const prodCommands = commandLines(prod.run).join("\n");
-    for (const output of ["deployment_url", "deployment_sha"]) {
-      expect(prodCommands, `${output} must be written to GITHUB_OUTPUT`).toContain(
-        `GITHUB_OUTPUT, \`${output}=`,
-      );
+    const script = commandLines(step.run).join("\n");
+    expect(script).toContain('vercel ls "$VERCEL_PROJECT_ID"');
+    expect(script).toContain('deployments.find(d => d.url === alias.url)');
+    expect(script).not.toContain("deployments[0]");
+    // Live CLI check: vercel ls has no deployment id; vercel inspect does.
+    expect(script).toContain("alias.id");
+    expect(script).toContain('alias.readyState !== "READY"');
+    for (const output of ["deployment_url", "deployment_sha", "deployment_id"]) {
+      expect(script).toContain(output);
     }
-
-    const logStep = stepNamed(job, "Assert no unexpected");
-    expect(logStep.if).toContain("steps.prod.outputs.deployment_url");
-    expect(String(logStep.env?.DEPLOYMENT_URL)).toContain("steps.prod.outputs.deployment_url");
-
-    const summary = stepNamed(job, "Certification summary");
-    expect(summary.run).toContain("steps.prod.outputs.deployment_url");
-    expect(summary.run).toContain("steps.prod.outputs.deployment_sha");
   });
 
-  // Review finding: `|| true` turned a failed log query into a passing 5xx check.
-  it("fails closed when the log query or the scanned window is unusable", () => {
-    const { workflow } = readWorkflow(CERT_WORKFLOW);
-    const step = stepNamed(jobOf(workflow, "certify"), "Assert no unexpected");
-
-    const commands = commandLines(step.run);
-    const logLines = commands.filter((line) => line.includes("vercel logs"));
-    expect(logLines, "the step must query the deployment logs").toHaveLength(1);
-    expect(logLines[0], "a discarded failure cannot be reported as no-5xx").not.toContain("|| true");
-    expect(logLines[0], "the 100-line default truncates the window").toContain("--limit");
-
-    expect(commands.join("\n")).toContain("scripts/check-planner-production-logs.mjs");
+  it("serializes with CI's actual Production staging QA group, without cancelling active tests", () => {
+    const { workflow: cert } = readWorkflow(CERT_WORKFLOW);
+    const { workflow: ci } = readWorkflow(".github/workflows/ci.yml");
+    const group = (cert as { concurrency?: { group?: string; "cancel-in-progress"?: boolean } }).concurrency;
+    const ciGroup = (jobOf(ci, "vercel-production") as WorkflowJob & {
+      concurrency?: { group?: string; "cancel-in-progress"?: boolean };
+    }).concurrency;
+    expect(group?.group).toBe("vercel-production");
+    expect(group?.group).toBe(ciGroup?.group);
+    expect(group?.["cancel-in-progress"]).toBe(false);
+    expect(ciGroup?.["cancel-in-progress"]).toBe(false);
   });
 
-  // `vercel logs` applies --since/--until to the newest --limit entries rather
-  // than streaming a range, so an unbounded query scans "whatever the newest log
-  // lines happen to be". Measured 2026-09-28: `--limit 50` returned 50 entries
-  // and `--limit 5000` returned 5000 for the same requested range, so the limit
-  // silently decides how much real time is covered.
-  it("bounds the scanned window to the journey instead of whatever is newest", () => {
+  it("publishes only the bounded Planner trace, then reads it in a clean log runner", () => {
     const { workflow } = readWorkflow(CERT_WORKFLOW);
-    const job = jobOf(workflow, "certify");
-
-    const journeyCommands = commandLines(
-      stepNamed(job, "Run the signed-in Production Planner certification").run,
-    );
-    const windowWrite = journeyCommands.find((line) => line.includes("CERT_STARTED_AT"));
-    expect(windowWrite, "the certification window start must be recorded").toBeDefined();
-    // $GITHUB_ENV, not $GITHUB_OUTPUT: the log step runs with `if: always()`,
-    // including when the journey step itself fails.
-    expect(String(windowWrite)).toContain("GITHUB_ENV");
-    expect(
-      journeyCommands.indexOf(String(windowWrite)),
-      "the window must start before the journey runs",
-    ).toBeLessThan(journeyCommands.findIndex((line) => line.includes("e2e:production-cert")));
-
-    const logStep = stepNamed(job, "Assert no unexpected");
-    const logLines = commandLines(logStep.run).filter((line) => line.includes("vercel logs"));
-    expect(logLines[0]).toContain('--since "$CERT_STARTED_AT"');
-    expect(logLines[0], "an open-ended window widens past the journey").toContain("--until");
-
-    // The same limit reaches the checker, which reports reaching it: a truncated
-    // scan drops the OLDEST entries, so the volume is evidence rather than a
-    // failure — the thread-id guard is what proves the journey is in the window.
-    expect(String(logStep.env?.PROD_LOG_LIMIT)).toMatch(/^\d+$/);
-    expect(logLines[0]).toContain('--limit "$PROD_LOG_LIMIT"');
+    const certify = jobOf(workflow, "certify");
+    const logs = jobOf(workflow, "logs");
+    expect(certify.env?.CERT_TRACE_FILE).toContain("planner-cert-trace.json");
+    const upload = stepNamed(certify, "Upload bounded certification trace");
+    expect(upload.uses).toContain("actions/upload-artifact@");
+    expect(upload.if).toBe("always()");
+    expect(upload.with?.path).toBe("test-results/planner-cert-trace.json");
+    expect(upload.with?.["if-no-files-found"]).toBe("error");
+    const download = stepNamed(logs, "Download certification thread identifiers");
+    expect(download.uses).toContain("actions/download-artifact@");
+    expect(download["continue-on-error"]).toBe(true);
+    expect(download.with?.name).toBe(upload.with?.name);
+    // Even if QA fails before writing a trace, a missing download must not
+    // prevent the later alias recheck and bounded log query.
+    const steps = logs.steps ?? [];
+    expect(steps.indexOf(download)).toBeLessThan(steps.indexOf(stepNamed(logs, "Recheck alias")));
+    expect(steps.indexOf(download)).toBeLessThan(steps.indexOf(stepNamed(logs, "Fetch bounded")));
+    expect(logs.env?.CERT_TRACE_FILE).toContain("planner-cert-trace.json");
   });
 
-  it("refuses to check logs when the certification window is unknown", () => {
+  it("records the journey start before paid calls and fails closed on missing timestamps", () => {
     const { workflow } = readWorkflow(CERT_WORKFLOW);
-    const commands = commandLines(
-      stepNamed(jobOf(workflow, "certify"), "Assert no unexpected").run,
-    );
-
-    const guard = commands.find((line) => line.includes("CERT_STARTED_AT"));
-    expect(guard, "the step must guard the window start").toBeDefined();
-    expect(String(guard)).toContain(":-");
-    expect(commands.join("\n")).toContain("exit 1");
-    // Guarded before the query, so an unset window cannot reach `vercel logs`.
-    expect(commands.indexOf(String(guard))).toBeLessThan(
-      commands.findIndex((line) => line.includes("vercel logs")),
-    );
+    const certify = jobOf(workflow, "certify");
+    const logs = jobOf(workflow, "logs");
+    const journey = stepNamed(certify, "Run the signed-in");
+    const commands = commandLines(journey.run).join("\n");
+    expect(commands).toContain("started_at=");
+    expect(commands.indexOf("started_at=")).toBeLessThan(commands.indexOf("e2e:production-cert"));
+    expect(logs.env?.CERT_STARTED_AT).toContain("needs.certify.outputs.started_at");
+    const query = commandLines(stepNamed(logs, "Fetch bounded immutable-deployment logs").run).join("\n");
+    expect(query).toContain('if [ -z "${CERT_STARTED_AT:-}" ]');
+    expect(query).toContain('--since "$CERT_STARTED_AT"');
+    expect(query).toContain('--until');
+    expect(query).toContain('--limit "$PROD_LOG_LIMIT"');
+    expect(query).not.toContain("|| true");
   });
 
-  // Production is live, so /api/copilotkit traffic exists whether or not this
-  // journey ran (measured: ~1100 requests in a 30-second slice against this
-  // journey's 11). Only the journey's own thread id ties the scanned window to
-  // the certification, so the trace must be configured for the whole job.
-  it("ties the log check to this certification's own thread, not to copilotkit traffic", () => {
+  it("rechecks the public alias, SHA and deployment ID after QA before claiming the live logs", () => {
     const { workflow } = readWorkflow(CERT_WORKFLOW);
-    const job = jobOf(workflow, "certify");
-
-    expect(
-      String(job.env?.CERT_TRACE_FILE),
-      "the job must publish a trace the log check can read",
-    ).toContain("planner-cert-trace.json");
-
-    // The journey writes it and the check reads it, in the same job.
-    expect(stepNamed(job, "Run the signed-in Production Planner certification").run).toBeDefined();
-    expect(commandLines(stepNamed(job, "Assert no unexpected").run).join("\n")).toContain(
-      "scripts/check-planner-production-logs.mjs",
-    );
+    const logs = jobOf(workflow, "logs");
+    const check = stepNamed(logs, "Recheck alias and deployment after");
+    const run = commandLines(check.run).join("\n");
+    expect(run).toContain("https://www.ipix.co");
+    expect(run).toContain("process.env.DEPLOYMENT_URL");
+    expect(run).toContain("process.env.EXPECTED_SHA");
+    expect(run).toContain("process.env.DEPLOYMENT_ID");
+    expect(run).toContain("alias.id !== process.env.DEPLOYMENT_ID");
+    const logStep = stepNamed(logs, "Fetch bounded immutable-deployment logs");
+    expect(logStep.run).toContain('vercel logs "$DEPLOYMENT_URL"');
+    const parser = stepNamed(logs, "Assert no unexpected");
+    expect(parser.run).toContain("node scripts/check-planner-production-logs.mjs");
+    expect(parser.env).toBeUndefined();
+    const summary = stepNamed(logs, "Certification summary");
+    expect(summary.run).toContain("Deployed SHA");
+    expect(summary.run).toContain("needs.verify.outputs.deployment_sha");
   });
 
-  it("requires the certified SHA to be a released commit on main", () => {
+  it("preserves explicit browser failure and makes logs run even if QA fails", () => {
     const { workflow } = readWorkflow(CERT_WORKFLOW);
-    const commands = commandLines(
-      stepNamed(jobOf(workflow, "certify"), "Assert the SHA is a released commit").run,
-    ).join("\n");
-
-    expect(commands).toContain('git merge-base --is-ancestor "$EXPECTED_SHA" origin/main');
-  });
-
-  it("normalizes the requested SHA before anything compares it", () => {
-    const { workflow } = readWorkflow(CERT_WORKFLOW);
-    const step = stepNamed(jobOf(workflow, "certify"), "Validate the request");
-
-    expect(step.name).toBe("Validate the request");
-    expect(commandLines(step.run).join("\n")).toContain("tr '[:upper:]' '[:lower:]'");
-    expect(step.env?.EXPECTED_SHA).toContain("inputs.expected_sha");
+    const logs = jobOf(workflow, "logs") as WorkflowJob & { needs?: string[] };
+    expect(logs.needs).toEqual(["verify", "certify"]);
+    expect(logs.if).toContain("always()");
+    expect(logs.if).toContain("needs.verify.result == 'success'");
+    expect(stepNamed(jobOf(workflow, "certify"), "Run the signed-in").run)
+      .toContain("npm run e2e:production-cert");
   });
 });
 
