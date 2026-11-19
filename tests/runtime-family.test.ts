@@ -2,7 +2,10 @@ import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RequestContext } from "@mastra/core/request-context";
-import { TABLE_SCHEMAS } from "@mastra/core/storage/constants";
+import {
+  TABLE_SCHEMAS,
+  WORKFLOW_RUN_JOURNAL_TABLE_CONFIGS,
+} from "@mastra/core/storage/constants";
 
 const require = createRequire(import.meta.url);
 
@@ -79,7 +82,7 @@ const CORE_MEMORY_TABLES = [
 ] as const;
 
 describe("IPI-1042 runtime family", () => {
-  it("pins the peer-compatible Mastra 1.82.0 family", () => {
+  it("pins the peer-compatible Mastra 1.84.0 family", () => {
     const pg = require("@mastra/pg/package.json") as {
       name: string;
       version: string;
@@ -91,20 +94,27 @@ describe("IPI-1042 runtime family", () => {
     const cli = require("mastra/package.json") as { version: string };
     const agui = require("@ag-ui/mastra/package.json") as { version: string };
     const copilot = require("@copilotkit/runtime/package.json") as { version: string };
+    const observability = JSON.parse(
+      readFileSync(
+        new URL("../node_modules/@mastra/observability/package.json", import.meta.url),
+        "utf8",
+      ),
+    ) as { version: string };
 
     expect(pg.name).toBe("@mastra/pg");
-    expect(pg.version).toBe("1.35.0");
-    expect(core.version).toBe("1.82.0");
-    expect(memory.version).toBe("1.41.0");
-    expect(client.version).toBe("1.59.0");
-    expect(cli.version).toBe("1.38.0");
+    expect(pg.version).toBe("1.37.0");
+    expect(core.version).toBe("1.84.0");
+    expect(memory.version).toBe("1.41.2");
+    expect(client.version).toBe("1.61.0");
+    expect(cli.version).toBe("1.40.0");
+    expect(observability.version).toBe("1.24.1");
     expect(agui.version).toBe("2.0.2");
     expect(copilot.version).toBe("1.88.0");
 
     const peer = pg.peerDependencies?.["@mastra/core"];
     expect(peer).toBeTruthy();
-    expect(coreSatisfiesMastraPeer("1.82.0", peer ?? "")).toBe(true);
-    expect(coreSatisfiesMastraPeer("1.79.0", peer ?? "")).toBe(false);
+    expect(coreSatisfiesMastraPeer("1.84.0", peer ?? "")).toBe(true);
+    expect(coreSatisfiesMastraPeer("1.83.0", peer ?? "")).toBe(false);
   });
 
   it("pins one CopilotKit 1.88.0 / AG-UI 1.0.2 family (IPI-1290)", () => {
@@ -180,7 +190,7 @@ describe("IPI-1042 runtime family", () => {
     expect(overview).toMatch(/in-process/);
   });
 
-  it("can import PostgresStore from @mastra/pg@1.35.0", async () => {
+  it("can import PostgresStore from @mastra/pg@1.37.0", async () => {
     const mod = await import("@mastra/pg");
     expect(typeof mod.PostgresStore).toBe("function");
   });
@@ -224,7 +234,7 @@ describe("IPI-1042 runtime family", () => {
     expect(memory).toBeDefined();
   });
 
-  it("core memory tables still exist in 1.82.0 TABLE_SCHEMAS and the recorded catalog", () => {
+  it("core memory tables still exist in 1.84.0 TABLE_SCHEMAS and the recorded catalog", () => {
     const schemaTables = new Set(Object.keys(TABLE_SCHEMAS));
     for (const table of CORE_MEMORY_TABLES) {
       expect(schemaTables.has(table), table).toBe(true);
@@ -246,6 +256,16 @@ describe("IPI-1042 runtime family", () => {
       "mastra_thread_state",
       "mastra_tool_provider_connections",
       "mastra_traces",
+    ]);
+  });
+
+  it("keeps workflow-journal tables outside TABLE_SCHEMAS in 1.84.0", () => {
+    const schemaTables = new Set(Object.keys(TABLE_SCHEMAS));
+    expect(schemaTables.has("mastra_workflow_runs")).toBe(false);
+    expect(schemaTables.has("mastra_workflow_run_entries")).toBe(false);
+    expect(Object.keys(WORKFLOW_RUN_JOURNAL_TABLE_CONFIGS).sort()).toEqual([
+      "mastra_workflow_run_entries",
+      "mastra_workflow_runs",
     ]);
   });
 });

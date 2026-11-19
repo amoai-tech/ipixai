@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -223,8 +224,16 @@ describe("standalone Mastra auth over real HTTP (IPI-1308)", () => {
 });
 
 describe("workflow identity key matches the installed Mastra server (IPI-1326)", () => {
-  it("pins MASTRA_USER_KEY to the constant exported by @mastra/server/auth", async () => {
-    const serverAuth = (await import("@mastra/server/auth")) as { MASTRA_USER_KEY?: string };
+  it("pins MASTRA_USER_KEY to the constant exported by the installed @mastra/server/auth", () => {
+    // 1.84 no longer hoists @mastra/server; it is a dependency of @mastra/deployer.
+    // Resolve through the deployer so this contract still pins the real auth key
+    // instead of a hardcoded duplicate.
+    const resolveFromDeployer = createRequire(
+      createRequire(import.meta.url).resolve("@mastra/deployer/server"),
+    );
+    const serverAuth = resolveFromDeployer("@mastra/server/auth") as {
+      MASTRA_USER_KEY?: string;
+    };
     expect(serverAuth.MASTRA_USER_KEY).toBe(MASTRA_USER_KEY);
   });
 

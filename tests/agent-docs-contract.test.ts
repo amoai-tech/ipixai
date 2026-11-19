@@ -291,6 +291,7 @@ describe("IPI-1370 AGENT-DOCS-001: agent contract files describe the real reposi
       "20260822070000_ipi1008_mastra_workflow_definitions",
       "20260927194500_ipi1332_mastra_1_71_schema_delta",
       "20261110000000_ipi1385_mastra_1_82_run_fencing",
+      "20261119000000_ipi1460_mastra_184_compat",
     ];
     const agents = read("AGENTS.md");
     for (const document of [local, ci]) {

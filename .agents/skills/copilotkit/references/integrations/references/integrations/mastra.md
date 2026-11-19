@@ -23,11 +23,11 @@ Do not copy dependency pins, demo auth, in-memory storage, or demo agent names f
 | `@copilotkit/channels` | `0.12.0` |
 | `@ag-ui/client` | `1.0.2` |
 | `@ag-ui/mastra` | `2.0.2` |
-| `@mastra/core` | `1.82.0` |
-| `@mastra/memory` | `1.41.0` |
-| `@mastra/pg` | `1.35.0` |
-| `@mastra/client-js` | `1.59.0` |
-| `@mastra/observability` | `1.23.1` |
+| `@mastra/core` | `1.84.0` |
+| `@mastra/memory` | `1.41.2` |
+| `@mastra/pg` | `1.37.0` |
+| `@mastra/client-js` | `1.61.0` |
+| `@mastra/observability` | `1.24.1` |
 
 These are the current **installed iPix pins**, not a command to install `latest`. Re-check npm/official release guidance at execution time; any dependency-family change requires a separate upgrade task and compatibility proof.
 

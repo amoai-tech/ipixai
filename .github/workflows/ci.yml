@@ -457,7 +457,8 @@ jobs:
             supabase/migrations/20260722094055_mastra_runtime_grants_and_rls.sql \
             supabase/migrations/20260822070000_ipi1008_mastra_workflow_definitions.sql \
             supabase/migrations/20260927194500_ipi1332_mastra_1_71_schema_delta.sql \
-            supabase/migrations/20261110000000_ipi1385_mastra_1_82_run_fencing.sql ; do
+            supabase/migrations/20261110000000_ipi1385_mastra_1_82_run_fencing.sql \
+            supabase/migrations/20261119000000_ipi1460_mastra_184_compat.sql ; do
             echo "applying $migration"
             psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$migration"
           done
@@ -495,6 +496,39 @@ jobs:
           WHERE "runId" = 'IPI-1385-RUN';
           DELETE FROM mastra.mastra_memory_run_fences
           WHERE "runId" = 'IPI-1385-RUN';
+          ROLLBACK;
+          SQL
+      # IPI-1460: prove the 1.84 workflow-run journal tables are usable by the
+      # dedicated runtime login. The migration enables RLS and grants DML only
+      # to hyperdrive_mastra_runtime, so these checks fail closed on a wrong
+      # grant/policy posture. The timestamp trigger is exercised by the update.
+      - name: Verify 1.84 workflow run journal as the runtime role
+        env:
+          PGPASSWORD: runtime
+        run: |
+          psql -h 127.0.0.1 -U hyperdrive_mastra_runtime -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          BEGIN;
+          INSERT INTO mastra.mastra_workflow_runs
+            (workflow_name, run_id, "status", header, "lastSeq", "startStateSeq",
+             "stateShared", "stateSeq", "statePatchCount", "statePatchBytes",
+             "runToken", "createdAt", "updatedAt")
+          VALUES
+            ('IPI-1460-WORKFLOW', 'IPI-1460-RUN', 'running', '{}'::jsonb, 0, 0,
+             false, 0, 0, 0, 'IPI-1460-TOKEN', NOW()::timestamp, NOW()::timestamp);
+          INSERT INTO mastra.mastra_workflow_run_entries
+            (workflow_name, run_id, "seq", "kind", "step_id", "payload")
+          VALUES
+            ('IPI-1460-WORKFLOW', 'IPI-1460-RUN', 1, 'state', NULL, '{"step":1}'::jsonb);
+          SELECT workflow_name, run_id, "status" FROM mastra.mastra_workflow_runs
+          WHERE run_id = 'IPI-1460-RUN';
+          SELECT workflow_name, run_id, "seq", "kind" FROM mastra.mastra_workflow_run_entries
+          WHERE run_id = 'IPI-1460-RUN';
+          UPDATE mastra.mastra_workflow_runs SET "status" = 'suspended'
+          WHERE run_id = 'IPI-1460-RUN';
+          DELETE FROM mastra.mastra_workflow_run_entries
+          WHERE run_id = 'IPI-1460-RUN';
+          DELETE FROM mastra.mastra_workflow_runs
+          WHERE run_id = 'IPI-1460-RUN';
           ROLLBACK;
           SQL
       - run: npm ci
