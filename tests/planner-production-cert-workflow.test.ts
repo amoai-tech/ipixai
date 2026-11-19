@@ -13,6 +13,7 @@ type WorkflowStep = {
   name?: string;
   id?: string;
   if?: string;
+  "continue-on-error"?: boolean;
   run?: string;
   uses?: string;
   env?: Record<string, unknown>;
@@ -174,7 +175,13 @@ describe("production Planner certification workflow", () => {
     expect(upload.with?.["if-no-files-found"]).toBe("error");
     const download = stepNamed(logs, "Download certification thread identifiers");
     expect(download.uses).toContain("actions/download-artifact@");
+    expect(download["continue-on-error"]).toBe(true);
     expect(download.with?.name).toBe(upload.with?.name);
+    // Even if QA fails before writing a trace, a missing download must not
+    // prevent the later alias recheck and bounded log query.
+    const steps = logs.steps ?? [];
+    expect(steps.indexOf(download)).toBeLessThan(steps.indexOf(stepNamed(logs, "Recheck alias")));
+    expect(steps.indexOf(download)).toBeLessThan(steps.indexOf(stepNamed(logs, "Fetch bounded")));
     expect(logs.env?.CERT_TRACE_FILE).toContain("planner-cert-trace.json");
   });
 
@@ -210,6 +217,9 @@ describe("production Planner certification workflow", () => {
     const parser = stepNamed(logs, "Assert no unexpected");
     expect(parser.run).toContain("node scripts/check-planner-production-logs.mjs");
     expect(parser.env).toBeUndefined();
+    const summary = stepNamed(logs, "Certification summary");
+    expect(summary.run).toContain("Deployed SHA");
+    expect(summary.run).toContain("needs.verify.outputs.deployment_sha");
   });
 
   it("preserves explicit browser failure and makes logs run even if QA fails", () => {

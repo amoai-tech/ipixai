@@ -199,6 +199,9 @@ jobs:
 
       - name: Download certification thread identifiers
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        # Missing trace must not skip the post-journey alias and log checks.
+        # The final log parser still fails closed if the trace is absent.
+        continue-on-error: true
         with:
           name: planner-cert-trace
           path: test-results
@@ -259,6 +262,7 @@ jobs:
             echo "| Requested SHA | \`${{ needs.verify.outputs.expected_sha }}\` |"
             echo "| Deployment | \`${{ needs.verify.outputs.deployment_url }}\` |"
             echo "| Deployment ID | \`${{ needs.verify.outputs.deployment_id }}\` |"
+            echo "| Deployed SHA | \`${{ needs.verify.outputs.deployment_sha }}\` |"
             echo "| Browser QA outcome | \`${{ needs.certify.result }}\` |"
             echo "| Run | ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} |"
           } >> "$GITHUB_STEP_SUMMARY"
