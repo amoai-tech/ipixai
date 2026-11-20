@@ -85,7 +85,7 @@ When a future standalone Mastra server path is considered, inspect current nativ
 
 Before changing a Mastra package family:
 
-1. record exact current installed family (IPI-1385 targets stable Core 1.82.0; runtime stays 1.71.0 until the gated upgrade);
+1. read `docs/mastra/runtime-family.md` and current installed manifest/lockfile (certified Core 1.84.0 / PG 1.37.0 / CLI 1.40.0; IPI-1460 Done);
 2. identify target family and reason;
 3. use `mastraMigration` **if connected**, otherwise official migration/release notes with version-tagged source;
 4. inspect installed/current source for changed APIs;

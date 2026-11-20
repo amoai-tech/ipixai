@@ -245,6 +245,8 @@ curl -fsS "$MASTRA_URL/api/system/api-schema" \
 - Empty lists may simply mean the server has no matching stored data yet.
 - `trace list` and `trace get` return lightweight payloads by default (no span input, output, attributes, or metadata). Pass `--verbose` to fetch full span records, or use `trace span` to fetch one specific span in full.
 
-## Advanced trace query
+## Advanced trace, span and aggregation commands
 
-Use `trace query` instead of `trace list` when selection requires recursive predicates, metadata filters, or conditions over related **spans** and, where verified on the installed server/store, `scores.some` and `feedback.some`. First confirm the repo-pinned CLI exposes the command with `npx --no-install mastra api trace query --help` and `--schema`, then verify server/storage capabilities. The current installed CLI does **not** provide `span query` or aggregate commands; do not copy new upstream examples into executable advice without updating and certifying that family. Preserve opaque pagination cursors unchanged. See [`trace-query.md`](trace-query.md).
+The installed CLI 1.40.0 exposes `trace query`, `trace aggregate`, `span query` and `span aggregate`. Inspect `npx --no-install mastra api ... --help` and `--schema`, then check the authorized target's `GET /api/observability/capabilities` for `traceQuery`, `traceAggregate`, `spanQuery` or `spanAggregate`. CLI availability is **not** proof the server's observability store supports an operation.
+
+Use bounded time windows and minimal fields. Trace estimates do not establish actual provider spending. See [trace-query.md](trace-query.md) and [official advanced queries](https://mastra.ai/reference/observability/tracing/advanced-queries).
