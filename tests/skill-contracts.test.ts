@@ -488,7 +488,7 @@ describe("Mastra 1.84 skill runtime documentation", () => {
     expect(migration).toContain("20261119000000_ipi1460_mastra_184_compat.sql");
     const gates=readRepoFile(root+"/references/testing-gates.md");
     expect(gates).toContain("Human approval");
-    expect(gates).toContain("Paid");
+    expect(gates).toContain("paid AI calls");
     expect(readRepoFile(root+"/references/user-journeys.md")).toContain("IPI-1091");
   });
   test("legacy references and real failure evals stay discoverable", () => {

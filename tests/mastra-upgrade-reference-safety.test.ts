@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 const root = new URL("../.agents/skills/mastra/", import.meta.url);
 const read = (path: string) => readFileSync(new URL(path, root), "utf8");
 
-describe("IPI-1419 — Mastra 1.82 reference migration safety", () => {
+describe("IPI-1419 — Mastra reference migration safety", () => {
   it("quarantines the unrelated MDE concierge while preserving its history", () => {
     expect(read("references/mdeai-concierge.md")).toContain("LEGACY MDE ONLY");
     expect(read("../../../docs/archive/mastra/mdeai-concierge.md")).toContain("NOT FOR IPIX");
@@ -57,7 +57,7 @@ describe("IPI-1419 — Mastra 1.82 reference migration safety", () => {
     const docs = read("references/mcp-docs-lookup.md");
     expect(docs).toContain("search_mastra_knowledge_sources({ query:");
     expect(docs).toContain("actual schema");
-    expect(docs).toContain("1.82.0");
+    expect(docs).toContain("1.84.0");
     expect(read("references/trace-intelligence.md")).toContain("Optional Mastra Platform private beta");
     expect(read("references/trace-intelligence.md")).toContain("observability/tracing/advanced-queries#check-capabilities");
   });

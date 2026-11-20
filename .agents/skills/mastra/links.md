@@ -53,6 +53,8 @@ Single bookmark page for `.agents/skills/mastra`. **Task → section mapping:** 
 
 **Historical material archived:** [legacy MDE/Supatabs links](../../../docs/archive/mastra/mastra-links-legacy-mde-supatabs.md). Do not load that cross-project reference for everyday iPix coding or treat v0 examples as executable current APIs.
 
+**Legacy MDE concierge (archive only):** [docs/archive/mastra/mdeai-concierge.md](../../../docs/archive/mastra/mdeai-concierge.md). This is not the iPix implementation.
+
 **iPix-first lookup:** [`references/README.md`](references/README.md) → [current runtime family](../../../docs/mastra/runtime-family.md) and installed source/types → [official Mastra docs index](https://mastra.ai/llms.txt). The [production-release procedure](../../../docs/production-release.md) owns release approval.
 
 ## Canonical entry points
