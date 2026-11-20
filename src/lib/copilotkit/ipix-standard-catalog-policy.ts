@@ -10,6 +10,10 @@
  * any renderer, map/chart SDK, forms, functions, or business-data writes.
  * Future changes require a trusted data source, owner approval and a new
  * test/explicit classification before a standard component is enabled.
+ *
+ * Scope: this list governs the model-facing Planner catalog. IPI-1461 enables a
+ * separate host-only subset for /onboarding (ipix-onboarding-ui.ts, agentIds: [])
+ * that no agent receives; it does not change the Planner deferral below.
  */
 export const STANDARD_CATALOG_VERSION = "copilotkit/standard@1";
 export const DEFERRED_STANDARD_COMPONENTS = [
