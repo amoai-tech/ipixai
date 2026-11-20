@@ -1,7 +1,7 @@
 ---
 name: copilotkit-self-update
 description: Use when the user wants to update, refresh, diff, or reinstall the CopilotKit agent skills/knowledge. Not for upgrading application dependencies.
-version: 3.2.0-ipix.1
+version: 3.2.0-ipix.2
 user_invocable: true
 argument_hint: ""
 ---
@@ -29,9 +29,9 @@ fresh upstream inventory
 → verify installed source/types and maintained examples
 → run skill routing checks
 ```
-## Pinned official upstream skill inventory (2026-11-08)
+## Pinned official upstream skill inventory (2026-11-20)
 
-**Reference — ADAPT:** [official CopilotKit skills at the pinned commit](https://github.com/CopilotKit/CopilotKit/tree/c7815d9ac96f48fb3a64ad8c18e176a870c81763/skills). Re-enumerate this upstream directory every time you refresh; do not assume a static list stays current.
+**Reference — ADAPT:** [official CopilotKit skills at the pinned commit](https://github.com/CopilotKit/CopilotKit/tree/6f8e51b4682e1e5ff733895d11d099ff5afd015b/skills). Re-enumerate this upstream directory every time you refresh; do not assume a static list stays current.
 
 | Official upstream folder | What iPix should reuse |
 | --- | --- |
@@ -40,6 +40,8 @@ fresh upstream inventory
 | `copilotkit-channels` / `channels-setup` / `setup-slack-channel` | **MODEL:** optional delivery workflow, under local `references/channels.md` |
 | `inspector-docs` / `inspector-workbench` | **REFERENCE ONLY:** local inspection, not a production dependency |
 | `intelligence-docs` / `intelligence-vocabulary` | **REFERENCE ONLY:** hosted Intelligence is not the iPix Planner runtime |
+
+At this pinned commit the official inventory has nine skill directories. `inspector-workbench` operates CopilotKit's own Inspector UI, and `intelligence-docs` edits its own documentation website. Neither belongs as a new iPix runtime/developer skill. Managed Intelligence Channels and self-hosted `@copilotkit/channels-*` adapters remain distinct. Do not enable managed Intelligence or add another host/provider just to reuse an upstream skill.
 
 The older upstream directories `copilotkit-setup`, `copilotkit-develop`, `copilotkit-integrations`, `copilotkit-upgrade`, `runtime` and `react-core` are **not** in the current official inventory. Their old iPix reference copies remain as historical guidance, subordinate to installed package types and current docs.
 
@@ -81,3 +83,17 @@ For iPix specifically, never restore stale Mastra `beta` labels or `--legacy-pee
 8. Search the whole hub for stale `beta`, `legacy-peer-deps`, deprecated API names, old paths, and forced transport flags.
 9. Run JSON/Markdown sanity checks and inspect `git diff` before finishing.
 10. Start a new agent session after the skill refresh so discovery reloads the updated files.
+
+## Verify live skill selection only when needed (opt-in)
+
+The 34+ JSON queries are intent fixtures, **not** evidence an agent activated the skill. The normal Vitest check validates fixture shape and known reference paths without a model call. For a real routing check, run:
+
+~~~bash
+RUN_COPILOTKIT_SKILL_LIVE_EVAL=1 npx vitest run tests/skill-trigger-evals.test.ts --maxWorkers=1 --no-file-parallelism
+~~~
+
+This opt-in test launches short, fresh `claude -p` sessions with the project plugin, disables external MCP connections and only permits read/search plus Skill tools. It uses a small model with a bounded per-case budget. **Costs a model call; do not run it in default CI or against a live iPix runtime.** It records whether the actual `ipix:copilotkit` Skill tool was invoked and whether the expected local reference was opened. The references are observational: a skill may be correctly selected but not need a separate file, so do not equate an unopened reference with incorrect skill activation.
+
+A report emits `PASS` (explicit Skill selection matches expected routing), `MISS` (selection mismatch), or `INCONCLUSIVE` (restricted process/turns did not finish). Direct reference reads are recorded separately and never counted as Skill invocation. Add `RUN_COPILOTKIT_SKILL_LIVE_GATE=1` to turn outcomes into hard assertions **after** calibrating the chosen model and tool restrictions; the default opt-in run is diagnostic and never used as a production release gate.
+
+A result showing `no skill call` is a real measured miss for that prompt, not proof the skill is unavailable. Investigate the top-level description and any competing skill routing, then rerun a small varied set with the exact model and CLI version recorded. Negative (near-miss) prompts must avoid the skill. Keep the test opt-in and leave the application/server/database untouched.

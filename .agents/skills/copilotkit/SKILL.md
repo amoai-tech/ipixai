@@ -1,26 +1,27 @@
 ---
 name: copilotkit
 description: >
-  Use for CopilotKit v2 or AG-UI tasks in iPix: authenticated Production Copilot,
-  Mastra integrations, chat UI, useAgent, useFrontendTool, useHumanInTheLoop,
-  threads, streaming, Stop/replay, generative UI, catalogs, standardUI, surfaces, dynamic schema, A2UI, channels, voice,
-  attachments, debugging, upgrades and /api/copilotkit/info failures.
-  Look up current docs and installed source first. Do not use for unrelated
-  Supabase-only tasks, pure styling or Linear-only administration.
+  Use this skill FIRST for iPix CopilotKit v2 and AG-UI work: /api/copilotkit
+  authentication and 401s, useAgent/default Mastra agent discovery,
+  streaming, Stop/replay, useFrontendTool, useHumanInTheLoop, Generative UI,
+  A2UI, channels and version upgrades.
+  In coding-agent sessions, select this skill before opening CopilotKit reference
+  files. Not for unrelated Supabase RLS, Cloudinary image cropping, pure CSS
+  or Linear administration.
 metadata:
-  version: "3.2.0-ipix.1"
-  basedOn: "CopilotKit/CopilotKit skills/copilotkit/SKILL.md v3.2.0 @ c7815d9ac96f48fb3a64ad8c18e176a870c81763"
+  version: "3.2.0-ipix.2"
+  basedOn: "CopilotKit/CopilotKit skills/copilotkit/SKILL.md v3.2.0 @ 6f8e51b4682e1e5ff733895d11d099ff5afd015b"
   priority: 2
 ---
 
 # CopilotKit — current docs + secure iPix runtime
 
-**Reference — ADAPT:** [Official CopilotKit coding skill v3.2.0](https://github.com/CopilotKit/CopilotKit/blob/c7815d9ac96f48fb3a64ad8c18e176a870c81763/skills/copilotkit/SKILL.md) → `skills/copilotkit/SKILL.md`. Use **look up current docs and source first**. Do not copy upstream hosted Intelligence setup, generic scaffolding, telemetry, or a second Mastra server into iPix.
+**Reference — ADAPT:** [Official CopilotKit coding skill v3.2.0](https://github.com/CopilotKit/CopilotKit/blob/6f8e51b4682e1e5ff733895d11d099ff5afd015b/skills/copilotkit/SKILL.md) → `skills/copilotkit/SKILL.md`. Use **look up current docs and source first**. Do not copy upstream hosted Intelligence setup, generic scaffolding, telemetry, or a second Mastra server into iPix.
 
 ## 1. Establish version and authorization truth
 
 1. Read the live Linear issue, `AGENTS.md`, clean `origin/main`, `package-lock.json`, installed `node_modules/@copilotkit/*` and `node_modules/@ag-ui/*` source/types, and the relevant runtime code/tests. A PR or current docs page is **not** proof its APIs are installed.
-2. At this skill's baseline, `main` has CopilotKit Runtime/React Core 1.73.3, Channels 0.11.0, AG-UI Client 0.0.59 and `@ag-ui/mastra` 1.1.4. Treat these as historical context only. [IPI-1389](https://linear.app/amo100/issue/IPI-1389) / [PR #319](https://github.com/amoai-tech/ipixai/pull/319) separately target CopilotKit 1.85 and AG-UI 1.0; verify the actual installed version after merging.
+2. **Do not guess a current package version from this skill.** Read `package.json`, `package-lock.json` and installed `node_modules` to establish the exact CopilotKit/AG-UI family on the checked-out commit. Historical versions and future-version behavior are isolated in [iPix upgrade conventions](references/upgrade/ipix-v2-conventions.md). A newer stable npm tag or upstream skill is not an authorization to upgrade the app.
 3. iPix runs an authenticated in-process `src/app/api/copilotkit/[[...slug]]/route.ts` → server-owned `createLocalAgents(resourceId)` → `TenantAbortRunner` → existing Mastra/Postgres. Preserve one provider and agent ID `default`. Do not create a new `/chat` server, remote Mastra runtime, managed Intelligence fallback, or second thread store.
 4. v2 uses `@copilotkit/runtime/v2` and `@copilotkit/react-core/v2`. Package-root imports still expose deprecated v1 surfaces; check current installed signatures before making an API recommendation.
 
@@ -41,7 +42,7 @@ Optional `explore-docs` / `explore-code` browse an index. A repository `.mcp.jso
 
 **Source order:** clean current iPix runtime and auth → installed versions/types → focused tests → official version-matched code/examples → current docs → legacy bundled references. Explain conflicts. For every external example: exact URL → file/function/section → COPY/ADAPT/MODEL/REFERENCE ONLY → use → do not copy → iPix destination → verification.
 
-## 3. Select one relevant reference (do not read all 97)
+## 3. Select only the relevant reference (progressive disclosure)
 
 | Task | Local owner |
 | --- | --- |
@@ -66,7 +67,7 @@ Sibling `mastra` skill owns backend agents, workflows, persistent memory and HIT
 
 ## 4. Safe diagnostic boundary
 
-**Reference — REFERENCE ONLY:** [Official CopilotKit CLI skill](https://github.com/CopilotKit/CopilotKit/blob/c7815d9ac96f48fb3a64ad8c18e176a870c81763/skills/copilotkit-cli/SKILL.md) → `verify`, `--expect-runtime oss`, `--agent`, `--round-trip`.
+**Reference — REFERENCE ONLY:** [Official CopilotKit CLI skill](https://github.com/CopilotKit/CopilotKit/blob/6f8e51b4682e1e5ff733895d11d099ff5afd015b/skills/copilotkit-cli/SKILL.md) → `verify`, `--expect-runtime oss`, `--agent`, `--round-trip`.
 
 - First confirm installed/selected CLI version, actual URL and an **authorized local test identity**. In iPix, signed-out `/api/copilotkit/info` intentionally returns `401`.
 - The optional *authorized-localhost-only* example is `npx copilotkit@latest verify --expect-runtime oss --agent default --round-trip --json --runtime-url http://localhost:3000/api/copilotkit`. It may install/execute an unpinned CLI, emit telemetry, incur a model call and persist a thread. **Do not run automatically, or against production**, in a skills-only task. Prefer approved pinned/isolated diagnostics.
@@ -77,7 +78,7 @@ Sibling `mastra` skill owns backend agents, workflows, persistent memory and HIT
 
 **Humans decide; AI assists.** Browser-supplied `orgId`, `threadId`, `resourceId`, permission flags and model output are not authorization. Supabase Auth + server checks + RLS own tenant security. Bind HITL to the exact reviewed artifact, server-revalidate the approved action and execute idempotently. Never autonomously publish, pay or delete.
 
-For changes to chat, Stop, streaming, frontend tools or HITL, inspect both installed CopilotKit v2 and `@ag-ui/mastra` APIs. Prove the affected signed-out denial, Org A/B isolation, `default` agent, Stop/reconnect, durable history and exact approval with targeted tests, typecheck and a real operator journey. **Static skill tests do not certify runtime 1.85 or actual Claude selection accuracy.**
+For changes to chat, Stop, streaming, frontend tools or HITL, inspect both installed CopilotKit v2 and `@ag-ui/mastra` APIs. Prove the affected signed-out denial, Org A/B isolation, `default` agent, Stop/reconnect, durable history and exact approval with targeted tests, typecheck and a real operator journey. **Static skill tests do not certify runtime behavior or actual Claude skill-selection accuracy.** Use the opt-in live routing evaluation described in [Self-update](references/self-update.md) when selection itself matters.
 
 ## PR review guard — concrete v2 import regression
 

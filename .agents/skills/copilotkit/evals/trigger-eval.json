@@ -32,5 +32,9 @@
   {"query": "Should we use AG-UI transport or A2UI dynamic schema for a fashion AI dashboard?", "should_trigger": true},
   {"query": "Convert a legacy createCatalog a2ui provider snippet to Components and Surfaces A2UI 1.0", "should_trigger": true},
   {"query": "Build a static marketing grid with plain CSS, no CopilotKit or AI", "should_trigger": false},
-  {"query": "Update an unrelated pgvector embedding migration, no app UI", "should_trigger": false}
+  {"query": "Update an unrelated pgvector embedding migration, no app UI", "should_trigger": false},
+  {"query": "iPix operator CopilotKit /api/copilotkit/info returns 401 even after login — determine the safe troubleshooting owner", "should_trigger": true, "live_case": true, "expected_reference": "references/ipix-production.md"},
+  {"query": "A2UI Components and GenerativeUISurface in the iPix Shoot Plan page do not show a result — which CopilotKit guide applies?", "should_trigger": true, "live_case": true, "expected_reference": "references/generative-ui/a2ui-and-dynamic-schema.md"},
+  {"query": "Update the PostgreSQL RLS rule on brand_assets for the current organization; no CopilotKit chat or agent changes", "should_trigger": false, "live_case": true},
+  {"query": "Fix the Cloudinary transformation crop for product thumbnails in the existing inventory grid; no assistant features", "should_trigger": false, "live_case": true}
 ]

@@ -1,4 +1,5 @@
-import { readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -30,7 +31,12 @@ const MIN_CASES = 8;
 const MIN_PER_DIRECTION = 3;
 const MIN_QUERY_LENGTH = 20;
 
-type TriggerCase = { query: string; should_trigger: boolean };
+type TriggerCase = {
+  query: string;
+  should_trigger: boolean;
+  live_case?: boolean;
+  expected_reference?: string;
+};
 
 function findTriggerEvals(): Array<{ skill: string; path: string; cases: TriggerCase[] }> {
   const seen = new Set<string>();
@@ -118,3 +124,129 @@ describe("skill trigger evals", () => {
     },
   );
 });
+
+
+// An opt-in live check, not a default paid CI job. The agent sees only local
+// read/search and Skill tools, with all third-party MCP connections disabled.
+// A JSON fixture is an intent claim; only the actual Skill event proves routing.
+const copilotkitCases =
+  evals.find((entry) => entry.skill === "copilotkit")?.cases ?? [];
+const liveRoutingCases = copilotkitCases.filter((item) => item.live_case === true);
+
+describe("iPix CopilotKit skill-routing evaluation coverage", () => {
+  it("includes positive and negative near-misses with grounded reference owners", () => {
+    expect(liveRoutingCases).toHaveLength(4);
+    expect(liveRoutingCases.filter((item) => item.should_trigger)).toHaveLength(2);
+    expect(liveRoutingCases.filter((item) => !item.should_trigger)).toHaveLength(2);
+    for (const item of liveRoutingCases) {
+      expect(item.query).not.toContain("ipix:copilotkit");
+      if (item.should_trigger) {
+        expect(item.expected_reference?.startsWith("references/")).toBe(true);
+        expect(item.expected_reference).not.toContain("..");
+        expect(
+          existsSync(join(".agents/skills/copilotkit", item.expected_reference!)),
+        ).toBe(true);
+      } else {
+        expect(item.expected_reference).toBeUndefined();
+      }
+    }
+  });
+});
+
+describe.runIf(process.env.RUN_COPILOTKIT_SKILL_LIVE_EVAL === "1")(
+  "opt-in live Claude Code CopilotKit skill routing (paid, no writes)",
+  () => {
+    it.each(liveRoutingCases)("$query", ({ query, should_trigger, expected_reference }) => {
+      const command = spawnSync(
+        "claude",
+        [
+          "-p",
+          "--plugin-dir", ".agents",
+          "--strict-mcp-config",
+          "--mcp-config", '{"mcpServers":{}}',
+          "--model", "haiku",
+          "--tools", "Skill,Read,Grep,Glob",
+          "--allowedTools", "Skill,Read,Grep,Glob",
+          "--max-turns", "5",
+          "--max-budget-usd", "0.07",
+          "--no-session-persistence",
+          "--output-format", "stream-json",
+          "--verbose",
+          query,
+        ],
+        {
+          cwd: process.cwd(),
+          encoding: "utf8",
+          input: "",
+          timeout: 90_000,
+          maxBuffer: 4 * 1024 * 1024,
+        },
+      );
+      const events = (command.stdout ?? "")
+        .split("\n")
+        .filter((line) => line.trim().startsWith("{"))
+        .flatMap((line) => {
+          try {
+            return [JSON.parse(line)];
+          } catch {
+            return [];
+          }
+        });
+      expect(events.length, "Claude must emit parseable stream-json").toBeGreaterThan(0);
+      const calls = events.flatMap((event) =>
+        event.type === "assistant"
+          ? (event.message?.content ?? []).filter((part: { type: string }) => part.type === "tool_use")
+          : [],
+      );
+      const selected = calls.some(
+        (call: { name: string; input?: { skill?: string } }) =>
+          call.name === "Skill" && call.input?.skill === "ipix:copilotkit",
+      );
+      const inspectedReferences = Array.from(
+        new Set(
+          calls
+            .filter((call: { name: string }) =>
+              ["Read", "Grep", "Glob"].includes(call.name),
+            )
+            .map((call: { input?: { file_path?: string; path?: string } }) =>
+              call.input?.file_path ?? call.input?.path ?? "",
+            )
+            .filter((path: string) => path.includes(".agents/skills/copilotkit/references/"))
+            .map((path: string) =>
+              path.slice(path.indexOf(".agents/skills/copilotkit/references/")),
+            ),
+        ),
+      );
+      const referenceOpened = expected_reference
+        ? inspectedReferences.some((path) => path.endsWith(expected_reference))
+        : false;
+      const result = events.findLast((event) => event.type === "result");
+      const conclusive = command.status === 0 && result?.is_error === false;
+      const verdict = !conclusive
+        ? "INCONCLUSIVE"
+        : selected === should_trigger
+          ? "PASS"
+          : "MISS";
+      // Emit only routing metadata. Direct file reads are NOT Skill activations.
+      console.info(
+        JSON.stringify({
+          verdict,
+          expectedSkill: should_trigger,
+          skillInvoked: selected,
+          expectedReference: expected_reference ?? null,
+          inspectedReferences,
+          referenceOpened,
+          completion: result?.subtype ?? null,
+          exitCode: command.status,
+          costUsd: result?.total_cost_usd ?? null,
+        }),
+      );
+      // Optional strict behavior for a human-reviewed routing gate. Normal live
+      // evaluation is diagnostic because model decisions vary between runs.
+      if (process.env.RUN_COPILOTKIT_SKILL_LIVE_GATE === "1") {
+        expect(conclusive).toBe(true);
+        expect(selected).toBe(should_trigger);
+      }
+    }, 100_000);
+  },
+);
