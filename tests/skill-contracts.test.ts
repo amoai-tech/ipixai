@@ -466,7 +466,7 @@ describe("Mastra 1.84 skill runtime documentation", () => {
     const trace=readRepoFile(root+"/references/trace-query.md");
     const api=readRepoFile(root+"/references/mastra-api.md");
     for(const cmd of ["trace query","trace aggregate","span query","span aggregate"]) {
-      expect(trace).toContain("mastra api " + cmd + " --help");
+      expect(trace).toContain("mastra api --url http://localhost:4111 " + cmd + " --help");
     }
     for(const flag of ["traceQuery","traceAggregate","spanQuery","spanAggregate"]) {
       expect(trace).toContain(flag);

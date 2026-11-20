@@ -11,21 +11,21 @@ The command sends `POST /api/observability/traces/query` to the selected API tar
 The inline JSON input is required. Before recommending the command, confirm that the installed CLI exposes it:
 
 ```bash
-npx --no-install mastra api trace query --help
+npx --no-install mastra api --url http://localhost:4111 trace query --help
 ```
 
 After confirming availability, inspect the target server's current contract:
 
 ```bash
-npx --no-install mastra api trace query --schema
+npx --no-install mastra api --url http://localhost:4111 trace query --schema
 ```
 
-Use `--schema` to confirm that the target supports the route and to inspect the current request and response shape and structural constraints. Predicate paths are generic strings in the schema, so it does not provide the context-specific field/operator matrix. If you need more information, read the [official advanced-query reference](https://mastra.ai/reference/observability/tracing/advanced-queries). A route in the schema does not prove the configured store supports it. Do not infer unsupported predicates from storage columns, older skill text, or CLI examples. The server and store capability flags are the ultimate validation authority.
+For an authorized **local iPix** server, use `--schema` to inspect the request/response shape and structural constraints. **Mastra Platform does not expose this schema endpoint**: when the authorized target is Platform, consult the official [Request fields](https://mastra.ai/reference/observability/tracing/advanced-queries#request-fields) and [Fields and operators](https://mastra.ai/reference/observability/tracing/advanced-queries#fields-and-operators) instead. This documentation fallback explains query syntax; it does **not** establish that the target's observability store supports trace or span queries. Check `GET /api/observability/capabilities` independently before any query. Predicate paths are generic strings in the schema, so it does not provide the context-specific field/operator matrix. If you need more information, read the [official advanced-query reference](https://mastra.ai/reference/observability/tracing/advanced-queries). A route in the schema does not prove the configured store supports it. Do not infer unsupported predicates from storage columns, older skill text, or CLI examples. The server and store capability flags are the ultimate validation authority.
 
 ## Query workflow
 
 1. Run `trace query --help` and verify that the installed CLI exposes the command.
-1. Run `trace query --schema` against the intended target to inspect the route contract and structural constraints.
+1. For local iPix, inspect `trace query --schema` with explicit `--url http://localhost:4111`; for authorized Mastra Platform targets without that endpoint, read the published Request fields / Fields and operators documentation instead.
 1. Build the smallest query that answers the question. `timeRange` is required; `from` is inclusive and `to` is exclusive.
 1. Keep `page.limit` small while exploring and project lightweight results with `jq`.
 1. If `data.page.next` is non-null, repeat the identical query with that value in `page.after`.
@@ -34,7 +34,7 @@ Use `--schema` to confirm that the target supports the route and to inspect the 
 Query a time range:
 
 ```bash
-npx --no-install mastra api trace query \
+npx --no-install mastra api --url http://localhost:4111 trace query \
   '{"timeRange":{"from":"2026-08-01T00:00:00.000Z","to":"2026-08-08T00:00:00.000Z"},"page":{"limit":25}}' \
   | jq '{traces: [.data.traces[] | {traceId, entityName, status, startedAt}], next: .data.page.next}'
 ```
@@ -42,7 +42,7 @@ npx --no-install mastra api trace query \
 Find traces containing a failed tool call. Conditions inside one `spans.some` clause must match the same span:
 
 ```bash
-npx --no-install mastra api trace query \
+npx --no-install mastra api --url http://localhost:4111 trace query \
   '{"timeRange":{"from":"2026-08-01T00:00:00.000Z","to":"2026-08-08T00:00:00.000Z"},"where":{"spans":{"some":{"op":"and","args":[{"op":"eq","left":{"path":"spanType"},"right":{"literal":"tool_call"}},{"op":"exists","path":"error"}]}}},"page":{"limit":25}}' \
   | jq '{traces: .data.traces, next: .data.page.next}'
 ```
@@ -85,7 +85,7 @@ The query response remains nested under `data` so the pagination cursor is prese
 Pass a non-null cursor back without decoding or modifying it:
 
 ```bash
-npx --no-install mastra api trace query \
+npx --no-install mastra api --url http://localhost:4111 trace query \
   '{"timeRange":{"from":"2026-08-01T00:00:00.000Z","to":"2026-08-08T00:00:00.000Z"},"page":{"limit":25,"after":"<page.next>"}}'
 ```
 
@@ -106,10 +106,10 @@ A cursor is bound to the accepted query and ordering. Do not change the time ran
 All four commands exist in the installed CLI. Verify command syntax **without making a remote request**:
 
 ```bash
-npx --no-install mastra api trace query --help
-npx --no-install mastra api trace aggregate --help
-npx --no-install mastra api span query --help
-npx --no-install mastra api span aggregate --help
+npx --no-install mastra api --url http://localhost:4111 trace query --help
+npx --no-install mastra api --url http://localhost:4111 trace aggregate --help
+npx --no-install mastra api --url http://localhost:4111 span query --help
+npx --no-install mastra api --url http://localhost:4111 span aggregate --help
 ```
 
 For the **explicitly authorized target**, check `GET /api/observability/capabilities` or installed `getObservabilityCapabilities()` before querying:
@@ -121,7 +121,7 @@ For the **explicitly authorized target**, check `GET /api/observability/capabili
 | Error rates and p95 latency | `trace aggregate` | `traceAggregate` |
 | Slowest individual tool spans | `span aggregate` | `spanAggregate` |
 
-Confirm `--schema` against the target. A 501 means unsupported storage; a 422 can mean an unsupported field. Bound time ranges/limit, preserve opaque cursors, redact tenant data, and never assume an upstream Mastra Platform default URL is the iPix server. **Estimated trace cost is not provider billing; missing usage never means $0.**
+Use `--schema` only when the authorized server exposes it (local iPix). For Mastra Platform, use the published request-field documentation; **neither path substitutes for the independent capability check above**. A 501 means unsupported storage; a 422 can mean an unsupported field. Bound time ranges/limit, preserve opaque cursors, redact tenant data, and never assume an upstream Mastra Platform default URL is the iPix server. **Estimated trace cost is not provider billing; missing usage never means $0.**
 
 **Reference — ADAPT:** [Mastra capabilities](https://mastra.ai/reference/observability/tracing/advanced-queries#check-capabilities) and [Mastra CLI](https://mastra.ai/reference/cli/mastra). Do not copy default hosted access or unsupported filters.
 

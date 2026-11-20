@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const root = new URL("../.agents/skills/mastra/", import.meta.url);
@@ -30,6 +30,30 @@ describe("IPI-1419 — Mastra reference migration safety", () => {
     expect(read("references/browser.md")).toContain("iPix boundary");
     expect(read("references/examples-v0.md")).toContain("Historical / reference-only");
     expect(read("links.md")).not.toContain("../skill-creator/SKILL.md");
+  });
+
+  it("uses local trace targets and preserves the independent Platform capability gate", () => {
+    const trace = read("references/trace-query.md");
+    const examples = trace.match(/^npx --no-install mastra api .*$/gm) ?? [];
+    expect(examples.length).toBeGreaterThan(0);
+    expect(examples.every((line) => line.includes("--url http://localhost:4111"))).toBe(true);
+    expect(trace).toContain("https://mastra.ai/reference/observability/tracing/advanced-queries#request-fields");
+    expect(trace).toContain("https://mastra.ai/reference/observability/tracing/advanced-queries#fields-and-operators");
+    expect(trace).toContain("GET /api/observability/capabilities");
+    expect(trace).toContain("Mastra Platform does not expose this schema endpoint");
+  });
+
+  it("preserves valid archived reference links and labels old examples historical", () => {
+    const archived = new URL("../../../docs/archive/mastra/mastra-links-legacy-mde-supatabs.md", root);
+    const content = readFileSync(archived, "utf8");
+    for (const file of ["workflows", "memory", "streaming", "browser", "examples-v0"]) {
+      const path = `../../../.agents/skills/mastra/references/${file}.md`;
+      expect(content).toContain(`](${path})`);
+      expect(existsSync(new URL(path, archived))).toBe(true);
+    }
+    expect(read("links.md")).toContain(
+      "[Examples v0 (historical — verify compatibility before use)](#examples-v0-historical--verify-compatibility-before-use)",
+    );
   });
 
   it("does not expose MDE embedding decisions as current iPix truth", () => {

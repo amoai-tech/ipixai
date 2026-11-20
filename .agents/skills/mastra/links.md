@@ -31,7 +31,7 @@ tags: mastra, docs, llms.txt, links
 - [Deployment](#deployment)
 - [Models](#models)
 - [Guides — app stacks](#guides--app-stacks)
-- [Examples v0 (Supatabs — live runnable)](#examples-v0-historical--verify-compatibility-before-use)
+- [Examples v0 (historical — verify compatibility before use)](#examples-v0-historical--verify-compatibility-before-use)
 - [Browser automation](#browser-automation)
 - [Mastra platform (managed)](#mastra-platform-managed)
 - [Build with AI & community](#build-with-ai--community)
