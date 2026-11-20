@@ -5,6 +5,12 @@
 
 **Business outcome:** fashion brands stay on the current website while the next exact-version release is checked. A human—not a workflow—decides when customer traffic moves.
 
+### Database prerequisite — Mastra 1.84 journal migration
+
+Before promoting the 1.84 runtime, apply `supabase/migrations/20261119000000_ipi1460_mastra_184_compat.sql` through the approved Supabase migration process. **Never `supabase db push` against production.** The adapter reads `mastra.mastra_workflow_runs` / `mastra_workflow_run_entries` even with storage v1, so code-first produces silent `resume_failed`; the migration is additive and safe to leave in place for a 1.82 rollback.
+
+Verify after applying: both tables and their indexes/trigger exist, RLS is enabled, only `hyperdrive_mastra_runtime` has the eight DML grants, and `PUBLIC`/`anon`/`authenticated`/`service_role` are denied. Then stage the exact candidate, certify it, and promote only with human approval.
+
 ```mermaid
 flowchart TD
   A[Manual CI release on latest main] --> B{All CI gates passed?}

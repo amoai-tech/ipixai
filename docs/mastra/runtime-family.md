@@ -11,21 +11,23 @@ This file records the currently installed compatibility family. `package.json` a
 | `@copilotkit/channels` | 0.12.0 |
 | `@ag-ui/client` | 1.0.2 |
 | `@ag-ui/mastra` | 2.0.2 |
-| `@mastra/core` | 1.82.0 |
-| `@mastra/memory` | 1.41.0 |
-| `@mastra/pg` | 1.35.0 |
-| `@mastra/client-js` | 1.59.0 |
-| `@mastra/observability` | 1.23.1 |
-| `mastra` | 1.38.0 |
+| `@mastra/core` | 1.84.0 |
+| `@mastra/memory` | 1.41.2 |
+| `@mastra/pg` | 1.37.0 |
+| `@mastra/client-js` | 1.61.0 |
+| `@mastra/observability` | 1.24.1 |
+| `mastra` | 1.40.0 |
 | `next` | 16.4.5 |
 
 ## Runtime contract
 
 - Hosted Mastra storage is Postgres-backed through the guarded store in `src/mastra/pg-store.ts`.
 - The hosted store uses the private `mastra` schema with `disableInit: true`; repository migrations own schema changes.
+- The 1.84 PG adapter reads the workflow-journal tables `mastra_workflow_runs` and `mastra_workflow_run_entries` even when workflows use storage v1; repository migrations own those additive tables.
 - Local development may use the approved local fallback when hosted storage is intentionally absent.
 - CopilotKit request identity and Mastra resource scope are derived server-side.
 - Planner conversation continuity is durable, not process-local: prior **normal message history** is stored in `mastra.*` and supplied to the next same-thread model call, including after a full process restart. Thread-only facts must not leak into another thread of the same resource, and must not arrive through resource-scoped Working Memory.
+- Working Memory is still configured (resource scope, `proverbs` slot) and persists when the model writes it, but it is **not** the continuity mechanism for ordinary conversation facts. The MEM-001 restart proof's `workingMemoryCarried=false` is therefore the required green result, not a regression: `true` would mean the fact travelled through a `system` message instead of stored message history.
 - Runtime packages should be upgraded as a tested compatibility family, not one package at a time without verification.
 - iPix uses the local-agent SSE runtime with `TenantAbortRunner`, not CopilotKit Intelligence; the 1.88 Intelligence-only thread-naming behavior does not apply to these Planner threads.
 
