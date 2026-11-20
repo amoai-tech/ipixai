@@ -125,6 +125,18 @@ Mastra has had upstream abort-propagation gaps across nested execution paths, so
 
 Never place JWTs, service-role keys, provider credentials, sensitive headers, or equivalent secrets in model-visible tool arguments, workflow input, suspend/resume payloads, working memory, snapshots, transcript payloads, or traces. Derive identity/privileged clients server-side.
 
+### `resume_failed` after a Mastra/Postgres upgrade
+
+Check exact installed adapter read/list/resume SQL, migration ledger and **read-only** schema/privilege truth before changing workflow code. Core 1.84 / PG 1.37 needed `mastra_workflow_runs` and `mastra_workflow_run_entries` alongside legacy snapshots; `disableInit: true` prevents hosted self-migration. Reproduce missing-table failure in disposable PostgreSQL, apply the approved additive migration and prove fresh-instance suspend/resume, RLS/FORCE and unchanged historical snapshots. Do not write custom runner infrastructure, loosen grants or resume customer runs as QA. See [migration-guide.md](migration-guide.md).
+
+### Observability API responds 501 or 422; costs are missing
+
+Mastra CLI 1.40 includes `span query` and aggregation, but an authorized server's store may not. Check `GET /api/observability/capabilities`: 501 indicates unsupported store; 422 may indicate unsupported context filter. Missing usage ≠ $0 and estimates ≠ provider invoice. See [trace-query.md](trace-query.md).
+
+### Staged candidate passed but live alias differs
+
+Recheck exact Vercel deployment/SHA/`www.ipix.co` alias before AND after protected QA, including failure paths. Promotion needs a separate explicit human approval. Stop on drift; do not silently rebuild. See [production-release.md](../../../../docs/production-release.md).
+
 ## Debugging evidence order
 
 Prefer:

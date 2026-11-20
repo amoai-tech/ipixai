@@ -294,6 +294,20 @@ In addition to normal smoke, inspect runtime logs for version-sensitive failures
 
 ---
 
+## Exact-SHA CI → staging → promotion → certification gates
+
+| Gate | PASS condition | Not established |
+| --- | --- | --- |
+| Static/CI | Installed compatible package family, tests and typecheck | Actual PostgreSQL restart |
+| Real PostgreSQL | Migration replay, RLS/FORCE/grants, old snapshots, new journal, fresh-process resume | Hosted browser authorization |
+| Staging | Exact SHA and approved limited QA passed | Production promotion |
+| Human approval | Explicit exact artifact approved after live-alias readback | Live customer journey |
+| Production certification | Correct served SHA, Planner Stop, logs, tenant denial as scoped | Full Brand → Shoot → save/reopen journey |
+
+The completed IPI-1460 release followed these separate gates. A green CI job or protected environment approval does not itself authorize promotion, production QA writes, paid AI calls, deletion or live customer workflow resumes. Record the **explicit QA approval/cap**, any actual provider cost (or `unverified`), exact staged deployment, reviewer authorization, and post-promotion SHA. Check live alias **after success/failure/cancellation**, not only before QA. Do not claim cost <$0.50 from an unenforced ceiling; don't equate trace estimates with invoices.
+
+**STOP** on alias drift, missing journal/RLS, wrong tenant, paid activity outside authorization or a live 5xx. Keep rollback target and preserve additive migration; do not mutate customer suspended runs during a certification. [Production release guide](../../../../docs/production-release.md).
+
 # Post-merge failure handling
 
 If a merged Mastra change fails:

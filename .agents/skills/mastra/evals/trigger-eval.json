@@ -1,20 +1,86 @@
 [
-  {"query": "Planner memory disappears after a restart — does Mastra Memory actually persist to Postgres between deploys?", "should_trigger": true},
-  {"query": "resume this suspended workflow run, the shoot approval step is waiting on a human", "should_trigger": true},
-  {"query": "add a typed Mastra tool that reads the brand's approved DNA and returns structured JSON", "should_trigger": true},
-  {"query": "@mastra/core got bumped and `AgentConfig.memory` no longer typechecks — where do I verify the installed shape?", "should_trigger": true},
-  {"query": "our production planner stream stalls mid-response and Stop does nothing", "should_trigger": true},
-  {"query": "wire an AG-UI interrupt for a Mastra tool that suspends on human approval", "should_trigger": true},
-  {"query": "which PostgresStore settings does the Planner use in hosted mode — schemaName and disableInit?", "should_trigger": true},
-  {"query": "add an RLS policy so the runtime role can only read brand_assets inside its own org", "should_trigger": false},
-  {"query": "fix the Cloudinary transformation URL in the shoot wizard, the crop is wrong", "should_trigger": false},
-  {"query": "update the Linear task description for IPI-1371 with the latest evidence", "should_trigger": false},
-  {"query": "the dashboard card spacing is off on the plans page", "should_trigger": false},
-  {"query": "our Supabase edge function for brand-intelligence returns a 500 after about 60 seconds", "should_trigger": false},
-  {"query": "rename the /app/shoots page heading and tighten the empty-state copy", "should_trigger": false},
-  {"query": "add a Sentry breadcrumb when the marketing contact form is submitted", "should_trigger": false},
-  {"query": "Review /api/copilotkit shoot-review resume: can a Mastra workflow authorize a run using only the browser-supplied runId?", "should_trigger": true},
-  {"query": "Investigate why the Mastra Planner trace query supports score filters in installed types but not the newest public docs.", "should_trigger": true},
-  {"query": "Our CopilotKit v2 sidebar bubble needs a Tailwind padding change; no agent, model or Mastra runtime change.", "should_trigger": false},
-  {"query": "Use Claude Code skill-creator to improve a Cloudinary image-cropping skill description and its evaluation cases.", "should_trigger": false}
+  {
+    "query": "Planner memory disappears after a restart — does Mastra Memory actually persist to Postgres between deploys?",
+    "should_trigger": true
+  },
+  {
+    "query": "resume this suspended workflow run, the shoot approval step is waiting on a human",
+    "should_trigger": true
+  },
+  {
+    "query": "add a typed Mastra tool that reads the brand's approved DNA and returns structured JSON",
+    "should_trigger": true
+  },
+  {
+    "query": "@mastra/core got bumped and `AgentConfig.memory` no longer typechecks — where do I verify the installed shape?",
+    "should_trigger": true
+  },
+  {
+    "query": "our production planner stream stalls mid-response and Stop does nothing",
+    "should_trigger": true
+  },
+  {
+    "query": "wire an AG-UI interrupt for a Mastra tool that suspends on human approval",
+    "should_trigger": true
+  },
+  {
+    "query": "which PostgresStore settings does the Planner use in hosted mode — schemaName and disableInit?",
+    "should_trigger": true
+  },
+  {
+    "query": "add an RLS policy so the runtime role can only read brand_assets inside its own org",
+    "should_trigger": false
+  },
+  {
+    "query": "fix the Cloudinary transformation URL in the shoot wizard, the crop is wrong",
+    "should_trigger": false
+  },
+  {
+    "query": "update the Linear task description for IPI-1371 with the latest evidence",
+    "should_trigger": false
+  },
+  {
+    "query": "the dashboard card spacing is off on the plans page",
+    "should_trigger": false
+  },
+  {
+    "query": "our Supabase edge function for brand-intelligence returns a 500 after about 60 seconds",
+    "should_trigger": false
+  },
+  {
+    "query": "rename the /app/shoots page heading and tighten the empty-state copy",
+    "should_trigger": false
+  },
+  {
+    "query": "add a Sentry breadcrumb when the marketing contact form is submitted",
+    "should_trigger": false
+  },
+  {
+    "query": "Review /api/copilotkit shoot-review resume: can a Mastra workflow authorize a run using only the browser-supplied runId?",
+    "should_trigger": true
+  },
+  {
+    "query": "Investigate why the Mastra Planner trace query supports score filters in installed types but not the newest public docs.",
+    "should_trigger": true
+  },
+  {
+    "query": "Our CopilotKit v2 sidebar bubble needs a Tailwind padding change; no agent, model or Mastra runtime change.",
+    "should_trigger": false
+  },
+  {
+    "query": "Use Claude Code skill-creator to improve a Cloudinary image-cropping skill description and its evaluation cases.",
+    "should_trigger": false
+  },
+  {
+    "query": "After Mastra 1.84 upgrade, suspended Shoot workflow resume_failed and journal tables could be missing",
+    "should_trigger": true
+  },
+  {
+    "query": "Mastra span aggregate query and observability capabilities on iPix",
+    "should_trigger": true
+  },
+  {
+    "query": "Improve Tailwind card spacing in Brand Studio without altering an agent or Mastra",
+    "should_trigger": false
+  }
 ]

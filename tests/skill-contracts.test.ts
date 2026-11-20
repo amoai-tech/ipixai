@@ -447,3 +447,60 @@ describe("iPix engineering skill contracts", () => {
   });
 
 });
+
+describe("Mastra 1.84 skill runtime documentation", () => {
+  const root = ".agents/skills/mastra";
+  test("current version authority is manifest and runtime family", () => {
+    const manifest = JSON.parse(readRepoFile("package.json")) as { dependencies: Record<string,string>; devDependencies: Record<string,string> };
+    const deps = {...manifest.dependencies, ...manifest.devDependencies};
+    const family = readRepoFile("docs/mastra/runtime-family.md");
+    for (const pkg of ["@mastra/core","@mastra/pg","@mastra/client-js","mastra","@copilotkit/react-core"]) {
+      expect(family).toContain("| " + String.fromCharCode(96) + pkg + String.fromCharCode(96) + " | " + deps[pkg] + " |");
+    }
+    const skill=readRepoFile(root+"/SKILL.md");
+    expect(skill).toContain("docs/mastra/runtime-family.md");
+    expect(skill).not.toContain("installed `@mastra/core@1.71.0`");
+    expect(readRepoFile(root+"/references/mcp-docs-lookup.md")).not.toContain("runtime stays 1.71.0");
+  });
+  test("installed CLI commands require server capability verification", () => {
+    const trace=readRepoFile(root+"/references/trace-query.md");
+    const api=readRepoFile(root+"/references/mastra-api.md");
+    for(const cmd of ["trace query","trace aggregate","span query","span aggregate"]) {
+      expect(trace).toContain("mastra api --url http://localhost:4111 " + cmd + " --help");
+    }
+    for(const flag of ["traceQuery","traceAggregate","spanQuery","spanAggregate"]) {
+      expect(trace).toContain(flag);
+    }
+    expect(api).toContain("CLI 1.40.0");
+    expect(trace).toContain("GET /api/observability/capabilities");
+    expect(api).not.toContain("current installed CLI does **not** provide");
+  });
+  test("migration, restart, RLS and separate release approval are required", () => {
+    const migration=readRepoFile(root+"/references/migration-guide.md");
+    const workflows=readRepoFile(root+"/references/workflows.md");
+    const errors=readRepoFile(root+"/references/common-errors.md");
+    for(const doc of [migration,workflows,errors]) {
+      expect(doc).toContain("mastra_workflow_runs");
+      expect(doc).toContain("mastra_workflow_run_entries");
+      expect(doc).toContain("resume_failed");
+      expect(doc).toContain("disableInit");
+    }
+    expect(migration).toContain("20261119000000_ipi1460_mastra_184_compat.sql");
+    const gates=readRepoFile(root+"/references/testing-gates.md");
+    expect(gates).toContain("Human approval");
+    expect(gates).toContain("paid AI calls");
+    expect(readRepoFile(root+"/references/user-journeys.md")).toContain("IPI-1091");
+  });
+  test("legacy references and real failure evals stay discoverable", () => {
+    const links=readRepoFile(root+"/links.md");
+    const archive=readRepoFile("docs/archive/mastra/mastra-links-legacy-mde-supatabs.md");
+    const route=readRepoFile(root+"/references/topic-routing.md");
+    expect(links).toContain("mastra-links-legacy-mde-supatabs.md");
+    expect(links).toContain("## Canonical entry points");
+    expect(archive).toContain("## Shared with Supatabs");
+    expect(route).toContain("#examples-v0-historical--verify-compatibility-before-use");
+    expect(readRepoFile(root+"/references/README.md")).toContain("## Quick routing — current iPix first");
+    const evals=JSON.parse(readRepoFile(root+"/evals/evals.json")) as {evals:Array<{prompt:string}>};
+    expect(evals.evals.some(e=>e.prompt.includes("resume_failed"))).toBe(true);
+  });
+});

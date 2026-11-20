@@ -54,6 +54,12 @@ artifact_id + revision + canonical_hash + minimal display metadata
 
 Do not trade immutability for snapshot size: the approved hash/revision must still bind to the exact content reviewed.
 
+## Real PostgreSQL compatibility for Mastra 1.84 suspended workflows
+
+The current certified family (Core 1.84 / PG 1.37) is in [runtime-family.md](../../../../docs/mastra/runtime-family.md). Under `disableInit: true` the runtime cannot add missing `mastra_workflow_runs` and `mastra_workflow_run_entries`; legacy `mastra_workflow_snapshot` alone is insufficient. See [approved migration/release](../../../../docs/production-release.md). Their absence previously caused `resume_failed`.
+
+**Real operator example:** a Shoot Plan suspends for exact revision R2 approval; a fresh Mastra process resumes it only on an authorized R2 decision, once. Prove that with disposable PostgreSQL, duplicate clicks, stale R1, foreign org and revoked editor denial. Repeat Brand Intelligence crawl/draft resume. Never resume existing production customer runs or copy a demo's implicit DB init. **Reference — ADAPT:** [Mastra PG storage](https://mastra.ai/integrations/databases/postgresql) and [workflow suspension](https://mastra.ai/docs/workflows/suspend-and-resume).
+
 ## CopilotKit bridge choice for HITL — installed adapter truth
 
 Bridge notes originally verified 2026-11-08 against `@ag-ui/mastra 2.0.2` and CopilotKit React `1.85.0`. The current pinned CopilotKit React version is `1.88.0`; the real HITL suspend/resume path still requires isolated-QA verification before certification:

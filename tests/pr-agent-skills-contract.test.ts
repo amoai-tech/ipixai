@@ -67,7 +67,7 @@ describe("IPI-1213 PR-Agent review skills contract", () => {
     expect(mastraSkill).toContain("npm run dev:ui");
     expect(mastraSkill).toContain("server verified");
     expect(traceQueryReference).toContain("https://mastra.ai/reference/observability/tracing/advanced-queries");
-    expect(traceQueryReference).toContain("does not expose");
+    expect(traceQueryReference).toContain("CLI 1.40.0");
     expect(traceQueryReference).toContain("spanQuery");
     expect(traceQueryReference).toContain("traceAggregate");
     expect(traceQueryReference).toContain("scores.some");

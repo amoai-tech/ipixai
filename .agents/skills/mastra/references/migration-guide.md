@@ -140,6 +140,14 @@ When storage behavior/schema changes:
 - test on disposable/local/preview state first;
 - prove existing messages/threads/workflow snapshots survive or document a deliberate incompatible migration.
 
+## IPI-1460 lesson — migrate workflow journal before upgrading runtime
+
+**Reference — ADAPT:** [exact iPix 1.84 compatibility migration](https://github.com/amoai-tech/ipixai/blob/0323a24f3c33c5e350bb4d87621ed10c88b55839/supabase/migrations/20261119000000_ipi1460_mastra_184_compat.sql), [production release](https://github.com/amoai-tech/ipixai/blob/0323a24f3c33c5e350bb4d87621ed10c88b55839/docs/production-release.md), [Mastra PostgreSQL](https://mastra.ai/integrations/databases/postgresql). The PG 1.37 workflow store reads legacy `mastra_workflow_snapshot` and `mastra_workflow_runs` / `mastra_workflow_run_entries`. Missing journal tables caused `resume_failed` even though unit and browser Planner tests passed; `disableInit: true` prohibits runtime auto-migration.
+
+For a **future** upgrade: inspect exact installed PG adapter's read/list/resume SQL and required exporter schema; compare production state **read-only**, then add only needed tables/columns through approved migrations. Rehearse idempotent migration twice on disposable Postgres; prove RLS + FORCE RLS, runtime-only grants, existing snapshot preservation, fresh-instance real Shoot Plan and Brand Intelligence suspend → approval/reject → idempotent resume and Org B/revoked/stale denial. Do **not** reset/reapply production migrations, shift schema to `public`, or resume the 32 customer runs as QA.
+
+Then stage a single exact build, log separately authorized paid test scope and actual spend if available, verify alias/SHA **after** QA, request human promotion approval and certify the exact promoted live artifact. Maintain the rollback candidate. **STOP** on `resume_failed`, missing journal table, missing grants, schema drift, unexpected alias changes or unapproved AI charges.
+
 ## Completion evidence
 
 Record:

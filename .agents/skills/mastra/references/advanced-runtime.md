@@ -7,7 +7,7 @@ impact: MEDIUM
 
 # Advanced runtime capabilities
 
-Verified against installed `@mastra/core 1.71.0`; use installed source/types and the embedded docs below before adopting any advanced runtime capability.
+**Historical feature inventory:** researched on Core 1.71.0, not certified on the current 1.84.0 family. Verify installed source/types and [current runtime](../../../../docs/mastra/runtime-family.md) before adopting optional capabilities; none are enabled by this document.
 
 | Capability | Installed doc | iPix fit |
 | --- | --- | --- |

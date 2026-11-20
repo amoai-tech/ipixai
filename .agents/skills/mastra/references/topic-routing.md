@@ -48,7 +48,7 @@ Use this file to jump from a **task or question** to the right **official URL ta
 | Production / cloud | [Deployment](../links.md#deployment) | [`remote-docs.md`](remote-docs.md) |
 | Model strings, providers, embeddings | [Models](../links.md#models) | [`model-providers.md`](model-providers.md), [`openai.md`](openai.md), [`gemini.md`](gemini.md); run [`../scripts/provider-registry.mjs`](../scripts/provider-registry.mjs) |
 | Vite, Next, Express starter | [Guides — app stacks](../links.md#guides-app-stacks) | [`react.md`](react.md) for React-oriented stacks |
-| Runnable v0 examples, WhatsApp guide | [Examples v0](../links.md#examples-v0-supatabs--live-runnable) · [Guides — tutorials](../links.md#guides--tutorials-hands-on) | [`references/examples-v0.md`](examples-v0.md) |
+| Runnable v0 examples, WhatsApp guide | [Examples v0](../links.md#examples-v0-historical--verify-compatibility-before-use) · [Guides — tutorials](../links.md#guides--tutorials-hands-on) | [`references/examples-v0.md`](examples-v0.md) |
 | Multi-agent patterns | [Guides — concepts](../links.md#guides-concepts) | supervisor example = Phase 2 defer |
 | Vercel AI SDK + Mastra | [Guides — agent frameworks](../links.md#guides-agent-frameworks) | [`ai-sdk.md`](ai-sdk.md) |
 | Host on Vercel | [Guides — deployment (hosting)](../links.md#guides-deployment-hosting) | — |
