@@ -48,6 +48,12 @@ A green Playwright test without AI/runtime proof is incomplete. A green Mastra t
 
 ---
 
+## Certified Planner runtime is not the full fashion-brand Shoot journey
+
+IPI-1460's production certification proves the exact Mastra 1.84 Planner Stop path and runtime logs. It does **not** prove the complete Brand → Product → Shoot Plan → human approve → save exactly once → reopen workflow owned by IPI-1091, IPI-1083, IPI-1085 and IPI-1151.
+
+**Real-world acceptance:** an operator approves Shoot Plan R2, clicks Save twice, reopens one durable Shoot bound to R2; stale R1 and Org B/revoked editors are denied; no auto booking, publishing or payment. Separate test labels should be `unit`, `real-PG`, `staging`, `production Planner` or `full product journey` with exact SHA. Paid real-model production tests require fresh human authorization.
+
 # Journey review template
 
 For each task fill this table before implementation and again before Done:
