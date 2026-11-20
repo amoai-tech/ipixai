@@ -13,6 +13,12 @@ Use this file as the **routing table** for the Mastra skill.
 
 Do not read the whole reference directory. Pick the smallest owner set for the current problem.
 
+## Quick routing — current iPix first
+
+Use [runtime-family](../../../../docs/mastra/runtime-family.md) and `package.json`/lockfile for current pins (Core 1.84, PG 1.37, CLI 1.40, CopilotKit 1.88), not duplicated version inventories. Load **one owner reference** first: [migration](migration-guide.md) + [troubleshooting](common-errors.md) for `resume_failed`; [tracing](trace-query.md) for observability; [workflows](workflows.md) + [testing gates](testing-gates.md) for approval/resume.
+
+The [general official URL index](../links.md) is optional reference only; [older MDE/Supatabs links](../../../../docs/archive/mastra/mastra-links-legacy-mde-supatabs.md) are archived. Never bulk-install another Mastra skill, adopt unverified latest APIs, or move server approval/RLS rules into prompts.
+
 ## Claude Code discoverability and skill evaluation
 
 - **Trigger:** Claude Code uses top-level `description` for discovery. `metadata.paths` is inert; a top-level `paths` filter would exclude Mastra questions from Next.js routes or package upgrades, so this skill deliberately has neither.

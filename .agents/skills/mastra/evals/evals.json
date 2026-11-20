@@ -108,6 +108,29 @@
         "Requires server-derived actor/org and exact reviewed artifact",
         "Tests foreign runId, duplicate resume and idempotent writes"
       ]
+    },
+    {
+      "id": 11,
+      "prompt": "Mastra 1.84 iPix Shoot approval resume_failed after upgrade, but all unit tests pass. What do you inspect first?",
+      "expected_output": "Check workflow-journal table and migration truth, disableInit, RLS/grants, old snapshots and real disposable PostgreSQL suspend/resume; no production customer resumption or new workflow runner.",
+      "files": [],
+      "expectations": [
+        "Names mastra_workflow_runs and mastra_workflow_run_entries",
+        "Checks disableInit and RLS/grants",
+        "Proves fresh-instance resume in real PostgreSQL",
+        "Does not resume production customer runs"
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "Our iPix CLI has span aggregate; does this prove Production can aggregate spans and how much our AI tests cost?",
+      "expected_output": "Confirm authorized target and spanAggregate capability; CLI installation alone is insufficient and estimated trace cost is not actual provider spending.",
+      "files": [],
+      "expectations": [
+        "Distinguishes CLI from server store",
+        "Checks spanAggregate capability",
+        "No claim that missing cost is zero"
+      ]
     }
   ]
 }
