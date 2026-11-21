@@ -2,6 +2,15 @@
 
 Use this reference when wiring or reviewing CopilotKit + Mastra in iPix. It is an **iPix overlay**, not a generic starter.
 
+## Contents
+
+- [Source priority](#source-priority) and [installed package family](#current-installed-ipix-family--verified-2026-11-10)
+- [Production architecture](#current-production-architecture) and [minimal route](#minimal-current-route-shape)
+- [Official integration reference](#official-copilotkit-reference--adapt-never-copy-wholesale)
+- [HITL and interrupts](#hitl--interrupts--verified-against-installed-ag-uimastra-202)
+- [Security and persistence invariants](#security-and-persistence-invariants)
+- [Development verification](#development)
+
 ## Source priority
 
 For version-sensitive decisions:

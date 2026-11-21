@@ -7,10 +7,26 @@ const read = (p: string) => readFileSync(new URL(p, root), "utf8");
 describe("IPI-1420 — official CopilotKit v3.2 lookup with iPix overlay", () => {
   it("pins official upstream while retaining one local iPix skill", () => {
     const s = read("SKILL.md");
-    expect(s).toContain("3.2.0-ipix.1");
-    expect(s).toContain("c7815d9ac96f48fb3a64ad8c18e176a870c81763");
+    expect(s).toContain("3.2.0-ipix.2");
+    expect(s).toContain("6f8e51b4682e1e5ff733895d11d099ff5afd015b");
     expect(s).toContain("one canonical iPix CopilotKit skill");
     expect(s).toContain("AGENTS.md");
+  });
+
+  it("keeps version snapshots and future release APIs out of the entry point", () => {
+    const entry = read("SKILL.md");
+    expect(entry).not.toContain("main` has CopilotKit Runtime/React Core 1.73.3");
+    expect(entry).not.toContain("do not read all 97");
+    expect(entry).toContain("Read `package.json`, `package-lock.json`");
+    const guidance = read("references/upgrade/ipix-v2-conventions.md");
+    expect(guidance).toContain("1.88.0");
+    expect(guidance).toContain("1.89.0");
+    expect(guidance).toContain("1.90.0");
+    expect(guidance).toContain("modelContext: true");
+    expect(guidance).toContain("leave it **disabled**");
+    expect(guidance).toContain("telemetry opt-out");
+    expect(read("references/self-update.md")).toContain("inspector-workbench");
+    expect(read("references/self-update.md")).toContain("RUN_COPILOTKIT_SKILL_LIVE_EVAL");
   });
 
   it("keeps v2 API and in-process tenant runtime contracts", () => {
@@ -61,6 +77,23 @@ describe("IPI-1420 — official CopilotKit v3.2 lookup with iPix overlay", () =>
     expect(migration).toContain("@copilotkit/react-core/v2");
     expect(migration).not.toContain("@copilotkit/react (consolidated into one package)");
     expect(read("references/debug/debug.md")).toContain("four");
+  });
+
+  it("keeps quick answers lightweight and makes versioned references navigable", () => {
+    const entry = read("SKILL.md");
+    expect(entry).toContain("Simple explanation or documentation lookup");
+    expect(entry).toContain("Code changes, reviews, production incidents or upgrades");
+    expect(read("references/integrations/references/integrations/mastra.md"))
+      .toContain("## Contents");
+  });
+
+  it("keeps self-update as a reference, not an independently advertised skill", () => {
+    const update = read("references/self-update.md");
+    expect(update.startsWith("---")).toBe(false);
+    expect(update).toContain("**Reference only:**");
+    expect(update).toContain("COPILOTKIT_SKILL_EVAL_BASELINE_ROOT");
+    expect(update).toContain("COPILOTKIT_SKILL_EVAL_REPEATS");
+    expect(update).toContain("/ipix:copilotkit");
   });
 
   it("has available legacy reference routes rather than deleting their evidence", () => {
