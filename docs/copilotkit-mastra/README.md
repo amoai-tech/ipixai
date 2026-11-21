@@ -19,6 +19,15 @@ retired versions from historical conversion documents.
 - Supabase/Postgres owns durable application truth; Mastra does not bypass tenant authorization.
 - Consequential domain writes require human review/approval.
 
+## Local Mastra Studio (developer-only)
+
+- Run `npm run dev:agent` separately from `npm run dev:ui`. The CLI serves Studio on `http://127.0.0.1:4111`; the app's production Copilot uses the existing authenticated in-process Mastra runtime, not Studio.
+- `src/mastra/runtime.ts` installs `localStudioAuth` **only** for `mastra dev` on `127.0.0.1`, with CLI-controlled development markers and hosted mode disabled. The normal `server.auth` allowlist stays unchanged in every environment.
+- The Studio login screen needs a **fresh** user-scoped `Authorization: Bearer <Supabase access token>` header. Use a verified authenticated operator session; save the value in Studio's header form, never in source control, logs, screenshots or a shared documentation example. A token can expire; refresh the operator session instead of disabling authentication.
+- Local Studio permits only the metadata GET routes listed in `src/mastra/server-auth.ts`. It does **not** authorize workflow execution, tool POSTs, arbitrary stored resources, or run-count/observability reads. A separate, scoped, audited development change is required before testing those through Studio.
+- Do not expose Studio beyond loopback, add `studio.auth` to the hosted runtime, or copy the docs' demo auth provider. Missing `MASTRA_DATABASE_URL` uses **ephemeral in-memory storage in local dev only**, not durability proof. Keep real suspend/resume/persistence tests on the approved isolated testing path.
+- Official references: [Studio overview](https://mastra.ai/docs/studio/overview), [Studio auth](https://mastra.ai/docs/studio/auth), and [Studio deployment](https://mastra.ai/docs/studio/deployment). Use the **pinned** Mastra family in [runtime compatibility](../mastra/runtime-family.md), not automatically the latest upstream release.
+
 ## Read next
 
 - [Product requirements](../prd.md)

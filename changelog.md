@@ -6,6 +6,8 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ### Security
 
+- IPI-1143 — Restored authenticated, loopback-only Mastra Studio metadata inspection on the pinned 1.84 family without widening the ordinary Planner API. Supabase-verified operator identity, exact GET allowlist and tests preserve 401/403 for anonymous, invalid, external-client, workflow-run and tool-execution routes. Studio enables safe inspection of existing agents, workflows and tools only; no hosted access, schema change, or workflow execution.
+
 - IPI-1369 — Kept the three-per-day Vercel deployment-attempt limit; correctly classified Preview and unreported sources, protected Production-only CLI ownership, and routed recurring governance failures into one GitHub issue assigned to a maintainer.
 - IPI-1440 — Restricted Vercel governance token access to main-only audit runs; moved the Production policy drift check into a tokenless job and added a workflow contract test.
 - IPI-1091 / PR #339 — Hardened manual exact-SHA Vercel Preview certification: tokenless candidate build and browser tests, isolated compiled-artifact deploy runner, exact READY project/SHA ownership check before QA, protected main-ref workflow dispatch, and focused regression tests. Live pipeline certification and environment-scoped token migration remain required.

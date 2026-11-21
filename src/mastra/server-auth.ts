@@ -165,6 +165,33 @@ export function isAllowedMastraRoute(method: string, path: string): boolean {
   return ALLOWED_MASTRA_ROUTES.has(`${method} ${path}`);
 }
 
+/** Studio needs these registry/metadata reads to render its local dashboard.
+ * Never expand the normal remote-client allowlist to make Studio work. */
+const LOCAL_STUDIO_READ_ROUTES: ReadonlySet<string> = new Set([
+  "GET /api/agents",
+  "GET /api/processors",
+  "GET /api/tools",
+  "GET /api/scores/scorers",
+  "GET /api/system/packages",
+  "GET /api/mcp/v0/servers",
+  "GET /api/workflows",
+  "GET /api/workspaces",
+  "GET /api/editor/builder/settings",
+]);
+
+export function isAllowedLocalStudioRoute(method: string, path: string): boolean {
+  return LOCAL_STUDIO_READ_ROUTES.has(`${method} ${path}`);
+}
+
+/** Both CLI-generated dev markers and a loopback bind are required.
+ * NODE_ENV is production inside `mastra dev`, so it is not a safe discriminator. */
+export function isLoopbackMastraStudioDev(env: NodeJS.ProcessEnv = process.env): boolean {
+  return !isMastraHostedRuntime(env) &&
+    env.MASTRA_DEV === "true" &&
+    env.MASTRA_TELEMETRY_COMMAND === "dev" &&
+    env.MASTRA_HOST === "127.0.0.1";
+}
+
 export const plannerMastraAuth = defineAuth<PlannerMastraUser>({
   protected: ["/ipix/*"],
   authenticateToken: async (accessToken) => {
@@ -175,3 +202,17 @@ export const plannerMastraAuth = defineAuth<PlannerMastraUser>({
   authorize: async (path, method) => isAllowedMastraRoute(method, path),
   mapUserToResourceId: (user) => user.resourceId,
 });
+
+/** Native `studio.auth` keeps local Studio metadata reads separate from the
+ * remote API. Mastra's capabilities endpoint calls getCurrentUser() (not
+ * authenticateToken()) to decide whether to show its authenticated UI. */
+export const localStudioAuth = {
+  ...plannerMastraAuth,
+  getCurrentUser: async (request: Request): Promise<PlannerMastraUser | null> => {
+    const header = request.headers.get("authorization");
+    if (!header?.startsWith("Bearer ")) return null;
+    const token = header.slice("Bearer ".length).trim();
+    return token ? resolveMastraIdentity(token) : null;
+  },
+  authorize: async (path: string, method: string) => isAllowedLocalStudioRoute(method, path),
+};
