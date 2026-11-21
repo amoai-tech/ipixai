@@ -1,2 +1,5 @@
-# Default review owner for bootstrap. Tighten paths as the team grows.
-* @amo-tech-ai
+# Database changes and CODEOWNERS edits require an authorized human reviewer.
+# Both owners have write access. A PR author cannot approve their own PR.
+# No bot or retired account is a migration code owner.
+/supabase/ @amoai-tech @mde-amo
+/.github/CODEOWNERS @amoai-tech @mde-amo
