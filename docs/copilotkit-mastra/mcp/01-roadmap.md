@@ -1,118 +1,69 @@
-# 01 — Core → Advanced MCP Implementation Roadmap
+# 01 — MCP for iPix Product Agents: Core → Advanced Roadmap
 
-**Authority:** Verified iPix `origin/main` at `07829181` and Linear issue state on 2026-11-20; Mastra Core 1.84.0 / CLI 1.40.0. No live authenticated MCP tool invocation or external-provider connection was performed by this planning pass. Check exact version, PR and production SHA before implementation.
+**Goal:** Equip the real iPix Production Planner and future Brand, Research, Ecommerce, Creative and CRM agents with **reusable, authorized tool capabilities**. **Not** a developer-only MCP Inspector/Studio integration. **Source:** iPix `origin/main` 07829181; Mastra Core 1.84.0. The [README](./README.md) contains feature scores and user-facing use cases.
 
-## Stage 0 — Core: Prove the existing server, not a new one
+## Target design — reuse → MCP where justified
 
-### P1 proposed new task — Prove One Authenticated, Read-Only MCP Connection to iPix's Existing Mastra Server
-
-See [03-task-proposals.md](./03-task-proposals.md). This is a **new task draft**, not a created Linear ID. It is distinct from existing IPI-995 tool-governance and IPI-1002 generalized integration standardization.
-
-**User story:** An engineer opens the existing Studio `/mcps` page and connects an MCP Inspector or Claude Code to the **existing** Mastra server. The client can list only allowed metadata/tools; invalid token and attempt to execute a Brand write are rejected.
-
-**Fastest implementation sequence:**
-
-1. **Record status before any installation:** exact main/PR and running app SHAs; `/mcps` UI; unauthenticated `/api/mcp` and `/api/mcp/builtin`; existing `server.auth` and local Studio `studio.auth`. A 401 is expected for anonymous; test authorized flows separately.
-2. **Read package compatibility:** Core 1.84.0 meets the documented MCP 2.0 core peer minimum (>=1.76), but `@mastra/mcp` is not currently declared. Choose a **compatible pinned v2 version** only if the feature is needed. Do not mass-upgrade Mastra or install latest by default. Recheck the runtime's exact built-in server availability and version handling after install.
-3. **Prefer native built-in server:** verify `server.mcp` defaults, built-in endpoint and descriptor. Do not create a second `MCPServer`, separate API host, or duplicate agent registry merely to show a card.
-4. **Keep auth strict:** local loopback only for developer proof, existing Supabase-backed caller identity and server-side organization ownership; read-only metadata/test fixture, not customer data or privileged write. Verify `/api/mcp/*` transport **and** REST/Studio routes against caller permissions. Never forward user JWT into model messages.
-5. **Inspect the actual MCP client:** use a trusted CLI/Inspector against `http://127.0.0.1:4211/api/mcp` with an authorized short-lived developer token managed outside git/URLs. Verify `tools/list`, one **safe read-only tool** (if exposed), and negative forbidden tool. The built-in server has per-caller tool discovery; don't assume the local Studio card shows the same list.
-6. **Retest and document:** local authenticated/anonymous and wrong-org tests, request timeouts, client version negotiation, restart, log redaction; leave development workflow output truthful.
-
-**Likely code/test owners (minimal, conditional):** `package.json` / lockfile, `src/mastra/runtime.ts`, `src/mastra/server-auth.ts`, `tests/mastra-mcp-availability.test.ts` (new if needed), `tests/mastra-mcp-authz.test.ts` (new), existing auth/route allowlist tests. **Do not alter `server.auth` globally just to enable Studio's MCP read badge.**
-
-**Done when:** a *real* authenticated MCP client lists the intentionally exposed read-only capability, an explicitly unauthorized invocation is denied at the HTTP and domain boundary, and no separate service or new sensitive stored secrets were created.
+**One canonical business owner:** The current iPix services/RPCs and `src/mastra/tools` keep each domain operation. A tool can be used *directly* by the in-process Mastra agent, exported through an optional **curated MCPServer** to another process/client, or composed with one **MCPClient** that uses an external vendor's functionality. Do not create a second database-backed tool engine, proxying the same in-process call through HTTP, or a broad MCP registry.
 
 ~~~mermaid
-sequenceDiagram
-  participant D as Developer / MCP client
-  participant M as Existing Mastra /api/mcp
-  participant A as Existing server auth
-  participant T as Existing authorized tool
-  D->>M: tools/list with developer bearer
-  M->>A: authenticate + authorize caller
-  alt invalid or insufficient
-    A-->>D: 401/403, no list or execution
-  else allowed read-only
-    A-->>M: scoped authorized identity
-    M-->>D: permitted tools
-    D->>M: call one safe read-only tool
-    M->>T: recheck permitted action
-    T-->>D: bounded metadata result
-  end
+flowchart TD
+  U["Operator asks /app CopilotKit"] --> A["Production Planner or native Mastra specialist"]
+  A --> I["Server-authorized actor/org/Brand/Shoot"]
+  I --> T{"Existing tool or missing outside capability?"}
+  T -->|"Existing"| M["Reuse createTool / RPC / Cloudinary domain service"]
+  T -->|"Outside"| C["Bounded MCPClient provider tool with scoped credential"]
+  M --> D["Real domain read or idempotent server write"]
+  C --> D
+  M --> S["Optional curated MCPServer for a real outside agent/client"]
+  D --> V["Grounded GenUI/card/status and persisted readback"]
 ~~~
 
-## Stage 1 — Core: One useful external MCP integration, only if needed
+## Phase A — Core: Make existing tools usable across product agents
 
-**Existing owner:** [IPI-1002 · MASTRA-WF-009 — Standardize External Integrations Only After Repeated Need](https://linear.app/amo100/issue/IPI-1002) — Backlog, **not a blocker**. Use provider-specific product issue for the real feature; do not move M7 abstraction into the critical path.
+| Priority | Tool family and existing ownership | Minimum useful capability | Operator journey + proof |
+| --- | --- | --- | --- |
+| P0 | **Brand DNA / Brand evidence:** [IPI-1476](https://linear.app/amo100/issue/IPI-1476), [IPI-1128](https://linear.app/amo100/issue/IPI-1128) | Read the authorized Brand profile, citations, and explicit unknown facts from existing service; do not auto-start paid crawl | “Create a campaign using my Brand DNA” → accurate Brand specifics, no other org records |
+| P0 | **Shoot plan, deliverables, shot list:** [IPI-1049](https://linear.app/amo100/issue/IPI-1049) Done and [IPI-1151](https://linear.app/amo100/issue/IPI-1151) In Progress | Reuse current five planning tools and exactly reviewed Shoot save; no duplicate tool class | “Plan 10 photos” → structured brief and exact deliverables; review → save once → reopen |
+| P0 | **Budget correctness:** [IPI-1250](https://linear.app/amo100/issue/IPI-1250), [IPI-1223](https://linear.app/amo100/issue/IPI-1223) | Use actual deliverable count in `composeShootPlan`, verify model/AG-UI streaming and persistence | “Cost for 10 assets” → no contradictory 12-item estimate, same answer after refresh |
+| P1 | **Asset discovery:** [IPI-1069](https://linear.app/amo100/issue/IPI-1069), [IPI-1392](https://linear.app/amo100/issue/IPI-1392) | Server-scoped read of existing asset metadata/Cloudinary versions; return stable IDs and safe previews; avoid parallel asset index | “Find 2026 summer campaign images” → correct org, asset/version IDs, no made-up URLs |
+| P1 | **Website research:** [IPI-1251](https://linear.app/amo100/issue/IPI-1251), [IPI-1477](https://linear.app/amo100/issue/IPI-1477) | Compare existing Gemini URL Context/Google Search path to native Mastra fetch/search or one vetted provider MCP, then use **one** | “Research this fashion website” → cited real facts, SSRF-safe, honest inaccessible pages, no draft approval |
+| P1 | **Shoot/campaign read status:** [IPI-1355](https://linear.app/amo100/issue/IPI-1355), [IPI-1480](https://linear.app/amo100/issue/IPI-1480) | Expose bounded truthful domain status via existing routes instead of new MCP task DB | “Which shoots are due this week?” → actual status and time zone, trusted IDs |
+| P1 | **Products and variants:** [IPI-1165](https://linear.app/amo100/issue/IPI-1165) Done, [IPI-1301](https://linear.app/amo100/issue/IPI-1301) In Progress | Return canonical `ProductRef`/variant IDs from current catalog; optional Shopify SDK, MCP only if superior | “Use this exact black jacket” → authentic SKU/variant, not hallucinated inventory |
+| P1 | **Reviewed actions:** [IPI-1151](https://linear.app/amo100/issue/IPI-1151), [IPI-1208](https://linear.app/amo100/issue/IPI-1208) Done | Existing approved revision/hash + server-derived actor and idempotent RPC, not a generic MCP write endpoint | “Save the reviewed plan” → one durable Shoot after duplicate click, unauthorized denied |
 
-Candidate business owners, each **already exists**:
+**Current source files (inspect before editing):** `src/mastra/agents/production-planner.ts`, `src/mastra/tools/planning.ts`, `src/mastra/tools/compose-shoot-plan.ts`, `src/mastra/tools/brand-intelligence.ts`, `src/mastra/planner-tool-gate.ts`, `src/mastra/runtime.ts`, existing Supabase/Cloudinary services and CopilotKit route. Preserve the existing five-compute/two-Brand tool gate.
 
-| Existing task | Practical MCP use case | Fastest and safer choice |
-| --- | --- | --- |
-| [IPI-1477 · AGENTS-004 — Add Research Expert for Cited Competitor and Website Research](https://linear.app/amo100/issue/IPI-1477) — Backlog | “Compare three fashion competitors with cited sources” | Prefer current trusted research/crawl and provider SDK; evaluate one read-only MCP source only if it provides missing evidence |
-| [IPI-1478 · AGENTS-005 — Add CRM Expert With Authorized Contact and Deal Context](https://linear.app/amo100/issue/IPI-1478) — Backlog | “Which contacts need follow-up?” | Existing internal CRM/RPC first; if external CRM MCP required, use user-scoped OAuth and read-only initial capability |
-| [IPI-1302 · PRODUCTS-SHOPIFY-001 — Add Shopify as an Optional Read-Only Catalog Adapter](https://linear.app/amo100/issue/IPI-1302) — Todo | Read Shopify products/variants | Current Shopify GraphQL/SDK adapter first; MCP only if truly removes complexity without losing canonical ProductRef |
-| [IPI-1156 · XPOZ-001 — Add Read-Only Social Intelligence to Brand Research](https://linear.app/amo100/issue/IPI-1156) — Backlog | Check public brand social trends with provenance | Issue already favors narrow official SDK wrapper; **do not mount full social MCP tool catalog** |
-| [IPI-1219 · DSH-INTEGRATIONS-001 — Add Verified DeepSeek Harness Integrations, MCPs, Web Research, and Engineering Plugins](https://linear.app/amo100/issue/IPI-1219) — In Review | Developer tooling and code assistant integrations | **Developer harness only**, not a new production MCP feature |
+**Do not expose an unbounded `tools/list` catalog:** For in-process agents, call existing typed tools directly. If interoperability is needed, create one *curated* MCPServer that registers the **same underlying tool definitions** with operation-level permissions (not cloned implementations). For external provider features, use an MCPClient with a scoped provider connection.
 
-**First slice:** Choose **one** named provider and one allowlisted read-only function, only after comparing direct API/SDK vs MCP on complexity, user consent, latency, availability, cost and tool truth.
+## Phase B — Advanced: Agent capabilities for richer workflows
 
-**MastraClient options:**
-- `MCPClient({servers:{...}})` with local `command + args` or remote Streamable HTTP `url`.
-- `listTools()` is suitable for one app-owned credential and static dev configuration.
-- For multi-tenant users, **do not load a shared personal API key into every user's agent**. Use per-request scoped credentials/toolsets, namespace exact provider tools and disconnect on shutdown; never put bearer tokens into prompts/client bundle.
-- Tool descriptions and `ToolSearchProcessor` are not permission systems. Use existing activeTools and server-side domain checks even after MCP discovery.
+| Priority | Capabilities and existing Linear owner | Operator result | Integration choice |
+| --- | --- | --- | --- |
+| A1 | Semantic asset suggestions — [IPI-1136](https://linear.app/amo100/issue/IPI-1136), [IPI-1392](https://linear.app/amo100/issue/IPI-1392) | “Find visually similar lookbook shots” | Existing canonical assets / embeddings; MCP only for another consumer |
+| A1 | Research and trends — [IPI-1477](https://linear.app/amo100/issue/IPI-1477), [IPI-36](https://linear.app/amo100/issue/IPI-36) | Source-backed competitor comparison | One bounded read-only research provider; no broad web crawler exposed |
+| A1 | Multi-agent delegation — [IPI-1474](https://linear.app/amo100/issue/IPI-1474), [IPI-1475](https://linear.app/amo100/issue/IPI-1475) | Planner coordinates Brand and Research specialists | Native Mastra supervisor first, MCP only for genuinely external agent |
+| A2 | Creative QA — [IPI-1138](https://linear.app/amo100/issue/IPI-1138) Done, [IPI-1136](https://linear.app/amo100/issue/IPI-1136) | “Check if images match the shot list and Brand DNA” | Reuse native QA metadata/logic |
+| A2 | CRM read/draft — [IPI-1478](https://linear.app/amo100/issue/IPI-1478) | “Which clients need follow-up?” | Existing CRM API; outside CRM MCP only with per-org credentials |
+| A2 | Talent suggestions — existing talent/matching domain | “Shortlist models for this shoot” | Verify actual availability and permitted profile data; no invented bookings |
+| A2 | Campaign copy and publishing — [IPI-1480](https://linear.app/amo100/issue/IPI-1480), [IPI-77](https://linear.app/amo100/issue/IPI-77) | “Draft Instagram captions using approved images” | Use domain review/action; no automatic external publish from tool metadata |
+| A2 | User-scoped Shopify/CRM MCP — [IPI-1302](https://linear.app/amo100/issue/IPI-1302), [IPI-1002](https://linear.app/amo100/issue/IPI-1002) | “Connect my store, then plan from actual variants” | Compare SDK vs provider MCP; per-org OAuth where supported, tokens stay outside model |
 
-**Proof:** selected provider can answer a real authorized read request with stable provenance, no access to another user's connection, no synthetic success, graceful outage and reconnect, and no surprise writes or unsolicited external costs.
+## Phase C — MCP interoperability only once a real agent needs it
 
-## Stage 2 — Core: Security, reliability and discoverability
+**Product-first suggested new test:** [03-task-proposals.md](./03-task-proposals.md) proposes **MCP-AGENT-001 — Prove One iPix Product Agent Uses a Reusable MCP Capability End to End**. The user journey should be one of the Phase A capabilities, not merely developer tools/list. Keep a real MCP Inspector smoke as **one verification method**, not the deliverable.
 
-**Existing task owners:**
+1. Select existing Product Planner/Brand/Asset tool, and demonstrate where MCP adds cross-process/provider interoperability. If it does **not**, retain direct native tool call and record the no-MCP decision.
+2. Verify `@mastra/mcp` optional dependency, pinned MCP 2.x compatibility and correct runtime 1.84 types before installation.
+3. Reuse existing `createTool` and domain services; optional **curated MCPServer** exposes a safe read-only subset, or **MCPClient** connects one real outside provider. Do not register every tool just to populate Studio.
+4. Validate `/api/mcp` plus per-server transport/REST permissions; anon/invalid/wrong-org denied at execution even when a tool name is guessed.
+5. Test one authenticated **/app conversation** → AI agent chooses correct capability → real data → grounded answer, with refresh/retry and negative cross-tenant proof.
+6. Focused Vitest → typecheck → Playwright 390px → database truth → exact-head CI → post-merge smoke.
 
-- [IPI-995 · MASTRA-WF-002 — Govern the Real iPix Tool Surface Without a Custom Registry Framework](https://linear.app/amo100/issue/IPI-995) — Backlog: inventory existing seven Planner tools, identify external MCP discovery/loaded-tool boundary only when one is truly integrated.
-- [IPI-1143 · MASTRA-EPIC — Govern One Current Mastra Runtime Across iPix](https://linear.app/amo100/issue/IPI-1143) — In Progress: version pin, Studio vs production runtime ownership, compatibility and host boundary.
-- [IPI-877 · PLATFORM-NATIVE-001 — Check Native Platform Features Before Building Custom Tools](https://linear.app/amo100/issue/IPI-877) — Backlog: prefer provider capability before custom MCP proxy.
-- [IPI-1474 · AGENTS-001 — Prove Safe Concierge Delegation Before Changing the Agent Registry](https://linear.app/amo100/issue/IPI-1474) — Backlog: one Mastra runtime; external MCP is optional, **not** a requirement to delegate local specialist agents.
-- [IPI-1208 · PLANNER-TOOLGATE-001 — Exclude Consequential Write Tools From the Planner's Tool Set During Plan-Generation Turns](https://linear.app/amo100/issue/IPI-1208) — Done: preserve the current narrower planning tool set when integrating external capabilities.
+**Observability and costs:** Record real provider errors and durations via existing Sentry/Mastra traces; refuse unsafe credentials, responses, arbitrary shell tools, implicit writes and unverified external prices. Do not add MCP ToolSearchProcessor unless numerous validated capabilities and measured routing benefit justify it.
 
-**Safety checklist:** actor/org mapped server-side; per-request OAuth audience/scope/expiry; provider metadata/schema validation; bounded timeouts/response sizes, cancel propagation, transport error handling, prompt injection in untrusted MCP outputs, logging redaction, no arbitrary process/file/browser tools, explicit authorized mutation boundaries, repeat/retry idempotency. Verify **transport and REST execution routes**, not just one MCP URL.
+## Built-in MCP endpoint status — developer QA, not the product goal
 
-**Operational checks:** package peer compatibility, server startup no hanging stdio child processes, discovery timeout, disabled MCP falls back to normal Planner without fake tool availability, provider revocation immediately prevents use, no cross-tenant caching, Vercel/serverless compatibility for remote vs stdio.
+The current Studio `/mcps` responds 200, anonymous `/api/mcp` and `/api/mcp/builtin` return 401, `@mastra/mcp` is not declared in inspected iPix main and no custom `mcpServers` exist in `src/mastra/runtime.ts`. A green Studio page therefore does **not** certify the product agents can use MCP. Validate an authenticated MCP client only when implementing the selected capability.
 
-## Stage 3 — Advanced: Publish selected iPix capabilities if a consumer exists
-
-**Do not deploy a custom `MCPServer` without a confirmed external client** needing a curated set of iPix tools/resources. The built-in MCP server is a faster starting point but exposes registered categories subject to current HTTP auth. For carefully selected external access, define a narrow explicit server only after a consumer and scope are proven.
-
-**Possible future use case:** An approved agency's coding assistant queries an iPix-owned read-only campaign brief or project status with its **own** restricted identity. It cannot edit campaign data or see unrelated client records.
-
-- Explicitly allowlist safe read-only tools/resources; no automatic export of all seven Planner tools/workflows.
-- Use native `MCPServer` and built-in `server.auth` / OAuth discovery or accepted identity provider; verify audience/scope/tenant.
-- MCP v2's **2026-07-28** server protocol is stateless; distinguish from 2025 session-oriented clients. Test actual client compatibility, avoid old `/sse` tutorials, do not add sticky-session infrastructure.
-- Test MCP transport, Studio REST tool execution and resource routes; do not enforce auth on only `/mcp` and leave sibling REST routes exposed.
-- If the intended external client uses an older protocol, choose a documented version-compatibility plan; do not pretend all clients negotiate v2.
-- Deferrable MCP Apps (`ui://` iframe views) add a separate sandbox/UI boundary. Do not duplicate the existing CopilotKit A2UI/GenUI product UI merely to support Studio.
-
-**No new public URL or production endpoint until there is a named external consumer, auth and exact user journey.**
-
-## Stage 4 — Advanced: Only measured expansion
-
-| Capability | When useful | Decision |
-| --- | --- | --- |
-| OAuth token refresh / delegated provider access | Different iPix operators connect their own permitted external account | Add only for a selected provider; do not use app-wide service key |
-| MCP prompts and resources | External client needs a stable read-only resource and source attribution | Start with one bounded resource; ensure org authorization |
-| Elicitation / `input_required` | A provider asks for extra information mid-tool call | Verify host support and replay after suspend; no approval bypass |
-| `ToolSearchProcessor` | Many already-authorized tools make prompts too large | Current Planner has seven; **defer** until measured improvement |
-| MCP Apps in Studio | A tool's result is meaningfully interactive | Studio-only experiment; keep untrusted UI sandbox and no duplicate CopilotKit frontend |
-| Observability and evals | Meaningful MCP tool failure/latency/cost warrants action | Reuse existing Sentry/Mastra traces and tests, no duplicate monitoring stack |
-
-## Target checks for each implementation
-
-1. **Static truth:** package installed/pinned, exact MCP endpoint, exposure map, server and agent auth remain strict, no secret import into client or logs.
-2. **Transport:** client discovery with correct protocol, tools/list, one safe tool success, malformed input, failed upstream, timeout/reconnect, cancellation.
-3. **Authorization:** anonymous 401; invalid/expired 401; wrong permission/tenant 403; read-only tool must not invoke Brand approval, paid crawl, Shoot save or another org's data.
-4. **Lifecycle:** restart/redeploy doesn't leak subprocesses or stale cached cross-user credentials; no silent ephemeral claim.
-5. **Business journey:** if external MCP added, demonstrate one real `/app` operator feature from user request → agent tool → source-backed UI result; database readback only for legitimately persisted data.
-6. **Verification:** smallest Vitest → typecheck/lint → MCP Inspector and authenticated negative tests → browser Playwright if UI changes → exact-head CI → post-merge smoke.
-
-**Recommendation:** Stage 0 readiness first; Stage 1 only when there is an actual missing external capability. Existing owners cover provider features and governance. **Do not create a new MCP registry epic**, and do not resurrect canceled [IPI-138 · AIOR-023 · MCP registry foundation](https://linear.app/amo100/issue/IPI-138).
+**Outcome to seek first:** An iPix operator asks a real fashion-production question and the Product Planner retrieves trustworthy Brand/asset/plan data via the smallest appropriate capability. MCP is useful only if it improves that path without duplicating the existing engine.

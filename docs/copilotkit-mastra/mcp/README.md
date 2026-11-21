@@ -1,67 +1,64 @@
-# iPix Mastra MCP — Core → Advanced Roadmap
+# iPix Mastra MCP — Product-Agent Tools Roadmap
 
-**Reviewed:** 2026-11-20 | **Code baseline:** `amoai-tech/ipixai` `origin/main` `07829181` | **Pinned:** Mastra Core 1.84.0, CLI 1.40.0. Reverify before implementation. This document is planning, not feature certification.
+**Updated:** 2026-11-20 | **Goal:** Give iPix **product-facing AI agents** secure, useful tools for Brand Intelligence, fashion shoots, assets, product catalogs, campaigns and customer operations. **Not** primarily a developer Studio/MCP Inspector integration. **Source:** verified iPix origin/main `07829181` and Mastra Core `1.84.0`; scores are **recommended priority /100**, not completeness or test pass rate.
 
-## Main decision
+## Plain-English decision
 
-**Do not build an MCP platform just to fill the Studio MCP page.** Start with one safe, read-only **built-in MCP server smoke test**, then connect one carefully selected external MCP provider **only if an existing iPix feature actually needs it**. Keep production iPix on its existing Next.js / CopilotKit / Mastra / Supabase paths.
+iPix should create a **curated, reusable agent-tool capability layer** using its existing Mastra `createTool` definitions and iPix's real Supabase/Cloudinary/Next.js services. Add **MCPClient** only where product agents need a genuine outside MCP provider; expose the **same existing tools through MCPServer** when an actual additional agent/client needs MCP interoperability. **Do not make the in-process Planner call its own tools through an unnecessary HTTP MCP round trip.**
 
-**Real-world example:** An iPix engineer asks a local coding assistant, “Which Mastra workflows does my test environment expose?” The assistant can inspect permitted, **read-only metadata** through an authenticated MCP connection. It cannot approve Brand DNA, edit a Shoot, run a paid crawl, or access another organization's data.
+**Example:** “Find images from our last swimwear shoot, plan 10 new shots and calculate a budget.” Agent reads authorized Brand/asset data, uses the existing shoot-planning tools, and returns grounded recommendations. Saving, approving or publishing must use the existing explicit user-reviewed server action, with correct tenant and transaction checks.
 
-## What is verified now
+## Core product-facing MCP capabilities
 
-| Item | Current evidence | Conclusion |
-| --- | --- | --- |
-| `http://127.0.0.1:4211/mcps` | HTTP 200 for UI HTML | Page reachable, **not** proof that the MCP backend is functional |
-| `http://127.0.0.1:4211/api/mcp` | Anonymous HTTP 401 | Auth applies; authenticated MCP tool discovery **not yet tested** |
-| `http://127.0.0.1:4211/api/mcp/builtin` | Anonymous HTTP 401 | Studio descriptor requires auth / permission |
-| `@mastra/mcp` | Not pinned in `origin/main/package.json` or package-lock; absent as directly resolvable package in inspected installed 1.84 checkout | Required optional MCP package not installed as an iPix dependency |
-| `mcpServers` and `server.mcp` | Absent from `src/mastra/runtime.ts` on current main | No custom MCP registrations; built-in endpoint needs separate readiness checks |
-| Production Planner | Seven product tools; existing activeTools gate | **Do not bypass** when exposing via MCP |
-| Existing separate 4111 Studio | Old 1.71 checkout; 4211 is patched main 1.84 checkout | Retain version distinction during testing |
+| Rank | Feature for iPix agents | Real-world example | Benefit | Score /100 | Reuse / current work |
+| --- | --- | --- | --- | ---: | --- |
+| 1 | **Brand DNA and evidence lookup** | “Use my Brand DNA to make a campaign that feels on-brand.” | Personalized, consistent outputs | **98** | Existing Brand data/Intelligence; IPI-1476, IPI-1128 |
+| 2 | **Shoot planning and shot lists** | “Plan 10 studio photos and five product videos.” | Faster structured production planning | **97** | Existing Planner `recommendShootType`, `planDeliverables`, `generateShotListDraft`, `composeShootPlan` |
+| 3 | **Search creative assets and versions** | “Find my previous summer campaign images.” | Reuse trusted Cloudinary media | **95** | IPI-1069, IPI-1392; use current asset tables/service first |
+| 4 | **Cost and budget estimates** | “What will 20 approved product images cost?” | Consistent, explainable estimates | **94** | Existing `estimateShootBudget`; fix IPI-1250 and IPI-1223 first |
+| 5 | **Public Brand-website research** | “Look at this fashion retailer's website and suggest a shoot.” | Grounded source-backed research | **93** | IPI-1251, IPI-1477; compare built-in search/fetch and existing provider path |
+| 6 | **Shoot / campaign status lookup** | “Which shoots are unfinished this week?” | Real operational visibility | **92** | Existing Shoot and Campaign domain reads; server-scope results |
+| 7 | **Product and variant lookup** | “Select the exact black size-M jacket for this Shoot.” | Plans linked to real inventory | **90** | IPI-1165, IPI-1301, optional IPI-1302 |
+| 8 | **Review, save and action tools** | “Review this exact plan and save one Shoot.” | AI ideas become actual saved work | **89** | Existing exact review/hash + idempotent RPC; IPI-1151 / IPI-1208 |
 
-**Do not infer:** a real MCP tool is executable from a Studio card, a 401 equals feature readiness, or an authenticated 501 has been observed. The exact authenticated result has not been checked in this research pass.
+## Advanced product-agent capabilities
 
-## The three architectures — choose deliberately
+| Rank | Feature | Real-world example | Benefit | Score /100 | Existing owner / decision |
+| --- | --- | --- | --- | ---: | --- |
+| 1 | **Semantic asset intelligence** | “Find photos visually similar to this reference.” | Faster creative reuse | **94** | IPI-1136 / IPI-1392; reuse canonical assets and existing embedding services |
+| 2 | **Competitor and trend research** | “Compare three Colombian fashion competitors using cited sources.” | Better campaign decisions | **92** | IPI-1477 / IPI-36; bounded read-only evidence |
+| 3 | **Multi-agent collaboration** | “Ask Brand, Research and Creative specialists to build one proposal.” | Specialized advice in one chat | **91** | IPI-1474, IPI-1475; native Mastra delegation first |
+| 4 | **Creative QA against Brand DNA** | “Check whether delivered images match my brief.” | Fewer revisions | **90** | IPI-1138 done; IPI-1136 and IPI-1131 follow-on |
+| 5 | **CRM context and follow-up drafts** | “Who needs a shoot follow-up this week?” | Better account management | **88** | IPI-1478; server-scoped data, drafts not unsupervised sends |
+| 6 | **Talent matching and scheduling** | “Shortlist suitable models for my campaign.” | Faster casting | **87** | Existing talent/matching domain; confirm authoritative availability |
+| 7 | **Campaign preparation and publishing** | “Prepare approved campaign assets and captions for Instagram.” | Less manual production work | **85** | IPI-1480 / IPI-77; external publishing only through existing authorized path |
+| 8 | **Per-organization external provider MCP connections** | “Connect this organization's Shopify or CRM account.” | New capabilities without custom provider infrastructure | **84** | IPI-1302 / IPI-1478 / IPI-1002; scoped OAuth where supported |
 
-| Direction | Purpose | iPix decision |
-| --- | --- | --- |
-| **iPix as MCP Client** | Mastra agent calls an outside provider's scoped tools (e.g., read-only authorized catalog) | **Conditional Core** only for a named user feature; existing SDK/service first |
-| **Built-in Mastra MCP Server** | External developer assistant can inspect/use *permitted* Mastra tools, agents and workflows through existing HTTP routes | **First read-only proof**; validate package, authentication, permissions, REST routes |
-| **Custom Mastra MCPServer** | Publish a curated tool/resource/prompt API for outside consumers | **Advanced, deferred** until a concrete outside consumer needs it; no generic exposure of every tool |
+**Scoring logic:** 40% user value + 30% reuse of current iPix code + 20% practical effort + 10% risk/operations. These are *judgment-based priorities*, not completion claims.
 
-**Not the same as:** ACP (coding-agent protocol), A2A (remote agent delegation), Mastra Studio itself, or MCP Apps (interactive embedded UI). These are separate choices, not prerequisites.
-
-## Architecture boundary
+## Architecture: native tools first, MCP only where it adds value
 
 ~~~mermaid
 flowchart TD
-  D["Local developer / external MCP client"] --> B{"Built-in MCP endpoint enabled?"}
-  B -->|"No"| X["Explicit unavailable/disabled response"]
-  B -->|"Yes"| T["Existing Mastra HTTP authentication + authorization"]
-  T -->|"Denied"| Z["401/403, no tool execution"]
-  T -->|"Allowed"| R["Bounded, read-only discovery/test"]
-  R --> I["Existing seven Planner tools and workflows"]
-  O["Authenticated iPix operator /app"] --> N["Existing CopilotKit → Mastra Planner"]
-  N --> G["Current activeTools + domain security"]
-  G --> I
-  I --> S["Existing Supabase and approved workflows"]
-  E["Future provider MCP server"] --> C["Server-scoped MCPClient only for a named feature"]
-  C --> G
+  U["iPix operator /app"] --> UI["One CopilotKit interaction"]
+  UI --> P["Mastra Planner / specialists"]
+  P --> G["Server-derived org, user, Brand, Shoot + activeTools gate"]
+  G --> A["Existing Mastra createTool definitions"]
+  A --> D["Supabase / Cloudinary / existing domain services"]
+  G --> X["MCPClient for justified external provider"]
+  X --> Z["Scoped external research / catalog / CRM MCP"]
+  A --> S["Optional curated MCPServer publishes same existing tools"]
+  S --> E["Additional authorized MCP consumers"]
+  D --> UI
+  Z --> UI
 ~~~
 
-**Critical:** The built-in server exposes registered Mastra capabilities, not an automatic copy of CopilotKit's per-turn `activeTools` policy. Validate every exposed operation's *own* route and domain checks; **readOnly / include / exclude settings are not substitutes for authenticated server authorization**.
+**Core distinction:** In-process Mastra agents already call Mastra tools directly. MCP adds interoperability across processes or providers; it isn't a required duplicate transport. The built-in `/api/mcp` server is useful for external clients, not a reason to expose the entire production toolset or bypass the current Planner tool gate.
 
 ## Documents
 
-1. [01 — Core → Advanced implementation roadmap](./01-roadmap.md): ordered stages, actual file owners, existing Linear tasks, test gates and application boundaries.
-2. [02 — Review of all supplied Mastra MCP links](./02-reference-review.md): 15 URL entries (14 distinct; one repeated), including Studio and GitHub examples.
-3. [03 — Existing Linear task mapping and proposed new tasks](./03-task-proposals.md): what to reuse, one concrete new baseline task draft, and what **not** to create.
+- [01 — Product-agent Core → Advanced implementation roadmap](./01-roadmap.md): phases, file owners, real journeys, test gates.
+- [02 — All 15 supplied MCP reference entries](./02-reference-review.md): Client vs Server, current v2 transport and important auth boundaries.
+- [03 — Existing Linear tasks and new task proposals](./03-task-proposals.md): reuse existing product owners, propose one narrow product-agent MCP integration test; no duplicate epic.
 
-## Rule for every change
-
-Current iPix code + installed versions → verified existing Linear owner → official Mastra docs/types → smallest native integration → focused tests → real authorized /app or MCP Inspector proof → exact-head CI → post-merge check.
-
-Do not install `@mastra/mcp@latest` blindly, use service-role credentials for Studio, open private/customer data to a generic MCP client, or copy old MCP 1.x examples without checking the protocol.
-
-**Status:** Documentation only. No packages installed, MCP servers exposed, ports opened, authentication changed, provider credentials touched, tools executed, or databases modified.
+**Status:** Roadmap and PR only. No agent MCP tool was implemented, provider authorized, new endpoint exposed, database modified or new Linear task created.
