@@ -455,6 +455,80 @@ describe("ShootPlanReview — explicit approve and save", () => {
     expect(onSettled).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    {
+      reason: "save_failed", status: 503,
+      message: "save service could not confirm", guidance: "retry Approve & save",
+    },
+    {
+      reason: "forbidden", status: 403,
+      message: "do not have permission", guidance: "Contact a brand owner",
+    },
+    {
+      reason: "not_approved", status: 409,
+      message: "plan is not approved", guidance: "Check its approval status",
+    },
+    {
+      reason: "superseded_revision", status: 409,
+      message: "newer plan revision exists", guidance: "approve the latest version",
+    },
+    {
+      reason: "hash_mismatch", status: 409,
+      message: "does not match", guidance: "Reload and review",
+    },
+    {
+      reason: "invalid_plan", status: 400,
+      message: "plan is invalid", guidance: "Reload and review",
+    },
+  ])("shows actionable $reason instead of a generic save failure", async ({
+    reason, status, message, guidance,
+  }) => {
+    const onSettled = vi.fn();
+    fetchMock.mockImplementation(async (url: string) => url.includes("/decision") ? decision :
+      url === "/api/shoots/save"
+        ? { ok: false, status, json: () => Promise.resolve({ error: "error", reason }) }
+        : { ok: true, status: 200, json: () => Promise.resolve({ url: PREVIEW_URL }) });
+    renderReview({ onSettled });
+    fireEvent.click(screen.getByTestId("review-approve-and-save"));
+    await waitFor(() =>
+      expect(screen.getByTestId("review-error").textContent).toContain(message),
+    );
+    expect(screen.getByTestId("review-error").textContent).toContain(guidance);
+    expect(onSettled).not.toHaveBeenCalled();
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
+  it("handles an unauthorized error without a reason and never exposes unknown server text", async () => {
+    const onSettled = vi.fn();
+    fetchMock.mockImplementation(async (url: string) => url.includes("/decision") ? decision :
+      url === "/api/shoots/save"
+        ? { ok: false, status: 401, json: () => Promise.resolve({ error: "unauthorized" }) }
+        : { ok: true, status: 200, json: () => Promise.resolve({ url: PREVIEW_URL }) });
+    renderReview({ onSettled });
+    fireEvent.click(screen.getByTestId("review-approve-and-save"));
+    await waitFor(() =>
+      expect(screen.getByTestId("review-error").textContent).toContain("Sign in again"),
+    );
+    expect(onSettled).not.toHaveBeenCalled();
+  });
+
+  it("does not display unknown or sensitive error details returned by the save API", async () => {
+    fetchMock.mockImplementation(async (url: string) => url.includes("/decision") ? decision :
+      url === "/api/shoots/save"
+        ? {
+            ok: false, status: 503,
+            json: () => Promise.resolve({ error: "private-server-debug-info", reason: "internal_secret_123" }),
+          }
+        : { ok: true, status: 200, json: () => Promise.resolve({ url: PREVIEW_URL }) });
+    renderReview();
+    fireEvent.click(screen.getByTestId("review-approve-and-save"));
+    await waitFor(() =>
+      expect(screen.getByTestId("review-error").textContent).toContain("save service could not confirm"),
+    );
+    expect(screen.getByTestId("review-error").textContent).not.toContain("private-server-debug-info");
+    expect(screen.getByTestId("review-error").textContent).not.toContain("internal_secret_123");
+  });
+
   it("reports a saved Shoot even when Planner resume fails, with a working detail link", async () => {
     const onSettled = vi.fn().mockRejectedValue(new Error("Planner run unavailable"));
     fetchMock.mockImplementation(async (url: string) => {

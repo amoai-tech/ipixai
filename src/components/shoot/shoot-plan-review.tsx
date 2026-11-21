@@ -81,6 +81,48 @@ function errorText(body: unknown): string {
   return typeof record.error === "string" ? record.error : "";
 }
 
+/**
+ * The save API exposes stable reason codes, not human-facing error strings.
+ * Map only known codes to safe guidance: approval-specific errorText() returns
+ * "decision could not be recorded" for SAVE_FAILED/NOT_APPROVED, which is
+ * misleading here because the decision may already be durable.
+ */
+function saveFailureMessage(body: unknown, status: number): string {
+  const record = typeof body === "object" && body !== null
+    ? (body as { reason?: unknown })
+    : null;
+  const reason = typeof record?.reason === "string" ? record.reason.toUpperCase() : "";
+
+  switch (reason) {
+    case "SAVE_FAILED":
+      return "The save service could not confirm the result. Check your Shoots list, then retry Approve & save; the server ensures one Shoot per approval.";
+    case "UNAUTHENTICATED":
+      return "Your session expired. Sign in again before trying to save.";
+    case "FORBIDDEN":
+      return "You do not have permission to save this Shoot. Contact a brand owner or editor.";
+    case "NOT_FOUND":
+      return "This approval was not found in your organization. Reload and review the current plan.";
+    case "NOT_APPROVED":
+      return "This plan is not approved. Check its approval status before trying to save.";
+    case "SUPERSEDED_REVISION":
+      return "A newer plan revision exists. Review and approve the latest version before saving.";
+    case "HASH_MISMATCH":
+      return "The approved plan does not match the stored revision. Reload and review the current plan.";
+    case "INVALID_INPUT":
+    case "INVALID_PLAN":
+      return "The approval or plan is invalid. Reload and review it before trying again.";
+  }
+
+  // Do not echo an unknown or potentially sensitive server error string.
+  // Status fallback handles authentication middleware's {error:"unauthorized"}
+  // without a reason, and missing/malformed JSON from transient failures.
+  if (status === 401) return "Your session expired. Sign in again before trying to save.";
+  if (status === 403) return "You do not have permission to save this Shoot. Contact a brand owner or editor.";
+  if (status === 409) return "The approved plan has changed. Reload and review its current revision.";
+  if (status >= 500) return "The save service could not confirm the result. Check your Shoots list, then retry Approve & save; the server ensures one Shoot per approval.";
+  return "The save response was unexpected. Check your Shoots list and reload before trying again.";
+}
+
 export function ShootPlanReview({
   identity: initialIdentity,
   plan,
@@ -198,7 +240,7 @@ export function ShootPlanReview({
             !isDatabaseUuid(savedRecord.shootId)) {
           setError(
             "Plan approved, but the Shoot was not confirmed saved. " +
-            "Retry Approve & save; the server ensures one Shoot per approval.",
+            saveFailureMessage(saved, savedResponse.status),
           );
           return;
         }
