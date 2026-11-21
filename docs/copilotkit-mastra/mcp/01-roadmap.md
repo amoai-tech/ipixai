@@ -19,6 +19,8 @@ flowchart TD
   D --> V["Grounded GenUI/card/status and persisted readback"]
 ~~~
 
+**Implementation detail:** [04 — Full Product-Agent Delivery Plan](./04-product-agent-delivery-plan.md) maps all 16 features to contracts, exact code owners, PR slices and realistic tests.
+
 ## Phase A — Core: Make existing tools usable across product agents
 
 | Priority | Tool family and existing ownership | Minimum useful capability | Operator journey + proof |

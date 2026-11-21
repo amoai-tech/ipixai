@@ -60,5 +60,7 @@ flowchart TD
 - [01 — Product-agent Core → Advanced implementation roadmap](./01-roadmap.md): phases, file owners, real journeys, test gates.
 - [02 — All 15 supplied MCP reference entries](./02-reference-review.md): Client vs Server, current v2 transport and important auth boundaries.
 - [03 — Existing Linear tasks and new task proposals](./03-task-proposals.md): reuse existing product owners, propose one narrow product-agent MCP integration test; no duplicate epic.
+- [04 — Full 16-Feature Product-Agent Delivery Plan](./04-product-agent-delivery-plan.md): exact Core/Advanced tool contracts, code owners, implementation slices, dependencies, real user journeys and acceptance tests.
+
 
 **Status:** Roadmap and PR only. No agent MCP tool was implemented, provider authorized, new endpoint exposed, database modified or new Linear task created.
