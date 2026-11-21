@@ -10,8 +10,7 @@
       ],
       "delegates_to": [
         "diagnosing-bugs",
-        "qa-test-code-coverage",
-        "testomatio"
+        "qa-test-code-coverage"
       ],
       "do_not_use_for": [
         "writing product requirements",
@@ -201,36 +200,6 @@
       ],
       "canonical": ".agents/skills/explain"
     },
-    "explorbot": {
-      "owner": "qa-browser",
-      "type": "workflow",
-      "summary": "Run, configure, debug, and plan autonomous Explorbot web testing.",
-      "modes": [
-        "fundamentals",
-        "setup",
-        "plan",
-        "explore"
-      ],
-      "delegates_to": [
-        "playwright-cli",
-        "qa-write-test-cases"
-      ],
-      "do_not_use_for": [
-        "deterministic browser merge gates",
-        "static-content-only testing"
-      ],
-      "replaces": [
-        "explorbot-fundamentals",
-        "explorbot-setup",
-        "explorbot-plan"
-      ],
-      "canonical": ".agents/skills/explorbot",
-      "routing_phrases": [
-        "explore this app for bugs",
-        "autonomous exploratory test",
-        "autonomous exploratory browser test"
-      ]
-    },
     "fashion-production": {
       "owner": "product-planning",
       "type": "methodology",
@@ -271,8 +240,7 @@
         "manual-test-improvement"
       ],
       "delegates_to": [
-        "automate-manual-test-cases",
-        "testomatio"
+        "automate-manual-test-cases"
       ],
       "do_not_use_for": [
         "writing product requirements",
@@ -771,7 +739,6 @@
         "qa-workflow-setup"
       ],
       "delegates_to": [
-        "testomatio",
         "qa-test-code-coverage"
       ],
       "do_not_use_for": [
@@ -882,7 +849,6 @@
         "qa-test-code-coverage",
         "qa-automation-test-consolidation",
         "diagnosing-bugs",
-        "testomatio",
         "setup-ci-automation"
       ],
       "do_not_use_for": [
@@ -890,36 +856,6 @@
         "non-QA feature implementation"
       ],
       "canonical": ".agents/skills/testing-workflow"
-    },
-    "testomatio": {
-      "owner": "qa-integration",
-      "type": "integration",
-      "summary": "Own Testomat.io reporting, sync, MCP, run, sprint-report, and PR-testing workflows.",
-      "modes": [
-        "reporting",
-        "sync",
-        "mcp",
-        "runs",
-        "pr-testing"
-      ],
-      "delegates_to": [
-        "qa-test-code-coverage",
-        "setup-ci-automation",
-        "diagnosing-bugs"
-      ],
-      "do_not_use_for": [
-        "generic test design",
-        "non-Testomat.io CI"
-      ],
-      "replaces": [
-        "qa-e2e-tests-reporting",
-        "qa-sprint-report-by-testomatio",
-        "sync-test-cases-with-tms",
-        "testomatio-mcp",
-        "run-tests-with-testomatio-reporter",
-        "setup-change-aware-pr-testing"
-      ],
-      "canonical": ".agents/skills/testomatio"
     },
     "to-spec": {
       "owner": "product-planning",
