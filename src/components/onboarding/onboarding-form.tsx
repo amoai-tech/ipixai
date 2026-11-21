@@ -7,6 +7,8 @@ import { startBrandAnalysisAction } from "@/app/app/brands/[brandId]/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/error-state";
+import { BrandDiscoveryScreen, type BrandDiscoveryValues } from "./a2ui/brand-discovery-screen";
+import { OnboardingGenUIProvider } from "./onboarding-genui-provider";
 import { BrandDetailsQuestion } from "./questions/brand-details-question";
 import { BuildTypeQuestion } from "./questions/build-type-question";
 import { ChannelsQuestion } from "./questions/channels-question";
@@ -39,6 +41,8 @@ const SAVE_DEBOUNCE_MS = 400;
 const ANALYSIS_HANDOFF_TIMEOUT_MS = 1500;
 const EMPTY_V2_DRAFT = parseDraftAnswers({ flowVersion: 2 }) as LegacyDraftAnswers & OnboardingDraft;
 type SaveState = "idle" | "saving" | "saved" | "error";
+const A2UI_ENABLED = process.env.NEXT_PUBLIC_ONBOARDING_A2UI === "1";
+const IDENTITY_KEYS = ["ig", "tiktok", "shopify"] as const;
 
 const STEP_ORDER: OnboardingResumeStep[] = [
   "build-type",
@@ -46,6 +50,11 @@ const STEP_ORDER: OnboardingResumeStep[] = [
   "channels",
   "growth-preference",
 ];
+
+// The flagged Screen 1 combines the first two legacy steps. Until the
+// Brand Insights screen (IPI-1463) is integrated, only three screens exist.
+// Keep persisted resumeStep values unchanged for older drafts.
+const A2UI_VISIBLE_STEP_COUNT = 3;
 
 function legacyStepToLean(step: ReturnType<typeof resolveSemanticStep>): OnboardingResumeStep {
   if (step === "brand-details") return "brand-details";
@@ -75,7 +84,8 @@ async function handoffBrandAnalysis(brandId: string): Promise<void> {
   }
 }
 
-export function OnboardingForm({ userId }: { userId: string }) {
+/** `a2ui` (IPI-1462) renders Screen 1 with CopilotKit forms; off keeps the native questions. */
+export function OnboardingForm({ userId, a2ui = A2UI_ENABLED }: { userId: string; a2ui?: boolean }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -91,6 +101,8 @@ export function OnboardingForm({ userId }: { userId: string }) {
   const saveInFlightRef = useRef(false);
   const transitionInFlightRef = useRef(false);
   const headingRegionRef = useRef<HTMLDivElement>(null);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
 
   const flushSave = useCallback(async (): Promise<boolean> => {
     const sessionId = sessionIdRef.current;
@@ -201,7 +213,15 @@ export function OnboardingForm({ userId }: { userId: string }) {
 
   const moveTo = useCallback(
     async (nextStep: OnboardingResumeStep, patch: Partial<LegacyDraftAnswers> = {}) => {
-      const next: LegacyDraftAnswers & OnboardingDraft = { ...draft, ...patch, flowVersion: 2 as const, resumeStep: nextStep };
+      // React may not have committed the last CopilotKit input change when the
+      // submit callback fires. Use the synchronously updated draft reference.
+      const next: LegacyDraftAnswers & OnboardingDraft = {
+        ...draftRef.current,
+        ...patch,
+        flowVersion: 2 as const,
+        resumeStep: nextStep,
+      };
+      draftRef.current = next;
       setSubmitError(null);
       pendingSaveRef.current = next;
       if (saveTimerRef.current != null) clearTimeout(saveTimerRef.current);
@@ -214,7 +234,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
       setStep(nextStep);
       return true;
     },
-    [draft, flushSave],
+    [flushSave],
   );
 
   const runTransition = useCallback(async (action: () => Promise<void>) => {
@@ -271,6 +291,51 @@ export function OnboardingForm({ userId }: { userId: string }) {
         return;
       }
       await handleMaterialize();
+    });
+  }
+
+  // Merge the user-edited fields into the canonical draft. Form submission
+  // can contain newer values than the last subscription/render callback.
+  const mergeBrandDiscovery = useCallback((values: Partial<BrandDiscoveryValues>) => {
+    const current = draftRef.current;
+    const channelIdentities = { ...current.channelIdentities };
+    for (const key of IDENTITY_KEYS) {
+      if (values[key] === undefined) continue;
+      const value = (values[key] ?? "").trim();
+      if (value) channelIdentities[key] = value;
+      else delete channelIdentities[key];
+    }
+    const next: LegacyDraftAnswers & OnboardingDraft = {
+      ...current,
+      brandName: values.brandName ?? current.brandName,
+      buildType: values.buildType === undefined ? current.buildType : values.buildType,
+      websiteUrl: values.websiteUrl ?? current.websiteUrl,
+      channelIdentities,
+      flowVersion: 2 as const,
+    };
+    draftRef.current = next;
+    queueDraft(next);
+    return next;
+  }, [queueDraft]);
+
+  const handleBrandDiscoveryChange = useCallback(
+    (values: BrandDiscoveryValues) => { mergeBrandDiscovery(values); },
+    [mergeBrandDiscovery],
+  );
+
+  async function handleBrandDiscoveryContinue(values: Partial<BrandDiscoveryValues>) {
+    await runTransition(async () => {
+      const current = mergeBrandDiscovery(values);
+      if (!current.brandName.trim()) {
+        setSubmitError("Brand name is required.");
+        return;
+      }
+      const urlError = validateUrl(current.websiteUrl);
+      if (urlError) {
+        setSubmitError(urlError);
+        return;
+      }
+      await moveTo("channels");
     });
   }
 
@@ -338,34 +403,54 @@ export function OnboardingForm({ userId }: { userId: string }) {
   }
 
   const busy = submitting || transitioning;
+  // IPI-1462: Screen 1 merges the old build-type + brand-details steps.
+  const showBrandDiscovery = a2ui && (step === "build-type" || step === "brand-details");
   const currentIndex = STEP_ORDER.indexOf(step);
-  const stepNumber = currentIndex >= 0 ? currentIndex + 1 : 4;
+  // Screen 1 merges build-type + brand-details, so it is always step 1.
+  const stepNumber = a2ui
+    ? showBrandDiscovery ? 1 : step === "channels" ? 2 : A2UI_VISIBLE_STEP_COUNT
+    : currentIndex >= 0 ? currentIndex + 1 : STEP_ORDER.length;
+  const stepCount = a2ui ? A2UI_VISIBLE_STEP_COUNT : STEP_ORDER.length;
   const publicIdentity = draft.channelIdentities.public ?? "";
 
-  return (
+  const card = (
     <Card className="mx-auto w-full max-w-xl" data-testid="onboarding-form" aria-busy={busy}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-4 text-xs text-[var(--muted-foreground)]">
           <span>iPix onboarding</span>
-          <span>Step {stepNumber} of 4</span>
+          <span>Step {stepNumber} of {stepCount}</span>
         </div>
         <div className="h-1.5 overflow-hidden rounded-full bg-[var(--muted)]" aria-hidden="true">
           <div
             className="h-full rounded-full bg-[var(--primary)] transition-[width]"
-            style={{ width: `${stepNumber * 25}%` }}
+            style={{ width: `${(stepNumber / stepCount) * 100}%` }}
           />
         </div>
       </CardHeader>
       <CardContent className="grid gap-6">
         <div ref={headingRegionRef} key={step}>
-          {step === "build-type" ? (
+          {showBrandDiscovery ? (
+            <BrandDiscoveryScreen
+              initial={{
+                brandName: draft.brandName,
+                buildType: draft.buildType,
+                websiteUrl: draft.websiteUrl,
+                ig: draft.channelIdentities.ig ?? "",
+                tiktok: draft.channelIdentities.tiktok ?? "",
+                shopify: draft.channelIdentities.shopify ?? "",
+              }}
+              onChange={handleBrandDiscoveryChange}
+              onContinue={(values) => void handleBrandDiscoveryContinue(values)}
+            />
+          ) : null}
+          {!showBrandDiscovery && step === "build-type" ? (
             <BuildTypeQuestion
               value={draft.buildType}
               onChange={(buildType) => updateDraft({ buildType })}
               disabled={busy}
             />
           ) : null}
-          {step === "brand-details" ? (
+          {!showBrandDiscovery && step === "brand-details" ? (
             <BrandDetailsQuestion
               brandName={draft.brandName}
               websiteUrl={draft.websiteUrl}
@@ -400,7 +485,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
           </p>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3" hidden={showBrandDiscovery}>
           {step !== "build-type" ? (
             <Button type="button" variant="outline" onClick={() => void goBack()} disabled={busy}>
               Back
@@ -429,4 +514,5 @@ export function OnboardingForm({ userId }: { userId: string }) {
       </CardContent>
     </Card>
   );
+  return a2ui ? <OnboardingGenUIProvider>{card}</OnboardingGenUIProvider> : card;
 }
