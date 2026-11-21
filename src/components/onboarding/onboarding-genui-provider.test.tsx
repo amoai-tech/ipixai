@@ -149,9 +149,40 @@ describe("IPI-1461 S0 — host-only CopilotKit onboarding form", () => {
       expect(onContinue).toHaveBeenCalledWith({ brandName: "Maison Atelier", buildType: "access" }),
     );
 
-    // No agent run was attempted: at most the refused runtime /info probe.
+    // The provider probed the runtime (refused with 403) and made no other
+    // request, so no agent run was attempted.
     const urls = fetchMock.mock.calls.map(([input]) => String(input instanceof Request ? input.url : input));
+    expect(urls.length).toBeGreaterThan(0);
     expect(urls.every((url) => url.endsWith("/api/copilotkit/info"))).toBe(true);
+  });
+
+  it("rejects out-of-enum arguments before the host handler runs", async () => {
+    const onContinue = vi.fn();
+    render(
+      <OnboardingGenUIProvider>
+        <Host onContinue={onContinue} />
+      </OnboardingGenUIProvider>,
+    );
+    await waitFor(() => expect(runtime).not.toBeNull());
+    const ops = step1Ops({ brandName: "Maison", buildType: null });
+    const root = (ops[1] as { updateComponents: { components: Array<Record<string, unknown>> } })
+      .updateComponents.components[0];
+    root.onSubmit = { functionCall: { "@call": "onboardingContinue", args: { brandName: "Maison", buildType: "bogus" } } };
+    act(() => {
+      runtime!.manager.setActiveThread(THREAD);
+      runtime!.manager.ingest(THREAD, undefined, {
+        surfaceId: SURFACE,
+        catalogId: ipixOnboardingUI.id,
+        target: TARGET,
+        status: "ready",
+        rejected: [],
+        operations: ops as never,
+      });
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Continue" }));
+    // Give a rejected call the same chance to land as an accepted one would.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(onContinue).not.toHaveBeenCalled();
   });
 
   it("does not overwrite what the user typed when the same surface is ingested again", async () => {

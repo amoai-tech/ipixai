@@ -43,11 +43,14 @@ export const ipixOnboardingUI = createGenerativeUI({
   extends: [standardUI.omit(omitted)],
   components: {},
   functions: {
-    // Values arrive as untrusted UI input; the host re-validates before saving.
+    // Browser-side shape check only, not a security boundary. Supabase RLS and
+    // the materialize RPC enforce ownership; the IPI-1462 handler must still run
+    // the existing brandName/validateUrl checks before saving. No length cap:
+    // the draft schema has none, so a cap here would block a valid draft.
     onboardingContinue: {
       description: "Save the current onboarding step and move to the next one.",
       parameters: z.object({
-        brandName: z.string().max(200).optional(),
+        brandName: z.string().optional(),
         buildType: onboardingBuildTypeSchema.nullable().optional(),
       }),
     },
