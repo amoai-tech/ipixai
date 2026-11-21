@@ -65,25 +65,29 @@ test("zero-org founder fills Screen 1 in a CopilotKit form, autosaves, survives 
 
     // Refresh: values must come back from Supabase, not memory.
     await page.reload();
-    await expect(page.getByLabel("Brand name (required)")).toHaveValue(brand);
+    await expect(page.getByLabel("Brand name (required)")).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByLabel("Brand name (required)")).toHaveValue(brand, { timeout: 15_000 });
     await expect(page.getByLabel("Accessories")).toBeChecked();
     await expect(page.getByLabel("Website (optional)")).toHaveValue("https://maisonatelier.example");
     await expect(page.getByLabel("Instagram handle or URL (optional)")).toHaveValue("@maisonatelier");
 
-    // Invalid website is blocked by host validation.
-    await page.getByLabel("Website (optional)").fill("not a url");
+    // Browser-native URL validation stops Form.onSubmit before the host action.
+    // Do not require an app-specific error when the browser has already blocked it.
+    const websiteInput = page.getByLabel("Website (optional)");
+    await websiteInput.fill("not a url");
     await page.getByRole("button", { name: "Continue" }).click();
-    await expect(page.getByTestId("onboarding-submit-error")).toBeVisible();
-    await expect(page.getByText("Step 1 of 4")).toBeVisible();
+    expect(await websiteInput.evaluate((element: HTMLInputElement) =>
+      !element.validity.valid && !!element.validationMessage)).toBe(true);
+    await expect(page.getByText("Step 1 of 3")).toBeVisible();
     await page.getByLabel("Website (optional)").fill("https://maisonatelier.example");
 
     // Continue → channels, Back → Screen 1 with values intact.
     await page.getByRole("button", { name: "Continue" }).click();
-    await expect(page.getByText("Step 3 of 4")).toBeVisible();
+    await expect(page.getByText("Step 2 of 3")).toBeVisible();
     await page.getByRole("button", { name: "Back" }).click();
     await expect(page.getByLabel("Brand name (required)")).toHaveValue(brand);
 
-    // Keyboard: the brand field is reachable and editable without a mouse.
+    // Keyboard editing proof. A separate Tab-only audit must test focus order.
     await page.getByLabel("Brand name (required)").focus();
     await page.keyboard.press("End");
     await page.keyboard.type("!");

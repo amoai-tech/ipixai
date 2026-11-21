@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 // Mock every CSS module the tree imports (OnboardingForm → ErrorState).
 vi.mock("../ui/error-state.module.css", () => ({
@@ -601,7 +601,7 @@ describe("IPI-1462 · ONBOARD-A2UI-01 — Screen 1 with CopilotKit forms (flag o
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByText("Step 3 of 4")).toBeDefined();
+    expect(await screen.findByText("Step 2 of 3")).toBeDefined();
     expect(supabaseMock.update).toHaveBeenLastCalledWith(
       expect.objectContaining({
         draft_answers: expect.objectContaining({ resumeStep: "channels", brandName: "Maison Atelier" }),
@@ -611,6 +611,35 @@ describe("IPI-1462 · ONBOARD-A2UI-01 — Screen 1 with CopilotKit forms (flag o
     const urls = vi.mocked(fetch).mock.calls.map(([input]) => String(input instanceof Request ? input.url : input));
     expect(urls.length).toBeGreaterThan(0);
     expect(urls.every((url) => url.endsWith("/api/copilotkit/info"))).toBe(true);
+  });
+
+  it("preserves the latest CopilotKit values on immediate Continue and Back", async () => {
+    supabaseMock = fakeSupabase(DRAFT_SESSION);
+    render(<OnboardingForm userId={TEST_USER_ID} a2ui />);
+    const name = await screen.findByLabelText("Brand name (required)");
+    const website = screen.getByLabelText("Website (optional)");
+    // Batch events to reproduce same-tick form submit before React re-renders.
+    act(() => {
+      fireEvent.change(name, { target: { value: "Immediate Atelier" } });
+      fireEvent.change(website, { target: { value: "https://immediate.example" } });
+      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    });
+
+    expect(await screen.findByText("Step 2 of 3")).toBeDefined();
+    await waitFor(() => expect(supabaseMock.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        draft_answers: expect.objectContaining({
+          brandName: "Immediate Atelier",
+          websiteUrl: "https://immediate.example",
+          resumeStep: "channels",
+        }),
+      }),
+    ));
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(await screen.findByText("Step 1 of 3")).toBeDefined();
+    expect((await screen.findByLabelText("Brand name (required)") as HTMLInputElement).value)
+      .toBe("Immediate Atelier");
   });
 
   it("blocks Continue without a brand name and keeps the founder on Screen 1", async () => {
@@ -625,6 +654,6 @@ describe("IPI-1462 · ONBOARD-A2UI-01 — Screen 1 with CopilotKit forms (flag o
     );
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect((await screen.findByTestId("onboarding-submit-error")).textContent).toBe("Brand name is required.");
-    expect(screen.getByText("Step 1 of 4")).toBeDefined();
+    expect(screen.getByText("Step 1 of 3")).toBeDefined();
   });
 });

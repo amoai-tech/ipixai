@@ -51,6 +51,11 @@ const STEP_ORDER: OnboardingResumeStep[] = [
   "growth-preference",
 ];
 
+// The flagged Screen 1 combines the first two legacy steps. Until the
+// Brand Insights screen (IPI-1463) is integrated, only three screens exist.
+// Keep persisted resumeStep values unchanged for older drafts.
+const A2UI_VISIBLE_STEP_COUNT = 3;
+
 function legacyStepToLean(step: ReturnType<typeof resolveSemanticStep>): OnboardingResumeStep {
   if (step === "brand-details") return "brand-details";
   if (step === "channels") return "channels";
@@ -208,7 +213,15 @@ export function OnboardingForm({ userId, a2ui = A2UI_ENABLED }: { userId: string
 
   const moveTo = useCallback(
     async (nextStep: OnboardingResumeStep, patch: Partial<LegacyDraftAnswers> = {}) => {
-      const next: LegacyDraftAnswers & OnboardingDraft = { ...draft, ...patch, flowVersion: 2 as const, resumeStep: nextStep };
+      // React may not have committed the last CopilotKit input change when the
+      // submit callback fires. Use the synchronously updated draft reference.
+      const next: LegacyDraftAnswers & OnboardingDraft = {
+        ...draftRef.current,
+        ...patch,
+        flowVersion: 2 as const,
+        resumeStep: nextStep,
+      };
+      draftRef.current = next;
       setSubmitError(null);
       pendingSaveRef.current = next;
       if (saveTimerRef.current != null) clearTimeout(saveTimerRef.current);
@@ -221,7 +234,7 @@ export function OnboardingForm({ userId, a2ui = A2UI_ENABLED }: { userId: string
       setStep(nextStep);
       return true;
     },
-    [draft, flushSave],
+    [flushSave],
   );
 
   const runTransition = useCallback(async (action: () => Promise<void>) => {
@@ -281,37 +294,38 @@ export function OnboardingForm({ userId, a2ui = A2UI_ENABLED }: { userId: string
     });
   }
 
-  // IPI-1462: Screen 1 edits go through the same debounced autosave. Each
-  // event carries all Screen 1 values; the ref is advanced here too so two
-  // events before the next render still build on each other.
+  // Merge the user-edited fields into the canonical draft. Form submission
+  // can contain newer values than the last subscription/render callback.
+  const mergeBrandDiscovery = useCallback((values: Partial<BrandDiscoveryValues>) => {
+    const current = draftRef.current;
+    const channelIdentities = { ...current.channelIdentities };
+    for (const key of IDENTITY_KEYS) {
+      if (values[key] === undefined) continue;
+      const value = (values[key] ?? "").trim();
+      if (value) channelIdentities[key] = value;
+      else delete channelIdentities[key];
+    }
+    const next: LegacyDraftAnswers & OnboardingDraft = {
+      ...current,
+      brandName: values.brandName ?? current.brandName,
+      buildType: values.buildType === undefined ? current.buildType : values.buildType,
+      websiteUrl: values.websiteUrl ?? current.websiteUrl,
+      channelIdentities,
+      flowVersion: 2 as const,
+    };
+    draftRef.current = next;
+    queueDraft(next);
+    return next;
+  }, [queueDraft]);
+
   const handleBrandDiscoveryChange = useCallback(
-    (values: BrandDiscoveryValues) => {
-      const current = draftRef.current;
-      const channelIdentities = { ...current.channelIdentities };
-      for (const key of IDENTITY_KEYS) {
-        const value = (values[key] ?? "").trim();
-        if (value) channelIdentities[key] = value;
-        else delete channelIdentities[key];
-      }
-      const next = {
-        ...current,
-        brandName: values.brandName ?? "",
-        buildType: values.buildType ?? null,
-        websiteUrl: values.websiteUrl ?? "",
-        channelIdentities,
-        flowVersion: 2 as const,
-      };
-      draftRef.current = next;
-      queueDraft(next);
-    },
-    [queueDraft],
+    (values: BrandDiscoveryValues) => { mergeBrandDiscovery(values); },
+    [mergeBrandDiscovery],
   );
 
-  async function handleBrandDiscoveryContinue() {
+  async function handleBrandDiscoveryContinue(values: Partial<BrandDiscoveryValues>) {
     await runTransition(async () => {
-      // The form's values already reached the draft via autosave; validate
-      // the draft (not the UI arguments) before moving on.
-      const current = draftRef.current;
+      const current = mergeBrandDiscovery(values);
       if (!current.brandName.trim()) {
         setSubmitError("Brand name is required.");
         return;
@@ -393,7 +407,10 @@ export function OnboardingForm({ userId, a2ui = A2UI_ENABLED }: { userId: string
   const showBrandDiscovery = a2ui && (step === "build-type" || step === "brand-details");
   const currentIndex = STEP_ORDER.indexOf(step);
   // Screen 1 merges build-type + brand-details, so it is always step 1.
-  const stepNumber = showBrandDiscovery ? 1 : currentIndex >= 0 ? currentIndex + 1 : 4;
+  const stepNumber = a2ui
+    ? showBrandDiscovery ? 1 : step === "channels" ? 2 : A2UI_VISIBLE_STEP_COUNT
+    : currentIndex >= 0 ? currentIndex + 1 : STEP_ORDER.length;
+  const stepCount = a2ui ? A2UI_VISIBLE_STEP_COUNT : STEP_ORDER.length;
   const publicIdentity = draft.channelIdentities.public ?? "";
 
   const card = (
@@ -401,12 +418,12 @@ export function OnboardingForm({ userId, a2ui = A2UI_ENABLED }: { userId: string
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-4 text-xs text-[var(--muted-foreground)]">
           <span>iPix onboarding</span>
-          <span>Step {stepNumber} of 4</span>
+          <span>Step {stepNumber} of {stepCount}</span>
         </div>
         <div className="h-1.5 overflow-hidden rounded-full bg-[var(--muted)]" aria-hidden="true">
           <div
             className="h-full rounded-full bg-[var(--primary)] transition-[width]"
-            style={{ width: `${stepNumber * 25}%` }}
+            style={{ width: `${(stepNumber / stepCount) * 100}%` }}
           />
         </div>
       </CardHeader>
@@ -423,7 +440,7 @@ export function OnboardingForm({ userId, a2ui = A2UI_ENABLED }: { userId: string
                 shopify: draft.channelIdentities.shopify ?? "",
               }}
               onChange={handleBrandDiscoveryChange}
-              onContinue={() => void handleBrandDiscoveryContinue()}
+              onContinue={(values) => void handleBrandDiscoveryContinue(values)}
             />
           ) : null}
           {!showBrandDiscovery && step === "build-type" ? (
