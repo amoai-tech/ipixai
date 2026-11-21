@@ -4,7 +4,7 @@ import { getProductionPlannerAgent } from "./agents";
 import { createMastraStorage } from "./pg-store";
 import { brandIntelligenceWorkflow } from "./workflows/brand-intelligence";
 import { shootPlanReviewWorkflow } from "./workflows/shoot-plan-review";
-import { plannerMastraAuth } from "./server-auth";
+import { isLoopbackMastraStudioDev, localStudioAuth, plannerMastraAuth } from "./server-auth";
 import { plannerRunControlRoutes } from "./run-control-routes";
 
 let cachedMastra: Mastra | undefined;
@@ -25,6 +25,9 @@ export function getMastra(): Mastra {
     },
     storage: createMastraStorage(),
     logger: new ConsoleLogger({ level: logLevel }),
+    // Only the loopback Mastra CLI dev process gets Studio-specific read access.
+    // In-process Next.js and hosted API callers keep plannerMastraAuth unchanged.
+    studio: isLoopbackMastraStudioDev() ? { auth: localStudioAuth } : undefined,
     server: {
       auth: plannerMastraAuth,
       apiRoutes: plannerRunControlRoutes,
