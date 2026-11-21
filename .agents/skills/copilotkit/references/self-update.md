@@ -1,12 +1,16 @@
----
-name: copilotkit-self-update
-description: Use when the user wants to update, refresh, diff, or reinstall the CopilotKit agent skills/knowledge. Not for upgrading application dependencies.
-version: 3.2.0-ipix.2
-user_invocable: true
-argument_hint: ""
----
-
 # Update CopilotKit Skills — iPix safe sync
+
+**Reference only:** This file belongs to the one discoverable `ipix:copilotkit`
+skill; it is not another installed skill, slash command or dependency installer.
+
+## Contents
+
+- [Preserve the consolidated skill](#ipix-rule-never-overwrite-the-consolidated-hub)
+- [Pinned upstream inventory](#pinned-official-upstream-skill-inventory-2026-11-20)
+- [Minimal update procedure](#simplified-update-procedure)
+- [Content and dependency conflicts](#dependencycontent-conflict-rule)
+- [Selective synchronization](#sync-procedure)
+- [Optional read-only skill-selection checks](#verify-live-skill-selection-only-when-needed-opt-in)
 
 Official generic installer for new/disposable projects only:
 
@@ -86,7 +90,7 @@ For iPix specifically, never restore stale Mastra `beta` labels or `--legacy-pee
 
 ## Verify live skill selection only when needed (opt-in)
 
-The 34+ JSON queries are intent fixtures, **not** evidence an agent activated the skill. The normal Vitest check validates fixture shape and known reference paths without a model call. For a real routing check, run:
+The 42 JSON queries are intent fixtures, **not** evidence an agent activated the skill. Eight substantive, near-miss scenarios (four positive and four negative) are opt-in live probes, divided into training and held-out cases. The normal Vitest check validates fixture shape and known reference paths without a model call. For a real routing check, run:
 
 ~~~bash
 RUN_COPILOTKIT_SKILL_LIVE_EVAL=1 npx vitest run tests/skill-trigger-evals.test.ts --maxWorkers=1 --no-file-parallelism
@@ -98,6 +102,26 @@ The live test first checks whether `claude` is installed and `claude auth status
 
 Claude Code qualifies plugin skills as `plugin:skill`. The iPix plugin manifest names `ipix` and its skill/trigger fixtures name `copilotkit`, so the Skill tool uses `ipix:copilotkit`. The deterministic test checks this relationship.
 
-A report emits `PASS` (explicit Skill selection matches expected routing), `MISS` (selection mismatch), or `INCONCLUSIVE` (restricted process/turns did not finish). Direct reference reads are recorded separately and never counted as Skill invocation. Model choice and low-cost turn limits vary: **the live evaluation is diagnostic only, never a required CI/release gate**. Review the results manually before changing the skill description.
+A report emits `PASS` (explicit Skill selection matches expected routing), `MISS` (selection mismatch), or `INCONCLUSIVE` (restricted process/turns did not finish, the `ipix` plugin was not loaded, or `ipix:copilotkit` / the `Skill` tool was not advertised in `system/init`). Successful `Read` results, filename searches and Skill invocation are measured independently. Model choice and bounded turns vary: **the live evaluation is a diagnostic, never a required CI/release gate**.
 
-A result showing `no skill call` is a real measured miss for that prompt, not proof the skill is unavailable. Investigate the top-level description and any competing skill routing, then rerun a small varied set with the exact model and CLI version recorded. Negative (near-miss) prompts must avoid the skill. Keep the test opt-in and leave the application/server/database untouched.
+### Paired old-versus-new comparison — MODEL
+
+**Source:** https://github.com/anthropics/claude-plugins-official/blob/main/plugins/skill-creator/skills/skill-creator/SKILL.md → “Running and evaluating test cases” and “Improving the skill description”. **Use:** compare the current version against a clean baseline with unchanged prompts, permissions and model; observe both positive and near-miss cases. **Do not copy:** its temporary `.claude/commands` files into iPix or let a model modify the checked-out app during evaluation.
+
+From the candidate checkout, use an **existing clean, detached main worktree**; do not point the baseline at the same directory:
+
+~~~bash
+# Example: create this worktree once, then reuse it until main changes.
+git fetch origin main
+git worktree add --detach /tmp/ipix-skill-main origin/main
+
+RUN_COPILOTKIT_SKILL_LIVE_EVAL=1 \
+COPILOTKIT_SKILL_EVAL_BASELINE_ROOT=/tmp/ipix-skill-main \
+COPILOTKIT_SKILL_EVAL_MODEL=haiku \
+COPILOTKIT_SKILL_EVAL_REPEATS=2 \
+npx --no-install vitest run tests/skill-trigger-evals.test.ts --maxWorkers=1 --no-file-parallelism
+~~~
+
+This runs the **same eight prompts** against both checkouts twice (32 paid, read-only calls total); each variant uses the same `--tools Skill,Read,Grep,Glob` list, blocked external MCP servers and bounded budget. Optional `COPILOTKIT_SKILL_EVAL_MAX_TURNS` and `COPILOTKIT_SKILL_EVAL_BUDGET_USD` apply equally to both. The summary separates train/held-out outcomes, incomplete runs, true and false skill calls, successful reference reads, duration and model cost. **A test runner passing does not imply that skill selection passed.** Check the actual Skill calls, not only the PASS/MISS rubric. Review advice quality, correct auth/security boundaries and costs manually; the structured diagnostic does not grade answer safety.
+
+**Checkpoint:** Only adopt a changed description after repeatable held-out improvement without new false triggers or security regressions. If both versions still skip the skill, keep the previously established description and report a routing limitation rather than invent a success rate. For high-impact CopilotKit work in Claude Code, manually invoke `/ipix:copilotkit` when automatic selection is unreliable; the skill must still follow iPix authorization and approval rules.

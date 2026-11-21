@@ -20,10 +20,11 @@ metadata:
 
 ## 1. Establish version and authorization truth
 
-1. Read the live Linear issue, `AGENTS.md`, clean `origin/main`, `package-lock.json`, installed `node_modules/@copilotkit/*` and `node_modules/@ag-ui/*` source/types, and the relevant runtime code/tests. A PR or current docs page is **not** proof its APIs are installed.
-2. **Do not guess a current package version from this skill.** Read `package.json`, `package-lock.json` and installed `node_modules` to establish the exact CopilotKit/AG-UI family on the checked-out commit. Historical versions and future-version behavior are isolated in [iPix upgrade conventions](references/upgrade/ipix-v2-conventions.md). A newer stable npm tag or upstream skill is not an authorization to upgrade the app.
-3. iPix runs an authenticated in-process `src/app/api/copilotkit/[[...slug]]/route.ts` → server-owned `createLocalAgents(resourceId)` → `TenantAbortRunner` → existing Mastra/Postgres. Preserve one provider and agent ID `default`. Do not create a new `/chat` server, remote Mastra runtime, managed Intelligence fallback, or second thread store.
-4. v2 uses `@copilotkit/runtime/v2` and `@copilotkit/react-core/v2`. Package-root imports still expose deprecated v1 surfaces; check current installed signatures before making an API recommendation.
+1. **Simple explanation or documentation lookup:** read only the relevant local reference and targeted official documentation. A basic CopilotKit API question does not require a Linear issue, Git checkout, or full test suite.
+2. **Code changes, reviews, production incidents or upgrades:** follow `AGENTS.md` and the relevant live Linear issue; verify clean `origin/main`, installed `node_modules/@copilotkit/*` and `node_modules/@ag-ui/*` types, and the affected runtime/tests. A PR or current docs page is **not** proof its APIs are installed.
+3. **Do not guess a current package version from this skill.** Read `package.json`, `package-lock.json` and installed `node_modules` to establish the exact CopilotKit/AG-UI family on the checked-out commit. Historical versions and future-version behavior are isolated in [iPix upgrade conventions](references/upgrade/ipix-v2-conventions.md). A newer stable npm tag or upstream skill is not an authorization to upgrade the app.
+4. iPix runs an authenticated in-process `src/app/api/copilotkit/[[...slug]]/route.ts` → server-owned `createLocalAgents(resourceId)` → `TenantAbortRunner` → existing Mastra/Postgres. Preserve one provider and agent ID `default`. Do not create a new `/chat` server, remote Mastra runtime, managed Intelligence fallback, or second thread store.
+5. v2 uses `@copilotkit/runtime/v2` and `@copilotkit/react-core/v2`. Package-root imports still expose deprecated v1 surfaces; check current installed signatures before making an API recommendation.
 
 ## 2. Discover the current answer — do not assume MCP availability
 

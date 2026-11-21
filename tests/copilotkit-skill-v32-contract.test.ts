@@ -79,6 +79,23 @@ describe("IPI-1420 — official CopilotKit v3.2 lookup with iPix overlay", () =>
     expect(read("references/debug/debug.md")).toContain("four");
   });
 
+  it("keeps quick answers lightweight and makes versioned references navigable", () => {
+    const entry = read("SKILL.md");
+    expect(entry).toContain("Simple explanation or documentation lookup");
+    expect(entry).toContain("Code changes, reviews, production incidents or upgrades");
+    expect(read("references/integrations/references/integrations/mastra.md"))
+      .toContain("## Contents");
+  });
+
+  it("keeps self-update as a reference, not an independently advertised skill", () => {
+    const update = read("references/self-update.md");
+    expect(update.startsWith("---")).toBe(false);
+    expect(update).toContain("**Reference only:**");
+    expect(update).toContain("COPILOTKIT_SKILL_EVAL_BASELINE_ROOT");
+    expect(update).toContain("COPILOTKIT_SKILL_EVAL_REPEATS");
+    expect(update).toContain("/ipix:copilotkit");
+  });
+
   it("has available legacy reference routes rather than deleting their evidence", () => {
     const s = read("SKILL.md");
     const links = [...s.matchAll(/\]\((references\/[^)#]+)(?:#[^)]+)?\)/g)];
