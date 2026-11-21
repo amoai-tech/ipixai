@@ -171,12 +171,27 @@ function claudeLiveEvalPreflight(): { version?: string; skipReason?: string } {
 }
 
 const liveEvalRequested = process.env.RUN_COPILOTKIT_SKILL_LIVE_EVAL === "1";
+const liveGateRequested = process.env.RUN_COPILOTKIT_SKILL_LIVE_GATE === "1";
 const livePreflight = liveEvalRequested ? claudeLiveEvalPreflight() : undefined;
 const liveEvalSkipReason = liveEvalRequested
   ? livePreflight?.skipReason
   : "Opt-in live eval disabled";
 if (liveEvalRequested && liveEvalSkipReason) {
   console.warn("[CopilotKit skill live eval] SKIPPED: " + liveEvalSkipReason);
+}
+
+// An explicitly requested strict gate must not pass silently if the paid
+// diagnostic is disabled or the CLI lacks authentication.
+if (liveGateRequested && (!liveEvalRequested || liveEvalSkipReason)) {
+  throw new Error(
+    "[CopilotKit skill strict gate] RUN_COPILOTKIT_SKILL_LIVE_GATE=1 " +
+    "requires RUN_COPILOTKIT_SKILL_LIVE_EVAL=1 and an authenticated Claude CLI. " +
+    (liveEvalSkipReason ?? ""),
+  );
+}
+
+function strictRoutingFailures<T extends { verdict: string }>(runs: readonly T[]): T[] {
+  return runs.filter((run) => run.verdict !== "PASS");
 }
 
 type ClaudeEvent = {
@@ -351,6 +366,16 @@ function inspectLiveRouting(
 }
 
 describe("iPix CopilotKit skill-routing evaluation coverage", () => {
+  it("strict mode rejects missed and inconclusive results, but default remains diagnostic", () => {
+    const runs = [
+      { verdict: "PASS" },
+      { verdict: "MISS" },
+      { verdict: "INCONCLUSIVE" },
+    ];
+    expect(strictRoutingFailures(runs)).toEqual(runs.slice(1));
+    expect(strictRoutingFailures([{ verdict: "PASS" }])).toEqual([]);
+  });
+
   it("does not count unsuccessful Read or Glob discovery as opened contents", () => {
     const path = ".agents/skills/copilotkit/references/ipix-production.md";
     const events: ClaudeEvent[] = [
@@ -623,6 +648,19 @@ describe.runIf(liveEvalRequested && !liveEvalSkipReason)(
         repeats: liveRepeats,
         summary,
       }));
+
+      // A strict gate is opt-in and never active in default CI. Unlike the
+      // diagnostic, it fails on any explicit mismatch or incomplete run.
+      if (liveGateRequested) {
+        expect(
+          liveObservations.length,
+          "strict gate must collect every requested variant/case/repeat",
+        ).toBe(liveRoutingCases.length * liveVariants.length * liveRepeats);
+        expect(
+          strictRoutingFailures(liveObservations),
+          "strict gate rejects MISS and INCONCLUSIVE (see diagnostic report)",
+        ).toEqual([]);
+      }
     });
 
     it.each(liveRoutingCases)(
