@@ -29,9 +29,9 @@ async function gotoLogin(page: Page) {
   }
 }
 
-async function submitPasswordSignIn(page: Page, signIn: Locator) {
+async function submitPasswordSignIn(page: Page, signIn: Locator, landing = "/app") {
   const appNavigation = page
-    .waitForURL((url) => url.pathname === "/app", { timeout: SIGN_IN_TIMEOUT_MS })
+    .waitForURL((url) => url.pathname === landing, { timeout: SIGN_IN_TIMEOUT_MS })
     .then(() => ({ kind: "success" as const }));
   const requestFailure = page
     .waitForEvent("requestfailed", {
@@ -73,6 +73,8 @@ export async function signInWithCredentials(
   page: Page,
   email: string,
   password: string,
+  // A zero-org founder lands on /onboarding instead of /app (IPI-1462).
+  landing = "/app",
 ): Promise<void> {
   await gotoLogin(page);
 
@@ -84,7 +86,7 @@ export async function signInWithCredentials(
   await passwordField.fill(password);
 
   try {
-    const first = await submitPasswordSignIn(page, signIn);
+    const first = await submitPasswordSignIn(page, signIn, landing);
     if (first.kind === "success") return;
     if (first.kind === "timeout") {
       throw new Error(`Sign-in timed out after ${SIGN_IN_TIMEOUT_MS}ms waiting for Supabase Auth`);
@@ -100,7 +102,7 @@ export async function signInWithCredentials(
 
     // Retry once only when Chromium reports a host network-route handoff.
     // HTTP/auth failures are never retried or hidden.
-    const second = await submitPasswordSignIn(page, signIn);
+    const second = await submitPasswordSignIn(page, signIn, landing);
     if (second.kind === "success") return;
     if (second.kind === "timeout") {
       throw new Error(
