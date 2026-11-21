@@ -17,6 +17,10 @@ const copilot = vi.hoisted(() => ({
   config: null as null | { render: (props: unknown) => unknown; parameters?: unknown },
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 vi.mock("@copilotkit/react-core/v2", () => ({
   useHumanInTheLoop: (config: { render: (props: unknown) => unknown; parameters?: unknown }) => {
     copilot.config = config;

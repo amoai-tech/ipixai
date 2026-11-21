@@ -107,7 +107,7 @@ function ReviewFailure({ label, testId }: { label: string; testId: string }) {
 type ReviewFlowProps = {
   brandId: string;
   plan: Record<string, unknown>;
-  respond: (payload: unknown) => void;
+  respond: (payload: unknown) => Promise<void>;
 };
 
 function ShootPlanReviewFlow({ brandId, plan, respond }: ReviewFlowProps) {
@@ -177,7 +177,7 @@ function ShootPlanReviewFlow({ brandId, plan, respond }: ReviewFlowProps) {
   const settled = (outcome: PlanReviewSettled) => {
     if (settledRef.current) return;
     settledRef.current = true;
-    respondRef.current({
+    return respondRef.current({
       ok: true,
       decision: outcome.decision,
       resumeState: outcome.resumeState,
@@ -213,7 +213,7 @@ export function ShootPlanReviewHitl() {
         const typed = args as ReviewShootPlanArgs | undefined;
         const plan = asPlan(typed?.plan);
         const brandId = typeof typed?.brandId === "string" ? typed.brandId : "";
-        const respondOnce = (payload: unknown) => void respond(payload);
+        const respondOnce = (payload: unknown) => respond(payload);
 
         if (!plan || !brandId) {
           return (

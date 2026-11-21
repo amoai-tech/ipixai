@@ -55,8 +55,9 @@ test.describe("planner workflows (authenticated) @S9a41c290", () => {
   // Never retry: each attempt re-sends real, paid model requests.
   test.describe.configure({ retries: 0 });
 
-  // Workflow 2 (reachable part). Saving the approved shoot is not covered:
-  // no UI calls POST /api/shoots/save yet, so a browser cannot reach that step.
+  // Workflow 2 (read-only composition): approved saving is covered separately
+  // by the consent-gated IPI-1151 browser journey in shoot-approval-save-reopen.spec.ts.
+  // Keep ordinary Planner composition tests free of paid persistent Shoot writes.
   test("composes a shoot plan whose plan card renders and survives reload", async ({ page }) => {
     test.setTimeout(PLAN_TIMEOUT_MS * 4 + NAV_TIMEOUT_MS * 4);
     const problems = collectBrowserProblems(page);
