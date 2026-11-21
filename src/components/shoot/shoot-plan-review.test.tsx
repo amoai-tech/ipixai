@@ -529,6 +529,25 @@ describe("ShootPlanReview — explicit approve and save", () => {
     expect(screen.getByTestId("review-error").textContent).not.toContain("internal_secret_123");
   });
 
+  it("does not claim the approval failed if the save network request throws after approval", async () => {
+    const onSettled = vi.fn();
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("/decision")) return decision;
+      if (url === "/api/shoots/save") throw new TypeError("Failed to fetch");
+      return { ok: true, status: 200, json: () => Promise.resolve({ url: PREVIEW_URL }) };
+    });
+    renderReview({ onSettled });
+    fireEvent.click(screen.getByTestId("review-approve-and-save"));
+    await waitFor(() => {
+      const error = screen.getByTestId("review-error").textContent ?? "";
+      expect(error).toContain("not confirmed saved");
+      expect(error).toContain("retry Approve & save");
+      expect(error).not.toContain("decision could not be recorded");
+    });
+    expect(onSettled).not.toHaveBeenCalled();
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
   it("reports a saved Shoot even when Planner resume fails, with a working detail link", async () => {
     const onSettled = vi.fn().mockRejectedValue(new Error("Planner run unavailable"));
     fetchMock.mockImplementation(async (url: string) => {

@@ -228,11 +228,21 @@ export function ShootPlanReview({
       if (saveAfterApproval) {
         // Explicit operator action, never an AI/model action. The backend
         // revalidates the stored exact approved revision and tenant rights.
+        // A dropped connection can happen after the approval was durably
+        // recorded. Do not misreport it as a failed approval; the save RPC
+        // remains idempotent when the operator retries the same approval ID.
         const savedResponse = await fetch("/api/shoots/save", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ approvalId: identity.approvalId }),
-        });
+        }).catch(() => null);
+        if (!savedResponse) {
+          setError(
+            "Plan approved, but the Shoot was not confirmed saved. " +
+            saveFailureMessage(null, 503),
+          );
+          return;
+        }
         const saved: unknown = await savedResponse.json().catch(() => null);
         const savedRecord =
           typeof saved === "object" && saved !== null ? (saved as Record<string, unknown>) : null;
