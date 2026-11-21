@@ -14,7 +14,7 @@ An iPix operator can ask the **one existing CopilotKit assistant** about the cur
 
 ## 1. Architecture — one business owner, two optional MCP adapters
 
-~~~mermaid
+```mermaid
 flowchart TD
   U["iPix operator asks in /app"] --> UI["Existing CopilotKit / AG-UI"]
   UI --> AG["Production Planner, future specialist agents"]
@@ -30,7 +30,7 @@ flowchart TD
   SERVER --> OTHER["Another authorized agent or system"]
   UI --> ACTION["Explicit reviewed domain action"]
   ACTION --> DOMAIN
-~~~
+```
 
 **Selection rule:**
 

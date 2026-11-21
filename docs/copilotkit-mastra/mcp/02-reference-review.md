@@ -34,7 +34,7 @@ Studio's `GET /api/mcp/builtin` is a **descriptor**, not a substitute for MCP to
 
 The official Oct 2026 migration guide (supplementary reference): [Migrate @mastra/mcp from v1 to v2](https://mastra.ai/reference/migrations/mcp-v2).
 
-- MCP v2 **server** speaks protocol 2026-07-28 with self-contained requests, no stored server session. Streamable HTTP continues to use streaming response framing.
+- MCP v2 **server** speaks protocol 2026-07-28 with self-contained requests, no stored server session. Streamable HTTP continues to use streaming response framing. For **pre-2026-only clients**, the official migration guide recommends retaining a supported MCP **1.x** server; a 2.x server may serve *basic* legacy calls with `legacy: 'stateless'`, but not every 2026-only suspend/resume capability. Test the actual client.
 - Current **client** can negotiate with legacy servers, subject to feature availability. The built-in server docs separately describe protocol support for both 2026-07-28 and 2025 client revisions.
 - Old `/sse` paths and `sessionId` settings are outdated for v2 servers; follow versioned examples, not blog snippets from 2025.
 - `@mastra/core >=1.76` is the documented minimum peer family for MCP v2; iPix Core 1.84 meets this **version constraint**, but application compatibility and provider tools still require tests.
@@ -49,7 +49,7 @@ MCP route access requires authenticating the caller **and** deciding which org's
 
 | Example external capability | Existing iPix owner | Recommended integration |
 | --- | --- | --- |
-| Research via public websites | IPI-1477 / IPI-1251 | Existing Brand/source research or narrow provider-native read-only tool first |
+| Research via public websites | [IPI-1477](https://linear.app/amo100/issue/IPI-1477) / [IPI-1251](https://linear.app/amo100/issue/IPI-1251) | Existing Brand/source research or narrow provider-native read-only tool first |
 | Shopify product catalog | IPI-1302 | Canonical ProductRef from Shopify SDK/API; MCP only if better |
 | XPOZ public social observations | IPI-1156 | Existing narrow SDK wrapper, not whole XPOZ MCP catalog |
 | CRM contact lookup | IPI-1478 | Existing iPix CRM/domain API first; optional per-user read-only MCP |

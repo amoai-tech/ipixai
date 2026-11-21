@@ -6,7 +6,7 @@
 
 **One canonical business owner:** The current iPix services/RPCs and `src/mastra/tools` keep each domain operation. A tool can be used *directly* by the in-process Mastra agent, exported through an optional **curated MCPServer** to another process/client, or composed with one **MCPClient** that uses an external vendor's functionality. Do not create a second database-backed tool engine, proxying the same in-process call through HTTP, or a broad MCP registry.
 
-~~~mermaid
+```mermaid
 flowchart TD
   U["Operator asks /app CopilotKit"] --> A["Production Planner or native Mastra specialist"]
   A --> I["Server-authorized actor/org/Brand/Shoot"]
@@ -17,7 +17,7 @@ flowchart TD
   C --> D
   M --> S["Optional curated MCPServer for a real outside agent/client"]
   D --> V["Grounded GenUI/card/status and persisted readback"]
-~~~
+```
 
 **Implementation detail:** [04 — Full Product-Agent Delivery Plan](./04-product-agent-delivery-plan.md) maps all 16 features to contracts, exact code owners, PR slices and realistic tests.
 
@@ -56,7 +56,7 @@ flowchart TD
 **Product-first suggested new test:** [03-task-proposals.md](./03-task-proposals.md) proposes **MCP-AGENT-001 — Prove One iPix Product Agent Uses a Reusable MCP Capability End to End**. The user journey should be one of the Phase A capabilities, not merely developer tools/list. Keep a real MCP Inspector smoke as **one verification method**, not the deliverable.
 
 1. Select existing Product Planner/Brand/Asset tool, and demonstrate where MCP adds cross-process/provider interoperability. If it does **not**, retain direct native tool call and record the no-MCP decision.
-2. Verify `@mastra/mcp` optional dependency, pinned MCP 2.x compatibility and correct runtime 1.84 types before installation.
+2. Verify `@mastra/mcp` is actually needed, inspect installed Mastra 1.84 types, and choose a **pinned version compatible with the named client**. Use MCP 2.x for a client supporting protocol 2026-07-28. For a client limited to pre-2026 revisions, follow the [official migration guidance](https://mastra.ai/reference/migrations/mcp-v2): consider supported 1.x or the documented 2.x `legacy: 'stateless'` compatibility mode for basic calls; test tool calling and unsupported suspend/resume explicitly. Never assume all clients accept 2.x.
 3. Reuse existing `createTool` and domain services; optional **curated MCPServer** exposes a safe read-only subset, or **MCPClient** connects one real outside provider. Do not register every tool just to populate Studio.
 4. Validate `/api/mcp` plus per-server transport/REST permissions; anon/invalid/wrong-org denied at execution even when a tool name is guessed.
 5. Test one authenticated **/app conversation** → AI agent chooses correct capability → real data → grounded answer, with refresh/retry and negative cross-tenant proof.

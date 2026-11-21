@@ -60,7 +60,7 @@
 
 ## Task dependency diagram
 
-~~~mermaid
+```mermaid
 flowchart LR
   C["Existing Brand/Shoot/Asset capabilities"] --> P["MCP-AGENT-001: actual iPix product journey"]
   G["IPI-1208 + IPI-995 safe tool boundary"] --> P
@@ -71,6 +71,6 @@ flowchart LR
   U --> E{"Need an external provider?"}
   E -->|"Yes"| V["Provider-specific product task"]
   E -->|"No"| F["Stop without unnecessary infrastructure"]
-~~~
+```
 
 **Suggested execution priority:** Existing Brand/Shot/Asset functionality first → MCP-AGENT-001 small proof only if interop is demonstrated → one external provider if needed → advanced agents. No Linear tasks were created by this documentation.

@@ -38,7 +38,7 @@ iPix should create a **curated, reusable agent-tool capability layer** using its
 
 ## Architecture: native tools first, MCP only where it adds value
 
-~~~mermaid
+```mermaid
 flowchart TD
   U["iPix operator /app"] --> UI["One CopilotKit interaction"]
   UI --> P["Mastra Planner / specialists"]
@@ -51,7 +51,7 @@ flowchart TD
   S --> E["Additional authorized MCP consumers"]
   D --> UI
   Z --> UI
-~~~
+```
 
 **Core distinction:** In-process Mastra agents already call Mastra tools directly. MCP adds interoperability across processes or providers; it isn't a required duplicate transport. The built-in `/api/mcp` server is useful for external clients, not a reason to expose the entire production toolset or bypass the current Planner tool gate.
 
