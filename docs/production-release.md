@@ -87,6 +87,21 @@ Existing staging checks cover login, Org A/Org B isolation, real Planner Stop an
 
 **Still REQUIRED, not implemented by PR #316:** once [IPI-1083](https://linear.app/amo100/issue/IPI-1083) and [IPI-1085](https://linear.app/amo100/issue/IPI-1085) supply the approved save and Shoot Wizard, the named integrated Playwright test must prove: sign in → generate plan → reject without save → edit/approve the exact revision → save exactly once → Shoot readback/reload → Org B denied. Record evidence against this same staging URL. **Do not call IPI-1091 complete without this test.**
 
+**IPI-1151 persistent-Shoot QA guard:** The opt-in real-browser spec
+`e2e/shoot-approval-save-reopen.spec.ts` actually approves and saves a Shoot
+in the Production-configured backend. **The older consent to persist QA Planner
+threads does not authorize storing durable Shoot records.** Before running
+`IPI1151_APPROVED_LIVE_QA=1`, the release owner must separately approve the
+paid model calls **and** exact-purpose durable QA Shoot creation, identify the
+dedicated Org A/Org B QA identities, tested SHA, safe cleanup/retention plan
+and acceptable costs, and record that authorization in IPI-1091. Then run
+the spec once in the existing `chromium-ai-smoke` project against the protected,
+exact-SHA staged production candidate, with no retries. Confirm the real
+Brand → plan → human approval → server save → reload → same-ID replay →
+Org B 404 proof before any promotion. This opt-in spec is deliberately
+excluded from normal CI and must never be enabled by default or mistaken
+for a completed certification based on its TypeScript/unit tests alone.
+
 ### Step 3 — Obtain separate human authorization and promote
 
 **Destination:** Vercel's existing deployment dashboard or CLI, **not** an automatic CI promotion job.
