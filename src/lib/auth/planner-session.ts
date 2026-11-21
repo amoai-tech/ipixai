@@ -21,7 +21,7 @@ export function intelligenceIdentifyUser(input: {
 
 export async function requirePlannerResourceId(request: Request): Promise<
   | { ok: true; resourceId: string; orgId: string; operator: VerifiedOperator }
-  | { ok: false; response: Response }
+  | { ok: false; response: Response; needsOnboarding?: true }
 > {
   const operator = await getVerifiedOperatorForRequest(request);
   if (!operator) return { ok: false, response: unauthorizedResponse() };
@@ -34,7 +34,12 @@ export async function requirePlannerResourceId(request: Request): Promise<
       listMembershipOrgIdsFromServerClient(supabase, operator.id),
   });
   if (tenant.status !== "ok") {
-    return { ok: false, response: runtimeTenantDenied(tenant) };
+    return {
+      ok: false,
+      response: runtimeTenantDenied(tenant),
+      // Verified zero memberships only; lookup failures never set this.
+      ...(tenant.status === "needs_onboarding" ? { needsOnboarding: true as const } : {}),
+    };
   }
 
   return {
