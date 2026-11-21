@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { join, resolve } from "node:path";
+import { join, posix, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -203,10 +203,16 @@ type ToolReply = {
 
 // Only references inside this canonical skill are logged. Searches discover
 // filenames; only a completed, successful Read proves contents were opened.
+function normalizedToolPath(path: string): string {
+  return posix.normalize(path.replace(/\\/g, "/"));
+}
+
 function localReferencePath(path?: string): string | undefined {
+  if (!path) return undefined;
+  const normalized = normalizedToolPath(path);
   const prefix = ".agents/skills/copilotkit/references/";
-  const position = path?.indexOf(prefix) ?? -1;
-  return position < 0 ? undefined : path!.slice(position);
+  const position = normalized.indexOf(prefix);
+  return position < 0 ? undefined : normalized.slice(position);
 }
 
 function inspectLiveRouting(
@@ -231,6 +237,21 @@ function inspectLiveRouting(
   // On supported Claude versions plugin_errors is omitted when empty.
   const pluginFieldsKnown =
     Array.isArray(plugins) && (errors === undefined || Array.isArray(errors));
+  const loadedPluginPath = Array.isArray(plugins)
+    ? (plugins.find(
+        (entry: unknown) =>
+          entry !== null &&
+          typeof entry === "object" &&
+          "name" in entry &&
+          entry.name === pluginName,
+      ) as { path?: string } | undefined)?.path
+    : undefined;
+  // Match the CLI's explicit directory, or the resolved directory reported by init.
+  const pluginPaths = new Set(
+    [resolve(".agents"), ".agents", loadedPluginPath]
+      .filter((path): path is string => typeof path === "string")
+      .map(normalizedToolPath),
+  );
   const pluginError =
     Array.isArray(errors) &&
     errors.some((entry: unknown) => {
@@ -240,7 +261,8 @@ function inspectLiveRouting(
         error.plugin === pluginName ||
         error.plugin?.startsWith(pluginName + "@") ||
         error.name === pluginName ||
-        error.path === resolve(".agents")
+        (typeof error.path === "string" &&
+          pluginPaths.has(normalizedToolPath(error.path)))
       );
     });
 
@@ -397,6 +419,70 @@ describe("iPix CopilotKit skill-routing evaluation coverage", () => {
     ).toBe("MISS");
   });
 
+  it("does not bypass permissions or expose write tools in live diagnostics", () => {
+    const args = liveClaudeArguments("read-only test");
+    expect(args).not.toContain("--dangerously-" + "skip-permissions");
+    expect(args).not.toContain("bypassPermissions");
+    expect(args[args.indexOf("--tools") + 1]).toBe("Skill,Read,Grep,Glob");
+    expect(args[args.indexOf("--allowedTools") + 1]).toBe("Skill,Read,Grep,Glob");
+    expect(args).toContain("--strict-mcp-config");
+  });
+
+  it("normalizes Windows reference paths without confusing Glob and Read", () => {
+    const file = ".agents/skills/copilotkit/references/ipix-production.md";
+    const windowsPath = file.split("/").join(String.fromCharCode(92));
+    const events: ClaudeEvent[] = [
+      { type: "system", subtype: "init", plugins: [{ name: pluginName }] },
+      { type: "assistant", message: { content: [
+        { type: "tool_use", id: "r1", name: "Read", input: { file_path: windowsPath } },
+        { type: "tool_use", id: "g1", name: "Glob", input: { path: windowsPath } },
+      ] } },
+      { type: "user", message: { content: [{ type: "tool_result", tool_use_id: "r1" }] } },
+      { type: "result", subtype: "success", is_error: false },
+    ];
+    const evidence = inspectLiveRouting(events, 0, false, "references/ipix-production.md");
+    expect(evidence.verdict).toBe("PASS");
+    expect(evidence.attemptedReads).toContain(file);
+    expect(evidence.attemptedSearches).toContain("Glob:" + file);
+    expect(evidence.successfulReads).toContain(file);
+    expect(evidence.referenceOpened).toBe(true);
+  });
+
+  it("recognizes relative and absolute plugin errors without misattributing other plugins", () => {
+    const complete: ClaudeEvent = { type: "result", subtype: "success", is_error: false };
+    for (const errorPath of [
+      ".agents",
+      "./.agents",
+      resolve(".agents"),
+      resolve(".agents").split("/").join(String.fromCharCode(92)),
+      "/other/project/.agents",
+    ]) {
+      const pluginPath = errorPath === "/other/project/.agents"
+        ? "/other/project/.agents"
+        : resolve(".agents");
+      const evidence = inspectLiveRouting(
+        [
+          { type: "system", subtype: "init",
+            plugins: [{ name: pluginName, path: pluginPath }],
+            plugin_errors: [{ plugin: "inline[0]", path: errorPath }],
+          },
+          complete,
+        ], 0, false,
+      );
+      expect(evidence.pluginError, errorPath).toBe(true);
+      expect(evidence.verdict, errorPath).toBe("INCONCLUSIVE");
+    }
+    const unrelated = inspectLiveRouting(
+      [{ type: "system", subtype: "init",
+        plugins: [{ name: pluginName, path: resolve(".agents") }],
+        plugin_errors: [{ plugin: "other", path: "/other/irrelevant" }],
+      }, complete],
+      0, false,
+    );
+    expect(unrelated.pluginError).toBe(false);
+    expect(unrelated.verdict).toBe("PASS");
+  });
+
   it("matches Claude Code plugin namespace without renaming the skill", () => {
     expect(skillName).toBe("copilotkit");
     expect(pluginName).toBe("ipix");
@@ -421,13 +507,8 @@ describe("iPix CopilotKit skill-routing evaluation coverage", () => {
   });
 });
 
-describe.runIf(liveEvalRequested && !liveEvalSkipReason)(
-  "opt-in live Claude Code CopilotKit skill routing (paid, no writes)",
-  () => {
-    it.each(liveRoutingCases)("$query", ({ query, should_trigger, expected_reference }) => {
-      const command = spawnSync(
-        "claude",
-        [
+function liveClaudeArguments(query: string): string[] {
+  return [
           "-p",
           "--plugin-dir", ".agents",
           "--strict-mcp-config",
@@ -441,7 +522,16 @@ describe.runIf(liveEvalRequested && !liveEvalSkipReason)(
           "--output-format", "stream-json",
           "--verbose",
           query,
-        ],
+  ];
+}
+
+describe.runIf(liveEvalRequested && !liveEvalSkipReason)(
+  "opt-in live Claude Code CopilotKit skill routing (paid, no writes)",
+  () => {
+    it.each(liveRoutingCases)("$query", ({ query, should_trigger, expected_reference }) => {
+      const command = spawnSync(
+        "claude",
+        liveClaudeArguments(query),
         {
           cwd: process.cwd(),
           encoding: "utf8",
