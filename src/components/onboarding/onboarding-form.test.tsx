@@ -568,3 +568,63 @@ describe("OnboardingForm — IPI-1260 four-question flow", () => {
   });
 
 });
+
+describe("IPI-1462 · ONBOARD-A2UI-01 — Screen 1 with CopilotKit forms (flag on)", () => {
+  beforeEach(() => {
+    // Zero-org founder: /api/copilotkit/info answers with no agents.
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ version: "1.88.0", agents: {} })));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("renders the saved draft in a CopilotKit form, autosaves edits and continues to channels", async () => {
+    supabaseMock = fakeSupabase(DRAFT_SESSION);
+    render(<OnboardingForm userId={TEST_USER_ID} a2ui />);
+    const name = (await screen.findByLabelText("Brand name (required)")) as HTMLInputElement;
+    expect(name.value).toBe("Maison Noir");
+    expect(name.closest("[data-a2ui-input]") ?? name.hasAttribute("data-a2ui-input")).toBeTruthy();
+
+    fireEvent.change(name, { target: { value: "Maison Atelier" } });
+    fireEvent.change(screen.getByLabelText("Instagram handle or URL (optional)"), {
+      target: { value: " @maisonatelier " },
+    });
+    fireEvent.click(screen.getByLabelText("Accessories"));
+    await waitFor(() =>
+      expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          draft_answers: expect.objectContaining({
+            brandName: "Maison Atelier",
+            buildType: "access",
+            channelIdentities: { ig: "@maisonatelier" },
+          }),
+        }),
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText("Step 3 of 4")).toBeDefined();
+    expect(supabaseMock.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        draft_answers: expect.objectContaining({ resumeStep: "channels", brandName: "Maison Atelier" }),
+      }),
+    );
+    // No agent run: the only network call is the runtime /info probe.
+    const urls = vi.mocked(fetch).mock.calls.map(([input]) => String(input instanceof Request ? input.url : input));
+    expect(urls.length).toBeGreaterThan(0);
+    expect(urls.every((url) => url.endsWith("/api/copilotkit/info"))).toBe(true);
+  });
+
+  it("blocks Continue without a brand name and keeps the founder on Screen 1", async () => {
+    supabaseMock = fakeSupabase(DRAFT_SESSION);
+    render(<OnboardingForm userId={TEST_USER_ID} a2ui />);
+    const name = (await screen.findByLabelText("Brand name (required)")) as HTMLInputElement;
+    fireEvent.change(name, { target: { value: "   " } });
+    await waitFor(() =>
+      expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({ draft_answers: expect.objectContaining({ brandName: "   " }) }),
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect((await screen.findByTestId("onboarding-submit-error")).textContent).toBe("Brand name is required.");
+    expect(screen.getByText("Step 2 of 4")).toBeDefined();
+  });
+});

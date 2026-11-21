@@ -7,6 +7,8 @@ import { startBrandAnalysisAction } from "@/app/app/brands/[brandId]/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/error-state";
+import { BrandDiscoveryScreen, type BrandDiscoveryValues } from "./a2ui/brand-discovery-screen";
+import { OnboardingGenUIProvider } from "./onboarding-genui-provider";
 import { BrandDetailsQuestion } from "./questions/brand-details-question";
 import { BuildTypeQuestion } from "./questions/build-type-question";
 import { ChannelsQuestion } from "./questions/channels-question";
@@ -39,6 +41,8 @@ const SAVE_DEBOUNCE_MS = 400;
 const ANALYSIS_HANDOFF_TIMEOUT_MS = 1500;
 const EMPTY_V2_DRAFT = parseDraftAnswers({ flowVersion: 2 }) as LegacyDraftAnswers & OnboardingDraft;
 type SaveState = "idle" | "saving" | "saved" | "error";
+const A2UI_ENABLED = process.env.NEXT_PUBLIC_ONBOARDING_A2UI === "1";
+const IDENTITY_KEYS = ["ig", "tiktok", "shopify"] as const;
 
 const STEP_ORDER: OnboardingResumeStep[] = [
   "build-type",
@@ -75,7 +79,8 @@ async function handoffBrandAnalysis(brandId: string): Promise<void> {
   }
 }
 
-export function OnboardingForm({ userId }: { userId: string }) {
+/** `a2ui` (IPI-1462) renders Screen 1 with CopilotKit forms; off keeps the native questions. */
+export function OnboardingForm({ userId, a2ui = A2UI_ENABLED }: { userId: string; a2ui?: boolean }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -91,6 +96,8 @@ export function OnboardingForm({ userId }: { userId: string }) {
   const saveInFlightRef = useRef(false);
   const transitionInFlightRef = useRef(false);
   const headingRegionRef = useRef<HTMLDivElement>(null);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
 
   const flushSave = useCallback(async (): Promise<boolean> => {
     const sessionId = sessionIdRef.current;
@@ -274,6 +281,47 @@ export function OnboardingForm({ userId }: { userId: string }) {
     });
   }
 
+  // IPI-1462: Screen 1 edits go through the same debounced autosave. Read the
+  // latest draft from a ref so rapid edits to different fields never clobber.
+  const handleBrandDiscoveryChange = useCallback(
+    (values: BrandDiscoveryValues) => {
+      const current = draftRef.current;
+      const channelIdentities = { ...current.channelIdentities };
+      for (const key of IDENTITY_KEYS) {
+        const value = (values[key] ?? "").trim();
+        if (value) channelIdentities[key] = value;
+        else delete channelIdentities[key];
+      }
+      queueDraft({
+        ...current,
+        brandName: values.brandName ?? "",
+        buildType: values.buildType ?? null,
+        websiteUrl: values.websiteUrl ?? "",
+        channelIdentities,
+        flowVersion: 2 as const,
+      });
+    },
+    [queueDraft],
+  );
+
+  async function handleBrandDiscoveryContinue() {
+    await runTransition(async () => {
+      // The form's values already reached the draft via autosave; validate
+      // the draft (not the UI arguments) before moving on.
+      const current = draftRef.current;
+      if (!current.brandName.trim()) {
+        setSubmitError("Brand name is required.");
+        return;
+      }
+      const urlError = validateUrl(current.websiteUrl);
+      if (urlError) {
+        setSubmitError(urlError);
+        return;
+      }
+      await moveTo("channels");
+    });
+  }
+
   async function handleSkip() {
     await runTransition(async () => {
       if (step === "build-type") {
@@ -341,8 +389,10 @@ export function OnboardingForm({ userId }: { userId: string }) {
   const currentIndex = STEP_ORDER.indexOf(step);
   const stepNumber = currentIndex >= 0 ? currentIndex + 1 : 4;
   const publicIdentity = draft.channelIdentities.public ?? "";
+  // IPI-1462: Screen 1 merges the old build-type + brand-details steps.
+  const showBrandDiscovery = a2ui && (step === "build-type" || step === "brand-details");
 
-  return (
+  const card = (
     <Card className="mx-auto w-full max-w-xl" data-testid="onboarding-form" aria-busy={busy}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-4 text-xs text-[var(--muted-foreground)]">
@@ -358,14 +408,28 @@ export function OnboardingForm({ userId }: { userId: string }) {
       </CardHeader>
       <CardContent className="grid gap-6">
         <div ref={headingRegionRef} key={step}>
-          {step === "build-type" ? (
+          {showBrandDiscovery ? (
+            <BrandDiscoveryScreen
+              initial={{
+                brandName: draft.brandName,
+                buildType: draft.buildType,
+                websiteUrl: draft.websiteUrl,
+                ig: draft.channelIdentities.ig ?? "",
+                tiktok: draft.channelIdentities.tiktok ?? "",
+                shopify: draft.channelIdentities.shopify ?? "",
+              }}
+              onChange={handleBrandDiscoveryChange}
+              onContinue={() => void handleBrandDiscoveryContinue()}
+            />
+          ) : null}
+          {!showBrandDiscovery && step === "build-type" ? (
             <BuildTypeQuestion
               value={draft.buildType}
               onChange={(buildType) => updateDraft({ buildType })}
               disabled={busy}
             />
           ) : null}
-          {step === "brand-details" ? (
+          {!showBrandDiscovery && step === "brand-details" ? (
             <BrandDetailsQuestion
               brandName={draft.brandName}
               websiteUrl={draft.websiteUrl}
@@ -400,7 +464,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
           </p>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3" hidden={showBrandDiscovery}>
           {step !== "build-type" ? (
             <Button type="button" variant="outline" onClick={() => void goBack()} disabled={busy}>
               Back
@@ -429,4 +493,5 @@ export function OnboardingForm({ userId }: { userId: string }) {
       </CardContent>
     </Card>
   );
+  return a2ui ? <OnboardingGenUIProvider>{card}</OnboardingGenUIProvider> : card;
 }
