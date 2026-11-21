@@ -158,8 +158,9 @@ describe("IPI-1461 S0 — host-only CopilotKit onboarding form", () => {
 
   it("rejects out-of-enum arguments before the host handler runs", async () => {
     const onContinue = vi.fn();
+    const onError = vi.fn();
     render(
-      <OnboardingGenUIProvider>
+      <OnboardingGenUIProvider onError={onError}>
         <Host onContinue={onContinue} />
       </OnboardingGenUIProvider>,
     );
@@ -180,8 +181,15 @@ describe("IPI-1461 S0 — host-only CopilotKit onboarding form", () => {
       });
     });
     fireEvent.click(await screen.findByRole("button", { name: "Continue" }));
-    // Give a rejected call the same chance to land as an accepted one would.
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    // Wait for CopilotKit's own rejection, then confirm the host never ran.
+    await waitFor(() =>
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: "function",
+          error: expect.objectContaining({ code: "invalid_arguments" }),
+        }),
+      ),
+    );
     expect(onContinue).not.toHaveBeenCalled();
   });
 
