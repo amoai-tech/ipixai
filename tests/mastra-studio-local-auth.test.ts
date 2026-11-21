@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { Mastra } from "@mastra/core/mastra";
 import { createNodeServer } from "@mastra/deployer/server";
 import {
+  getLocalStudioCurrentUser,
   isAllowedLocalStudioRoute,
   isAllowedMastraRoute,
   isLoopbackMastraStudioDev,
@@ -56,18 +57,30 @@ describe("local Mastra Studio auth isolation", () => {
     }
   });
 
+  it("returns no Studio user if Supabase identity verification rejects, without leaking the error", async () => {
+    const request = new Request("http://127.0.0.1/api/auth/capabilities", {
+      headers: { Authorization: "Bearer simulated-outage" },
+    });
+    const identityOutage = async (): Promise<never> => {
+      throw new Error("Simulated Supabase network failure");
+    };
+    await expect(getLocalStudioCurrentUser(request, identityOutage)).resolves.toBeNull();
+    await expect(getLocalStudioCurrentUser(new Request(request.url), identityOutage)).resolves.toBeNull();
+  });
+
   it("authenticates Studio metadata but does not open the normal Mastra API", async () => {
     const user = { id: "test-user", orgId: "test-org", resourceId: "test-resource" };
+    const validTokens = new Map([["valid-test-token", user]]);
     const verify = async (token: string) => {
-      if (token !== "valid-test-token") throw new Error("Invalid token");
-      return user;
+      const verifiedUser = validTokens.get(token);
+      if (!verifiedUser) throw new Error("Invalid token");
+      return verifiedUser;
     };
     expect(typeof localStudioAuth.getCurrentUser).toBe("function");
     const localTestStudioAuth = {
       ...localStudioAuth,
       authenticateToken: verify,
-      getCurrentUser: async (request: Request) =>
-        request.headers.get("authorization") === "Bearer valid-test-token" ? user : null,
+      getCurrentUser: (request: Request) => getLocalStudioCurrentUser(request, verify),
     };
     const mastra = new Mastra({
       server: {
@@ -100,6 +113,12 @@ describe("local Mastra Studio auth isolation", () => {
       const authenticatedCapabilities = await (await fetch(capabilities, { headers: studioHeaders })).json();
       expect(anonymousCapabilities.user).toBeUndefined();
       expect(authenticatedCapabilities.user?.id).toBe(user.id);
+      // A rejected identity lookup must not turn Studio's capabilities route into 500.
+      const failedCapabilities = await fetch(capabilities, {
+        headers: { Authorization: "Bearer invalid-token", "x-mastra-client-type": "studio" },
+      });
+      expect(failedCapabilities.status).toBe(200);
+      expect((await failedCapabilities.json()).user).toBeUndefined();
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }

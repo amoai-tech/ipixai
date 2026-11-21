@@ -203,16 +203,30 @@ export const plannerMastraAuth = defineAuth<PlannerMastraUser>({
   mapUserToResourceId: (user) => user.resourceId,
 });
 
+/** Studio's capabilities route must fail closed when Supabase is temporarily
+ * unavailable: return no user, not an unhandled rejection or a 500 response.
+ * The resolver parameter lets tests exercise the exact production code path. */
+export async function getLocalStudioCurrentUser(
+  request: Request,
+  resolveIdentity: (token: string) => Promise<PlannerMastraUser | null> = resolveMastraIdentity,
+): Promise<PlannerMastraUser | null> {
+  const header = request.headers.get("authorization");
+  if (!header?.startsWith("Bearer ")) return null;
+  const token = header.slice("Bearer ".length).trim();
+  if (!token) return null;
+  try {
+    return await resolveIdentity(token);
+  } catch {
+    // Never grant access on failed identity verification; don't log credentials.
+    return null;
+  }
+}
+
 /** Native `studio.auth` keeps local Studio metadata reads separate from the
  * remote API. Mastra's capabilities endpoint calls getCurrentUser() (not
  * authenticateToken()) to decide whether to show its authenticated UI. */
 export const localStudioAuth = {
   ...plannerMastraAuth,
-  getCurrentUser: async (request: Request): Promise<PlannerMastraUser | null> => {
-    const header = request.headers.get("authorization");
-    if (!header?.startsWith("Bearer ")) return null;
-    const token = header.slice("Bearer ".length).trim();
-    return token ? resolveMastraIdentity(token) : null;
-  },
+  getCurrentUser: getLocalStudioCurrentUser,
   authorize: async (path: string, method: string) => isAllowedLocalStudioRoute(method, path),
 };
