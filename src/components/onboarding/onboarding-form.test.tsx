@@ -625,6 +625,6 @@ describe("IPI-1462 · ONBOARD-A2UI-01 — Screen 1 with CopilotKit forms (flag o
     );
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect((await screen.findByTestId("onboarding-submit-error")).textContent).toBe("Brand name is required.");
-    expect(screen.getByText("Step 2 of 4")).toBeDefined();
+    expect(screen.getByText("Step 1 of 4")).toBeDefined();
   });
 });

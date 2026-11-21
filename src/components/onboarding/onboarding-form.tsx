@@ -281,8 +281,9 @@ export function OnboardingForm({ userId, a2ui = A2UI_ENABLED }: { userId: string
     });
   }
 
-  // IPI-1462: Screen 1 edits go through the same debounced autosave. Read the
-  // latest draft from a ref so rapid edits to different fields never clobber.
+  // IPI-1462: Screen 1 edits go through the same debounced autosave. Each
+  // event carries all Screen 1 values; the ref is advanced here too so two
+  // events before the next render still build on each other.
   const handleBrandDiscoveryChange = useCallback(
     (values: BrandDiscoveryValues) => {
       const current = draftRef.current;
@@ -292,14 +293,16 @@ export function OnboardingForm({ userId, a2ui = A2UI_ENABLED }: { userId: string
         if (value) channelIdentities[key] = value;
         else delete channelIdentities[key];
       }
-      queueDraft({
+      const next = {
         ...current,
         brandName: values.brandName ?? "",
         buildType: values.buildType ?? null,
         websiteUrl: values.websiteUrl ?? "",
         channelIdentities,
         flowVersion: 2 as const,
-      });
+      };
+      draftRef.current = next;
+      queueDraft(next);
     },
     [queueDraft],
   );
@@ -386,11 +389,12 @@ export function OnboardingForm({ userId, a2ui = A2UI_ENABLED }: { userId: string
   }
 
   const busy = submitting || transitioning;
-  const currentIndex = STEP_ORDER.indexOf(step);
-  const stepNumber = currentIndex >= 0 ? currentIndex + 1 : 4;
-  const publicIdentity = draft.channelIdentities.public ?? "";
   // IPI-1462: Screen 1 merges the old build-type + brand-details steps.
   const showBrandDiscovery = a2ui && (step === "build-type" || step === "brand-details");
+  const currentIndex = STEP_ORDER.indexOf(step);
+  // Screen 1 merges build-type + brand-details, so it is always step 1.
+  const stepNumber = showBrandDiscovery ? 1 : currentIndex >= 0 ? currentIndex + 1 : 4;
+  const publicIdentity = draft.channelIdentities.public ?? "";
 
   const card = (
     <Card className="mx-auto w-full max-w-xl" data-testid="onboarding-form" aria-busy={busy}>

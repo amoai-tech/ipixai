@@ -12,8 +12,8 @@ import { establishDeploymentAccess } from "./support/vercel-bypass";
  * test never clicks Create Brand, so the account stays zero-org and reusable;
  * it only edits that account's own onboarding draft.
  */
-const email = process.env.E2E_ZERO_ORG_EMAIL;
-const password = process.env.E2E_ZERO_ORG_PASSWORD;
+const email = process.env.E2E_ZERO_ORG_EMAIL ?? "";
+const password = process.env.E2E_ZERO_ORG_PASSWORD ?? "";
 
 test.skip(!email || !password, "E2E_ZERO_ORG_EMAIL / E2E_ZERO_ORG_PASSWORD not set");
 
@@ -49,7 +49,7 @@ test("zero-org founder fills Screen 1 in a CopilotKit form, autosaves, survives 
       if (message.type() === "error") consoleErrors.push(message.text().slice(0, 200));
     });
 
-    await signInWithCredentials(page, email!, password!, "/onboarding");
+    await signInWithCredentials(page, email, password, "/onboarding");
 
     // Real CopilotKit input (flag built in), not the native question.
     const name = page.getByLabel("Brand name (required)");
@@ -74,7 +74,7 @@ test("zero-org founder fills Screen 1 in a CopilotKit form, autosaves, survives 
     await page.getByLabel("Website (optional)").fill("not a url");
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(page.getByTestId("onboarding-submit-error")).toBeVisible();
-    await expect(page.getByText("Step 2 of 4")).toBeVisible();
+    await expect(page.getByText("Step 1 of 4")).toBeVisible();
     await page.getByLabel("Website (optional)").fill("https://maisonatelier.example");
 
     // Continue → channels, Back → Screen 1 with values intact.

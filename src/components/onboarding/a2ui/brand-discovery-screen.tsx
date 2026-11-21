@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { A2UI_VERSION, GENERATIVE_UI_ROOT_ID } from "@copilotkit/shared";
+import { A2UI_VERSION, GENERATIVE_UI_ROOT_ID, type A2UIOperation } from "@copilotkit/shared";
 import {
   GenerativeUISurface,
   useGenerativeUIFunction,
@@ -39,7 +39,7 @@ const BUILD_TYPES: { value: OnboardingBuildType; label: string }[] = [
   { value: "both", label: "Both fashion and beauty" },
 ];
 
-export function brandDiscoveryOps(values: BrandDiscoveryValues) {
+export function brandDiscoveryOps(values: BrandDiscoveryValues): A2UIOperation[] {
   return [
     {
       version: A2UI_VERSION,
@@ -113,7 +113,7 @@ export function BrandDiscoveryScreen({
       target: TARGET,
       status: "ready",
       rejected: [],
-      operations: brandDiscoveryOps(initialRef.current) as never,
+      operations: brandDiscoveryOps(initialRef.current),
     });
     const subscription = manager
       .getSurface(THREAD, SURFACE)
