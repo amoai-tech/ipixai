@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -145,13 +145,13 @@ const skillName = readFileSync(".agents/skills/copilotkit/SKILL.md", "utf8")
   .match(/^name:\s*([\w-]+)\s*$/m)?.[1];
 const fullSkillName = pluginName + ":" + (skillName ?? "");
 
-function claudeLiveEvalSkipReason(): string | undefined {
+function claudeLiveEvalPreflight(): { version?: string; skipReason?: string } {
   const version = spawnSync("claude", ["--version"], {
     encoding: "utf8",
     timeout: 10_000,
   });
   if (version.error || version.status !== 0) {
-    return "Claude Code CLI unavailable; install claude and ensure it is in PATH";
+    return { skipReason: "Claude Code CLI unavailable; install claude and ensure it is in PATH" };
   }
 
   // A Claude login, API key, or other configured provider may authenticate.
@@ -160,20 +160,243 @@ function claudeLiveEvalSkipReason(): string | undefined {
     timeout: 15_000,
   });
   if (auth.error || auth.status !== 0) {
-    return "Claude Code not authenticated; configure a provider or run claude auth login";
+    return {
+      version: version.stdout.trim(),
+      skipReason: "Claude Code not authenticated; configure a provider or run claude auth login",
+    };
   }
-  return undefined;
+  return { version: version.stdout.trim() };
 }
 
 const liveEvalRequested = process.env.RUN_COPILOTKIT_SKILL_LIVE_EVAL === "1";
+const livePreflight = liveEvalRequested ? claudeLiveEvalPreflight() : undefined;
 const liveEvalSkipReason = liveEvalRequested
-  ? claudeLiveEvalSkipReason()
+  ? livePreflight?.skipReason
   : "Opt-in live eval disabled";
 if (liveEvalRequested && liveEvalSkipReason) {
   console.warn("[CopilotKit skill live eval] SKIPPED: " + liveEvalSkipReason);
 }
 
+type ClaudeEvent = {
+  type?: string;
+  subtype?: string;
+  message?: { content?: unknown };
+  plugins?: unknown;
+  plugin_errors?: unknown;
+  claude_code_version?: string;
+  is_error?: boolean;
+  total_cost_usd?: number;
+};
+
+type ToolCall = {
+  type: "tool_use";
+  id?: string;
+  name: string;
+  input?: { file_path?: string; path?: string; skill?: string };
+};
+
+type ToolReply = {
+  type: "tool_result";
+  tool_use_id?: string;
+  is_error?: boolean;
+};
+
+// Only references inside this canonical skill are logged. Searches discover
+// filenames; only a completed, successful Read proves contents were opened.
+function localReferencePath(path?: string): string | undefined {
+  const prefix = ".agents/skills/copilotkit/references/";
+  const position = path?.indexOf(prefix) ?? -1;
+  return position < 0 ? undefined : path!.slice(position);
+}
+
+function inspectLiveRouting(
+  events: ClaudeEvent[],
+  exitCode: number | null,
+  shouldTrigger: boolean,
+  expectedReference?: string,
+) {
+  const init = events.find((event) => event.type === "system" && event.subtype === "init");
+  const plugins = init?.plugins;
+  const errors = init?.plugin_errors;
+  const pluginLoaded =
+    Array.isArray(plugins) &&
+    plugins.some((plugin: unknown) =>
+      typeof plugin === "string"
+        ? plugin === pluginName || plugin.startsWith(pluginName + "@")
+        : plugin !== null &&
+          typeof plugin === "object" &&
+          "name" in plugin &&
+          plugin.name === pluginName,
+    );
+  // On supported Claude versions plugin_errors is omitted when empty.
+  const pluginFieldsKnown =
+    Array.isArray(plugins) && (errors === undefined || Array.isArray(errors));
+  const pluginError =
+    Array.isArray(errors) &&
+    errors.some((entry: unknown) => {
+      if (entry === null || typeof entry !== "object") return false;
+      const error = entry as { plugin?: string; name?: string; path?: string };
+      return (
+        error.plugin === pluginName ||
+        error.plugin?.startsWith(pluginName + "@") ||
+        error.name === pluginName ||
+        error.path === resolve(".agents")
+      );
+    });
+
+  const blocks = (event: ClaudeEvent): Array<Record<string, unknown>> =>
+    Array.isArray(event.message?.content)
+      ? event.message.content.filter(
+          (part): part is Record<string, unknown> =>
+            part !== null && typeof part === "object",
+        )
+      : [];
+  const calls = events
+    .filter((event) => event.type === "assistant")
+    .flatMap(blocks)
+    .filter((part): part is ToolCall =>
+      part.type === "tool_use" && typeof part.name === "string",
+    );
+  const completedReadIds = new Set(
+    events
+      .filter((event) => event.type === "user")
+      .flatMap(blocks)
+      .filter((part): part is ToolReply =>
+        part.type === "tool_result" &&
+        typeof part.tool_use_id === "string" &&
+        part.is_error !== true,
+      )
+      .map((part) => part.tool_use_id),
+  );
+  const attemptedReads = Array.from(
+    new Set(
+      calls
+        .filter((call) => call.name === "Read")
+        .map((call) => localReferencePath(call.input?.file_path))
+        .filter((path): path is string => Boolean(path)),
+    ),
+  );
+  const attemptedSearches = Array.from(
+    new Set(
+      calls
+        .filter((call) => call.name === "Grep" || call.name === "Glob")
+        .map((call) => call.name + ":" + (localReferencePath(call.input?.path) ?? "other")),
+    ),
+  );
+  const successfulReads = Array.from(
+    new Set(
+      calls
+        .filter((call) => call.name === "Read" && call.id && completedReadIds.has(call.id))
+        .map((call) => localReferencePath(call.input?.file_path))
+        .filter((path): path is string => Boolean(path)),
+    ),
+  );
+  const selected = calls.some(
+    (call) => call.name === "Skill" && call.input?.skill === fullSkillName,
+  );
+  const result = events.findLast((event) => event.type === "result");
+  const conclusive =
+    exitCode === 0 &&
+    result?.is_error === false &&
+    pluginFieldsKnown &&
+    pluginLoaded &&
+    !pluginError;
+  return {
+    verdict: !conclusive ? "INCONCLUSIVE" : selected === shouldTrigger ? "PASS" : "MISS",
+    selected,
+    pluginLoaded,
+    pluginError,
+    pluginFieldsKnown,
+    attemptedReads,
+    attemptedSearches,
+    successfulReads,
+    referenceOpened: expectedReference
+      ? successfulReads.some((path) => path.endsWith(expectedReference))
+      : false,
+    result,
+    initVersion: init?.claude_code_version ?? null,
+  };
+}
+
 describe("iPix CopilotKit skill-routing evaluation coverage", () => {
+  it("does not count unsuccessful Read or Glob discovery as opened contents", () => {
+    const path = ".agents/skills/copilotkit/references/ipix-production.md";
+    const events: ClaudeEvent[] = [
+      { type: "system", subtype: "init", plugins: [{ name: pluginName }] },
+      {
+        type: "assistant",
+        message: {
+          content: [
+            { type: "tool_use", id: "r1", name: "Read", input: { file_path: path } },
+            { type: "tool_use", id: "g1", name: "Glob", input: { path } },
+            { type: "tool_use", id: "s1", name: "Skill", input: { skill: fullSkillName } },
+          ],
+        },
+      },
+      {
+        type: "user",
+        message: {
+          content: [{ type: "tool_result", tool_use_id: "r1", is_error: true }],
+        },
+      },
+      { type: "result", subtype: "success", is_error: false },
+    ];
+    const failed = inspectLiveRouting(events, 0, true, "references/ipix-production.md");
+    expect(failed.verdict).toBe("PASS"); // Skill invocation stays independent.
+    expect(failed.selected).toBe(true);
+    expect(failed.attemptedReads).toContain(path);
+    expect(failed.attemptedSearches).toContain("Glob:" + path);
+    expect(failed.referenceOpened).toBe(false);
+    events[2] = {
+      type: "user",
+      message: { content: [{ type: "tool_result", tool_use_id: "r1" }] },
+    };
+    expect(inspectLiveRouting(events, 0, true, "references/ipix-production.md").referenceOpened)
+      .toBe(true);
+  });
+
+  it("reports empty output, missing plugin and plugin errors as inconclusive", () => {
+    expect(inspectLiveRouting([], 0, false).verdict).toBe("INCONCLUSIVE");
+    const complete: ClaudeEvent = { type: "result", subtype: "success", is_error: false };
+    expect(inspectLiveRouting([complete], 0, false).verdict).toBe("INCONCLUSIVE");
+    expect(
+      inspectLiveRouting(
+        [{ type: "system", subtype: "init", plugins: [] }, complete],
+        0,
+        false,
+      ).verdict,
+    ).toBe("INCONCLUSIVE");
+    expect(
+      inspectLiveRouting(
+        [
+          {
+            type: "system",
+            subtype: "init",
+            plugins: [{ name: pluginName }],
+            plugin_errors: [{ plugin: pluginName, message: "load failed" }],
+          },
+          complete,
+        ],
+        0,
+        false,
+      ).verdict,
+    ).toBe("INCONCLUSIVE");
+    expect(
+      inspectLiveRouting(
+        [{ type: "system", subtype: "init", plugins: [{ name: pluginName }] }, complete],
+        0,
+        false,
+      ).verdict,
+    ).toBe("PASS");
+    expect(
+      inspectLiveRouting(
+        [{ type: "system", subtype: "init", plugins: [{ name: pluginName }] }, complete],
+        0,
+        true,
+      ).verdict,
+    ).toBe("MISS");
+  });
+
   it("matches Claude Code plugin namespace without renaming the skill", () => {
     expect(skillName).toBe("copilotkit");
     expect(pluginName).toBe("ipix");
@@ -237,53 +460,31 @@ describe.runIf(liveEvalRequested && !liveEvalSkipReason)(
             return [];
           }
         });
-      const calls = events.flatMap((event) =>
-        event.type === "assistant"
-          ? (event.message?.content ?? []).filter((part: { type: string }) => part.type === "tool_use")
-          : [],
+      const evidence = inspectLiveRouting(
+        events,
+        command.status,
+        should_trigger,
+        expected_reference,
       );
-      const selected = calls.some(
-        (call: { name: string; input?: { skill?: string } }) =>
-          call.name === "Skill" && call.input?.skill === fullSkillName,
-      );
-      const inspectedReferences = Array.from(
-        new Set(
-          calls
-            .filter((call: { name: string }) =>
-              ["Read", "Grep", "Glob"].includes(call.name),
-            )
-            .map((call: { input?: { file_path?: string; path?: string } }) =>
-              call.input?.file_path ?? call.input?.path ?? "",
-            )
-            .filter((path: string) => path.includes(".agents/skills/copilotkit/references/"))
-            .map((path: string) =>
-              path.slice(path.indexOf(".agents/skills/copilotkit/references/")),
-            ),
-        ),
-      );
-      const referenceOpened = expected_reference
-        ? inspectedReferences.some((path) => path.endsWith(expected_reference))
-        : false;
-      const result = events.findLast((event) => event.type === "result");
-      const conclusive = command.status === 0 && result?.is_error === false;
-      const verdict = !conclusive
-        ? "INCONCLUSIVE"
-        : selected === should_trigger
-          ? "PASS"
-          : "MISS";
-      // Emit only routing metadata. Direct file reads are NOT Skill activations.
+      // Only report metadata: no tool content, model answers or credentials.
       console.info(
         JSON.stringify({
-          verdict,
+          verdict: evidence.verdict,
           expectedSkill: should_trigger,
-          skillInvoked: selected,
+          skillInvoked: evidence.selected,
+          pluginLoaded: evidence.pluginLoaded,
+          pluginError: evidence.pluginError,
+          pluginFieldsKnown: evidence.pluginFieldsKnown,
+          claudeCliVersion: livePreflight?.version ?? evidence.initVersion,
           expectedReference: expected_reference ?? null,
-          inspectedReferences,
-          referenceOpened,
-          completion: result?.subtype ?? null,
+          attemptedReads: evidence.attemptedReads,
+          attemptedSearches: evidence.attemptedSearches,
+          successfulReads: evidence.successfulReads,
+          referenceOpened: evidence.referenceOpened,
+          completion: evidence.result?.subtype ?? null,
           exitCode: command.status,
           eventCount: events.length,
-          costUsd: result?.total_cost_usd ?? null,
+          costUsd: evidence.result?.total_cost_usd ?? null,
         }),
       );
       // Model decisions/turn budgets are variable: never use a flaky gate here.
