@@ -58,11 +58,6 @@
       "files": 1,
       "hash": "1377c9300d6220b73ce903f5580024ca6f287588199d0a96b14922f7313dc7c2"
     },
-    ".agents/skills/testing-workflow": {
-      "reason": "listed in skills-lock.json",
-      "files": 1,
-      "hash": "414dd5a96672b064da8dd2b6692a9ec84e43d090520b972c7ebad11e34462958"
-    },
     ".agents/skills/cloudinary/references/node": {
       "reason": "every markdown file declares upstream author/hub (\"cloudinary\")",
       "files": 8,
