@@ -4,6 +4,10 @@ All notable verified changes to iPix are recorded here. This file follows [Keep 
 
 ## [Unreleased]
 
+### Removed
+
+- Retired the Testomat.io and Explorbot agent skills and their routing, deleted the Testomat.io GitHub Actions workflow and Playwright reporter wrapper, removed obsolete documented reporting secrets, and updated QA contracts and the iPix-owned QA router to use Vitest, Playwright and GitHub Actions. General QA skills remain available; references in retained third-party QA snapshots are not active integrations. No application runtime or production data changes.
+
 ### Security
 
 - IPI-1369 — Kept the three-per-day Vercel deployment-attempt limit; correctly classified Preview and unreported sources, protected Production-only CLI ownership, and routed recurring governance failures into one GitHub issue assigned to a maintainer.
