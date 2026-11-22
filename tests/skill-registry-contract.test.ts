@@ -57,7 +57,6 @@ describe("skill registry contract", () => {
       ["make an implementation plan", "writing-plans"],
       ["plan a risky multi-file migration", "refactor-plan"],
       ["tests are flaky in CI", "diagnosing-bugs"],
-      ["explore this app for bugs", "explorbot"],
       ["run deterministic browser steps", "playwright-cli"],
     ] as const;
     for (const [prompt, expected] of cases) expect(selectSkillForPrompt(prompt, registry), prompt).toBe(expected);

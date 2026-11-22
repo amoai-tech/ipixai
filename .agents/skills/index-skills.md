@@ -9,7 +9,7 @@ Source of truth: `.agents/skills/registry.json`.
 
 | Skill | Summary | Owner | Type | Modes | Delegates to | Do not use for |
 |---|---|---|---|---|---|---|
-| `automate-manual-test-cases` | Convert approved manual test cases into maintainable automated tests. | qa | workflow | `manual-to-automation` | `diagnosing-bugs`, `qa-test-code-coverage`, `testomatio` | writing product requirements; debugging unrelated application behavior |
+| `automate-manual-test-cases` | Convert approved manual test cases into maintainable automated tests. | qa | workflow | `manual-to-automation` | `diagnosing-bugs`, `qa-test-code-coverage` | writing product requirements; debugging unrelated application behavior |
 | `brainstorming` | Explore intent, constraints, and design before creative implementation work. | planning | methodology | `design-discovery` | `requirements`, `writing-plans` | executing an already-approved implementation plan |
 | `ci-review` | Review iPix GitHub Actions workflows and verification scripts for trust-boundary, permissions, secret, exact-head, and false-green regressions. | engineering-quality | review | `ci-review` | `tasks`, `pr` | reviewing application source changes; authoring product requirements |
 | `cloudinary` | Cloudinary media workflows for iPix: upload, transformation, delivery, and asset-pipeline integration. | engineering | integration | `media-pipeline` | `nextjs-developer`, `tasks` | commerce or order truth; Supabase schema and RLS design |
@@ -20,10 +20,9 @@ Source of truth: `.agents/skills/registry.json`.
 | `dispatching-parallel-agents` | Parallelize independent tasks that do not share mutable state or sequencing dependencies. | execution | methodology | `parallel-dispatch` | `subagent-driven-development` | shared mutable state; sequential dependencies |
 | `domain-modeling` | Clarify iPix terminology, domain ownership, CONTEXT files, and architecture decisions. | architecture | workflow | `glossary`, `ownership`, `adr` | `codebase-design`, `requirements` | routine implementation with no domain ambiguity |
 | `explain` | Explain iPix code, errors, PRs, configs, and technical concepts in plain English. | developer-experience | utility | `plain-language` | — | making code changes; deciding product requirements |
-| `explorbot` | Run, configure, debug, and plan autonomous Explorbot web testing. | qa-browser | workflow | `fundamentals`, `setup`, `plan`, `explore` | `playwright-cli`, `qa-write-test-cases` | deterministic browser merge gates; static-content-only testing |
 | `fashion-production` | Fashion production domain guidance for iPix: garment, shoot, sample, and production-stage terminology and workflow. | product-planning | methodology | `domain-guidance` | `tasks` | implementing code; Supabase schema, RLS, or migration work |
 | `graphify` | Turn source, docs, papers, images, and video into a persistent queryable knowledge graph, and answer codebase and architecture questions from it. | developer-experience | utility | `codebase-discovery`, `dependency-analysis` | `tasks` | authoritative runtime, database, or provider truth |
-| `improve-test-cases` | Improve existing manual test cases for clarity, structure, and TMS readiness. | qa | workflow | `manual-test-improvement` | `automate-manual-test-cases`, `testomatio` | writing product requirements; creating automation from scratch |
+| `improve-test-cases` | Improve existing manual test cases for clarity, structure, and TMS readiness. | qa | workflow | `manual-test-improvement` | `automate-manual-test-cases` | writing product requirements; creating automation from scratch |
 | `ipix-supabase` | iPix Supabase work: schema, RLS, policies, RPC, migrations, Edge Functions, local replay, and security review. | engineering | workflow | `database-change`, `security-review`, `local-replay` | `tasks`, `task-verifier` | hosted production writes without explicit task authorization; UI or wireframe design |
 | `ipix-wireframe` | Specify implementation-ready iPix screens, user journeys, wireframes, prototypes, and AI/HITL interactions before implementation. | product-planning | methodology | `ux-specification` | `tasks`, `mermaid-diagrams` | building the production UI; database or RLS design |
 | `lean` | Audit repository and development-loop speed, context waste, worktrees, and CI feedback time. | developer-experience | audit | `repo-performance-audit` | `refactor-plan` | single-task implementation planning |
@@ -50,14 +49,13 @@ Source of truth: `.agents/skills/registry.json`.
 | `requirements` | Define or review Epics, user stories, acceptance criteria, and testable requirements. | product-planning | workflow | `epic`, `user-story`, `qa-review` | `to-spec`, `tasks`, `writing-plans` | no-interview conversation synthesis; implementation planning after requirements are accepted |
 | `research` | Investigate questions against high-trust primary sources and capture evidence in the repo. | research | workflow | `primary-source-research` | `requirements`, `writing-plans` | implementation that does not require external evidence |
 | `resolving-merge-conflicts` | Resolve merge or rebase conflicts by intent with high-risk verification. | engineering | workflow | `merge`, `rebase` | `code-review`, `diagnosing-bugs` | unrelated refactoring while resolving conflicts |
-| `setup-ci-automation` | Inspect existing CI and add or modify automated QA workflows. | qa | integration | `ci-discovery`, `qa-workflow-setup` | `testomatio`, `qa-test-code-coverage` | debugging a single existing CI failure |
+| `setup-ci-automation` | Inspect existing CI and add or modify automated QA workflows. | qa | integration | `ci-discovery`, `qa-workflow-setup` | `qa-test-code-coverage` | debugging a single existing CI failure |
 | `shadcn` | Manage shadcn/ui components and projects: adding, searching, fixing, debugging, styling, and composing UI, including chat interfaces. | engineering | integration | `component-work` | `nextjs-developer` | framework-level routing or data fetching decisions; Supabase or Mastra work |
 | `subagent-driven-development` | Execute an implementation plan with independent tasks and staged review. | execution | methodology | `plan-execution` | `dispatching-parallel-agents`, `requesting-code-review` | unclear requirements; tightly coupled work that cannot be isolated |
 | `task-verifier` | Independently challenge what a task has left unproven, including adversarial review for security, data, AI/HITL, release, and secret risk. | engineering-quality | review | `verification`, `adversarial-review` | `tasks` | implementing the change being verified; replacing required CI or runtime evidence |
 | `tasks` | Define and execute substantial iPix tasks: structure, progress, pull request, evidence, merge gates, and post-merge standards. | execution | workflow | `task-lifecycle` | `task-verifier`, `pr`, `mermaid-diagrams` | domain implementation how-to; replacing CI or runtime proof |
 | `tdd` | Implement features and bug fixes with red-green-refactor discipline. | engineering | methodology | `red-green-refactor` | `diagnosing-bugs`, `requesting-code-review` | documentation-only edits; generated artifacts |
-| `testing-workflow` | Route the end-to-end QA lifecycle to the correct specialized testing skill. | qa | router | `test-lifecycle` | `requirements`, `qa-explain-behavior`, `qa-lead-strategy-advisor`, `qa-write-test-cases`, `improve-test-cases`, `qa-split-testing-levels-pyramid`, `automate-manual-test-cases`, `qa-test-code-coverage`, `qa-automation-test-consolidation`, `diagnosing-bugs`, `testomatio`, `setup-ci-automation` | high-level QA strategy; non-QA feature implementation |
-| `testomatio` | Own Testomat.io reporting, sync, MCP, run, sprint-report, and PR-testing workflows. | qa-integration | integration | `reporting`, `sync`, `mcp`, `runs`, `pr-testing` | `qa-test-code-coverage`, `setup-ci-automation`, `diagnosing-bugs` | generic test design; non-Testomat.io CI |
+| `testing-workflow` | Route the end-to-end QA lifecycle to the correct specialized testing skill. | qa | router | `test-lifecycle` | `requirements`, `qa-explain-behavior`, `qa-lead-strategy-advisor`, `qa-write-test-cases`, `improve-test-cases`, `qa-split-testing-levels-pyramid`, `automate-manual-test-cases`, `qa-test-code-coverage`, `qa-automation-test-consolidation`, `diagnosing-bugs`, `setup-ci-automation` | high-level QA strategy; non-QA feature implementation |
 | `to-spec` | Turn the current conversation into a specification without another discovery interview. | product-planning | workflow | `conversation-to-spec` | `tasks`, `writing-plans` | interactive requirements discovery; implementation execution |
 | `vercel-react-best-practices` | React and Next.js performance optimization guidelines from Vercel Engineering for writing, reviewing, and refactoring React/Next.js code. | engineering | methodology | `performance-review` | `nextjs-developer` | non-React performance work; Mastra or Supabase internals |
 | `worktrees` | Create and manage isolated git worktrees for iPix tasks so multi-step work starts from clean, current main. | developer-experience | utility | `workspace-isolation` | `tasks` | branch or merge policy decisions; implementation work itself |
@@ -71,25 +69,16 @@ Source of truth: `.agents/skills/registry.json`.
 | `copilotkit-review` | `copilotkit` |
 | `debug-fix-failed-flaky-autotests` | `diagnosing-bugs` |
 | `epic-requirements-specification` | `requirements` |
-| `explorbot-fundamentals` | `explorbot` |
-| `explorbot-plan` | `explorbot` |
-| `explorbot-setup` | `explorbot` |
 | `ipix-task-lifecycle` | `tasks` |
 | `nextjs-review` | `nextjs-developer` |
 | `pr-agent-code-review` | `code-review` |
 | `pr-workflow` | `tasks` |
 | `pull-request-diff-analyzer` | `qa-pr-analysis` |
-| `qa-e2e-tests-reporting` | `testomatio` |
 | `qa-pr-requirements-analyzer` | `qa-pr-analysis` |
 | `qa-requirement-reviewer` | `requirements` |
 | `qa-review-pr` | `qa-review` |
-| `qa-sprint-report-by-testomatio` | `testomatio` |
 | `qa-thinking` | `qa-review` |
-| `run-tests-with-testomatio-reporter` | `testomatio` |
-| `setup-change-aware-pr-testing` | `testomatio` |
 | `supabase-review` | `ipix-supabase` |
-| `sync-test-cases-with-tms` | `testomatio` |
-| `testomatio-mcp` | `testomatio` |
 | `write-user-story` | `requirements` |
 
 ## Governance
