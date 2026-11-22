@@ -6,9 +6,15 @@ import type { ShotReferenceCatalogEntry } from "@/lib/shoot/shot-type-references
 
 import { ShootPlanReview } from "./shoot-plan-review";
 
+const navigation = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: navigation.push }),
+}));
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  navigation.push.mockReset();
 });
 
 const APPROVAL_ID = "33333333-3333-4333-8333-333333333333";
@@ -374,6 +380,205 @@ describe("ShootPlanReview — multiple references", () => {
     expect(screen.getByTestId("review-reference-active").textContent).toContain(
       "Reviewing reference 1 of 1",
     );
+  });
+});
+
+describe("ShootPlanReview — explicit approve and save", () => {
+  const SHOOT_ID = "66666666-6666-4666-8666-666666666666";
+  const decision = { ok: true, status: 200, json: () => Promise.resolve({
+    ok: true, resumeState: "resumed", message: "recorded",
+  }) };
+
+  it("sends only the exact approved ID to the existing save-once API, then opens the Shoot", async () => {
+    const onSettled = vi.fn().mockResolvedValue(undefined);
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("/decision")) return decision;
+      if (url === "/api/shoots/save") return {
+        ok: true, status: 200,
+        json: () => Promise.resolve({ ok: true, shootId: SHOOT_ID, replayed: false }),
+      };
+      return { ok: true, status: 200, json: () => Promise.resolve({ url: PREVIEW_URL }) };
+    });
+
+    renderReview({ onSettled });
+    expect(fetchMock.mock.calls.filter(([url]) => String(url) === "/api/shoots/save")).toHaveLength(0);
+    fireEvent.click(screen.getByTestId("review-approve-and-save"));
+    await waitFor(() => expect(navigation.push).toHaveBeenCalledWith("/app/shoots/" + SHOOT_ID));
+    const saves = fetchMock.mock.calls.filter(([url]) => String(url) === "/api/shoots/save");
+    expect(saves).toHaveLength(1);
+    expect(JSON.parse(String((saves[0][1] as RequestInit).body))).toEqual({ approvalId: APPROVAL_ID });
+    const decisions = decisionCalls();
+    expect(decisions).toHaveLength(1);
+    expect(JSON.parse(String((decisions[0][1] as RequestInit).body))).toEqual({
+      revision: REVISION, planHash: PLAN_HASH, decision: "approved", note: null,
+    });
+    expect(onSettled).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not save or resume if approval was rejected by the server", async () => {
+    const onSettled = vi.fn();
+    fetchMock.mockImplementation(async (url: string) => url.includes("/decision")
+      ? { ok: false, status: 409, json: () => Promise.resolve({ reason: "stale_revision" }) }
+      : { ok: true, status: 200, json: () => Promise.resolve({ url: PREVIEW_URL }) });
+    renderReview({ onSettled });
+    fireEvent.click(screen.getByTestId("review-approve-and-save"));
+    await waitFor(() => expect(screen.getByTestId("review-error")).toBeTruthy());
+    expect(fetchMock.mock.calls.filter(([url]) => String(url) === "/api/shoots/save")).toHaveLength(0);
+    expect(navigation.push).not.toHaveBeenCalled();
+    expect(onSettled).not.toHaveBeenCalled();
+  });
+
+  it("keeps the review open on save failure; retry uses the same approval identity", async () => {
+    const onSettled = vi.fn();
+    let saves = 0;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("/decision")) return decision;
+      if (url === "/api/shoots/save") {
+        saves++;
+        return saves === 1
+          ? { ok: false, status: 503, json: () => Promise.resolve({ error: "save_failed" }) }
+          : { ok: true, status: 200, json: () => Promise.resolve({ ok: true, shootId: SHOOT_ID, replayed: true }) };
+      }
+      return { ok: true, status: 200, json: () => Promise.resolve({ url: PREVIEW_URL }) };
+    });
+    renderReview({ onSettled });
+    fireEvent.click(screen.getByTestId("review-approve-and-save"));
+    await waitFor(() => expect(screen.getByTestId("review-error").textContent).toContain("not confirmed saved"));
+    expect(onSettled).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("review-approve-and-save"));
+    await waitFor(() => expect(navigation.push).toHaveBeenCalledWith("/app/shoots/" + SHOOT_ID));
+    const requests = fetchMock.mock.calls.filter(([url]) => String(url) === "/api/shoots/save");
+    expect(requests).toHaveLength(2);
+    expect(requests.map(([, init]) => JSON.parse(String((init as RequestInit).body)))).toEqual([
+      { approvalId: APPROVAL_ID }, { approvalId: APPROVAL_ID },
+    ]);
+    expect(onSettled).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    {
+      reason: "save_failed", status: 503,
+      message: "save service could not confirm", guidance: "retry Approve & save",
+    },
+    {
+      reason: "forbidden", status: 403,
+      message: "do not have permission", guidance: "Contact a brand owner",
+    },
+    {
+      reason: "not_approved", status: 409,
+      message: "plan is not approved", guidance: "Check its approval status",
+    },
+    {
+      reason: "superseded_revision", status: 409,
+      message: "newer plan revision exists", guidance: "approve the latest version",
+    },
+    {
+      reason: "hash_mismatch", status: 409,
+      message: "does not match", guidance: "Reload and review",
+    },
+    {
+      reason: "invalid_plan", status: 400,
+      message: "plan is invalid", guidance: "Reload and review",
+    },
+  ])("shows actionable $reason instead of a generic save failure", async ({
+    reason, status, message, guidance,
+  }) => {
+    const onSettled = vi.fn();
+    fetchMock.mockImplementation(async (url: string) => url.includes("/decision") ? decision :
+      url === "/api/shoots/save"
+        ? { ok: false, status, json: () => Promise.resolve({ error: "error", reason }) }
+        : { ok: true, status: 200, json: () => Promise.resolve({ url: PREVIEW_URL }) });
+    renderReview({ onSettled });
+    fireEvent.click(screen.getByTestId("review-approve-and-save"));
+    await waitFor(() =>
+      expect(screen.getByTestId("review-error").textContent).toContain(message),
+    );
+    expect(screen.getByTestId("review-error").textContent).toContain(guidance);
+    expect(onSettled).not.toHaveBeenCalled();
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
+  it("handles an unauthorized error without a reason and never exposes unknown server text", async () => {
+    const onSettled = vi.fn();
+    fetchMock.mockImplementation(async (url: string) => url.includes("/decision") ? decision :
+      url === "/api/shoots/save"
+        ? { ok: false, status: 401, json: () => Promise.resolve({ error: "unauthorized" }) }
+        : { ok: true, status: 200, json: () => Promise.resolve({ url: PREVIEW_URL }) });
+    renderReview({ onSettled });
+    fireEvent.click(screen.getByTestId("review-approve-and-save"));
+    await waitFor(() =>
+      expect(screen.getByTestId("review-error").textContent).toContain("Sign in again"),
+    );
+    expect(onSettled).not.toHaveBeenCalled();
+  });
+
+  it("does not display unknown or sensitive error details returned by the save API", async () => {
+    fetchMock.mockImplementation(async (url: string) => url.includes("/decision") ? decision :
+      url === "/api/shoots/save"
+        ? {
+            ok: false, status: 503,
+            json: () => Promise.resolve({ error: "private-server-debug-info", reason: "internal_secret_123" }),
+          }
+        : { ok: true, status: 200, json: () => Promise.resolve({ url: PREVIEW_URL }) });
+    renderReview();
+    fireEvent.click(screen.getByTestId("review-approve-and-save"));
+    await waitFor(() =>
+      expect(screen.getByTestId("review-error").textContent).toContain("save service could not confirm"),
+    );
+    expect(screen.getByTestId("review-error").textContent).not.toContain("private-server-debug-info");
+    expect(screen.getByTestId("review-error").textContent).not.toContain("internal_secret_123");
+  });
+
+  it("does not claim the approval failed if the save network request throws after approval", async () => {
+    const onSettled = vi.fn();
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("/decision")) return decision;
+      if (url === "/api/shoots/save") throw new TypeError("Failed to fetch");
+      return { ok: true, status: 200, json: () => Promise.resolve({ url: PREVIEW_URL }) };
+    });
+    renderReview({ onSettled });
+    fireEvent.click(screen.getByTestId("review-approve-and-save"));
+    await waitFor(() => {
+      const error = screen.getByTestId("review-error").textContent ?? "";
+      expect(error).toContain("not confirmed saved");
+      expect(error).toContain("retry Approve & save");
+      expect(error).not.toContain("decision could not be recorded");
+    });
+    expect(onSettled).not.toHaveBeenCalled();
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
+  it("reports a saved Shoot even when Planner resume fails, with a working detail link", async () => {
+    const onSettled = vi.fn().mockRejectedValue(new Error("Planner run unavailable"));
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("/decision")) return decision;
+      if (url === "/api/shoots/save") return {
+        ok: true, status: 200,
+        json: () => Promise.resolve({ ok: true, shootId: SHOOT_ID, replayed: false }),
+      };
+      return { ok: true, status: 200, json: () => Promise.resolve({ url: PREVIEW_URL }) };
+    });
+    renderReview({ onSettled });
+    fireEvent.click(screen.getByTestId("review-approve-and-save"));
+    await waitFor(() => expect(screen.getByTestId("saved-shoot-link").getAttribute("href"))
+      .toBe("/app/shoots/" + SHOOT_ID));
+    expect(screen.getByTestId("review-error").textContent)
+      .toContain("Shoot saved, but Planner could not resume");
+    expect(navigation.push).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.filter(([url]) => String(url) === "/api/shoots/save")).toHaveLength(1);
+  });
+
+  it("rejects an invalid returned Shoot ID instead of navigating to an untrusted URL", async () => {
+    const onSettled = vi.fn();
+    fetchMock.mockImplementation(async (url: string) => url.includes("/decision") ? decision :
+      url === "/api/shoots/save"
+        ? { ok: true, status: 200, json: () => Promise.resolve({ ok: true, shootId: "https://evil.invalid" }) }
+        : { ok: true, status: 200, json: () => Promise.resolve({ url: PREVIEW_URL }) });
+    renderReview({ onSettled });
+    fireEvent.click(screen.getByTestId("review-approve-and-save"));
+    await waitFor(() => expect(screen.getByTestId("review-error")).toBeTruthy());
+    expect(navigation.push).not.toHaveBeenCalled();
+    expect(onSettled).not.toHaveBeenCalled();
   });
 });
 

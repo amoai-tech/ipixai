@@ -71,6 +71,9 @@ describe("POST /api/shoots/save", () => {
     mocks.saveApprovedShoot.mockResolvedValue({ ok: false, code });
     const response = await POST(request({ approvalId: APPROVAL_ID }));
     expect(response.status).toBe(status);
+    // The browser's save-error guidance depends on this stable, sanitized
+    // reason contract—not on internal PostgREST error details.
+    expect(await response.json()).toEqual({ error: "error", reason: code.toLowerCase() });
   });
 
   it("returns the canonical shootId on success", async () => {
