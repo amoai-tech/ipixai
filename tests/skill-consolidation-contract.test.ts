@@ -27,40 +27,15 @@ describe("skill consolidation contract", () => {
     expect(workflow).not.toMatch(/`(?:qa-review-pr|qa-thinking|pull-request-diff-analyzer|qa-pr-requirements-analyzer)`/);
   });
 
-  it("uses one Explorbot skill", () => {
-    expect(existsSync(canonicalSkill("explorbot"))).toBe(true);
-    for (const removed of ["explorbot-setup", "explorbot-plan", "explorbot-fundamentals"]) {
-      expect(existsSync(resolve(repoRoot, ".agents/skills", removed)), `${removed} directory should be removed`).toBe(false);
+  it("does not register retired QA tools or their integrations", () => {
+    for (const retired of ["explorbot", "testomatio"]) {
+      expect(existsSync(canonicalSkill(retired))).toBe(false);
     }
-  });
-
-
-  it("uses one Testomat.io integration skill with reference workflows", () => {
-    expect(existsSync(canonicalSkill("testomatio"))).toBe(true);
-
-    for (const ref of ["reporting.md", "sync.md", "mcp.md", "runs.md", "pr-testing.md"]) {
-      expect(
-        existsSync(resolve(repoRoot, ".agents/skills/testomatio/references", ref)),
-        `testomatio reference ${ref}`,
-      ).toBe(true);
-    }
-
-    for (const removed of [
-      "qa-e2e-tests-reporting",
-      "qa-sprint-report-by-testomatio",
-      "run-tests-with-testomatio-reporter",
-      "setup-change-aware-pr-testing",
-      "sync-test-cases-with-tms",
-      "testomatio-mcp",
-    ]) {
-      expect(existsSync(resolve(repoRoot, ".agents/skills", removed)), `${removed} directory should be removed`).toBe(false);
-    }
-
+    expect(existsSync(resolve(repoRoot, ".github/workflows/testomatio.yml"))).toBe(false);
+    expect(existsSync(resolve(repoRoot, ".github/scripts/run-testomatio-playwright.mjs"))).toBe(false);
     const workflow = read(".agents/skills/testing-workflow/SKILL.md");
-    expect(workflow).toContain("`testomatio`");
-    expect(workflow).not.toMatch(
-      /`(?:qa-e2e-tests-reporting|qa-sprint-report-by-testomatio|run-tests-with-testomatio-reporter|setup-change-aware-pr-testing|sync-test-cases-with-tms|testomatio-mcp)`/,
-    );
+    expect(workflow).toContain("Vitest");
+    expect(workflow).toContain("Playwright");
   });
 
   it("routes fastest-path requests through tasks without a standalone fastest skill", () => {

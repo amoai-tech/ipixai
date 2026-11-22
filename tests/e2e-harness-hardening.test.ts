@@ -772,15 +772,9 @@ describe("Playwright E2E harness hardening", () => {
     expect(aiSmoke).not.toContain("name: playwright-ai-smoke-report");
   });
 
-  it("keeps Testomat reporting but does not publish authenticated Playwright artifacts", () => {
-    const source = readFileSync(path.resolve(process.cwd(), ".github/workflows/testomatio.yml"), "utf8");
-    const job = workflowJob(source, "playwright");
-    const steps = job.steps ?? [];
-
-    const reportStep = steps.find((step) => step.run?.includes("@testomatio/reporter@"));
-    expect(reportStep).toBeDefined();
-    expect(String(reportStep?.env?.TESTOMATIO_DISABLE_ARTIFACTS)).toBe("1");
-    expect(steps.some((step) => step.uses?.startsWith("actions/upload-artifact@"))).toBe(false);
+  it("does not retain the retired Testomat CI integration", () => {
+    expect(existsSync(path.resolve(process.cwd(), ".github/workflows/testomatio.yml"))).toBe(false);
+    expect(existsSync(path.resolve(process.cwd(), ".github/scripts/run-testomatio-playwright.mjs"))).toBe(false);
   });
 
   it("generates exactly the three official Playwright Test Agent definitions", () => {

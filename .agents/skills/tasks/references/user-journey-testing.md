@@ -35,11 +35,10 @@ Vitest → pure logic/components
 Supabase SQL / existing fixtures → RLS/RPC/migrations/tenant contracts
 Playwright → deterministic user journeys
 Mastra/CopilotKit deterministic tests → agent/tool/workflow/runtime contracts
-Explorbot → selected autonomous exploratory-browser pilot
 GitHub Actions → exact-head merge enforcement
 ```
 
-Explorbot supplements deterministic coverage; it is not yet a mandatory merge gate. A clean checkout must still be certifiable with repository-owned deterministic tests. Convert verified Explorbot discoveries into permanent regression tests when practical.
+A clean checkout must be certifiable with repository-owned deterministic tests. Turn any verified manual browser discovery into a permanent regression test when practical.
 
 No other AI-evaluation or guardrail platform is adopted by this standard. Choosing one requires a separate explicit research/adoption decision with version, setup, secrets, commands, evidence format, ownership, and local/CI execution defined before it becomes a required gate.
 
@@ -164,7 +163,7 @@ For each journey:
 5. Use deterministic tests first: Vitest / SQL / Playwright.
 6. For AI-native journeys, evaluate relevance, faithfulness, natural-language tool selection, tool arguments, guardrails, stale-result handling and HITL behavior with the current iPix test/runtime stack; do not introduce a new evaluation platform unless a separately approved task owns that decision.
 7. Reconcile frontend-visible result, agent/workflow evidence, and durable backend state for any consequential write.
-8. Use Explorbot only after deterministic coverage exists, treat it as exploratory developer QA rather than a mandatory merge gate, and convert verified discoveries into permanent regression tests.
+8. Run additional manual exploratory checks only when risk warrants them, and turn verified findings into permanent regression tests.
 9. Do not certify the journey because one page renders, one Playwright script passes, or one Mastra tool test passes.
 10. Record exact evidence for system correctness, AI correctness, and state correctness when applicable.
 11. Stop and update the task if the journey exposes an incorrect architecture, missing ownership boundary, unsafe write, tenant leak, stale approval/result, or unowned failure path.
