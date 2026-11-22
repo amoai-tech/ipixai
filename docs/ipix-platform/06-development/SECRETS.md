@@ -92,8 +92,6 @@ This table is names-only. No value from the legacy file is authoritative merely 
 | `SUPABASE_DB_PASSWORD` | **TOOLING_ONLY** | Database administration only; never coding-agent env. |
 | `SUPABASE_DB_URL` | **TOOLING_ONLY** | Database administration/legacy tooling only. |
 | `SUPABASE_SERVICE_ROLE_KEY` | **PLATFORM_SECRET** | Privileged legacy compatibility for server/Edge tooling; never browser or coding-agent env. |
-| `TESTOMATIO` | **TOOLING_ONLY** | CI test-reporting credential. |
-| `TESTOMATIO_PROJECT_ID` | **TOOLING_ONLY** | Testomatio tooling metadata. |
 | `VERCEL_AUTOMATION_BYPASS_SECRET` | **TEST_ONLY** | Preview E2E automation only. |
 | `VERCEL_PROJECT_ID` | **TOOLING_ONLY** | Vercel deployment/governance tooling. |
 | `VERCEL_TEAM_ID` | **TOOLING_ONLY** | Vercel CLI/project metadata when required. |
