@@ -16,7 +16,7 @@ This repository is the iPix CopilotKit + Mastra runtime. Implement here, in `amo
 
 ## Feature orientation — intent, spec, plan
 
-Before implementing, **read the exact live Linear issue and verify current code, dependencies, and related PRs**. Then use the relevant portions of [product intent](docs/intent.md), [observable specification](docs/spec.md), and [delivery plan](docs/plan.md) as context; they do not replace current code or issue requirements.
+Before implementing, **read the exact live Linear issue and verify current code, dependencies, and related PRs**. Then use the relevant portions of [product intent](intent.md), [observable specification](spec.md), and [delivery plan](plan.md) as context; they do not replace current code or issue requirements.
 
 Choose the smallest useful path:
 - **Small fix** (local, clear requirements): use Linear + affected code + a short verification checklist. **Do not create** three task files.
@@ -24,6 +24,8 @@ Choose the smallest useful path:
 - **Cross-cutting, ambiguous, or multi-session work** with a demonstrated handoff gap: follow [spec-driven task guidance](docs/development/README.md), reusing existing task artifacts if present. Create only the missing intent/spec/plan documents that add material value, based on the reviewed templates, then link them in the **same** Linear issue.
 
 For every path: inspect existing implementation first, make the smallest safe change, run risk-matched verification, and record the current branch/SHA, result, blocker, and exact next action in Linear. **Do not treat draft files as permission for a production write or merge.**
+
+**AI-native handoff trigger — a cross-cutting, ambiguous, or multi-session task with a documented unresolved decision or handoff gap:** root [intent.md](intent.md) holds the enduring customer *why*, [spec.md](spec.md) the observable *what*, [plan.md](plan.md) the delivery *how*, and [roadmap.md](roadmap.md) durable direction, **not live task status**. For an actual IPI task, inspect current main, define observable acceptance and failure/recovery tests before implementation, reuse the smallest proven pattern, review the exact diff, and verify deployed readback. The **live Linear issue** owns the task-level spec/plan/evidence unless a real cross-cutting handoff needs optional per-task artifacts described in [the development guide](docs/development/README.md). Product docs are **not auto-loaded by every agent**; link only relevant sections. See [spec-first task guide](docs/development/README.md).
 
 `AGENTS.md` remains the engineering contract, live Linear owns task state and progress, and `.agents/skills/tasks/SKILL.md` remains the only task/PR lifecycle skill.
 

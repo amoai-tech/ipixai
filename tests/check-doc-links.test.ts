@@ -57,6 +57,46 @@ describe("documentation link checker", () => {
     expect(collectDocumentationFailures(root)[0]).toContain("prd.md:1");
   });
 
+  it("checks broken links in all ten configured root documents", () => {
+    const fixtureRoot = path.join(__dirname, "fixtures", "docs-root-broken-links");
+    const failures = collectDocumentationFailures(fixtureRoot);
+
+    for (const rootDocument of [
+      "README.md",
+      "AGENTS.md",
+      "REVIEW.md",
+      "prd.md",
+      "SITEMAP.md",
+      "intent.md",
+      "spec.md",
+      "plan.md",
+      "roadmap.md",
+      "todo.md",
+    ]) {
+      expect(
+        failures.some(
+          (failure) => failure.startsWith(rootDocument) && failure.includes("absent.md"),
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("reports missing spec-to-plan links but accepts a valid link", () => {
+    const withPlan = path.join(__dirname, "fixtures", "docs-root-broken-links");
+    expect(
+      collectDocumentationFailures(withPlan).some(
+        (failure) => failure.startsWith("spec.md") && failure.includes("plan.md"),
+      ),
+    ).toBe(false);
+
+    const withoutPlan = path.join(__dirname, "fixtures", "docs-cross-link-missing");
+    expect(
+      collectDocumentationFailures(withoutPlan).some(
+        (failure) => failure.startsWith("spec.md") && failure.includes("plan.md"),
+      ),
+    ).toBe(true);
+  });
+
   it("fails when obsolete Mintlify files are recreated", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "ipix-docs-check-"));
     tempDirs.push(root);

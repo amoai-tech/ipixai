@@ -7,10 +7,11 @@ iPix is an AI-native operating system for fashion brands and production teams. T
 | Need | Source |
 |---|---|
 | Documentation home | [docs/README.md](docs/README.md) |
-| Product requirements | [docs/prd.md](docs/prd.md) |
+| Product requirements | [docs/prd.md](docs/prd.md) (root [prd.md](prd.md) is a stable pointer) |
+| Product intent / spec / delivery plan | [intent.md](intent.md) · [spec.md](spec.md) · [plan.md](plan.md) |
 | Routes and phases | [docs/sitemap.md](docs/sitemap.md) |
 | Architecture decisions | [docs/adr/README.md](docs/adr/README.md) |
-| Durable roadmap | [docs/roadmap.md](docs/roadmap.md) |
+| Durable roadmap | [roadmap.md](roadmap.md) |
 | Live execution status, blockers, sequencing | [Linear v2-ipix](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues) |
 | Documentation map | [docs/docs-index.md](docs/docs-index.md) |
 

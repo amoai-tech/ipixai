@@ -12,7 +12,7 @@ This repo does **not** have old iPix `docs/process/` or `AGENTS.md` yet. Use:
 | Doc | Use for |
 |-----|---------|
 | `docs/copilotkit-mastra/README.md` | Current CopilotKit + Mastra runtime contract |
-| `docs/roadmap.md` | Now → Next → Later product direction |
+| `roadmap.md` | Now → Next → Later product direction |
 | `docs/mastra/db-001-matrix.md` | `mastra` Postgres schema contract |
 | `docs/archive/cursor/linux-audit.md` | Historical host OOM / DEV-STAB-001 evidence |
 

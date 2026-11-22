@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRoot = path.resolve(path.dirname(scriptPath), "..");
-const rootPointerDocs = ["README.md", "prd.md", "SITEMAP.md", "todo.md"];
+const rootCheckedDocs = ["README.md", "AGENTS.md", "REVIEW.md", "prd.md", "SITEMAP.md", "intent.md", "spec.md", "plan.md", "roadmap.md", "todo.md"];
 const obsoleteMintlifyFiles = ["docs/.mintignore", "docs/docs.json", "docs/index.mdx"];
 const deprecatedTopLevelDocsDirs = [
   "docs/MIGRATE",
@@ -58,7 +58,7 @@ function activeMarkdownFiles(root) {
   const docsRoot = path.join(root, "docs");
   return [
     ...walkActiveDocs(docsRoot, path.join(docsRoot, "archive")),
-    ...rootPointerDocs.map((name) => path.join(root, name)).filter(fs.existsSync),
+    ...rootCheckedDocs.map((name) => path.join(root, name)).filter(fs.existsSync),
   ];
 }
 export function collectDocumentationFailures(root = defaultRoot) {
