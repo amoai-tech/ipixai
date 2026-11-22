@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -32,6 +32,11 @@ export function AuthForm({ mode, next }: { mode: AuthFormMode; next: string | nu
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // On a cold Next.js load the server-rendered form is visible before React
+  // attaches its submit handler. Disable it until hydration so a real user
+  // (or Playwright) cannot submit a form that silently does nothing.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => { setHydrated(true); }, []);
   const submittedRef = useRef(false);
 
   const destination = next ?? "/app";
@@ -175,7 +180,7 @@ export function AuthForm({ mode, next }: { mode: AuthFormMode; next: string | nu
                 <button
                   type="submit"
                   className={styles.submit}
-                  disabled={submitting}
+                  disabled={submitting || !hydrated}
                 >
                   {submitting
                     ? "Please wait…"
@@ -192,7 +197,7 @@ export function AuthForm({ mode, next }: { mode: AuthFormMode; next: string | nu
                     type="button"
                     className={styles.google}
                     onClick={onGoogle}
-                    disabled={submitting}
+                    disabled={submitting || !hydrated}
                   >
                     Continue with Google
                   </button>

@@ -76,8 +76,12 @@ test("zero-org founder fills Screen 1 in a CopilotKit form, autosaves, survives 
     const websiteInput = page.getByLabel("Website (optional)");
     await websiteInput.fill("not a url");
     await page.getByRole("button", { name: "Continue" }).click();
-    expect(await websiteInput.evaluate((element: HTMLInputElement) =>
-      !element.validity.valid && !!element.validationMessage)).toBe(true);
+    const invalidUrl = await websiteInput.evaluate((element: HTMLInputElement) => ({
+      valid: element.validity.valid,
+      validationMessage: element.validationMessage,
+    }));
+    expect(invalidUrl.valid).toBe(false);
+    expect(invalidUrl.validationMessage).not.toBe("");
     await expect(page.getByText("Step 1 of 3")).toBeVisible();
     await page.getByLabel("Website (optional)").fill("https://maisonatelier.example");
 
