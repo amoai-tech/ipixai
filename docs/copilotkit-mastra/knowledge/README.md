@@ -26,7 +26,7 @@ Give the existing Production Copilot **read-only, source-backed access to shared
 | Tenant scope / verified current user | **Core** | Server derives org and Memory IDs; rejects user/model-supplied cross-org scope |
 | Citations, source version, unknown fallback | **Core** | Actual document path/title/version or “not documented” |
 | Idempotent seed/update | **Core** | Re-run without duplicates; withdrawn sources must be retired/suppressed, not silently served |
-| Persistent storage | **Core** | Verify @mastra/pg **1.37.0** pinned on current main against the installed 1.84 family and actual live schema before any migration |
+| Persistent storage | **Core** | Verify the pinned **@mastra/pg 1.37.0** storage package with **@mastra/core 1.84.0** and the live database schema before any migration |
 | Agent editing shared Knowledge | **Not in pilot** | Read-only tools; edits through a guarded server-side content seed |
 | Pinned knowledge per turn | **Advanced** | IPI-1471 only after measurable pilot value |
 | Knowledge Studio tree/graph/activity | **Advanced optional** | IPI-1471, not a prerequisite for operator answers |
