@@ -20,8 +20,9 @@
 | [IPI-1484 — AI-PLATFORM-TRACKER-EPIC — Verify iPix Agents, Workflows, Tools, MCP, Knowledge and Copilot](https://linear.app/amo100/issue/IPI-1484) | Coordinated, evidence-backed tracker | 🟡 **25%** · Todo | This file + live Linear epic | Keep statuses current; no application feature certified |
 | [IPI-1460 — MASTRA-UPG-007 — Upgrade iPix Mastra to 1.84](https://linear.app/amo100/issue/IPI-1460) | Version pin | 🟢 **100%** · Done, pin scope only | main package pin, Linear Done | Doesn't prove downstream workflows |
 | [IPI-1143 — MASTRA-EPIC — Govern One Current Mastra Runtime Across iPix](https://linear.app/amo100/issue/IPI-1143) | Secure, current local Studio | 🟡 **50%** · In Progress | [PR #365](https://github.com/amoai-tech/ipixai/pull/365) open, changes requested | Finish PR and live auth/reload checks; Studio port now down |
-| [IPI-1473 — MASTRA-AGENTS-EPIC — Build and Verify iPix Concierge and Specialist Agents on One Secure Runtime](https://linear.app/amo100/issue/IPI-1473) | Concierge + specialists | 🔵 **0%** · Todo | Existing epic | Prove at least one delegation path, not new runtime |
+| [IPI-1473 — MASTRA-AGENTS-EPIC — Build and Verify iPix Concierge and Specialist Agents on One Secure Runtime](https://linear.app/amo100/issue/IPI-1473) | Concierge + specialists | 🟡 **0% specialist delivery** · In Review | Existing epic; Linear status verified November 22 | Prove at least one delegation path, not new runtime |
 | [IPI-1474 — AGENTS-001 — Prove Safe Concierge Delegation Before Changing the Agent Registry](https://linear.app/amo100/issue/IPI-1474) | Identity-safe delegation | 🔵 **0%** · Backlog | — | One trusted supervisor-to-specialist route |
+| [IPI-1482 — AGENTS-009 — Reuse Production Planner as Concierge's Shoot Planner Expert](https://linear.app/amo100/issue/IPI-1482) | Preserve existing Shoot planning behind delegation | 🔵 **0%** · Backlog | Existing task; blocked by IPI-1474 | Needed before IPI-1475 and IPI-1481; do not rebuild planning tools |
 | [IPI-1475 — AGENTS-002 — Add One iPix Concierge That Delegates Safely to Specialists](https://linear.app/amo100/issue/IPI-1475) | One AI assistant | 🔵 **0%** · Backlog | — | Real specialist output in existing Copilot |
 | [IPI-1476 — AGENTS-003 — Add Brand Expert Using Existing Brand Intelligence and Knowledge](https://linear.app/amo100/issue/IPI-1476) | Brand fact specialist | 🔵 **0%** · Backlog | — | Real Brand evidence and exact citations |
 | [IPI-1477 — AGENTS-004 — Add Research Expert for Cited Competitor and Website Research](https://linear.app/amo100/issue/IPI-1477) | Source-backed research | 🔵 **0%** · Backlog | — | One useful public read-only research path |
@@ -50,6 +51,8 @@
 | [Docs: workflow roadmap](https://github.com/amoai-tech/ipixai/pull/368) | Workflow references/plan | 🟡 **75%** · docs PR open | PR #368 | Merge/review; no runtime behavior implemented |
 | [Docs: tools roadmap](https://github.com/amoai-tech/ipixai/pull/369) | Tool references/plan | 🟡 **75%** · docs PR open | PR #369 | Merge/review; no agent tool deployed |
 | [Docs: MCP product-agent roadmap](https://github.com/amoai-tech/ipixai/pull/370) | 16 capabilities and stages | 🟡 **75%** · docs PR open | PR #370 | Merge/review; no MCP adapter deployed |
+| [Docs: Knowledge and AI platform tracker](https://github.com/amoai-tech/ipixai/pull/371) | Knowledge pilot and status plan | 🟡 **75%** · docs PR open | PR #371 | Documentation only; tenant-scoped Knowledge not yet implemented |
+| [Docs: Agents roadmap](https://github.com/amoai-tech/ipixai/pull/372) | Agents and delegation plan | 🟡 **75%** · docs PR open | PR #372 | Documentation only; no new specialist delivered |
 | **Local Studio /knowledge (port 4211)** | Local diagnostic viewer | 🔴 **0%** · FAILED live check | curl localhost:4211/knowledge → connection refused, Nov 22 | Start current 1.84 Studio; authenticate; then inspect Knowledge route (historically 404) |
 
 **Important:** Numeric values are scoped, evidence-calibrated estimates; they cannot be summed into a truthful overall product percentage. A narrow version-pin task at 100% does not mean Knowledge, Agents or MCP are production-ready. Current hosted Postgres schema, deployed Next.js SHA and current end-to-end business flow were not read directly in this documentation review; mark them **unverified**.
@@ -64,30 +67,37 @@
 | 🟡 PG compatibility not freshly checked | IPI-1467 records historic missing Knowledge tables, no current SQL proof | Read-only current schema, versioned additive migration if needed, restart test |
 | 🟡 Brand workflow unproven after callback | Existing step definitions but IPI-1318 Todo | Signed webhook → exact run/crawl ID → one persisted draft |
 | 🟡 Shoot Plan PR awaiting merge/proof | PR #367 open | Exact reviewed hash/revision + one save + retry/DB readback + 390px |
-| 🔵 Concierge not implemented | IPI-1474–1481 Backlog | Prove one real delegation before more agents |
+| 🔵 Concierge not implemented | IPI-1474–1482 Backlog (including the Shoot Planner Expert) | Prove one real delegation before more agents |
 | 🔵 MCP product feature absent | No @mastra/mcp in current main; no explicit MCPServer registration | One named product/provider need first; no redundant in-process MCP hop |
-| 🟡 Docs PRs open | #368/#369/#370 not merged | Finish review/CI, link to canonical docs, do not label product feature Done |
+| 🟡 Docs PRs open | #368–#372 not merged | Finish review/CI, link to canonical docs, do not label product feature Done |
 
 ## Dependencies and recommended order
 
 ```mermaid
 flowchart TD
- A["Mastra 1.84 pin"] --> K1["IPI-1467: Knowledge API/PG/scopes"]
- K1 --> K2["IPI-1468: read-only Knowledge"]
- K2 --> K3["IPI-1469: seeded runbooks and cited answer"]
- K3 --> K4["IPI-1470: E2E/tenant/restart/mobile"]
- K4 --> K5["IPI-1471: optional Studio and pins"]
- A --> B["IPI-1318: Brand signed resume"]
- B --> B2["IPI-970: browser/restart recovery"]
- A --> S["IPI-1151: reviewed Shoot save"]
- T["Existing native planning tools"] --> C["IPI-1250/1223: accurate budget"]
- K3 --> D["IPI-1476: Brand Expert"]
- D --> E["IPI-1474/1475: Concierge"]
- C --> E
- S --> F["IPI-1481: real agent E2E"]
- E --> F
- M["IPI-1485: optional real provider MCP"] --> F
+  A["Mastra 1.84 pin"] --> K1["IPI-1467: verify Knowledge API / PG / scopes"]
+  K1 --> K2["IPI-1468: read-only Knowledge"]
+  K2 --> K3["IPI-1469: sourced runbooks"]
+  K3 --> K4["IPI-1470: Knowledge E2E"]
+  K4 --> K5["IPI-1471: optional Studio / pinned context"]
+  A --> B["IPI-1318: Brand signed crawl resume"]
+  B --> B2["IPI-970: browser / restart recovery"]
+  A --> S["IPI-1151: exact reviewed Shoot save"]
+  T["Existing native planning tools"] --> C["IPI-1250 / IPI-1223: correct budget"]
+  A --> G["IPI-1474: prove safe delegation"]
+  G --> P["IPI-1482: reuse Planner as Shoot expert"]
+  P --> E["IPI-1475: Concierge"]
+  G --> D["IPI-1476: Brand expert"]
+  B -.-> D
+  K3 -.->|"optional runbook context"| D
+  C --> E
+  E --> F["IPI-1481: agent E2E"]
+  D --> F
+  S --> F
+  M["IPI-1485: optional MCP interoperability"] -.-> E
 ```
+
+**Dependency correction:** IPI-1474 must precede IPI-1482 and IPI-1475. The Knowledge pilot is optional context for a Brand Expert, and MCP is optional interoperability; neither is a prerequisite for the core Concierge or agent E2E.
 
 **Safe parallel work:** IPI-1467 SDK/PG verification, IPI-1318 fresh Brand trace, IPI-1250 deterministic budget correction and PR #367 Shoot review. **Do not block** these on M7 generic workflow standardization, MCP Studio or optional pinned Knowledge.
 
