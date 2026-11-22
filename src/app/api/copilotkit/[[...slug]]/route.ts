@@ -23,9 +23,33 @@ import { createPlannerRunControl } from "@/lib/copilotkit/planner-run-control-su
 // deliberately NOT read here, so an env change can never silently move the
 // Planner to a remote Mastra service. Remote helpers stay in src/agent.ts and
 // mastra-control-runner.ts only until IPI-1334 · MASTRA-REMOTE-CLEANUP-001.
+// IPI-1462 · ONBOARD-A2UI-01 — the /onboarding CopilotKit form needs a
+// runtime to start, but a verified zero-org founder may not reach the
+// Planner. They get /info from a runtime with no agents, built by the SDK;
+// every other method and path still returns the session's refusal.
+let onboardingInfoHandler: ((request: Request) => Response | Promise<Response>) | undefined;
+function onboardingRuntimeInfo() {
+  onboardingInfoHandler ??= handle(
+    createCopilotHonoHandler({
+      runtime: new CopilotRuntime({ agents: {} }),
+      basePath: "/api/copilotkit",
+    }),
+  );
+  return onboardingInfoHandler;
+}
+
+function isRuntimeInfoRequest(request: Request): boolean {
+  return request.method === "GET" && new URL(request.url).pathname === "/api/copilotkit/info";
+}
+
 async function handleCopilot(request: Request) {
   const session = await requirePlannerResourceId(request);
-  if (!session.ok) return session.response;
+  if (!session.ok) {
+    if (session.needsOnboarding && isRuntimeInfoRequest(request)) {
+      return onboardingRuntimeInfo()(request);
+    }
+    return session.response;
+  }
 
   const resourceId = session.resourceId;
   // The authorization boundary provides this trusted tenant directly.

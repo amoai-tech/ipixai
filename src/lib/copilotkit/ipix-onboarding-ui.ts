@@ -52,6 +52,11 @@ export const ipixOnboardingUI = createGenerativeUI({
       parameters: z.object({
         brandName: z.string().optional(),
         buildType: onboardingBuildTypeSchema.nullable().optional(),
+        websiteUrl: z.string().optional(),
+        // IPI-1264 declared public hints, keyed per platform; never "verified".
+        ig: z.string().optional(),
+        tiktok: z.string().optional(),
+        shopify: z.string().optional(),
       }),
     },
   },

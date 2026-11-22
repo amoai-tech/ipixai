@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 const { ConfigError, createClientMock, signInWithOAuthMock } = vi.hoisted(() => {
@@ -64,6 +65,18 @@ function mockReturnedOAuthError() {
     auth: { signInWithOAuth: signInWithOAuthMock },
   });
 }
+
+describe("AuthForm hydration safety", () => {
+  it("disables server-rendered submit until React has attached event handlers", () => {
+    const html = renderToString(<AuthForm mode="signin" next={null} />);
+    // DOMParser creates an inert document; avoid assigning SSR markup to innerHTML.
+    const serverForm = new DOMParser().parseFromString(html, "text/html");
+    expect(serverForm.querySelector('button[type="submit"]')?.hasAttribute("disabled")).toBe(true);
+
+    render(<AuthForm mode="signin" next={null} />);
+    expect((screen.getByRole("button", { name: "Sign in" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+});
 
 describe("AuthForm Google OAuth errors", () => {
   it("shows the sign-in outage message when Supabase client configuration is missing", async () => {

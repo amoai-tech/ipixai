@@ -29,9 +29,22 @@ async function gotoLogin(page: Page) {
   }
 }
 
-async function submitPasswordSignIn(page: Page, signIn: Locator) {
+async function submitPasswordSignIn(page: Page, signIn: Locator, landing = "/app") {
+  // Distinguish missing browser events from a successful Auth response whose
+  // app redirect failed. Never log credentials, response bodies or tokens.
+  let authRequests = 0;
+  let authStatus: number | undefined;
+  const onRequest = (request: Request) => {
+    if (isAuthTokenRequest(request)) authRequests += 1;
+  };
+  const onResponse = (response: import("@playwright/test").Response) => {
+    if (isAuthTokenRequest(response.request())) authStatus = response.status();
+  };
+  page.on("request", onRequest);
+  page.on("response", onResponse);
+
   const appNavigation = page
-    .waitForURL((url) => url.pathname === "/app", { timeout: SIGN_IN_TIMEOUT_MS })
+    .waitForURL((url) => url.pathname === landing, { timeout: SIGN_IN_TIMEOUT_MS })
     .then(() => ({ kind: "success" as const }));
   const requestFailure = page
     .waitForEvent("requestfailed", {
@@ -57,14 +70,22 @@ async function submitPasswordSignIn(page: Page, signIn: Locator) {
       body: await response.text().catch(() => "<unreadable body>"),
     }));
 
-  await signIn.click();
   try {
+    await signIn.click();
     return await Promise.race([appNavigation, requestFailure, httpError]);
   } catch (error) {
     if (error instanceof Error && error.name === "TimeoutError") {
-      return { kind: "timeout" as const };
+      const phase = authRequests === 0
+        ? "no Auth token request was sent (possible pre-hydration click)"
+        : authStatus === undefined
+          ? "Auth token request sent but no HTTP response"
+          : `Auth token response HTTP ${authStatus}; current path ${new URL(page.url()).pathname}`;
+      return { kind: "timeout" as const, phase };
     }
     throw error;
+  } finally {
+    page.off("request", onRequest);
+    page.off("response", onResponse);
   }
 }
 
@@ -73,6 +94,8 @@ export async function signInWithCredentials(
   page: Page,
   email: string,
   password: string,
+  // A zero-org founder lands on /onboarding instead of /app (IPI-1462).
+  landing = "/app",
 ): Promise<void> {
   await gotoLogin(page);
 
@@ -84,10 +107,10 @@ export async function signInWithCredentials(
   await passwordField.fill(password);
 
   try {
-    const first = await submitPasswordSignIn(page, signIn);
+    const first = await submitPasswordSignIn(page, signIn, landing);
     if (first.kind === "success") return;
     if (first.kind === "timeout") {
-      throw new Error(`Sign-in timed out after ${SIGN_IN_TIMEOUT_MS}ms waiting for Supabase Auth`);
+      throw new Error(`Sign-in timed out after ${SIGN_IN_TIMEOUT_MS}ms: ${first.phase}`);
     }
 
     if (first.kind === "http-error") {
@@ -100,11 +123,11 @@ export async function signInWithCredentials(
 
     // Retry once only when Chromium reports a host network-route handoff.
     // HTTP/auth failures are never retried or hidden.
-    const second = await submitPasswordSignIn(page, signIn);
+    const second = await submitPasswordSignIn(page, signIn, landing);
     if (second.kind === "success") return;
     if (second.kind === "timeout") {
       throw new Error(
-        `Sign-in timed out after ${SIGN_IN_TIMEOUT_MS}ms waiting for Supabase Auth after network retry`,
+        `Sign-in timed out after ${SIGN_IN_TIMEOUT_MS}ms after network retry: ${second.phase}`,
       );
     }
     if (second.kind === "http-error") {

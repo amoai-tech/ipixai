@@ -148,7 +148,12 @@ describe("IPI-1046 · AUTH-002 tenant identity", () => {
     const spy = vi.spyOn(agent, "createLocalAgents");
     memberships.rows = [];
     const handlers = { GET, POST, PATCH, DELETE };
-    for (const method of ["GET", "POST", "PATCH", "DELETE"] as const) {
+    // IPI-1462: GET /info answers from an agentless runtime so the onboarding
+    // form can start; it still builds no Planner agents (spy below).
+    const info = await GET(jsonRequest("GET"));
+    expect(info.status).toBe(200);
+    expect(((await info.json()) as { agents?: unknown }).agents).toEqual({});
+    for (const method of ["POST", "PATCH", "DELETE"] as const) {
       const response = await handlers[method](jsonRequest(method));
       expect(response.status).toBe(403);
       const body = await response.json();

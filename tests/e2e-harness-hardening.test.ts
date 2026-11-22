@@ -622,14 +622,17 @@ describe("Playwright E2E harness hardening", () => {
       url: () => "http://localhost:3015/login",
       getByRole: vi.fn((role: string) => (role === "button" ? signIn : genericLocator)),
       getByLabel: vi.fn(() => ({ fill: passwordFill })),
+      on: vi.fn(),
+      off: vi.fn(),
       waitForURL: vi.fn(() => Promise.reject(timeoutError())),
       waitForEvent: vi.fn(() => never()),
       waitForResponse: vi.fn(() => never()),
     };
 
     await expect(signInWithCredentials(page as never, "qa@example.com", "secret-password")).rejects.toThrow(
-      `Sign-in timed out after ${SIGN_IN_TIMEOUT_MS}ms waiting for Supabase Auth`,
+      `Sign-in timed out after ${SIGN_IN_TIMEOUT_MS}ms: no Auth token request was sent`,
     );
+    expect(page.off).toHaveBeenCalledWith("request", expect.any(Function));
     expect(passwordFill).toHaveBeenLastCalledWith("");
   });
 
