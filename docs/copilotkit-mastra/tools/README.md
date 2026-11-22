@@ -27,7 +27,7 @@
 
 ## Architecture / ownership
 
-~~~mermaid
+```mermaid
 flowchart TD
   U["Authenticated user in CopilotKit /app"] --> S["Server derives actor, org, Brand and Shoot authority"]
   S --> G{"Existing Planner tool gate"}
@@ -40,7 +40,7 @@ flowchart TD
   R --> UI
   WEB["Future URL research — only after IPI-1251"] --> S
   UI --> F["Operator reviews saved/actual state"]
-~~~
+```
 
 ### Quick feature choices
 

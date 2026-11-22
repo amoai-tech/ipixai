@@ -6,7 +6,7 @@
 
 Use one existing Production Planner with seven registered product tools, the current Next.js/CopilotKit /app interface, server-derived org/Brand/Shoot context, planner-tool-gate.ts, existing Supabase RPCs and current workflows. Avoid a new tool registry, new chat service, extra scheduler or alternative booking/approval process.
 
-~~~mermaid
+```mermaid
 flowchart TD
   U["Operator asks Planner"] --> A["Authenticated server verifies org, Brand and Shoot"]
   A --> G{"Existing activeTools gate"}
@@ -18,7 +18,7 @@ flowchart TD
   RPC --> R
   R --> UI["Existing CopilotKit answer/review UI"]
   UI --> P["Read back actual result after refresh"]
-~~~
+```
 
 ## Stage 1 — CORE: Correct existing plan and budget tools
 
@@ -90,7 +90,7 @@ When traces show a large composeShootPlan tool result, evaluate native toModelOu
 
 ## Dependencies and verification
 
-~~~mermaid
+```mermaid
 flowchart LR
   A["Existing tools + gate — Done"] --> B["IPI-1250: budget correctness"]
   B --> C["IPI-1223: /app budget proof"]
@@ -102,7 +102,7 @@ flowchart LR
   D --> H
   H --> I["IPI-1003: measure"]
   I --> J["Optional advanced tools only if justified"]
-~~~
+```
 
 **Proof checklist:**
 1. Tool map and schema: seven expected tools; finite numbers, max input/text/array bounds, current enums and trusted reference IDs.
