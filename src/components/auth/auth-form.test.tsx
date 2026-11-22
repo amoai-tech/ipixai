@@ -69,8 +69,8 @@ function mockReturnedOAuthError() {
 describe("AuthForm hydration safety", () => {
   it("disables server-rendered submit until React has attached event handlers", () => {
     const html = renderToString(<AuthForm mode="signin" next={null} />);
-    const serverForm = document.createElement("div");
-    serverForm.innerHTML = html;
+    // DOMParser creates an inert document; avoid assigning SSR markup to innerHTML.
+    const serverForm = new DOMParser().parseFromString(html, "text/html");
     expect(serverForm.querySelector('button[type="submit"]')?.hasAttribute("disabled")).toBe(true);
 
     render(<AuthForm mode="signin" next={null} />);

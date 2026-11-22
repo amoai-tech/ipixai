@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type Dispatch } from "react";
 import { A2UI_VERSION, GENERATIVE_UI_ROOT_ID, type A2UIOperation } from "@copilotkit/shared";
 import {
   GenerativeUISurface,
@@ -9,7 +9,7 @@ import {
 } from "@copilotkit/react-core/v2/generative-ui";
 
 import { ONBOARDING_COMPONENTS, ipixOnboardingUI } from "@/lib/copilotkit/ipix-onboarding-ui";
-import type { OnboardingBuildType } from "@/lib/onboarding";
+import type { OnboardingBuildType, OnboardingDraft } from "@/lib/onboarding";
 
 /**
  * IPI-1462 · ONBOARD-A2UI-01 — Screen 1 (Brand Discovery) as a fixed
@@ -19,7 +19,7 @@ import type { OnboardingBuildType } from "@/lib/onboarding";
  */
 export type BrandDiscoveryValues = {
   brandName: string;
-  buildType: OnboardingBuildType | null;
+  buildType: OnboardingDraft["buildType"];
   websiteUrl: string;
   ig: string;
   tiktok: string;
@@ -92,8 +92,8 @@ export function BrandDiscoveryScreen({
   onContinue,
 }: {
   initial: BrandDiscoveryValues;
-  onChange: (values: BrandDiscoveryValues) => void;
-  onContinue: (values: Partial<BrandDiscoveryValues>) => void;
+  onChange: Dispatch<BrandDiscoveryValues>;
+  onContinue: Dispatch<Partial<BrandDiscoveryValues>>;
 }) {
   const runtime = useGenerativeUIRuntime();
   const onChangeRef = useRef(onChange);
@@ -101,7 +101,9 @@ export function BrandDiscoveryScreen({
   // Seed once from the saved draft; later edits live in the form until saved.
   const initialRef = useRef(initial);
 
-  useGenerativeUIFunction(ipixOnboardingUI, "onboardingContinue", (args) => onContinue(args));
+  useGenerativeUIFunction(ipixOnboardingUI, "onboardingContinue", (args) => {
+    onContinue(args);
+  });
 
   useEffect(() => {
     if (!runtime) return;
