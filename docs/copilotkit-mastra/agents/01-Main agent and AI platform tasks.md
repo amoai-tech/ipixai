@@ -113,7 +113,7 @@ flowchart TD
 
 ## 7. Official API references (version check mandatory)
 
-[Agents overview](https://mastra.ai/docs/agents/overview) · [Supervisor/subagents](https://mastra.ai/docs/agents/supervisor-agents) · [Agent tools](https://mastra.ai/docs/agents/tools) · [Agent memory](https://mastra.ai/docs/agents/agent-memory) · [Approval](https://mastra.ai/docs/agents/agent-approval) · [Optional MCP](https://mastra.ai/docs/connections/mcp).
+[Agents overview](https://mastra.ai/docs/agents/overview) · [Supervisor/subagents](https://mastra.ai/docs/subagents) · [Agent tools](https://mastra.ai/docs/agents/tools) · [Agent memory](https://mastra.ai/docs/memory/overview) · [Approval](https://mastra.ai/docs/agents/human-in-the-loop) · [Optional MCP](https://mastra.ai/docs/connections/mcp).
 
 Current official Mastra documentation recommends the parent agent's `agents` object for native supervisor delegation. That is **a reference**, not proof it works with iPix's pinned versions and AG-UI bridge: verify installed SDK and actual delegation stream before implementation.
 
