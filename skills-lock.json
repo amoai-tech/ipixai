@@ -97,12 +97,6 @@
       "skillPath": "skills/engineering/tdd/SKILL.md",
       "computedHash": "e753a5da75292bbe59d302d89566bc2c53d0e73944da2f0e944a7578883c07d0"
     },
-    "testing-workflow": {
-      "source": "testomatio/skills",
-      "sourceType": "github",
-      "skillPath": "skills/testing-workflow/SKILL.md",
-      "computedHash": "2e4fb340fcd43e4ff768e89376280cb089d16ccd2b132be87d8dc8a7063fc23e"
-    },
     "to-spec": {
       "source": "mattpocock/skills",
       "sourceType": "github",

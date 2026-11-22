@@ -252,7 +252,9 @@ Rules: .cursor/rules/. Skills have only one home: .agents/skills/. Its registry.
 
 **One-real-copy rule:** every skill has exactly one directory at .agents/skills/<skill>/. No secondary skill aliases are committed. The registry, index, and skill-tree tests enforce this. Claude's plugin command namespace is /ipix:<skill>; plain claude without --plugin-dir .agents does not discover the repository skills automatically.
 
-**Vendored skills are hash-locked — do not edit them in place.** `skills-lock.json` records 18 skills vendored from upstream (`testomatio/skills`, `mattpocock/skills`, `DietrichGebert/ponytail`) with a `computedHash`. Reference trees carrying an `UPSTREAM.md` are vendor snapshots too. Edit the upstream source and re-vendor; local edits to a vendored tree invalidate its provenance record and are silently lost on the next sync.
+**Retired QA integrations:** Testomat.io and Explorbot are not part of iPix. Do not install, invoke, configure credentials for, or add CI jobs that use either service. Some retained third-party QA skill snapshots mention Testomat.io as their upstream source or an optional provider-specific recipe; those instructions are not adopted for iPix. Use repository-owned Vitest/Playwright tests and GitHub Actions evidence instead.
+
+**Vendored skills are hash-locked — do not edit them in place.** `skills-lock.json` records 17 skills vendored from upstream (`testomatio/skills`, `mattpocock/skills`, `DietrichGebert/ponytail`) with a `computedHash`. Reference trees carrying an `UPSTREAM.md` are vendor snapshots too. Edit the upstream source and re-vendor; local edits to a vendored tree invalidate its provenance record and are silently lost on the next sync.
 
 ## PR instructions
 
