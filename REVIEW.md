@@ -23,14 +23,14 @@ Keep this file a calibration sheet: severity and what to check. Do not copy full
 
 ## Severity calibration
 
-- Critical: proven cross-tenant leak, privilege escalation, secret exposure, unapproved destructive production write, or irreversible data loss.
-- Warning: missing validation, unsafe defaults, domain writes that bypass server authorization, RLS/approved RPC or idempotent human-approved action, untested edge cases.
-- Do not flag formatting-only differences when tooling already enforces them.
-- Cap Nits at five, and prefer demonstrable security/data/functional regressions over speculative refactors.
-- Each Important/Critical finding should identify changed file/line, reachable failure, and smallest fix. Verify findings against the current head, not old PR discussions.
-- Never assert a leaked tenant, broken release or missing authorization from naming alone; request focused negative proof if the behavior is unverified.
-- Hosted Claude Code Review reads root `REVIEW.md` with project `CLAUDE.md` on the supported branch setup; local `/code-review` reads `CLAUDE.md` but not `REVIEW.md`. See [official guidance](https://code.claude.com/docs/en/code-review-customize).
+Use **only the hosted Code Review labels**; describe security impact in the finding, not as a fourth severity.
 
+- **Important (must fix before merge):** a newly introduced or worsened, reproducible behavior break, cross-tenant data exposure, privilege escalation, secret disclosure, unapproved destructive production write, data loss, missing authorization/validation that enables a real unsafe action, or a retry/idempotency failure with real impact. Cite the changed file/line and the reachable failure.
+- **Nit (non-blocking):** cosmetic/style and maintainability suggestions, minor defaults or untested edge cases without demonstrated functional impact. Cap at five Nits, and omit issues CI already enforces.
+- **Pre-existing:** a verified bug that is already present on the PR base and not introduced or worsened by this PR. Cite base-versus-head evidence; do not misclassify a new bug as Pre-existing.
+- Every **Important** finding must identify the changed file/line, reachable impact, and smallest safe fix. Verify against the current head, not an old PR comment.
+- Do not infer a leaked tenant, broken release or missing authorization from naming alone. If evidence is missing, request a targeted proof rather than asserting failure.
+- Hosted Claude Code Review reads root `REVIEW.md` with project `CLAUDE.md` on the supported branch setup; local `/code-review` reads `CLAUDE.md` but not `REVIEW.md`. See [official guidance](https://code.claude.com/docs/en/code-review-customize).
 - Combined `npm run dev` is disabled until **DEV-STAB-001** is fixed (watcher/fork storm). Do not treat the current block as a regression. Do not treat a PR that *re-enables* combined `dev` as “ignore” — that needs its own review.
 
 ## Verification expectations

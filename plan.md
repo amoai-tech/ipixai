@@ -93,7 +93,7 @@ This is the **target user journey**. Solid arrows do not mean every stage is cur
 ### Step 4 — Build and test the smallest safe change
 
 1. Confirm clean `origin/main` and use an isolated task branch/worktree; preserve existing uncommitted work.
-2. Use Graphify and inspect only load-bearing files and official version-specific sources before custom code.
+2. Use Graphify when available to identify dependencies; if unavailable, use targeted search to inspect load-bearing files and verify official version-specific sources before writing custom code. Do not block on Graphify setup.
 3. Change one coherent concern; no unrelated upgrades, refactors or generated agent infrastructure.
 4. Run **static/diff check → targeted unit/contract → relevant RLS/integration → typecheck → broader suite/build/browser only when risk requires it**.
 5. Independently verify the user's full interaction, *including* negative authorization, stale approval and retry/recovery paths where applicable.

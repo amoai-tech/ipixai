@@ -57,15 +57,22 @@ describe("documentation link checker", () => {
     expect(collectDocumentationFailures(root)[0]).toContain("prd.md:1");
   });
 
-  it("checks canonical root spec and plan, not only docs/ compatibility links", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ipix-docs-check-"));
-    tempDirs.push(root);
-    fs.mkdirSync(path.join(root, "docs"), { recursive: true });
-    fs.writeFileSync(path.join(root, "docs", "README.md"), "# Docs\n");
-    fs.writeFileSync(path.join(root, "spec.md"), "[missing plan](plan.md)\n");
-    expect(collectDocumentationFailures(root)).toContain(
-      "spec.md:1 -> plan.md (missing plan.md)",
-    );
+  it("checks every new root document using read-only broken-link fixtures", () => {
+    const fixtureRoot = path.join(__dirname, "fixtures", "docs-root-broken-links");
+    const failures = collectDocumentationFailures(fixtureRoot);
+
+    for (const rootDocument of [
+      "AGENTS.md",
+      "REVIEW.md",
+      "intent.md",
+      "spec.md",
+      "plan.md",
+      "roadmap.md",
+    ]) {
+      expect(failures).toContain(
+        `${rootDocument}:1 -> absent.md (missing absent.md)`,
+      );
+    }
   });
 
   it("fails when obsolete Mintlify files are recreated", () => {
