@@ -37,8 +37,9 @@
 
 | Task | User-visible benefit | Status · progress | PR / next proof |
 | --- | --- | --- | --- |
-| [IPI-1473 · MASTRA-AGENTS-EPIC — Build and Verify iPix Concierge and Specialist Agents on One Secure Runtime](https://linear.app/amo100/issue/IPI-1473) | One shared Concierge + specialists | 🔵 Todo · **0%** new roles | Existing epic; no implementation PR verified |
+| [IPI-1473 · MASTRA-AGENTS-EPIC — Build and Verify iPix Concierge and Specialist Agents on One Secure Runtime](https://linear.app/amo100/issue/IPI-1473) | One shared Concierge + specialists | 🟡 In Review · **0%** new roles | Existing epic; no implementation PR verified |
 | [IPI-1474 · AGENTS-001 — Prove Safe Concierge Delegation Before Changing the Agent Registry](https://linear.app/amo100/issue/IPI-1474) | Preserve current chat while delegating | 🔵 Backlog · **0%** | Prove nested delegation via the same `default` |
+| [IPI-1482 · AGENTS-009 — Reuse Production Planner as Concierge's Shoot Planner Expert](https://linear.app/amo100/issue/IPI-1482) | Reuse the existing Shoot Planner as a delegated expert | 🔵 Backlog · **0%** | Depends on IPI-1474; preserves existing Planner tools and correct Brand/Shoot context |
 | [IPI-1475 · AGENTS-002 — Add One iPix Concierge That Delegates Safely to Specialists](https://linear.app/amo100/issue/IPI-1475) | One multi-domain response | 🔵 Backlog · **0%** | Authenticated /app routing, grounded summary |
 | [IPI-1476 · AGENTS-003 — Add Brand Expert Using Existing Brand Intelligence and Knowledge](https://linear.app/amo100/issue/IPI-1476) | “Why is this off-brand?” | 🔵 Backlog · **0%** | Real approved Brand evidence and provenance |
 | [IPI-1477 · AGENTS-004 — Add Research Expert for Cited Competitor and Website Research](https://linear.app/amo100/issue/IPI-1477) | “Compare three fashion retailers.” | 🔵 Backlog · **0%** | One bounded cited research path; no invented access |
@@ -75,11 +76,12 @@ flowchart TD
 ## 4. Correct implementation order
 
 1. **IPI-1474 (Core):** Confirm native Mastra 1.84 subagent `agents` API in installed types. Delegate one test specialist while the top-level registry still has only `default`. Verify stream events, abort, tool set, identity and actual resourceId.
-2. **IPI-1475 (Core):** Turn that proven pattern into one useful Concierge that routes a real operator question and summarizes grounded results without breaking existing Planner history or UI.
-3. **IPI-1476 (Core):** Add a Brand Expert that calls the canonical approved Brand evidence reader ([IPI-1128](https://linear.app/amo100/issue/IPI-1128)), with the read-only Knowledge pilot ([IPI-1466](https://linear.app/amo100/issue/IPI-1466)) as optional general runbook context. Do not duplicate Brand DNA in memory/vector data.
-4. **IPI-1477 (Advanced):** Use existing research SDK/provider tools first; select an MCPClient only if [IPI-1485](https://linear.app/amo100/issue/IPI-1485) proves a real cross-process/provider benefit.
-5. **IPI-1478–1480 (Advanced):** One CRM, Product or Campaign specialist at a time after its authorized domain read API and a user journey exist.
-6. **IPI-1481 (Final):** Authenticated /app → accurate specialist results → exact reviewed persisted action → cross-tenant negative → idempotent retry → process restart/reconnect → Stop → 390px mobile → exact deployed SHA.
+2. **IPI-1482 (Core):** Reuse the existing Production Planner as the delegated Shoot Planner Expert, after IPI-1474 proves safe subagent delegation. Confirm that the five planning tools, two gated Brand actions, active Brand/Shoot context and CopilotKit stream still behave correctly.
+3. **IPI-1475 (Core):** Turn that proven pattern into one useful Concierge that routes a real operator question and summarizes grounded results without breaking existing Planner history or UI; Linear already lists IPI-1482 as a prerequisite.
+4. **IPI-1476 (Core):** Add a Brand Expert that calls the canonical approved Brand evidence reader ([IPI-1128](https://linear.app/amo100/issue/IPI-1128)), with the read-only Knowledge pilot ([IPI-1466](https://linear.app/amo100/issue/IPI-1466)) as optional general runbook context. Do not duplicate Brand DNA in memory/vector data.
+5. **IPI-1477 (Advanced):** Use existing research SDK/provider tools first; select an MCPClient only if [IPI-1485](https://linear.app/amo100/issue/IPI-1485) proves a real cross-process/provider benefit.
+6. **IPI-1478–1480 (Advanced):** One CRM, Product or Campaign specialist at a time after its authorized domain read API and a user journey exist.
+7. **IPI-1481 (Final):** Authenticated /app → accurate specialist results → exact reviewed persisted action → cross-tenant negative → idempotent retry → process restart/reconnect → Stop → 390px mobile → exact deployed SHA.
 
 **Parallel work:** Fix existing [IPI-1318](https://linear.app/amo100/issue/IPI-1318) Brand resume, [IPI-1151](https://linear.app/amo100/issue/IPI-1151) Shoot saving and [IPI-1250](https://linear.app/amo100/issue/IPI-1250) budget correctness without waiting for all specialist agents.
 
