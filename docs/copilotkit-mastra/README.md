@@ -2,6 +2,8 @@
 
 CopilotKit is the operator-facing AI interface. Mastra owns agents, tools, workflows, memory orchestration, and resumable AI execution.
 
+**Start here — AI Platform:** [Verified Progress Task Tracker (Agents, Workflows, MCP, Knowledge)](00-ai-platform-progress-tracker.md) · [Mastra Knowledge Product Plan](knowledge/README.md) · [Agents epic](https://linear.app/amo100/issue/IPI-1473) · [Workflows roadmap PR](https://github.com/amoai-tech/ipixai/pull/368) · [Tools roadmap PR](https://github.com/amoai-tech/ipixai/pull/369) · [Product-Agent MCP roadmap PR](https://github.com/amoai-tech/ipixai/pull/370).
+
 **Code source of truth:** `src/app/api/copilotkit/[[...slug]]/route.ts`, `src/mastra/`, and `package.json`.
 
 ## Current runtime family
