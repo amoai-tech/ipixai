@@ -324,4 +324,107 @@ describe("IPI-1474 · the planner tool gate must cover the method delegation can
       vi.resetModules();
     }
   });
+
+  /**
+   * The options assertion above proves the wrapper ran. It does NOT prove the
+   * model was denied the tools: a future refactor could inject `activeTools`
+   * that Mastra then ignores. This drives the real model boundary with the
+   * vendored mock model (same pattern as PLAN-001's stream proof) and reads
+   * the tools the model was actually offered.
+   *
+   * NEGATIVE CONTROL: delete the `generate` wrapper and this fails, because
+   * `approveDraft` / `startBrandAnalysis` reappear in `doGenerateCalls[0].tools`.
+   */
+  it("never offers the write tools to the model on a generate run", async () => {
+    vi.resetModules();
+    const { MastraLanguageModelV2Mock } = await import(
+      "@mastra/core/test-utils/llm-mock"
+    );
+    const model = new MastraLanguageModelV2Mock({
+      provider: "mock",
+      modelId: "mock-planner",
+      doGenerate: async () => ({
+        content: [{ type: "text", text: "Plan ready." }],
+        finishReason: "stop",
+        usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+        warnings: [],
+      }),
+    });
+
+    try {
+      const { getProductionPlannerAgent: factory } = await import(
+        "@/mastra/agents"
+      );
+      const agent = factory() as unknown as {
+        __updateModel: (options: { model: unknown }) => void;
+        __resetToOriginalModel: () => void;
+        generate: (messages: unknown, options?: unknown) => Promise<unknown>;
+      };
+      agent.__updateModel({ model });
+
+      await agent.generate(
+        [{ role: "user", content: "Plan the shoot schedule." }],
+        { maxSteps: 1 },
+      );
+
+      const exposed = (
+        (model.doGenerateCalls[0]?.tools ?? []) as Array<{ name?: string }>
+      ).map((tool) => tool.name ?? "");
+
+      expect(exposed).toContain("composeShootPlan");
+      expect(exposed).not.toContain("approveDraft");
+      expect(exposed).not.toContain("startBrandAnalysis");
+
+      agent.__resetToOriginalModel();
+    } finally {
+      vi.resetModules();
+    }
+  });
+
+  /**
+   * A delegated run that suspended resumes through `resumeGenerate`
+   * (`@mastra/core@1.84.0` delegation: `resolvedAgent.resumeGenerate(...)`), so
+   * that path needs the fail-closed policy too. Without this test, deleting the
+   * `resumeGenerate` wrapper leaves every other test green.
+   */
+  it("reapplies the planning-only policy on resumeGenerate", async () => {
+    vi.resetModules();
+    const { Agent: FreshAgent } = await import("@mastra/core/agent");
+    const resumeSpy = vi
+      .spyOn(FreshAgent.prototype as unknown as {
+        resumeGenerate: (...args: unknown[]) => unknown;
+      }, "resumeGenerate")
+      .mockImplementation((async () => ({})) as never);
+
+    try {
+      const { getProductionPlannerAgent: factory } = await import(
+        "@/mastra/agents"
+      );
+      const agent = factory() as unknown as {
+        resumeGenerate: (data: unknown, options?: unknown) => Promise<unknown>;
+      };
+
+      await agent.resumeGenerate({ approved: true }, {});
+
+      const options = resumeSpy.mock.calls[0]?.[1] as
+        | {
+            requestContext?: RequestContext;
+            prepareStep?: (args: {
+              requestContext: RequestContext;
+            }) => Promise<{ activeTools?: string[] }>;
+          }
+        | undefined;
+
+      expect(options?.requestContext).toBeInstanceOf(RequestContext);
+      expect(typeof options?.prepareStep).toBe("function");
+      // The restored policy is planning-only when the caller supplied none.
+      const applied = await options?.prepareStep?.({
+        requestContext: options.requestContext as RequestContext,
+      });
+      expect(applied?.activeTools).toEqual([...PLANNING_ONLY_TOOLS]);
+    } finally {
+      resumeSpy.mockRestore();
+      vi.resetModules();
+    }
+  });
 });
