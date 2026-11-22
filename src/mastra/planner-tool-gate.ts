@@ -358,11 +358,14 @@ function buildPolicyPrepareStep(
 }
 
 /**
- * Wraps Agent.stream while preserving the original callable type. The wrapper
- * applies the tool policy now and stores it in Mastra RequestContext so a
- * suspended run can recover the same policy from its durable snapshot.
+ * Applies the tool policy to one agent execution call while preserving the
+ * original callable type. The policy is applied now and stored in Mastra
+ * RequestContext so a suspended run can recover it from its durable snapshot.
+ *
+ * Shared by `stream()` and `generate()`: both take `(messages, options)` and
+ * both honour `activeTools` + `prepareStep`, so their policy must be identical.
  */
-export function wrapPlannerStreamWithToolGate<T extends Callable>(original: T): T {
+function wrapPlannerExecutionWithToolGate<T extends Callable>(original: T): T {
   const wrapped = (...args: Parameters<T>): ReturnType<T> => {
     const messages = args[0] as unknown;
     const options = normaliseToolOptions(args[1]);
@@ -388,6 +391,25 @@ export function wrapPlannerStreamWithToolGate<T extends Callable>(original: T): 
     return Reflect.apply(original, undefined, forwarded) as ReturnType<T>;
   };
   return wrapped as T;
+}
+
+/** Applies the gate to `Agent.stream()`. */
+export function wrapPlannerStreamWithToolGate<T extends Callable>(original: T): T {
+  return wrapPlannerExecutionWithToolGate(original);
+}
+
+/**
+ * IPI-1474 · AGENTS-001 — `generate()` needs the same gate as `stream()`.
+ *
+ * A Mastra subagent delegation invokes the child through `generate()` when the
+ * parent run is a generate run, and never forwards the parent's `activeTools`
+ * (verified in `tests/mastra-multi-agent-registry.test.ts`). An ungated
+ * `generate()` therefore handed the model `approveDraft` / `startBrandAnalysis`
+ * with no per-turn restriction, so the child had more tool authority than the
+ * same agent streaming to a chat user.
+ */
+export function wrapPlannerGenerateWithToolGate<T extends Callable>(original: T): T {
+  return wrapPlannerExecutionWithToolGate(original);
 }
 
 /**
@@ -433,3 +455,10 @@ export function wrapPlannerResumeStreamWithToolGate<T extends Callable>(
   };
   return wrapped as T;
 }
+
+/**
+ * IPI-1474 · AGENTS-001 — `resumeGenerate(resumeData, options)` takes the same
+ * pair as `resumeStream`, so it reuses the identical fail-closed restoration.
+ */
+export const wrapPlannerResumeGenerateWithToolGate =
+  wrapPlannerResumeStreamWithToolGate;

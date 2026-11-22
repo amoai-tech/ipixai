@@ -8,6 +8,8 @@ import { planningTools } from "@/mastra/tools/planning";
 import { composeShootPlanTool } from "@/mastra/tools/compose-shoot-plan";
 import { brandIntelligenceTools } from "@/mastra/tools/brand-intelligence";
 import {
+  wrapPlannerGenerateWithToolGate,
+  wrapPlannerResumeGenerateWithToolGate,
   wrapPlannerResumeStreamWithToolGate,
   wrapPlannerStreamWithToolGate,
 } from "@/mastra/planner-tool-gate";
@@ -77,6 +79,23 @@ export function getProductionPlannerAgent(): Agent {
 
   const origResume: typeof agent.resumeStream = agent.resumeStream.bind(agent);
   agent.resumeStream = wrapPlannerResumeStreamWithToolGate(origResume);
+
+  /**
+   * IPI-1474 · AGENTS-001 — the same policy covers `generate()`.
+   *
+   * A Mastra subagent delegation invokes the child through `generate()` when
+   * the parent run is a generate run, and it never forwards the parent's
+   * `activeTools` (see tests/mastra-multi-agent-registry.test.ts). Wrapping
+   * only stream/resumeStream left that path with the full tool set, so a
+   * Concierge delegating to the Planner could expose `approveDraft` and
+   * `startBrandAnalysis` with no per-turn restriction.
+   */
+  const origGenerate: typeof agent.generate = agent.generate.bind(agent);
+  agent.generate = wrapPlannerGenerateWithToolGate(origGenerate);
+
+  const origResumeGenerate: typeof agent.resumeGenerate =
+    agent.resumeGenerate.bind(agent);
+  agent.resumeGenerate = wrapPlannerResumeGenerateWithToolGate(origResumeGenerate);
 
   cachedAgent = agent;
   return agent;

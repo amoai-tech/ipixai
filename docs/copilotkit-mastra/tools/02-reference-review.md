@@ -71,7 +71,7 @@ CometChat, Mastra Code tools, GitHub topics and third-party skills are **example
 | src/mastra/tools/compose-shoot-plan.ts | Full proposal combining outputs and assumptions |
 | src/mastra/tools/brand-intelligence.ts | Protected start analysis and approved draft decisions |
 | src/mastra/agents/production-planner.ts | Seven-tool agent registration |
-| src/mastra/planner-tool-gate.ts | Tool selection in stream and resume; 5 planning vs 2 Brand actions |
+| src/mastra/planner-tool-gate.ts | Tool selection in stream, generate and both resume paths; 5 planning vs 2 Brand actions |
 | src/mastra/agents/active-workspace-context.ts | Active-context handling |
 | src/mastra/tools/index.ts | Standalone weather starter, not Planner's product tool set |
 | tests/tool-001.test.ts, tests/planner-tool-gate.test.ts, tests/planner-routing-eval-corpus.test.ts | Existing deterministic/selection contracts |
