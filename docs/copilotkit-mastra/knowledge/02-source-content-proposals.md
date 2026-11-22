@@ -47,7 +47,7 @@ Knowledge can explain the approved **procedure**, but it must *not* make up an a
 
 1. Select three source documents with actual maintainers. Compare text to the current app, not to an older plan.
 2. Remove secrets/customer data; define the non-sensitive scope.
-3. Write only reviewed Markdown to a consistent repo folder (e.g., docs/knowledge/), with source metadata.
+3. Write only reviewed Markdown to a **dedicated source-content folder**, for example a new docs/knowledge/ folder after confirming no existing owned runbooks fit. This folder does **not** yet exist and is deliberately separate from docs/copilotkit-mastra/knowledge/, which contains the implementation plans. Preserve source metadata.
 4. Under IPI-1469, implement an idempotent server seed using the native Knowledge API (upsertPage). Re-run twice and prove one page per source key, not duplicates.
 5. Modify one Markdown page and re-run. The same Knowledge ref/version should update, with source path/hash retained.
 6. From existing /app ask each proposed question, verify exact cited page, a no-result fallback and malicious-document prompt injection resistance.
