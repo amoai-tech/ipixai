@@ -1,6 +1,6 @@
 # 03 — Product-Agent MCP Tasks: Reuse Existing Work, Add Only One New Slice
 
-**Owner goal:** MCP capabilities for **iPix customer-facing Mastra agents** in `/app` (Brand, Shoot, Assets, Research, CRM), not mainly developer Studio/Claude Code connectivity. **Planning only** — proposed new task not created.
+**Owner goal:** MCP capabilities for **iPix customer-facing Mastra agents** in `/app` (Brand, Shoot, Assets, Research, CRM), not mainly developer Studio/Claude Code connectivity. **Planning only** — the existing implementation task IPI-1485 has been created in Linear, but no MCP feature is implemented by this documentation PR.
 
 ## Existing verified Linear owners
 
@@ -45,9 +45,9 @@
 
 **Likely files if justified:** `src/mastra/runtime.ts`, existing `src/mastra/tools/*` definitions, a focused `src/mastra/mcp/*` adapter (only if real interop needed), `src/mastra/planner-tool-gate.ts`, `package.json`/lockfile for **pinned compatible** `@mastra/mcp`, existing CopilotKit route and scoped tests. Do not modify all automatically.
 
-**Success criteria:** One actual iPix product conversation uses one **authorized, real** reusable MCP capability with correct Brand/Asset data and no duplicate business logic, secrets or tenant leakage; failing/expired integrations degrade truthfully; real UI/API/DB proof and exact-head CI pass.
+**Implementation success criteria (only if MCP is justified):** One actual iPix product conversation uses one **authorized, real** reusable MCP capability with correct Brand/Asset data and no duplicate business logic, secrets or tenant leakage; failing/expired integrations degrade truthfully; real UI/API/DB proof and exact-head CI pass.
 
-**If implementation cannot establish why MCP is necessary:** Resolve by keeping the direct typed tool and documenting why; don't introduce a duplicate network call or separate server merely to satisfy the acronym.
+**If implementation cannot establish why MCP is necessary:** Keep the existing direct typed tool and document the comparison; defer or close the MCP-specific task as not planned with evidence. Do **not** report an MCP implementation as complete when no MCP integration was delivered, and do not introduce a duplicate network call merely to satisfy the acronym.
 
 ## Conditional future tasks — suggest only after first product proof
 
