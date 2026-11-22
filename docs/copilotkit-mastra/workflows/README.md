@@ -34,7 +34,7 @@
 
 ## Architecture — no duplicate service
 
-~~~mermaid
+```mermaid
 flowchart TD
   A["Authenticated iPix user in Next.js / CopilotKit"] --> B["Server-derived user, org and Brand/Shoot scope"]
   B --> C["Existing Mastra workflows"]
@@ -49,7 +49,7 @@ flowchart TD
   J --> K["Server verifies actor, org, run, revision and hash"]
   K --> L["Existing idempotent Supabase RPC / durable state"]
   L --> M["Read back result in UI"]
-~~~
+```
 
 ## Read this roadmap in order
 

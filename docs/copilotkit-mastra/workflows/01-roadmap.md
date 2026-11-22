@@ -6,7 +6,7 @@
 
 Before code changes: record current GitHub SHA, deployed SHA, account/org, first failing real step and owning Linear issue. Use one fresh QA user journey, not the read-only Studio catalog as proof. Reuse iPix's Next.js, authenticated CopilotKit, Mastra, Supabase, Postgres, existing services/RPCs and provider callbacks.
 
-~~~mermaid
+```mermaid
 flowchart LR
   A["Current code + deployed SHA"] --> B["Fresh QA failure"]
   B --> C{"First failing boundary"}
@@ -18,7 +18,7 @@ flowchart LR
   E --> H
   F --> H
   G --> H
-~~~
+```
 
 ## Stage 1 — CORE: Finish Brand website → Brand DNA
 
@@ -104,7 +104,7 @@ Reuse the *proven business contract* only after another real consequential journ
 
 ## Dependency and verification map
 
-~~~mermaid
+```mermaid
 flowchart LR
   A["Mastra 1.84 already pinned: IPI-1460 Done"] --> B["IPI-1318: exact Brand callback → resume"]
   B --> C["IPI-970: browser/restart durability"]
@@ -116,9 +116,9 @@ flowchart LR
   G --> H["IPI-1003: measure"]
   H --> I["IPI-997: optimize, if measured"]
   H --> J["IPI-1001: configurable workflow, only if useful"]
-~~~
+```
 
-- **Existing long-lived run verification owner:** [IPI-999 · MASTRA-WF-006 — Prove Long-Lived Workflow Recovery and At-Most-Once Effects](https://linear.app/amo100/issue/IPI-999) — Backlog / M7. Do not defer a *currently broken* Brand/Shot journey to this post-MVP epic; use IPI-1318 and IPI-1151 now.
+- **Existing long-lived run verification owner:** [IPI-999 · MASTRA-WF-006 — Prove Long-Lived Workflow Recovery and At-Most-Once Effects](https://linear.app/amo100/issue/IPI-999) — Backlog / M7. Do not defer a *currently broken* Brand/Shoot journey to this post-MVP epic; use IPI-1318 and IPI-1151 now.
 - **Adversarial tests:** wrong tenant, forgery, stale/superseded revision, duplicate callback, double-click, API timeout, process restart, no Postgres, concurrent resume, secret leakage, non-idempotent provider side effect.
 - **Proof sequence:** focused schema/contracts → storage-backed suspend/resume with real database → idempotency/RLS → Playwright actual UI/API/DB (390px) → typecheck/lint/build as relevant → exact-head CI → post-merge live smoke.
 - **Core success definition:** one Brand yields one matching reviewable DNA draft, and one approved Shoot yields one persisted/reopened Shoot after retries, with unauthorized actors denied. Do not claim from a green Studio listing.
