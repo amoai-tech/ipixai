@@ -1,6 +1,6 @@
 # iPix — Lightweight spec-driven task handoff
 
-**Use when a task actually needs it.** The product-wide [intent](../intent.md), [spec](../spec.md), and [plan](../plan.md) explain iPix; this directory provides optional **task-level** starting points. They are not mandatory task documents or a second task manager.
+**Use when a task actually needs it.** The product-wide [intent](../../intent.md), [spec](../../spec.md), and [plan](../../plan.md) explain iPix; this directory provides optional **task-level** starting points. They are not mandatory task documents or a second task manager.
 
 The authoritative sources remain [AGENTS.md](../../AGENTS.md), the existing [tasks skill](../../.agents/skills/tasks/SKILL.md), current `origin/main` and runtime, and the **live Linear issue** for acceptance, dependencies, progress and evidence.
 
@@ -28,6 +28,20 @@ Store genuinely needed task artifacts under `docs/development/tasks/IPI-XXXX/`. 
 - **Claude Code:** `CLAUDE.md` imports `@AGENTS.md`; otherwise a working-directory `CLAUDE.md` can hide `AGENTS.md` under Claude's default instruction-file mode. No parallel Claude-only task instructions.
 - **Codex and other AGENTS-aware agents:** follow `AGENTS.md` and the same Linear/artifact links; do not presume every external model automatically discovers arbitrary Markdown.
 - **All agents:** fetch live Linear and current SHA again after an interruption. The issue's handoff must state last verified checkpoint, blockers, PR/head, exact next step and tests. Static task files never override newer verified runtime.
+
+## Practical AI-native SDLC: spec-first without paperwork
+
+**Order:** exact Linear issue and clean `origin/main` → clarify intent (WHY, when unsettled) → spec (WHAT, acceptance plus negative cases) → plan (HOW, exact existing files/test) → smallest isolated diff → independent review → exact-head CI → human merge → deployed readback. The existing Linear task is usually sufficient; create optional task-level spec files only when truly needed. The root documents are product-wide orientation, not an agent auto-load mechanism.
+
+| Phase | Applied external reference | Reuse and do-not-copy boundary | Pass / STOP |
+|---|---|---|---|
+| Plan | **MODEL:** [Anthropic AI-native SDLC playbook](https://claude.com/resources/articles/the-ai-native-sdlc-playbook), Stage 1 Plan, intent and approval | Record actor/outcome/non-goals in the existing issue; do **not** create a duplicate ticket board | PASS if human can approve the requested outcome; STOP if requirements remain ambiguous |
+| Design | **MODEL:** [Spec-first example](https://github.com/FlorianBruniaux/claude-code-ultimate-guide/blob/57809bc29b5ea8f1163d09a2ccb4cc06fd2a7041/guide/workflows/spec-first.md), acceptance-first; [spec-coding.dev](https://spec-coding.dev/), Context/Goal/Out of scope/Acceptance/Evidence | Apply only needed parts of [spec template](./templates/spec.md) and [plan template](./templates/plan.md) to the same task; do **not** paste per-feature specs into `CLAUDE.md` or assume outside benchmark results apply to iPix | PASS if each acceptance criterion has concrete happy/negative evidence |
+| Build | **ADAPT:** [Claude Code common workflows](https://code.claude.com/docs/en/common-workflows), plan-before-edit and isolated worktree | Use current iPix, installed versions and official APIs; do **not** clone an example's demo auth, transport or data store | PASS with small reviewed diff + focused tests; STOP on unclear ownership |
+| Review | **ADAPT:** [Claude Code review customization](https://code.claude.com/docs/en/code-review-customize), root `REVIEW.md` severity and false-positive suppression | Review service reads `REVIEW.md` and `CLAUDE.md`; local `/code-review` reads `CLAUDE.md`, not `REVIEW.md`. Do **not** treat instruction files as CI enforcement | PASS when claims cite actual changed lines, failure and fix; STOP for real security/data correctness issue |
+| Test, deploy, learn | **MODEL:** [Anthropic playbook](https://claude.com/resources/articles/the-ai-native-sdlc-playbook), Stages 4–6; [agents.md](https://agents.md/), agent instructions | Verify auth/RLS as applicable, PR CI, human-approved merge, production SHA and durable readback; never auto-merge or claim Done based on tests alone | PASS with exact release evidence in Linear; STOP on unknown deployed SHA or untested material risk |
+
+**Roles:** `AGENTS.md` is shared contract; `CLAUDE.md` imports it; `REVIEW.md` tunes hosted review; root intent/spec/plan guide the product. Avoid a new agent, mandatory templates, generated task registers or duplicate PR workflow.
 
 ## Pilot — avoid a duplicate CopilotKit upgrade
 

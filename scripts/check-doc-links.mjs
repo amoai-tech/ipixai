@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRoot = path.resolve(path.dirname(scriptPath), "..");
-const rootPointerDocs = ["README.md", "prd.md", "SITEMAP.md", "todo.md"];
+const rootPointerDocs = ["README.md", "AGENTS.md", "REVIEW.md", "prd.md", "SITEMAP.md", "intent.md", "spec.md", "plan.md", "roadmap.md", "todo.md"];
 const obsoleteMintlifyFiles = ["docs/.mintignore", "docs/docs.json", "docs/index.mdx"];
 const deprecatedTopLevelDocsDirs = [
   "docs/MIGRATE",

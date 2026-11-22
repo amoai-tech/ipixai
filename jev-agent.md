@@ -49,7 +49,7 @@ Use **only tools currently visible and callable** to the active agent; inspect t
 4. **Media QA:** Compare two text descriptions with `jev_compare` if necessary. Use Cloudinary asset IDs, versions, authorized previews and actual screenshots for image/content correctness. `jev_screen` is not an image evaluator.
 5. **Tenant isolation and commerce:** Supabase RLS, server authorization, durable writes, payment/provider truth, and retries require deterministic proof. A high Jev confidence score never establishes them.
 
-These are **usage examples, not claims that every feature has shipped**. Check [product intent](docs/intent.md), [observable spec](docs/spec.md), actual code and the exact live Linear task before acting.
+These are **usage examples, not claims that every feature has shipped**. Check [product intent](intent.md), [observable spec](spec.md), actual code and the exact live Linear task before acting.
 
 ## Five practical checkpoints
 
@@ -83,4 +83,4 @@ These are **usage examples, not claims that every feature has shipped**. Check [
 
 - [Official Jev MCP CLI guide](https://github.com/shaharia-lab/jev-cli/blob/main/docs/user-guide/mcp.md)
 - [iPix repository rules](AGENTS.md) · [iPix task skill](.agents/skills/tasks/SKILL.md) · [iPix task-verifier](.agents/skills/task-verifier/SKILL.md)
-- [Product intent](docs/intent.md) · [Observable specification](docs/spec.md)
+- [Product intent](intent.md) · [Observable specification](spec.md)

@@ -16,16 +16,21 @@ Keep this file a calibration sheet: severity and what to check. Do not copy full
 
 ## What matters in this repository
 
-- Tenant isolation when auth or tenant data is in scope: queries, CopilotKit threads, and Mastra memory keys stay org-scoped. Org B must never read Org A. The starter `resourceId: "default"` is allowed until auth exists — do not flag that as a Critical leak.
+- Tenant isolation when auth or tenant data is in scope: queries, CopilotKit threads, and Mastra memory keys stay org-scoped. Org B must never read Org A. For authenticated tenant-scoped Planner data, do not excuse shared `resourceId: "default"`; inspect the actual server-side scope before assigning severity.
 - Treat auth, JWT/RPC writes, deletion, and anything that talks to production Supabase as high-risk.
 - Smallest explicit fix. PR/commit rules and “do not copy old iPix Mastra wholesale” live in `CONTRIBUTING.md` / `AGENTS.md`.
 - Canonical full Linear task references use `IPI-NNN · TASK-ID — Full Task Name`, where `TASK-ID` is the actual identifier, such as `BRAND-001 — Brand profile migration` or `MIGRATE-TEMPLATE — Template migration`; do not require the literal word `SPEC`.
 
 ## Severity calibration
 
-- Critical: tenant leak (when tenant data is in scope), privilege escalation, token/key exposure, production database writes, data loss.
-- Warning: missing validation, unsafe defaults, tools that write domain data without SECURITY DEFINER + user JWT, untested edge cases.
+- Critical: proven cross-tenant leak, privilege escalation, secret exposure, unapproved destructive production write, or irreversible data loss.
+- Warning: missing validation, unsafe defaults, domain writes that bypass server authorization, RLS/approved RPC or idempotent human-approved action, untested edge cases.
 - Do not flag formatting-only differences when tooling already enforces them.
+- Cap Nits at five, and prefer demonstrable security/data/functional regressions over speculative refactors.
+- Each Important/Critical finding should identify changed file/line, reachable failure, and smallest fix. Verify findings against the current head, not old PR discussions.
+- Never assert a leaked tenant, broken release or missing authorization from naming alone; request focused negative proof if the behavior is unverified.
+- Hosted Claude Code Review reads root `REVIEW.md` with project `CLAUDE.md` on the supported branch setup; local `/code-review` reads `CLAUDE.md` but not `REVIEW.md`. See [official guidance](https://code.claude.com/docs/en/code-review-customize).
+
 - Combined `npm run dev` is disabled until **DEV-STAB-001** is fixed (watcher/fork storm). Do not treat the current block as a regression. Do not treat a PR that *re-enables* combined `dev` as “ignore” — that needs its own review.
 
 ## Verification expectations
