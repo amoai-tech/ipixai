@@ -4,7 +4,7 @@
 
 ## In 30 seconds
 
-**Working now:** One Production Planner registered as the default Mastra agent, with typed planning and Brand tools, two workflows, CopilotKit /app and server-derived organization context. **Not yet built:** The specialist agent network under IPI-1474–1481.
+**Working now:** One Production Planner registered as the default Mastra agent, with typed planning and Brand tools, two workflows, CopilotKit /app and server-derived organization context. **Not yet built:** The specialist agent network tracked by IPI-1474–1482 (including the existing Shoot Planner Expert task).
 
 **Real-world example:** A fashion operator asks “Help plan our summer collection.” Today the Planner can propose a Shoot; in the planned version one Concierge coordinates Brand evidence, sourced market research and the same Shoot Planner without a second chat. Exact reviewed saves use existing Supabase actions, not agent-side direct writes.
 
@@ -16,9 +16,12 @@
 | --- | --- | --- |
 | Existing Planner / main agent | [IPI-1048](https://linear.app/amo100/issue/IPI-1048) | 🟢 Done (Planner scope only) |
 | Agent integration and delegation | [IPI-1474](https://linear.app/amo100/issue/IPI-1474), [IPI-1475](https://linear.app/amo100/issue/IPI-1475) | 🔵 Backlog · 0% specialist implementation |
+| Shoot Planner Expert | [IPI-1482](https://linear.app/amo100/issue/IPI-1482) | 🔵 Backlog · depends on delegation proof IPI-1474; prerequisite for IPI-1475 |
 | Brand / Research roles | [IPI-1476](https://linear.app/amo100/issue/IPI-1476), [IPI-1477](https://linear.app/amo100/issue/IPI-1477) | 🔵 Backlog |
 | CRM / Ecommerce / Campaign roles | [IPI-1478](https://linear.app/amo100/issue/IPI-1478), [IPI-1479](https://linear.app/amo100/issue/IPI-1479), [IPI-1480](https://linear.app/amo100/issue/IPI-1480) | 🔵 Backlog |
 | Multi-agent negative / live testing | [IPI-1481](https://linear.app/amo100/issue/IPI-1481) | 🔵 Backlog |
+
+**The Agents epic IPI-1473 is In Review in Linear as of November 22, 2026; that does not mean specialist agents are implemented.**
 
 **These tasks already exist.** A previous locally drafted agent summary incorrectly said there were no separate agent tickets. That older conclusion must not be used for prioritization.
 
