@@ -25,6 +25,7 @@ retired versions from historical conversion documents.
 - [Runtime compatibility family](../mastra/runtime-family.md)
 - [Postgres schema contract](../mastra/db-001-matrix.md)
 - [CopilotKit GenUI foundation audit and corrected plan](09-copilotkit-audit-plan.md)
+- [Mastra Tools — Core and Advanced Roadmap](tools/README.md)
 - [Mastra Workflows — Core and Advanced Roadmap](workflows/README.md)
 - [Documentation map](../docs-index.md)
 - [Historical AI plans and audits](../archive/copilotkit-mastra/)
