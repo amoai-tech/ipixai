@@ -85,7 +85,8 @@ test.describe("IPI-1151 — Brand → reviewed Shoot → durable reopen and Org 
 
       // Browser opens the durable Shoot, then a fresh server read restores it.
       const expectedPath = "/app/shoots/" + savedResult.shootId;
-      await expect(orgA).toHaveURL((url) => url.pathname === expectedPath, { timeout: TIMEOUT });
+      await expect.poll(() => new URL(orgA.url()).pathname, { timeout: TIMEOUT })
+        .toBe(expectedPath);
       await expect(orgA.getByRole("tab", { name: "Overview" })).toBeVisible();
       await orgA.reload();
       await expect(orgA.getByRole("tab", { name: "Overview" })).toBeVisible();
