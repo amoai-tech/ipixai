@@ -154,7 +154,7 @@ flowchart LR
 
 - `src/app/api/copilotkit/[[...slug]]/route.ts` authenticates before creating local agents and derives the resource ID server-side.
 - `src/agent.ts` exposes the one local Production Planner under the `default` key.
-- `src/mastra/agents/production-planner.ts` registers five compute/planning tools plus two Brand Intelligence tools and wraps both `stream` and `resumeStream` with the same tool policy.
+- `src/mastra/agents/production-planner.ts` registers five compute/planning tools plus two Brand Intelligence tools and wraps `stream`, `resumeStream`, `generate` and `resumeGenerate` with the same tool policy. The two `generate` methods are gated because a Mastra subagent delegation invokes the child through `generate()` and never forwards the parent's `activeTools` (IPI-1474).
 - `src/mastra/workflows/shoot-plan-review.ts` limits the plan payload, reauthorizes the actor and Brand before service-role staging, suspends on `{approvalId, brandId, revision, planHash}`, and re-reads durable truth on resume.
 - Supabase remains business truth. Mastra Postgres owns agent memory and workflow snapshots. Generated UI must consume canonical tool/read-model output and must not become another database or tenant boundary.
 
