@@ -27,9 +27,9 @@
 | Advanced | [IPI-1302 · PRODUCTS-SHOPIFY-001 — Add Shopify as an Optional Read-Only Catalog Adapter](https://linear.app/amo100/issue/IPI-1302) — Todo | Product integration with exact variants |
 | Advanced | [IPI-1002 · MASTRA-WF-009 — Standardize External Integrations Only After Repeated Need](https://linear.app/amo100/issue/IPI-1002) — Backlog | Pattern after two real outside integrations |
 
-## One new product-centered task suggestion (not created)
+## Existing product-centered implementation task — IPI-1485 (created)
 
-### MCP-AGENT-001 — Prove One iPix Product Agent Uses a Reusable MCP Capability End to End
+### [IPI-1485 · MCP-AGENT-001 — Prove One Useful External MCP Capability in iPix Production Copilot](https://linear.app/amo100/issue/IPI-1485)
 
 **Why distinct:** Existing tickets implement Brand/Asset/Planner business tools; IPI-995 governs their safe selection; IPI-1002 documents repeated external-provider choices. **None directly proves a product-agent request using an actual MCPClient or curated MCPServer tool for a meaningful user journey.** This task should have one deliberately small, measurable feature goal, not create an MCP platform.
 
@@ -62,7 +62,7 @@
 
 ```mermaid
 flowchart LR
-  C["Existing Brand/Shoot/Asset capabilities"] --> P["MCP-AGENT-001: actual iPix product journey"]
+  C["Existing Brand/Shoot/Asset capabilities"] --> P["IPI-1485: actual iPix product journey"]
   G["IPI-1208 + IPI-995 safe tool boundary"] --> P
   P --> Q{"Does MCP solve real interoperability?"}
   Q -->|"No"| R["Reuse native Mastra tool"]
@@ -73,4 +73,4 @@ flowchart LR
   E -->|"No"| F["Stop without unnecessary infrastructure"]
 ```
 
-**Suggested execution priority:** Existing Brand/Shot/Asset functionality first → MCP-AGENT-001 small proof only if interop is demonstrated → one external provider if needed → advanced agents. No Linear tasks were created by this documentation.
+**Suggested execution priority:** Existing Brand/Shoot/Asset functionality first → IPI-1485 scoped provider proof only if interop is demonstrated → one external provider if needed → advanced agents. The implementation owner was created separately as [IPI-1485](https://linear.app/amo100/issue/IPI-1485); this PR remains documentation-only.

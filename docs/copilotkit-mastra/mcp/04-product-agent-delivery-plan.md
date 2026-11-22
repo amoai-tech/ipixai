@@ -97,7 +97,7 @@ Every suggested tool name prefixed **Proposed** is a *planning label*, not a cla
 | **P4 — Golden journey** | IPI-1151 plus existing Planner; CopilotKit route, tool gate, existing review/save path, one Playwright spec | One /app request combines Brand + assets + 10-shot plan + budget; exact review → one persisted Shoot, reload works |
 | **P5 — Remaining Core lookups** | IPI-1251, IPI-1355, IPI-1301; narrow website/status/ProductRef reads | All three grounded, correctly authorized and error-aware; missing data explicit |
 | **P6 — Advanced chosen by demand** | IPI-1136, IPI-1477, IPI-1474, IPI-1478, etc. | One measurable customer journey per PR; only the specific agent/provider involved |
-| **P7 — MCP-specific adapter if necessary** | Proposed MCP-AGENT-001, [task decision](./03-task-proposals.md); `@mastra/mcp` compatible pin and `src/mastra/mcp/` only if real cross-boundary need | Same canonical tool contract reused by another client/provider; auth+tools/list+invoke+wrong-org denial; no duplicate business implementation |
+| **P7 — MCP-specific adapter if necessary** | Existing IPI-1485, [task decision](./03-task-proposals.md); `@mastra/mcp` compatible pin and `src/mastra/mcp/` only if real cross-boundary need | Same canonical tool contract reused by another client/provider; auth+tools/list+invoke+wrong-org denial; no duplicate business implementation |
 
 **Task policy:** Existing Linear issues remain owners. Do **not** create 16 duplicate MCP issues for features already covered by Product/Agent/Asset/Brand/Shoot tasks. A separate adapter task is justified only if interoperability becomes a product requirement and the current owner cannot absorb it.
 

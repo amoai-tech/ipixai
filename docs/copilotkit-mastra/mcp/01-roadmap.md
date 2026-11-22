@@ -53,7 +53,7 @@ flowchart TD
 
 ## Phase C — MCP interoperability only once a real agent needs it
 
-**Product-first suggested new test:** [03-task-proposals.md](./03-task-proposals.md) proposes **MCP-AGENT-001 — Prove One iPix Product Agent Uses a Reusable MCP Capability End to End**. The user journey should be one of the Phase A capabilities, not merely developer tools/list. Keep a real MCP Inspector smoke as **one verification method**, not the deliverable.
+**Product-first suggested new test:** [03-task-proposals.md](./03-task-proposals.md) tracks **[IPI-1485 · IPI-1485 — Prove One Useful External MCP Capability in iPix Production Copilot](https://linear.app/amo100/issue/IPI-1485)**. The user journey should be one of the Phase A capabilities, not merely developer tools/list. Keep a real MCP Inspector smoke as **one verification method**, not the deliverable.
 
 1. Select existing Product Planner/Brand/Asset tool, and demonstrate where MCP adds cross-process/provider interoperability. If it does **not**, retain direct native tool call and record the no-MCP decision.
 2. Verify `@mastra/mcp` is actually needed, inspect installed Mastra 1.84 types, and choose a **pinned version compatible with the named client**. Use MCP 2.x for a client supporting protocol 2026-07-28. For a client limited to pre-2026 revisions, follow the [official migration guidance](https://mastra.ai/reference/migrations/mcp-v2): consider supported 1.x or the documented 2.x `legacy: 'stateless'` compatibility mode for basic calls; test tool calling and unsupported suspend/resume explicitly. Never assume all clients accept 2.x.
