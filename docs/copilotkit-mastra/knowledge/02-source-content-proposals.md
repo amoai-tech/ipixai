@@ -50,9 +50,11 @@ Knowledge can explain the approved **procedure**, but it must *not* make up an a
 3. Write only reviewed Markdown to a **dedicated source-content folder**, for example a new docs/knowledge/ folder after confirming no existing owned runbooks fit. This folder does **not** yet exist and is deliberately separate from docs/copilotkit-mastra/knowledge/, which contains the implementation plans. Preserve source metadata.
 4. Under IPI-1469, implement an idempotent server seed using the native Knowledge API (upsertPage). Re-run twice and prove one page per source key, not duplicates.
 5. Modify one Markdown page and re-run. The same Knowledge ref/version should update, with source path/hash retained.
-6. From existing /app ask each proposed question, verify exact cited page, a no-result fallback and malicious-document prompt injection resistance.
-7. Test another organization and lost/invalid auth; no readable content must cross scope boundaries.
-8. Do not enable autonomous agent writes, bulk importer, public Studio or pinned context until IPI-1470 provides reliable scoped proof.
+6. **Retire withdrawn sources:** Compare the current approved source manifest with previously seeded page IDs. When a source is deleted, withdrawn or no longer approved, block it from retrieval until a guarded server-side retirement executes. The [Mastra Knowledge loading guide](https://mastra.ai/docs/knowledge/load-your-content#keep-content-in-sync) states that upsert does **not** remove deleted source pages: use the version-verified native `removePage()` after handling child-page dependencies. Never silently leave withdrawn content searchable, and do not remove unrelated still-approved pages. Seed/retirement writes remain server-only.
+7. **Regression:** Seed sources A and B; remove A from the authoritative manifest; run reconciliation twice; verify A cannot be read/searched and the user gets the missing-document fallback, while B remains readable at its original version.
+8. From existing /app ask each proposed question, verify exact cited page, a no-result fallback and malicious-document prompt injection resistance.
+9. Test another organization and lost/invalid auth; no readable content must cross scope boundaries.
+10. Do not enable autonomous agent writes, bulk importer, public Studio or pinned context until IPI-1470 provides reliable scoped proof.
 
 ## Product-agent knowledge boundaries
 
