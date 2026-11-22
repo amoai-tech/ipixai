@@ -21,6 +21,7 @@ retired versions from historical conversion documents.
 
 ## Read next
 
+- [**Agents: verified status, Core → Advanced plan, and official references**](agents/README.md) — current Planner and existing IPI-1473 specialist Agent tasks.
 - [Product requirements](../prd.md)
 - [Runtime compatibility family](../mastra/runtime-family.md)
 - [Postgres schema contract](../mastra/db-001-matrix.md)
