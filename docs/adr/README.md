@@ -9,5 +9,6 @@ Short, dated decisions. New complexity must cite an ADR or open a new one.
 | [003](./003-supabase-owns-tenancy.md) | Supabase Auth + org membership own identity |
 | [004](./004-compatibility-bundle.md) | CopilotKit + AG-UI + Mastra + AI SDK upgrade as one bundle |
 | [005](./005-skill-validation-strategy.md) | Contract tests gate skills; evals required only for behaviour-shaping skills |
+| [006](./006-openbot-conditional-pilot.md) | Conditional OpenBot synthetic pilot only; identity, organization isolation and commercial approval block production |
 
 Do not recreate ALS, Worker PG shims, or `MASTRA_STORAGE_MODE=noop` without a new ADR.
